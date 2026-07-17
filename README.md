@@ -1,44 +1,57 @@
 # Prison Policy AI
 
-Dual-purpose ADC corrections operations tool. Built with Python/Flask + Vertex AI RAG.
+AI-powered policy assistant for Arkansas Department of Correction staff. Two tools in one app:
 
-## Structure
+- **📋 Policy Knowledge Expert** — Ask any ADC policy question, get answers with citations
+- **📝 Report Writing Assistant** — Paste field notes → classified, reports generated, forms filled
+
+**Deployed:** `https://prison-policy-ai-403037827694.us-central1.run.app`
+
+---
+
+## For Claude: Start Here
+
+1. **Read `VISION.md`** — project overview, what we're building, what needs work
+2. **Read `.godplans/PLAN.mdx`** — detailed 17-task plan with status per task
+3. **Key files to understand:**
+   - `backend/reports/classifier.py` — incident type detection (needs wiring to UI)
+   - `backend/reports/generator.py` — field notes → reports (prompts need polish)
+   - `backend/reports/filler.py` — DOC form filling (currently text stub, needs python-docx)
+   - `backend/reports/prompts.py` — AI prompts for each report type
+   - `backend/webapp/templates/home.html` — homepage (needs redesign)
+   - `backend/webapp/templates/reports.html` — report page (needs professional layout)
+4. **Templates to reference:**
+   - `templates/incident_checklist.json` — which forms per incident type
+   - `templates/005.doc` — the official ADC incident report form
+   - `frontend/forms/` — 6 fillable ADC forms built by Claude (React)
+5. **Charges:** `templates/disciplinary_charges.json` — stub until disciplinary manual OCR completes
+
+## Project Structure
 
 ```
-├── backend/          ← Python API + pipeline
-│   ├── pipeline/     ← PDF extraction, chunking, RAG indexing, querying
-│   ├── reports/      ← Classifier, report generator, DOC template filler
-│   ├── webapp/       ← Flask app (homepage, chat, reports API)
-│   └── scripts/      ← Deploy and utility scripts
-├── frontend/         ← Client-side apps
-│   └── forms/        ← Fillable/printable ADC form replicas (React)
-├── templates/        ← DOC templates + structured data
-│   ├── 005.doc       ← 005/409 Incident Report form
-│   ├── checklist.json← Incident checklist categories
-│   └── charges.json  ← Disciplinary charge codes
-├── .godplans/        ← Master plan
-└── data/             ← Data directories (gitignored):
-    ├── pdfs/         ← Source PDFs
-    ├── extracted/    ← Raw text
-    ├── reviewed/     ← Approved text
-    ├── chunks/       ← Chunked JSONL
-    └── field-notes/  ← Training data
+backend/          ← Python: RAG pipeline, report engine, Flask webapp
+frontend/forms/   ← Claude's React forms app (6 ADC forms)
+templates/        ← DOC templates + parsed JSON data
+.godplans/        ← Detailed implementation plan
 ```
 
 ## Quick Start
 
 ```bash
-pip install -r backend/requirements.txt
-cp .env.example .env  # fill in GCP project details
-python -m backend.webapp.app
+cd backend && pip install -r requirements.txt
+cd webapp && python app.py  # → http://localhost:8080
 ```
 
-## Deployment
+## Deploy
 
 ```bash
-gcloud run deploy prison-policy-ai --source backend/ --region us-central1
+cd backend && gcloud run deploy prison-policy-ai \
+  --source . --region us-central1 \
+  --project gen-lang-client-0968389176 \
+  --allow-unauthenticated
 ```
 
-## License
+---
 
-Internal use — Arkansas Department of Corrections.
+*Built with Hermes Agent + Claude Code*
+*GCP project: gen-lang-client-0968389176 | Region: us-central1*

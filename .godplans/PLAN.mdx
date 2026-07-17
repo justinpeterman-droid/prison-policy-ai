@@ -1,0 +1,249 @@
+# Prison Policy AI — Godplan
+
+## Project Status
+
+| Area | Status | Notes |
+|---|---|---|
+| Policy RAG (90 docs) | ✅ Deployed | 1,736 chunks, Gemini 2.5 Flash |
+| Web app | ✅ Deployed | `prison-policy-ai-403037827694.us-central1.run.app` |
+| Chat interface | ✅ Working | Policy Q&A with citations |
+| PDF extraction | ✅ Working | PyMuPDF, 90/236 text-extractable |
+| OCR (146 scanned) | 🔄 IP | Gemini 2.5 Flash vision batch OCR |
+| Disciplinary manual | 🔄 IP | 35 pages, OCR running |
+| Classifier | 🟡 Stub | Backend coded, not wired to UI |
+| Report generator | 🟡 Stub | Prompts written, needs testing |
+| Template filler | 🟡 Stub | python-docx needed for real DOC filling |
+| Incident checklist | ✅ Parsed | `templates/incident_checklist.json` |
+| Disciplinary charges | 🔄 IP | 35-page manual OCR → `disciplinary_charges.json` |
+| Homepage redesign | 🟡 Needs work | Current: basic chat form |
+| Report UI | 🟡 Needs work | Current: paste → text output |
+| 6 ADC forms | ✅ Done | Claude's React app in `frontend/forms/` |
+| 005/409 template | ✅ Have | DOC file, needs python-docx filler |
+| Training data | ✅ Have | 2,772 Q&A pairs |
+| Auth/IAP | ❌ Not started | Open to public |
+| Tests | ❌ Not started | |
+| Git/GitHub | ✅ Done | `justinpeterman-droid/prison-policy-ai` |
+
+---
+
+## Phase 1: Foundation (Now)
+
+### GP-001: Finish OCR Pipeline
+**Owner:** Hermes (Gemini vision)  
+**Status:** 🔄 In progress
+
+- [ ] OCR 35-page disciplinary manual → `disciplinary_charges.json`
+- [ ] OCR 146 scanned Post Order PDFs → text
+- [ ] Structure charge JSON: `{"12-1": {"class": "I", "desc": "...", "sanction": "..."}}`
+- [ ] Verify extraction quality — spot check 5+ pages
+
+### GP-002: Parse Disciplinary Manual into Structured Data
+**Owner:** Claude  
+**Blocked by:** GP-001
+
+- [ ] Read `data/discipline_manual_full.txt`
+- [ ] Extract every rule violation: number, category, description, sanction
+- [ ] Write `templates/disciplinary_charges.json`
+- [ ] Write Python script that looks up charges by keyword/incident type
+
+### GP-003: Wire Classifier to UI
+**Owner:** Claude
+
+- [ ] `backend/reports/classifier.py` — test with real field notes
+- [ ] Classifier prompt: given notes → output category + required forms + possible charges
+- [ ] Return structured JSON: `{category, forms[], charges[], confidence}`
+- [ ] Wire into `backend/webapp/routes/reports.py`
+
+### GP-004: Build Template Filler
+**Owner:** Either  
+**Depends on:** python-docx + 005.doc
+
+- [ ] Install `python-docx` in backend
+- [ ] Map 005.doc fields → code variables (officer_name, date, time, location, narrative, etc.)
+- [ ] `backend/reports/filler.py`: accept report text + metadata → fill DOC
+- [ ] Test: generate a filled 005.doc from sample field notes
+- [ ] Remove the text-only stub fallback
+
+### GP-005: Report Generator — Polish Prompts
+**Owner:** Claude
+
+- [ ] Review `backend/reports/prompts.py` — does it match ADC report standards?
+- [ ] Supervisor Summary: 3rd person, factual, concise
+- [ ] First Person: officer's voice, chronological, complete
+- [ ] Disciplinary: derived from 1st person, strip non-court info, add charge line
+- [ ] Test with 5+ varied field notes
+
+### GP-006: Add Inmate Disciplinary Manual to RAG
+**Owner:** Hermes  
+**Depends on:** GP-001
+
+- [ ] Extract OCR'd disciplinary manual text
+- [ ] Chunk and upload to Vertex AI RAG
+- [ ] Test: "What is the charge for fighting?" → returns rule 12-1 details
+
+---
+
+## Phase 2: Quality & UX
+
+### GP-007: Homepage Redesign
+**Owner:** Claude
+
+- [ ] Replace `backend/webapp/templates/home.html`
+- [ ] Two-card layout: Policy Expert (left) + Report Assistant (right)
+- [ ] Each card: icon, title, one-line description, prominent CTA button
+- [ ] ADC-themed styling (professional, corrections-appropriate)
+- [ ] Mobile-responsive
+
+### GP-008: Report Assistant Page Redesign
+**Owner:** Claude
+
+- [ ] Replace `backend/webapp/templates/reports.html`
+- [ ] Clean, single-page flow:
+  - Textarea for field notes (large, easy to paste)
+  - Auto-detect text → show "Processing..." → show results
+  - Results section: tabs or accordion for each report type
+  - Supervisor Summary tab (copy button)
+  - First Person tab (copy button)  
+  - Disciplinary tab (if applicable, copy button)
+  - "Download 005 Form" button (filled DOC)
+- [ ] Loading states, error states, empty states
+
+### GP-009: Policy Chat Page Polish
+**Owner:** Claude
+
+- [ ] Improve `backend/webapp/templates/chat.html`
+- [ ] Chat bubbles: user vs assistant clearly distinguished
+- [ ] Citations displayed prominently under each answer
+- [ ] "Related policies" links
+- [ ] Conversation history (if session-based)
+
+### GP-010: Error Handling & Logging
+**Owner:** Either
+
+- [ ] Add structured logging throughout backend
+- [ ] Retry logic for Vertex AI API calls
+- [ ] Graceful error pages (Vertex AI down, no results, etc.)
+- [ ] Timeout handling for long generations
+
+### GP-011: Migrate SDK
+**Owner:** Either
+
+- [ ] `vertexai.preview.rag` is deprecated → migrate to `agentplatform` client
+- [ ] Test corpus creation, import, and querying with new SDK
+- [ ] Update `backend/pipeline/config.py`, `embed.py`, `query.py`
+
+### GP-012: Rate Limiting
+**Owner:** Either
+
+- [ ] Add Flask rate limiter
+- [ ] Configurable: per-IP, per-endpoint
+- [ ] Reasonable defaults for Cloud Run scale
+
+### GP-013: Cloud IAP Authentication
+**Owner:** Hermes  
+
+- [ ] Enable Identity-Aware Proxy on Cloud Run
+- [ ] Restrict to ADC Google Workspace (or token-based)
+- [ ] Test: unauthenticated → 403, authenticated → app
+- [ ] Document setup for adding users
+
+---
+
+## Phase 3: Advanced
+
+### GP-014: Report History
+**Owner:** Either
+
+- [ ] SQLite/Postgres DB for generated reports
+- [ ] List past reports by date, category, officer
+- [ ] Search reports by keyword
+- [ ] Export history
+
+### GP-015: Training Data Evaluation
+**Owner:** Claude
+
+- [ ] Use 2,772 Q&A pairs to evaluate RAG quality
+- [ ] Measure retrieval precision/recall
+- [ ] Measure answer accuracy (groundedness)
+- [ ] Report: which policies are under-represented?
+
+### GP-016: Cloud Monitoring
+**Owner:** Hermes
+
+- [ ] Set up Cloud Monitoring dashboard
+- [ ] Track: query latency, error rate, token usage, cost
+- [ ] Alert on anomalies
+
+### GP-017: OCR Remaining 146 Post Orders
+**Owner:** Hermes (Gemini vision) or Claude (pipeline)
+
+- [ ] Batch OCR all 146 scanned Post Order PDFs
+- [ ] Human review spot-check
+- [ ] Chunk → embed → add to RAG
+
+---
+
+## Architecture Notes
+
+### Project Structure
+```
+prison-policy-ai/
+├── backend/
+│   ├── pipeline/          # extract, chunk, embed, query
+│   ├── reports/           # classifier, generator, filler, prompts
+│   ├── webapp/            # Flask app + templates
+│   ├── requirements.txt
+│   └── Dockerfile
+├── frontend/
+│   └── forms/             # Claude's 6-form React app
+├── templates/             # DOC templates + parsed JSONs
+├── data/                  # gitignored: PDFs, extracted, chunks, OCR
+├── VISION.md              # Project vision for collaborators
+├── .godplans/PLAN.mdx     # This file
+└── README.md
+```
+
+### Data Flow
+```
+PDF → extract.py → extracted/*.txt
+    → Human review → reviewed/*.txt
+    → chunk.py → chunks/*.jsonl
+    → gcloud storage cp → GCS
+    → embed.py → Vertex AI RAG corpus
+    → query.py (or webapp) → Gemini 2.5 Flash → answer + citations
+```
+
+### Report Pipeline
+```
+Field Notes → classifier.py → {category, forms[], charges[]}
+    → generator.py → {supervisor_summary, first_person, disciplinary}
+    → filler.py + 005.doc → completed DOC
+    → webapp → display text + download link
+```
+
+---
+
+## Running the Project
+
+```bash
+# Set up
+cd backend && pip install -r requirements.txt
+
+# RAG: extract, review, chunk, embed
+cd pipeline && python extract.py && python chunk.py && python embed.py
+
+# Query (CLI)
+cd pipeline && python query.py "use of force policy"
+
+# Web app
+cd webapp && python app.py
+# → http://localhost:8080
+
+# Deploy
+cd backend && gcloud run deploy prison-policy-ai --source . --region us-central1
+```
+
+---
+
+*Last updated: 2026-07-17*
+*Next: Push to GitHub so Claude sees everything*
