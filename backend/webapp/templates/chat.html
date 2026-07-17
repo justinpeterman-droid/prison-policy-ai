@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Policy Expert — ADC</title>
+<style>
+  :root {--bg:#0f0f1a;--card:#1a1a2e;--accent:#4a6cf7;--text:#e0e0e0;--muted:#888;--border:#2a2a3e;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);max-width:800px;margin:0 auto;padding:20px;}
+  .nav{margin-bottom:24px;}
+  .nav a{color:var(--accent);text-decoration:none;font-size:0.9rem;}
+  h1{color:#fff;margin-bottom:20px;font-size:1.5rem;}
+  #chat{border:1px solid var(--border);border-radius:10px;padding:20px;min-height:400px;max-height:600px;overflow-y:auto;margin-bottom:16px;background:var(--card);}
+  .msg{margin-bottom:14px;padding:10px 14px;border-radius:8px;line-height:1.55;}
+  .user{background:#2d2d5e;text-align:right;}
+  .ai{background:#16263e;white-space:pre-wrap;}
+  .ai .src{display:inline-block;background:var(--accent);color:#fff;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin:2px;}
+  .input-row{display:flex;gap:10px;}
+  input{flex:1;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:1rem;}
+  button{padding:12px 24px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;font-weight:600;}
+  button:hover{opacity:0.9;}
+  button:disabled{opacity:0.5;}
+</style>
+</head>
+<body>
+<div class="nav"><a href="/">← Home</a></div>
+<h1>📋 Policy Knowledge Expert</h1>
+<div id="chat"></div>
+<div class="input-row">
+  <input id="q" placeholder="Ask a policy question..." autofocus onkeypress="if(event.key==='Enter')send()">
+  <button id="btn" onclick="send()">Ask</button>
+</div>
+<script>
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function send(){
+  const i=document.getElementById('q'),b=document.getElementById('btn');
+  const q=i.value.trim();if(!q)return;
+  document.getElementById('chat').innerHTML+=`<div class="msg user">${esc(q)}</div>`;
+  i.value='';b.disabled=true;
+  fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})})
+  .then(r=>r.json()).then(d=>{
+    let srcs='';
+    if(d.sources&&d.sources.length)srcs=d.sources.map(s=>`<span class="src">${esc(s)}</span>`).join(' ');
+    document.getElementById('chat').innerHTML+=`<div class="msg ai">${esc(d.answer||d.error)}<br>${srcs}</div>`;
+    document.getElementById('chat').scrollTop=document.getElementById('chat').scrollHeight;
+  }).catch(e=>{
+    document.getElementById('chat').innerHTML+=`<div class="msg ai" style="color:#f66">Error: ${esc(e.message)}</div>`;
+  }).finally(()=>b.disabled=false);
+}
+</script>
+</body>
+</html>

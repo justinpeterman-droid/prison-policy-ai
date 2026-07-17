@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Report Writer — ADC</title>
+<style>
+  :root {--bg:#0f0f1a;--card:#1a1a2e;--accent:#4a6cf7;--text:#e0e0e0;--muted:#888;--border:#2a2a3e;--green:#2ecc71;--orange:#e67e22;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);max-width:900px;margin:0 auto;padding:20px;}
+  .nav{margin-bottom:24px;}
+  .nav a{color:var(--accent);text-decoration:none;font-size:0.9rem;}
+  h1{color:#fff;margin-bottom:8px;font-size:1.5rem;}
+  .sub{color:var(--muted);font-size:0.9rem;margin-bottom:20px;}
+  textarea{width:100%;height:200px;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);font-family:monospace;font-size:0.9rem;resize:vertical;margin-bottom:14px;}
+  .btn-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+  button{padding:12px 28px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;font-weight:600;}
+  button:hover{opacity:0.9;}
+  button:disabled{opacity:0.5;}
+  .spinner{display:none;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading .spinner{display:inline-block;}
+  #results{margin-top:24px;}
+  .result-card{border:1px solid var(--border);border-radius:10px;background:var(--card);padding:20px;margin-bottom:16px;}
+  .result-card h3{color:var(--accent);margin-bottom:8px;font-size:1rem;}
+  .result-card .badge{display:inline-block;padding:3px 10px;border-radius:4px;font-size:0.75rem;font-weight:600;margin-bottom:10px;margin-right:6px;}
+  .badge-type{background:var(--accent);color:#fff;}
+  .badge-form{background:var(--green);color:#fff;}
+  .report-text{background:#0a0a18;border:1px solid var(--border);border-radius:6px;padding:14px;font-family:monospace;font-size:0.85rem;white-space:pre-wrap;line-height:1.5;max-height:300px;overflow-y:auto;margin-top:10px;}
+  .copy-btn{font-size:0.8rem;padding:6px 14px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:4px;cursor:pointer;margin-top:8px;}
+  .copy-btn:hover{color:#fff;border-color:var(--accent);}
+  .error{color:#e74c3c;padding:16px;border:1px solid #e74c3c;border-radius:8px;}
+</style>
+</head>
+<body>
+<div class="nav"><a href="/">← Home</a></div>
+<h1>📝 Report Writing Assistant</h1>
+<p class="sub">Paste your field notes. One button. Everything generated.</p>
+
+<textarea id="notes" placeholder="0600 - D-WING: Head count complete. All present.
+0615 - Mess hall: Inmate Johnson complained of chest pain. Escorted to medical.
+0620 - Medical notified. Nurse Alvarez on duty.
+0645 - Johnson cleared, returned to wing."></textarea>
+
+<div class="btn-row">
+  <button id="genBtn" onclick="generate()">Generate Reports</button>
+  <div class="spinner"></div>
+</div>
+
+<div id="results"></div>
+
+<script>
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+function copyToClipboard(text){
+  navigator.clipboard.writeText(text).then(()=>{
+    alert('Copied to clipboard!');
+  }).catch(()=>{
+    prompt('Copy manually:',text);
+  });
+}
+
+async function generate(){
+  const notes=document.getElementById('notes').value.trim();
+  if(!notes)return;
+  const btn=document.getElementById('genBtn');
+  const row=document.querySelector('.btn-row');
+  btn.disabled=true;row.classList.add('loading');
+  document.getElementById('results').innerHTML='';
+
+  try{
+    const r=await fetch('/api/reports',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({notes})
+    });
+    const d=await r.json();
+    if(d.error){throw new Error(d.error);}
+    renderResults(d);
+  }catch(e){
+    document.getElementById('results').innerHTML=`<div class="error">${esc(e.message)}</div>`;
+  }finally{
+    btn.disabled=false;row.classList.remove('loading');
+  }
+}
+
+function renderResults(d){
+  let html='';
+
+  // Classification badge
+  html+=`<div style="margin-bottom:16px">`;
+  html+=`<span class="badge badge-type">${esc(d.incident_type||'unknown')}</span>`;
+  (d.forms_required||[]).forEach(f=>{
+    html+=`<span class="badge badge-form">${esc(f)}</span>`;
+  });
+  html+=`</div>`;
+
+  // Reports
+  const reports=d.reports||{};
+  if(reports.supervisor_summary){
+    html+=card('Supervisor Summary (3rd Person)',reports.supervisor_summary);
+  }
+  if(reports.first_person){
+    html+=card('First Person Report',reports.first_person);
+  }
+  if(reports.disciplinary){
+    html+=card('Disciplinary Supplement',reports.disciplinary);
+  }
+
+  document.getElementById('results').innerHTML=html;
+}
+
+function card(title,text){
+  return `<div class="result-card">
+    <h3>${esc(title)}</h3>
+    <div class="report-text">${esc(text)}</div>
+    <button class="copy-btn" onclick="copyToClipboard(${JSON.stringify(text)})">📋 Copy</button>
+  </div>`;
+}
+</script>
+</body>
+</html>

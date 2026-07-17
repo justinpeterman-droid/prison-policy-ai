@@ -1,0 +1,38 @@
+# Data directories (large, not code)
+data/
+
+# Data directories at root (legacy, to be migrated to data/)
+pdfs/
+extracted/
+reviewed/
+chunks/
+reports/
+field-notes/
+*.jsonl
+*.csv
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+*.egg
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cloud
+.cloudbuild/
+.gcloudignore
