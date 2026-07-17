@@ -27,11 +27,14 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # Enable Pages (build type: GitHub Actions) on first run
+          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Publish the whole repo: root index.html redirects to /forms/
+          # Publish the whole repo: root index.html redirects to /frontend/forms/
           path: .
 
       - name: Deploy to GitHub Pages
