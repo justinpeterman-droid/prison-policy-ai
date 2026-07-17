@@ -9,9 +9,9 @@ from backend.pipeline.config import (
 vertexai.init(project=PROJECT_ID, location=LOCATION)
 
 CHAT_SYSTEM_PROMPT = (
-    "You are a corrections policy assistant for the Arkansas Department of "
-    "Correction. Answer questions using ONLY the policy documents provided. "
-    "Cite document sections. If the answer is not in the documents, say so."
+    "You are a policy assistant. Answer questions using ONLY the policy "
+    "documents provided. Cite document sections. If the answer is not in "
+    "the documents, say so."
 )
 
 

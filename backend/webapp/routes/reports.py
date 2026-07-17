@@ -70,7 +70,7 @@ def reports_download():
         return send_file(
             output["path"],
             as_attachment=True,
-            download_name="ADC_005_Form.docx",
+            download_name="Incident_Report_Form.docx",
             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
     except Exception as e:

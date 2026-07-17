@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Report Writer — ADC</title>
+<title>Report Writer</title>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -34,7 +34,7 @@ Example:
   <div id="results"></div>
   <div id="downloadArea" class="download-area" style="display:none">
     <h4>📎 Download 005/409 Form</h4>
-    <p>AI-generated narrative filled into the official ADC incident report template.</p>
+    <p>AI-generated narrative filled into the official incident report template.</p>
     <button class="btn" id="downloadBtn" onclick="downloadForm()">⬇ Download DOC</button>
   </div>
 </div>
@@ -199,7 +199,7 @@ function downloadForm() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'ADC_005_Form.docx';
+    a.download = 'Incident_Report_Form.docx';
     a.click();
     URL.revokeObjectURL(url);
   }).catch(e => {

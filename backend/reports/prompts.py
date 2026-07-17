@@ -5,7 +5,7 @@ from pathlib import Path
 TEMPLATES_DIR = Path(__file__).parent.parent.parent / "templates"
 
 # ── Classifier Prompt ──────────────────────────────────────────
-CLASSIFIER_PROMPT = """You are an incident classifier for the Arkansas Department of Correction.
+CLASSIFIER_PROMPT = """You are an incident classifier for a corrections facility.
 Analyze the field notes and classify the incident.
 
 Output ONLY valid JSON with these fields:
@@ -65,7 +65,7 @@ Add applicable charge lines from the inmate disciplinary manual.
 
 Format:
 DISCIPLINARY SUPPLEMENT
-Inmate: [Last, First] ADC #[Number]
+Inmate: [Last, First] #[Number]
 Date of Incident: [Date]
 Reporting Officer: [Rank] [Full Name]
 
