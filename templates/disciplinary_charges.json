@@ -1,0 +1,8 @@
+{
+  "_note": "Stub — manual is scanned PDF (35 pages, no selectable text). OCR pending.",
+  "charges": {
+    "10-1": {"category": "Class I", "description": "Failure to obey an order of any staff member", "sanction": "Per policy"},
+    "12-2": {"category": "Class I", "description": "Being in an unauthorized area", "sanction": "Per policy"},
+    "12-3": {"category": "Class I", "description": "Failure to report to assigned area", "sanction": "Per policy"}
+  }
+}
