@@ -1,39 +1,127 @@
-"""005/409 DOC template filler — text output for now (.doc needs conversion to .docx)."""
-from pathlib import Path
-from backend.pipeline.config import TEMPLATES_DIR
-
-
-def fill_005_form(fields: dict, output_path: Path = None) -> Path:
-    """Fill the 005/409 form fields and produce a text representation.
-
-    Note: TEMPLATES_DIR/005.doc is OLE2 binary format (.doc).
-    python-docx only handles .docx (Office Open XML).
-    For now, output a clean text representation.
-    When a .docx version of the template is available, this
-    can switch to Document() with field replacement.
-    """
-    if output_path is None:
-        output_path = Path("/tmp/005_filled.txt")
-
-    content = f"""ARKANSAS DEPARTMENT OF CORRECTION
-INCIDENT REPORT — FORM 005/409
-
-UNIT/DIVISION: {fields.get('unit_division', '')}
-REPORTING EMPLOYEE: {fields.get('reporting_employee_last', '')}, {fields.get('reporting_employee_first', '')} {fields.get('reporting_employee_middle', '')}
-RANK: {fields.get('rank', '')}
-SHIFT ASSIGNMENT: {fields.get('shift_assignment', '')}
-DATE: {fields.get('date', '')}
-TIME: {fields.get('time', '')}
-LOCATION: {fields.get('location', '')}
-INMATE(S) INVOLVED: {fields.get('inmates_involved', '')}
-
-NARRATIVE:
-{fields.get('narrative_1st_person', '')}
-
-RECOMMENDATION:
-{fields.get('recommendation', '')}
-
-SIGNATURE DATE: {fields.get('date', '')}
 """
-    output_path.write_text(content)
-    return output_path
+DOCX template filler — pure ZIP/XML, no python-docx or lxml needed.
+Opens a .docx (ZIP of XML), replaces {{placeholders}}, saves filled copy.
+"""
+import zipfile
+import shutil
+from pathlib import Path
+from datetime import datetime
+
+TEMPLATE_PATH = Path(__file__).parent.parent.parent / "templates" / "005_template.docx"
+
+
+def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
+    """
+    Fill the 005 incident report template with metadata + report text.
+    
+    Args:
+        metadata: dict with keys matching {{placeholders}} in template:
+            unit_division, officer_last, officer_first, officer_middle,
+            rank, shift_assignment, date, time, location,
+            inmates_involved, employees_involved, others_present,
+            inmate_injuries, inmate_treatment, officer_injuries,
+            officer_treatment, recommendation, narrative,
+            officer_signature, date_filed, supervisor_name
+    
+    Returns:
+        {"path": "/path/to/filled.docx"} on success,
+        {"text": "fallback text"} if template not found
+    """
+    if not TEMPLATE_PATH.exists():
+        # Fallback: plain text
+        return {"text": _build_text(metadata)}
+    
+    template = _ensure_template()
+    output_path = output_path or Path(f"incident_report_{datetime.now():%Y%m%d_%H%M}.docx")
+    output_path = Path(output_path)
+    
+    # Fill defaults
+    defaults = {
+        "unit_division": "",
+        "officer_last": "",
+        "officer_first": "",
+        "officer_middle": "",
+        "rank": "",
+        "shift_assignment": "",
+        "date": datetime.now().strftime("%B %d, %Y"),
+        "time": datetime.now().strftime("%I:%M %p"),
+        "location": "",
+        "inmates_involved": "",
+        "employees_involved": "",
+        "inmates_present": "",
+        "employees_present": "",
+        "others_present": "N/A",
+        "inmate_injuries": "N/A",
+        "inmate_treatment": "N/A",
+        "officer_injuries": "N/A",
+        "officer_treatment": "N/A",
+        "recommendation": "",
+        "narrative": "",
+        "officer_signature": "",
+        "date_filed": datetime.now().strftime("%B %d, %Y"),
+        "supervisor_name": "",
+    }
+    
+    for k, v in defaults.items():
+        if k not in metadata or not metadata[k]:
+            metadata[k] = v
+    
+    # Read template, replace placeholders, write filled copy
+    with (zipfile.ZipFile(template, 'r') as zin,
+          zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zout):
+        
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            
+            # Replace placeholders in XML files
+            if item.filename.endswith('.xml') or item.filename.endswith('.rels'):
+                text = data.decode('utf-8', errors='replace')
+                for key, value in metadata.items():
+                    placeholder = "{{" + key + "}}"
+                    if placeholder in text:
+                        text = text.replace(placeholder, _xml_escape(str(value)))
+                data = text.encode('utf-8')
+            
+            zout.writestr(item, data)
+    
+    return {"path": str(output_path)}
+
+
+def _ensure_template() -> Path:
+    """Return the template path, building it if missing."""
+    if TEMPLATE_PATH.exists():
+        return TEMPLATE_PATH
+    
+    from scripts.build_template import build
+    build()
+    return TEMPLATE_PATH
+
+
+def _xml_escape(s: str) -> str:
+    """Escape XML special characters."""
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+def _build_text(metadata: dict) -> str:
+    """Fallback: build a plain-text representation."""
+    lines = [
+        "INCIDENT REPORT FORM",
+        "=" * 40,
+        f"Unit/Division: {metadata.get('unit_division', '')}",
+        f"Reporting Officer: {metadata.get('officer_last', '')}, {metadata.get('officer_first', '')} {metadata.get('officer_middle', '')}",
+        f"Rank: {metadata.get('rank', '')}",
+        f"Shift: {metadata.get('shift_assignment', '')}",
+        f"Date: {metadata.get('date', '')}",
+        f"Time: {metadata.get('time', '')}",
+        f"Location: {metadata.get('location', '')}",
+        f"Inmates: {metadata.get('inmates_involved', '')}",
+        "",
+        "STATEMENT OF FACTS",
+        "-" * 20,
+        metadata.get('narrative', ''),
+        "",
+        f"Respectfully submitted: {metadata.get('officer_signature', '')}",
+        f"Date: {metadata.get('date_filed', '')}",
+        f"Reviewed by: {metadata.get('supervisor_name', '')}",
+    ]
+    return "\n".join(lines)
