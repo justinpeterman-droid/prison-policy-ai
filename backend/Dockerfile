@@ -2,15 +2,12 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
-COPY backend/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend/ /app/backend/
-COPY templates/ /app/templates/
-COPY frontend/ /app/frontend/
-COPY .godplans/ /app/.godplans/
+COPY . /app/
 
 ENV PORT=8080
 ENV PYTHONPATH=/app
 
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 120 backend.webapp.app:create_app
+CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 120 webapp.app:create_app

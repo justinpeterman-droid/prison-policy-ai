@@ -5,7 +5,7 @@ import logging
 from flask import Blueprint, render_template, request, jsonify, send_file
 from backend.reports.classifier import classify_incident
 from backend.reports.generator import generate_all_reports
-from backend.reports.filler import fill_template
+from backend.reports.filler import fill_005_form as fill_template
 
 logger = logging.getLogger(__name__)
 reports_bp = Blueprint("reports", __name__)
