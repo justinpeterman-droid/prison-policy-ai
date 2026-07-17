@@ -5,7 +5,12 @@ WORKDIR /app
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend/ .
+COPY backend/ /app/backend/
+COPY templates/ /app/templates/
+COPY frontend/ /app/frontend/
+COPY .godplans/ /app/.godplans/
 
 ENV PORT=8080
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 120 backend.webapp.app:create_app()
+ENV PYTHONPATH=/app
+
+CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 120 backend.webapp.app:create_app
