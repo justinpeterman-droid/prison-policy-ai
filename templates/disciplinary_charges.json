@@ -1,8 +1,310 @@
 {
-  "_note": "Stub — manual is scanned PDF (35 pages, no selectable text). OCR pending.",
+  "_source": "ADC_Inmate_Disciplinary_Manual.pdf",
   "charges": {
-    "10-1": {"category": "Class I", "description": "Failure to obey an order of any staff member", "sanction": "Per policy"},
-    "12-2": {"category": "Class I", "description": "Being in an unauthorized area", "sanction": "Per policy"},
-    "12-3": {"category": "Class I", "description": "Failure to report to assigned area", "sanction": "Per policy"}
+    "01-1": {
+      "category": "GROUP DISRUPTION CATEGORY",
+      "description": "Banding together for any reason which disrupts unit operations which may include",
+      "sanction": ""
+    },
+    "01-3": {
+      "category": "B",
+      "description": "Direct involvement in writing, circulating or signing a petition, letter, or similar declaration that poses a threat to the security of the facility.",
+      "sanction": ""
+    },
+    "17-2": {
+      "category": "A",
+      "description": "Any rule violation set forth above that is found to be related to recruitment or participation in a security threat group, or is motivated by racial, religious, or gender discrimination. Rule violation may result in the loss of all good time.",
+      "sanction": ""
+    },
+    "02-2": {
+      "category": "A",
+      "description": "Under the influence of and/or any use of illegal drugs, alcohol, intoxicating chemicals or any medication in an unauthorized manner.",
+      "sanction": ""
+    },
+    "02-3": {
+      "category": "B",
+      "description": "Monetary Misconduct--Entering into unauthorized contractual agreements, failure to turn in all checks or monies received, obtaining money through fraud or misrepresentation (examples include buying articles on a payment plan, failure to turn in tips received on work release, misleading someone to obtain money).",
+      "sanction": ""
+    },
+    "02-4": {
+      "category": "C",
+      "description": "Employment Misconduct-Work Release inmates who quit a job without prior approval, get fired for misconduct, tardiness or shirking duties, failure to notify ADC staff when too ill to work.",
+      "sanction": ""
+    },
+    "02-5": {
+      "category": "A",
+      "description": "Unauthorized use of mail or telephone, including passing unauthorized messages, three-way communication(s), calling on another's phone code, posing as another person, and telephone communications with unauthorized persons.",
+      "sanction": ""
+    },
+    "02-6": {
+      "category": "B",
+      "description": "Unauthorized communication, contact, or conduct with a visitor or any member of the public or staff.",
+      "sanction": ""
+    },
+    "02-8": {
+      "category": "B",
+      "description": "Running, avoiding, or otherwise resisting apprehension.",
+      "sanction": ""
+    },
+    "02-9": {
+      "category": "B",
+      "description": "Interfering with the taking of count.",
+      "sanction": ""
+    },
+    "02-11": {
+      "category": "A",
+      "description": "Tattooing, piercing, and self-mutilation intended to change oneself or another's appearance; this does not include attempts to commit suicide or injure oneself unless solely for manipulation - See Administration Regulation 834, Procedure for Handling Alleged Disciplinary Infractions of Mentally Disordered Inmates.",
+      "sanction": ""
+    },
+    "02-12": {
+      "category": "C",
+      "description": "Failure to keep one's person or quarters in accordance with regulations, or failure to wear Department-issued ID, or clothing according to center/unit policy.",
+      "sanction": ""
+    },
+    "02-13": {
+      "category": "B",
+      "description": "Breaking into, or causing disruption of, an inmate line or interfering with operations.",
+      "sanction": ""
+    },
+    "02-15": {
+      "category": "A",
+      "description": "Tampering with, or blocking, any lock or locking device.",
+      "sanction": ""
+    },
+    "02-16": {
+      "category": "A",
+      "description": "Refusal to submit to substance abuse testing.",
+      "sanction": ""
+    },
+    "02-17": {
+      "category": "C",
+      "description": "Creating unnecessary noise, including disruptive or aggressive play in areas other than designated recreation areas.",
+      "sanction": ""
+    },
+    "03-1": {
+      "category": "B",
+      "description": "Out of place of assignment.",
+      "sanction": ""
+    },
+    "03-3": {
+      "category": "B",
+      "description": "Unexcused absence from work/school assignment or other program activity.",
+      "sanction": ""
+    },
+    "05-5": {
+      "category": "B",
+      "description": "Provoking or agitating a fight.",
+      "sanction": ""
+    },
+    "11-1": {
+      "category": "A",
+      "description": "Insolence to a staff member.",
+      "sanction": ""
+    },
+    "12-1": {
+      "category": "B",
+      "description": "Failure to obey verbal and/or written order(s) of staff.",
+      "sanction": ""
+    },
+    "12-2": {
+      "category": "B",
+      "description": "Refusal of job assignment including participating in a treatment program, boot camp, or class assignment or violating program rules that results in dismissal from a program.",
+      "sanction": ""
+    },
+    "13-2": {
+      "category": "B",
+      "description": "Lying to a staff member, including omissions and providing misinformation.",
+      "sanction": ""
+    },
+    "13-3": {
+      "category": "B",
+      "description": "Malingering, feigning an illness.",
+      "sanction": ""
+    },
+    "04-4": {
+      "category": "BATTERY",
+      "description": "Battery - Use of physical force upon staff",
+      "sanction": ""
+    },
+    "04-5": {
+      "category": "BATTERY",
+      "description": "Aggravated Battery - Use of a weapon in battery upon another person (not an inmate). Rule violation may result in loss of all good time.",
+      "sanction": ""
+    },
+    "04-08": {
+      "category": "BATTERY",
+      "description": "Battery - Use of physical force upon an inmate.",
+      "sanction": ""
+    },
+    "04-18": {
+      "category": "BATTERY",
+      "description": "Aggravated Battery upon inmate -Use of weapon in a battery upon another inmate. Rule violation may result in the loss of all good time.",
+      "sanction": ""
+    },
+    "04-17": {
+      "category": "BATTERY",
+      "description": "Throwing or attempting to throw substances, known or unknown, toward or upon another person. Rule violation may result in loss of all good time.",
+      "sanction": ""
+    },
+    "05-3": {
+      "category": "ASSAULT",
+      "description": "Assault--Any threat(s) to inflict injury upon another, directly or indirectly, verbally or in writing.",
+      "sanction": ""
+    },
+    "05-4": {
+      "category": "ASSAULT",
+      "description": "Making sexual threat(s) to another person, directly or indirectly, verbally or in writing.",
+      "sanction": ""
+    },
+    "06-1": {
+      "category": "THEFT, DESTRUCTION OF PROPERTY OR EXTORTION",
+      "description": "Demanding/receiving money or favors or anything of value in return for an offer/promise of protection from others of bodily harm, or to keep information secret.",
+      "sanction": ""
+    },
+    "07-1": {
+      "category": "THEFT, DESTRUCTION OF PROPERTY OR EXTORTION",
+      "description": "Unauthorized use of state property/supplies.",
+      "sanction": ""
+    },
+    "07-2": {
+      "category": "THEFT, DESTRUCTION OF PROPERTY OR EXTORTION",
+      "description": "Theft or possession of stolen property.",
+      "sanction": ""
+    },
+    "08-4": {
+      "category": "THEFT, DESTRUCTION OF PROPERTY OR EXTORTION",
+      "description": "Destruction or intentional misplacement of property of another or the Department.",
+      "sanction": ""
+    },
+    "08-6": {
+      "category": "THEFT, DESTRUCTION OF PROPERTY OR EXTORTION",
+      "description": "Adulteration of any food(s) or drink(s) with intent to harm others. Rule violation may result in the loss of all good time.",
+      "sanction": ""
+    },
+    "08-7": {
+      "category": "A",
+      "description": "Setting a fire or destruction or tampering with fire detection or suppression device.",
+      "sanction": ""
+    },
+    "09-1": {
+      "category": "A",
+      "description": "Possession/introduction of any firearm, ammunition, weapon, fireworks, explosive, unauthorized combustible substance, or unauthorized tool. Rule violation may result in loss of all good time.",
+      "sanction": ""
+    },
+    "09-3": {
+      "category": "A",
+      "description": "Possession/introduction/manufacture of any drug, narcotic intoxicant, tobacco, chemical, OR drug paraphernalia not prescribed by medical staff.",
+      "sanction": ""
+    },
+    "09-4": {
+      "category": "A",
+      "description": "Possession or movement of money or currency, unless specifically authorized.",
+      "sanction": ""
+    },
+    "09-5": {
+      "category": "C",
+      "description": "Possession/introduction of clothing or property not issued to inmate nor authorized by the center/unit.",
+      "sanction": ""
+    },
+    "09-9": {
+      "category": "A",
+      "description": "Counterfeiting, forging, or unauthorized possession/introduction of any document, article of identification, money, security, or official paper.",
+      "sanction": ""
+    },
+    "09-14": {
+      "category": "A",
+      "description": "Possession/introduction/use of unauthorized electronic device(s), including, flash drive, MP player, DVD player, etc. Rule violation may result in the loss of all good time.",
+      "sanction": ""
+    },
+    "09-15": {
+      "category": "A",
+      "description": "Possession/introduction/use of a cell phone or any cell phone component (e.g., sims card, charger, battery, etc.) or an unauthorized messaging device. Rule violation may result in the loss of all good time and may result in the loss of Inmate Telephone System privileges for one (1) year.",
+      "sanction": ""
+    },
+    "09-16": {
+      "category": "A",
+      "description": "Use of internet or social media.",
+      "sanction": ""
+    },
+    "14-1": {
+      "category": "B",
+      "description": "Preparing, conducting, or participating in a gambling operation.",
+      "sanction": ""
+    },
+    "10-1": {
+      "category": "A",
+      "description": "Engaging in sexual activity with another consenting person.",
+      "sanction": ""
+    },
+    "10-2": {
+      "category": "",
+      "description": "Making sexual proposals to another person. (PREA)",
+      "sanction": ""
+    },
+    "10-3": {
+      "category": "",
+      "description": "Indecent exposure; may result in a referral for criminal prosecution.",
+      "sanction": ""
+    },
+    "10-4": {
+      "category": "",
+      "description": "Bestiality.",
+      "sanction": ""
+    },
+    "10-5": {
+      "category": "",
+      "description": "Masturbation in the presence of another inmate.",
+      "sanction": ""
+    },
+    "10-6": {
+      "category": "",
+      "description": "Engaging in non-abusive sexual activity with another person.",
+      "sanction": ""
+    },
+    "10-7": {
+      "category": "",
+      "description": "Demanding sexual contact in trade or protection from physical harm or mental anguish, or other victimization.",
+      "sanction": ""
+    },
+    "04-10": {
+      "category": "",
+      "description": "Rape or forced sexual act with/on an inmate. Rule violation may result in the loss of all good time. (PREA)",
+      "sanction": ""
+    },
+    "04-19": {
+      "category": "",
+      "description": "Rape or forced sexual act on staff, volunteer, contractor, or other individual not incarcerated at the time of the incident. Rule violation may result in the loss of all good time.",
+      "sanction": ""
+    },
+    "15-1": {
+      "category": "TRAFFICKING AND TRADING",
+      "description": "The purchase or exchange of unauthorized articles or authorized articles obtained through unauthorized channels.",
+      "sanction": ""
+    },
+    "15-2": {
+      "category": "TRAFFICKING AND TRADING",
+      "description": "Asking, coercing or offering inducement to anyone to violate Department policy or procedure, inmate rules and regulations, center/unit operating procedures.",
+      "sanction": ""
+    },
+    "16-1": {
+      "category": "ESCAPE",
+      "description": "Escape, or attempt to escape from custody of the Department of Correction; may result in the loss of all good time.",
+      "sanction": ""
+    },
+    "16-2": {
+      "category": "ESCAPE",
+      "description": "Failure to return from any approved activity or furlough at the designated time.",
+      "sanction": ""
+    },
+    "3-3": {
+      "category": "Absence from Work",
+      "description": "Unexcused absence from work",
+      "sanction": ""
+    },
+    "5-3": {
+      "category": "Assault",
+      "description": "Assault",
+      "sanction": ""
+    }
   }
 }
