@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Incident Packet Forms</title>
+<script src="vendor/react.min.js"></script>
+<script src="vendor/react-dom.min.js"></script>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --line: #333;
+    --muted: #555;
+    --accent: #1f3a5f;
+    --page-bg: #e9ebee;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page-bg);
+    color: var(--ink);
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+  }
+
+  /* ---------- App chrome (hidden when printing) ---------- */
+  .toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: #ffffff;
+    border-bottom: 1px solid #cfd4da;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  .toolbar h1 {
+    font-size: 15px;
+    margin: 0 14px 0 0;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .tab {
+    border: 1px solid #c3c9d0;
+    background: #f3f5f7;
+    color: #2b2b2b;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: all .12s ease;
+  }
+  .tab:hover { background: #e6eaef; }
+  .tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .toolbar .spacer { flex: 1; }
+  .btn {
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .btn.secondary { background: #fff; color: var(--accent); }
+  .btn:hover { opacity: .92; }
+
+  .stage {
+    padding: 26px 16px 60px;
+    display: flex;
+    justify-content: center;
+  }
+
+  /* ---------- The "paper" ---------- */
+  .page {
+    background: #fff;
+    width: 8.5in;
+    min-height: 11in;
+    padding: 0.75in 0.7in;
+    box-shadow: 0 3px 14px rgba(0,0,0,.18);
+    position: relative;
+  }
+
+  /* Fillable inputs styled as writing lines / blanks */
+  .fld {
+    font-family: inherit;
+    font-size: inherit;
+    color: #10428a;
+    border: none;
+    border-bottom: 1px solid #6b7683;
+    background: transparent;
+    padding: 0 3px 1px;
+    outline: none;
+    min-width: 40px;
+  }
+  .fld:focus { border-bottom-color: var(--accent); background: #eef4ff; }
+  textarea.fld { border: 1px solid #6b7683; width: 100%; resize: vertical; padding: 4px 6px; }
+  .cbx {
+    width: 15px; height: 15px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    margin: 0;
+  }
+
+  /* ===== Form 1: Shift Supervisor Checklist ===== */
+  .chk { font-size: 12.5px; color: #2b2b2b; }
+  .chk .title { font-size: 21px; font-weight: 800; margin: 0; }
+  .chk .subtitle { font-size: 14px; font-weight: 700; margin: 2px 0 14px; }
+  .chk table { border-collapse: collapse; width: 100%; }
+  .chk td { border: 1px solid #9aa0a6; padding: 3px 6px; vertical-align: middle; line-height: 1.25; }
+  .chk td.box { width: 30px; text-align: center; padding: 3px; }
+  .chk td.spacer-box { width: 30px; border: 1px solid #9aa0a6; }
+  .chk .lvl1 { padding-left: 28px; }
+  .chk .lvl2 { padding-left: 56px; }
+  .chk .inline-opt { white-space: nowrap; }
+  .chk .inline-cbx { margin: 0 3px 0 10px; vertical-align: middle; }
+
+  /* ===== Form 2: PREA cover ===== */
+  .cover { font-family: "Times New Roman", Times, serif; height: 9.5in; }
+  .cover .frame {
+    border: 1px solid #444;
+    height: 100%;
+    padding: 0.6in 0.5in;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .cover .big { text-align: center; }
+  .cover .l1 { font-size: 40px; font-weight: 700; margin-top: 0.5in; letter-spacing: 1px; }
+  .cover .l2 { font-size: 34px; margin-top: 0.55in; font-variant: small-caps; }
+  .cover .l3 { font-size: 34px; margin-top: 0.55in; font-variant: small-caps; }
+  .cover .l4 { font-size: 32px; margin-top: 0.55in; font-variant: small-caps; }
+  .cover .meta { width: 100%; margin-top: 0.7in; text-align: center; }
+  .cover .meta .row { font-size: 17px; font-variant: small-caps; margin: 0.5in 0; display: flex; justify-content: center; align-items: baseline; gap: 8px; }
+  .cover .meta .fld { min-width: 260px; font-variant: normal; text-align: center; }
+
+  /* ===== Shared: DOC letterhead forms (3 & 5) ===== */
+  .doc { font-family: "Times New Roman", Times, serif; color: #1a1a1a; font-size: 15px; }
+  .doc .seal {
+    width: 92px; height: 92px; border-radius: 50%;
+    border: 3px double #444; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 12px; text-align: center; color: #3a3a3a; line-height: 1.1;
+    letter-spacing: .5px;
+  }
+  .doc h2 { text-align: center; font-size: 20px; margin: 6px 0 2px; letter-spacing: .5px; }
+  .doc .sub { text-align: center; font-weight: 700; font-size: 15px; margin: 0; }
+  .doc .addr { text-align: center; font-size: 13.5px; line-height: 1.35; margin: 8px 0 4px; }
+
+  /* Form 3 table */
+  .warn .idtable { border-collapse: collapse; width: 100%; margin: 8px 0 18px; }
+  .warn .idtable td { border: 1px solid #333; padding: 8px 8px; font-weight: 700; }
+  .warn .idtable .fld { font-weight: 400; width: 70%; }
+  .warn p { line-height: 1.5; text-align: justify; }
+  .warn ol { line-height: 1.7; }
+  .warn .sigrow { display: flex; gap: 30px; margin-top: 26px; align-items: baseline; }
+  .warn .sigrow .lbl { font-weight: 700; white-space: nowrap; }
+
+  /* Form 5 chain of custody */
+  .coc .line { margin: 12px 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; }
+  .coc .lbl { font-weight: 700; letter-spacing: .3px; white-space: nowrap; }
+  .coc .grow { flex: 1; min-width: 60px; }
+  .coc h3 { text-align: center; font-size: 16px; margin: 16px 0 6px; letter-spacing: .5px; }
+  .coc .post { font-size: 12.5px; line-height: 1.45; text-align: justify; }
+  .coc .post b { font-weight: 700; }
+  .coc .sigtable { border-collapse: collapse; width: 100%; margin-top: 8px; }
+  .coc .sigtable th { border: 1px solid #333; font-size: 12.5px; padding: 5px 4px; background: #fff; }
+  .coc .sigtable td { border: 1px solid #333; height: 26px; }
+  .coc .foot { display: flex; justify-content: space-between; font-size: 12px; margin-top: 14px; }
+
+  /* ===== Form 4: Gate Pass Checklist ===== */
+  .gate { font-size: 13.5px; color: #2b2b2b; line-height: 1.55; }
+  .gate .title { font-size: 20px; font-weight: 800; margin: 0 0 10px; }
+  .gate ol.steps { list-style: none; counter-reset: step; padding: 0; margin: 0; }
+  .gate ol.steps > li { counter-increment: step; position: relative; padding-left: 26px; margin: 2px 0; }
+  .gate ol.steps > li::before { content: counter(step); position: absolute; left: 0; font-weight: 400; color: #444; }
+  .gate .sub { list-style: none; padding-left: 30px; margin: 2px 0; }
+  .gate .sub > li { display: flex; gap: 8px; margin: 1px 0; }
+  .gate .sub .k { font-weight: 700; min-width: 16px; }
+  .gate .star { padding-left: 46px; color: #333; }
+  .gate .blankline { display: inline-flex; gap: 4px; align-items: baseline; margin-left: 6px; }
+
+  .note {
+    max-width: 8.5in; margin: 0 auto 8px; font-size: 12px; color: #667; text-align: center;
+  }
+
+  @media print {
+    body { background: #fff; }
+    .toolbar, .note { display: none !important; }
+    .stage { padding: 0; display: block; }
+    .page { box-shadow: none; width: auto; min-height: auto; padding: 0.5in; page-break-after: always; }
+    .fld { color: #000; border-bottom: 1px solid #000; }
+    .print-all .page { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
