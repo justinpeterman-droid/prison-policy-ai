@@ -1,6 +1,9 @@
 """System prompts for report generation — version-controlled."""
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 TEMPLATES_DIR = Path(__file__).parent.parent.parent / "templates"
 
@@ -9,9 +12,14 @@ TEMPLATES_DIR = Path(__file__).parent.parent.parent / "templates"
 def load_charges() -> dict:
     """Load disciplinary charges from parsed JSON."""
     path = TEMPLATES_DIR / "disciplinary_charges.json"
-    if path.exists():
+    if not path.exists():
+        logger.warning("Charge catalog not found at %s", path)
+        return {}
+    try:
         return json.loads(path.read_text())
-    return {}
+    except (json.JSONDecodeError, OSError) as e:
+        logger.error("Failed to load charge catalog: %s", e)
+        return {}
 
 
 def build_classifier_prompt() -> tuple[str, dict]:

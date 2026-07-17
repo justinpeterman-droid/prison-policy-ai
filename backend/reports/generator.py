@@ -1,4 +1,5 @@
 """Report generator — produces all required report texts."""
+import logging
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from backend.pipeline.config import PROJECT_ID, LOCATION, GENERATION_MODEL
@@ -9,6 +10,7 @@ from backend.reports.prompts import (
     format_charge_lines,
 )
 
+logger = logging.getLogger(__name__)
 vertexai.init(project=PROJECT_ID, location=LOCATION)
 
 
@@ -86,6 +88,7 @@ def generate_all_reports(notes: str, classification: dict) -> dict:
             notes, classification
         )
     except Exception:
+        logger.error("Supervisor summary generation failed", exc_info=True)
         reports["supervisor_summary"] = "[Error generating supervisor summary]"
 
     try:
@@ -93,6 +96,7 @@ def generate_all_reports(notes: str, classification: dict) -> dict:
             notes, classification
         )
     except Exception:
+        logger.error("First person report generation failed", exc_info=True)
         reports["first_person"] = "[Error generating first person report]"
 
     charges = classification.get("charges_applicable", [])
@@ -102,6 +106,7 @@ def generate_all_reports(notes: str, classification: dict) -> dict:
                 notes, reports.get("first_person", ""), classification
             )
         except Exception:
+            logger.error("Disciplinary supplement generation failed", exc_info=True)
             reports["disciplinary"] = "[Error generating disciplinary supplement]"
 
     return reports

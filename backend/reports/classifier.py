@@ -1,11 +1,27 @@
 """Incident classifier — determines type, forms needed, persons, charges."""
 import json
+import re
+import logging
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from backend.pipeline.config import PROJECT_ID, LOCATION, GENERATION_MODEL
-from backend.reports.prompts import CLASSIFIER_PROMPT, build_classifier_prompt
+from backend.reports.prompts import build_classifier_prompt
 
+logger = logging.getLogger(__name__)
 vertexai.init(project=PROJECT_ID, location=LOCATION)
+
+
+def _extract_json_from_response(text: str) -> str:
+    """Extract JSON from a model response that may contain markdown fences or commentary."""
+    # Strip wrapping ``` fences (multi-line and inline)
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*\n?", "", text)
+        text = re.sub(r"\n?```\s*$", "", text)
+    # Try to find JSON object between first { and last }
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if match:
+        return match.group(0)
+    return text
 
 
 def classify_incident(notes: str) -> dict:
@@ -26,14 +42,8 @@ def classify_incident(notes: str) -> dict:
 
     response = model.generate_content(prompt)
 
-    # Parse JSON from response
-    text = response.text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-        if text.endswith("```"):
-            text = text[:-3]
-        if text.startswith("json\n"):
-            text = text[5:]
+    # Robust JSON extraction from model response
+    text = _extract_json_from_response(response.text)
 
     try:
         result = json.loads(text)
@@ -48,7 +58,8 @@ def classify_incident(notes: str) -> dict:
             for c in result["charges_applicable"]
         }
         return result
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.warning("Classification JSON parse failed: %s — raw: %.300s", e, text)
         return {
             "incident_type": "general_incident",
             "forms_required": ["005_409"],

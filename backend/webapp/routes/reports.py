@@ -1,6 +1,4 @@
 """Report generation endpoint."""
-import tempfile
-import os
 import logging
 from flask import Blueprint, render_template, request, jsonify, send_file
 from backend.reports.classifier import classify_incident
@@ -42,12 +40,18 @@ def reports_page():
 @reports_bp.route("/api/reports", methods=["POST"])
 def reports_api():
     data = request.get_json(silent=True) or {}
-    notes = data.get("notes", "")
+    notes = data.get("notes", "").strip()
     if not notes:
         return jsonify({"error": "No field notes provided"}), 400
 
+    logger.info("Report generation requested — notes length: %d chars", len(notes))
+
     try:
         classification = classify_incident(notes)
+        logger.info("Classification complete — type: %s, charges: %d",
+                     classification.get("incident_type"),
+                     len(classification.get("charges_applicable", [])))
+
         reports = generate_all_reports(notes, classification)
 
         # Extract officer info for preview
@@ -82,18 +86,20 @@ def reports_api():
             },
             "reports": reports,
         })
-    except Exception:
+    except Exception as e:
         logger.exception("Report generation failed")
-        return jsonify({"error": "Report generation failed. Please try again."}), 500
+        return jsonify({"error": "Report generation failed", "detail": str(e)}), 500
 
 
 @reports_bp.route("/api/reports/download", methods=["POST"])
 def reports_download():
     """Generate + fill incident report form, return as DOCX."""
     data = request.get_json(silent=True) or {}
-    notes = data.get("notes", "")
+    notes = data.get("notes", "").strip()
     if not notes:
         return jsonify({"error": "No field notes provided"}), 400
+
+    logger.info("Document download requested — notes length: %d chars", len(notes))
 
     try:
         classification = classify_incident(notes)
@@ -139,6 +145,6 @@ def reports_download():
             download_name="Incident_Report_Form.docx",
             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
-    except Exception:
+    except Exception as e:
         logger.exception("Document download failed")
-        return jsonify({"error": "Document generation failed. Please try again."}), 500
+        return jsonify({"error": "Document generation failed", "detail": str(e)}), 500
