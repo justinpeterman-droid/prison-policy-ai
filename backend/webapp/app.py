@@ -11,6 +11,11 @@ STATIC_DIR = Path(__file__).parent / "static"
 AUTH_EXEMPT = {"/login", "/logout", "/health"}
 
 
+def _code_ok(value: str) -> bool:
+    """Case-insensitive access-code check, so 'slut' and 'SLUT' both work."""
+    return bool(ACCESS_CODE) and (value or "").strip().lower() == ACCESS_CODE.strip().lower()
+
+
 def create_app() -> Flask:
     app = Flask(
         __name__,
@@ -32,10 +37,10 @@ def create_app() -> Flask:
             return None
         if request.path in AUTH_EXEMPT or request.path.startswith("/static/"):
             return None
-        if request.cookies.get("access_code") == ACCESS_CODE:
+        if _code_ok(request.cookies.get("access_code")):
             return None
         # Bookmarkable links: ?code=... sets the cookie then redirects clean
-        if request.args.get("code") == ACCESS_CODE:
+        if _code_ok(request.args.get("code")):
             resp = make_response(redirect(request.path))
             resp.set_cookie("access_code", ACCESS_CODE, max_age=60*60*24, httponly=True)
             return resp
@@ -56,7 +61,7 @@ def create_app() -> Flask:
         error = None
         if request.method == "POST":
             code = request.form.get("code", "")
-            if code == ACCESS_CODE:
+            if _code_ok(code):
                 next_url = request.args.get("next", "/")
                 resp = make_response(redirect(next_url))
                 resp.set_cookie("access_code", ACCESS_CODE, max_age=60*60*24, httponly=True)

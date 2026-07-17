@@ -27,8 +27,9 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
 
 # Auth — simple shared access code. Set via ACCESS_CODE env var.
-# Empty string = no auth required (open access).
-ACCESS_CODE = os.getenv("ACCESS_CODE", "")
+# Defaults to "slut"; matching is case-insensitive (see webapp auth).
+# Set ACCESS_CODE="" explicitly to disable auth (open access).
+ACCESS_CODE = os.getenv("ACCESS_CODE", "slut")
 
 # Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
