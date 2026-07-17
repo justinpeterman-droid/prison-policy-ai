@@ -11,4 +11,4 @@ COPY templates/ /app/templates/
 ENV PORT=8080
 ENV PYTHONPATH=/app
 
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 120 backend.webapp.app:create_app
+CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 120 "backend.webapp.app:create_app()"
