@@ -22,8 +22,24 @@ def _get_corpus():
     raise RuntimeError(f"Corpus '{CORPUS_NAME}' not found. Run embed first.")
 
 
-def retrieve_context(question: str, top_k: int = 5) -> list[str]:
-    """Retrieve relevant policy chunks."""
+def _source_label(ctx) -> str:
+    """Best-effort human-readable source name for a retrieved chunk.
+
+    Vertex RAG contexts may expose a display name or a gs:// URI depending on
+    how the corpus was imported; fall back to empty string when neither is
+    present (the UI then labels it generically).
+    """
+    for attr in ("source_display_name", "source_uri"):
+        val = getattr(ctx, attr, "") or ""
+        if val:
+            # Strip any path/bucket prefix and extension for a clean label.
+            name = val.rstrip("/").split("/")[-1]
+            return name.rsplit(".", 1)[0].replace("_", " ").strip()
+    return ""
+
+
+def retrieve_context(question: str, top_k: int = 5) -> list[dict]:
+    """Retrieve relevant policy chunks as {text, source} dicts."""
     corpus = _get_corpus()
     response = rag.retrieval_query(
         rag_corpora=[corpus.name],
@@ -33,21 +49,28 @@ def retrieve_context(question: str, top_k: int = 5) -> list[str]:
     contexts = []
     if hasattr(response, 'contexts') and response.contexts:
         for ctx in response.contexts.contexts:
-            contexts.append(ctx.text)
+            contexts.append({"text": ctx.text, "source": _source_label(ctx)})
     return contexts
 
 
 def answer_question(question: str) -> dict:
-    """Full RAG pipeline: retrieve → generate, returns {answer, sources}."""
+    """Full RAG pipeline: retrieve → generate.
+
+    Returns {answer, citations, sources}:
+      - citations: [{n, source, text}] full retrieved passages, for the UI's
+        cited-policy pane (click a citation → view/highlight the exact passage)
+      - sources: short labels, kept for backward compatibility
+    """
     contexts = retrieve_context(question)
 
     if not contexts:
         return {
             "answer": "No relevant policy documents found for this question.",
-            "sources": []
+            "citations": [],
+            "sources": [],
         }
 
-    context_text = "\n\n---\n\n".join(contexts)
+    context_text = "\n\n---\n\n".join(c["text"] for c in contexts)
     prompt = f"POLICY DOCUMENTS:\n{context_text}\n\nQUESTION: {question}"
 
     model = GenerativeModel(
@@ -56,7 +79,14 @@ def answer_question(question: str) -> dict:
     )
     response = model.generate_content(prompt)
 
+    citations = [
+        {"n": i + 1, "source": c["source"], "text": c["text"]}
+        for i, c in enumerate(contexts)
+    ]
     return {
         "answer": response.text,
-        "sources": [c[:80] + "..." for c in contexts]
+        "citations": citations,
+        "sources": [
+            (c["source"] or c["text"][:80] + "...") for c in contexts
+        ],
     }
