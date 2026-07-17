@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Access — Policy Assistant</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  .login-layout {
+    max-width: 400px; margin: 120px auto 0; padding: 20px; text-align: center;
+  }
+  .login-layout h1 { color: #fff; margin-bottom: 8px; font-size: 1.5rem; }
+  .login-layout p { color: var(--text-dim); margin-bottom: 24px; font-size: .9rem; }
+  .login-layout input {
+    width: 100%; padding: 14px; text-align: center; font-size: 1.2rem;
+    letter-spacing: 4px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text); margin-bottom: 16px;
+  }
+  .login-layout input:focus { outline: none; border-color: var(--accent); }
+  .error-msg { color: var(--danger); font-size: .85rem; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="login-layout">
+  <h1>Policy Assistant</h1>
+  <p>Enter the access code to continue.</p>
+  {% if error %}
+  <div class="error-msg">{{ error }}</div>
+  {% endif %}
+  <form method="POST">
+    <input type="text" name="code" placeholder="Access code" autofocus autocomplete="off">
+    <button class="btn" type="submit" style="width:100%">Enter</button>
+  </form>
+</div>
+</body>
+</html>

@@ -1,7 +1,9 @@
 """Policy chat endpoint."""
+import logging
 from flask import Blueprint, render_template, request, jsonify
 from backend.pipeline.query import answer_question
 
+logger = logging.getLogger(__name__)
 chat_bp = Blueprint("chat", __name__)
 
 
@@ -20,5 +22,6 @@ def chat_api():
     try:
         result = answer_question(question)
         return jsonify(result)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("Chat query failed")
+        return jsonify({"error": "Query failed. Please try again."}), 500

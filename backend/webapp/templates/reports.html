@@ -162,9 +162,9 @@ function renderResults(d) {
 function switchTab(id) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelector(`.tab-btn:has(+ *)`); // fallback
-  [...document.querySelectorAll('.tab-btn')].forEach(b => {
-    if (b.textContent.toLowerCase().includes(id)) b.classList.add('active');
+  const tabs = ['supervisor', 'first', 'disciplinary'];
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    if (tabs[i] === id) b.classList.add('active');
   });
   const panel = document.getElementById('panel-' + id);
   if (panel) panel.classList.add('active');

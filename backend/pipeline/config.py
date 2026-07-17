@@ -1,5 +1,6 @@
 """Prison Policy AI — configuration."""
 import os
+import logging
 from pathlib import Path
 
 # Paths
@@ -25,6 +26,11 @@ CORPUS_NAME = os.getenv("RAG_CORPUS_NAME", "prison-policies")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
 
-# API
-RATE_LIMIT_CHAT = os.getenv("RATE_LIMIT_CHAT", "20 per minute")
-RATE_LIMIT_REPORTS = os.getenv("RATE_LIMIT_REPORTS", "10 per minute")
+# Auth — simple shared access code. Set via ACCESS_CODE env var.
+# Empty string = no auth required (open access).
+ACCESS_CODE = os.getenv("ACCESS_CODE", "")
+
+# Logging
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+logging.basicConfig(level=getattr(logging, LOG_LEVEL))
+logger = logging.getLogger(__name__)
