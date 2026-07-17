@@ -70,3 +70,9 @@ def embed_all(chunks_dir: Path):
     import_to_corpus(corpus_name, gcs_path)
 
     print(f"\n✅ Corpus ready: {corpus_name}")
+
+
+if __name__ == "__main__":
+    from pathlib import Path
+    chunks_dir = Path(__file__).parent.parent.parent / "chunks"
+    embed_all(chunks_dir)
