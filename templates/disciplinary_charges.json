@@ -242,5 +242,69 @@
     "category": "SEXUAL ACTIVITY CATEGORY",
     "description": "Engaging in sexual activity with another consenting person.",
     "penalty_class": "A"
+  },
+  "10-2": {
+    "category": "SEXUAL MISCONDUCT",
+    "description": "Making sexual proposals to another person.",
+    "penalty_class": "A",
+    "note": "PREA"
+  },
+  "10-3": {
+    "category": "SEXUAL MISCONDUCT",
+    "description": "Indecent exposure; may result in a referral for criminal prosecution.",
+    "penalty_class": "A"
+  },
+  "10-4": {
+    "category": "SEXUAL MISCONDUCT",
+    "description": "Bestiality.",
+    "penalty_class": "A"
+  },
+  "10-5": {
+    "category": "SEXUAL MISCONDUCT",
+    "description": "Masturbation in the presence of another inmate.",
+    "penalty_class": "A"
+  },
+  "10-6": {
+    "category": "SEXUAL MISCONDUCT",
+    "description": "Engaging in non-abusive sexual activity with another person.",
+    "penalty_class": "A"
+  },
+  "10-7": {
+    "category": "SEXUAL MISCONDUCT",
+    "description": "Demanding sexual contact in trade or protection from physical harm or mental anguish, or other victimization.",
+    "penalty_class": "A"
+  },
+  "04-10": {
+    "category": "SEXUAL MISCONDUCT",
+    "description": "Rape or forced sexual act with/on an inmate.",
+    "penalty_class": "A",
+    "note": "May result in loss of all good time. PREA"
+  },
+  "04-19": {
+    "category": "SEXUAL MISCONDUCT",
+    "description": "Rape or forced sexual act on staff, volunteer, contractor, or other individual not incarcerated at the time of the incident.",
+    "penalty_class": "A",
+    "note": "May result in loss of all good time"
+  },
+  "15-1": {
+    "category": "TRAFFICKING AND TRADING CATEGORY",
+    "description": "The purchase or exchange of unauthorized articles or authorized articles obtained through unauthorized channels.",
+    "penalty_class": "B"
+  },
+  "15-2": {
+    "category": "TRAFFICKING AND TRADING CATEGORY",
+    "description": "Asking, coercing or offering inducement to anyone to violate Department policy or procedure, inmate rules and regulations, center/unit operating procedures.",
+    "penalty_class": "A"
+  },
+  "16-1": {
+    "category": "ESCAPE CATEGORY",
+    "description": "Escape, or attempt to escape from custody of the Department of Correction.",
+    "penalty_class": "A",
+    "note": "May result in loss of all good time"
+  },
+  "16-2": {
+    "category": "ESCAPE CATEGORY",
+    "description": "Failure to return from any approved activity or furlough at the designated time.",
+    "penalty_class": "A"
   }
 }
