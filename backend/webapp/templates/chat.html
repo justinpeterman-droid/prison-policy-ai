@@ -11,127 +11,157 @@
     --text:#f7f8f8;--text2:#d0d6e0;--text3:#8a8f98;--text4:#62666d;
     --accent:#5e6ad2;--accent2:#7170ff;--accent-glow:rgba(94,106,210,0.35);
     --border:rgba(255,255,255,0.08);--border-sub:rgba(255,255,255,0.05);
-    --danger:#e5534b;
+    --danger:#e5534b;--hl:rgba(113,112,255,0.16);
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-feature-settings:'cv01','ss03';-webkit-font-smoothing:antialiased}
+  html,body{height:100%}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);font-feature-settings:'cv01','ss03';-webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
   ::selection{background:rgba(113,112,255,0.28)}
   ::-webkit-scrollbar{width:10px}
   ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:5px;border:2px solid var(--bg)}
   ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.14)}
 
-  nav{position:sticky;top:0;z-index:50;background:var(--panel);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border-sub);padding:0 24px;display:flex;align-items:center;height:52px;justify-content:space-between}
+  nav{flex:0 0 auto;position:sticky;top:0;z-index:50;background:var(--panel);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border-sub);padding:0 24px;display:flex;align-items:center;height:52px;justify-content:space-between}
   .brand{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:510;color:var(--text2);letter-spacing:-0.13px;text-decoration:none}
   .brand .mark{width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;box-shadow:0 0 12px var(--accent-glow)}
+  .nav-right{display:flex;gap:4px}
   nav .nav-link{font-size:13px;font-weight:510;color:var(--text3);text-decoration:none;padding:6px 12px;border-radius:6px;transition:color .15s,background .15s}
   nav .nav-link:hover{color:var(--text);background:rgba(255,255,255,0.05)}
 
-  .container{max-width:760px;margin:0 auto;padding:40px 24px 0;display:flex;flex-direction:column;min-height:calc(100vh - 52px)}
-  h1{font-size:28px;font-weight:510;letter-spacing:-0.021em;color:var(--text);margin-bottom:6px}
-  .sub{font-size:14px;color:var(--text4);margin-bottom:28px;letter-spacing:-0.011em}
+  /* Split layout */
+  .split{flex:1;min-height:0;display:flex;max-width:1280px;width:100%;margin:0 auto}
+  .conv-pane{flex:1 1 58%;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--border-sub)}
+  .cite-pane{flex:1 1 42%;min-width:0;display:flex;flex-direction:column;background:radial-gradient(ellipse 500px 360px at 50% 0%,rgba(94,106,210,0.05),transparent)}
 
-  #chat{display:flex;flex-direction:column;gap:14px;flex:1;padding-bottom:16px}
+  .pane-head{flex:0 0 auto;padding:20px 24px 12px}
+  .pane-head h1{font-size:22px;font-weight:510;letter-spacing:-0.02em;color:var(--text)}
+  .pane-head .sub{font-size:13px;color:var(--text4);margin-top:2px;letter-spacing:-0.01em}
+  .cite-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .cite-head .count{font-size:12px;color:var(--text4);font-variant-numeric:tabular-nums}
 
-  .empty{
-    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    text-align:center;padding:40px 20px;min-height:320px;
-  }
-  .empty .glyph{
-    width:48px;height:48px;border-radius:12px;margin-bottom:16px;
-    display:flex;align-items:center;justify-content:center;font-size:22px;
-    background:rgba(94,106,210,0.12);border:1px solid rgba(94,106,210,0.22);
-  }
-  .empty h2{font-size:16px;font-weight:590;color:var(--text2);margin-bottom:6px;letter-spacing:-0.014em}
-  .empty p{font-size:13px;color:var(--text4);margin-bottom:22px;max-width:340px;line-height:1.55}
+  #chat{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding:8px 24px 12px}
+
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px}
+  .empty .glyph{width:46px;height:46px;border-radius:12px;margin-bottom:15px;display:flex;align-items:center;justify-content:center;font-size:21px;background:rgba(94,106,210,0.12);border:1px solid rgba(94,106,210,0.22)}
+  .empty h2{font-size:15px;font-weight:590;color:var(--text2);margin-bottom:6px;letter-spacing:-0.014em}
+  .empty p{font-size:13px;color:var(--text4);margin-bottom:20px;max-width:320px;line-height:1.55}
   .chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-  .chip{
-    font-size:12.5px;font-weight:510;color:var(--text3);background:rgba(255,255,255,0.03);
-    border:1px solid var(--border);border-radius:9999px;padding:7px 14px;cursor:pointer;
-    font-family:inherit;transition:all .15s;
-  }
+  .chip{font-size:12.5px;font-weight:510;color:var(--text3);background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:9999px;padding:7px 14px;cursor:pointer;font-family:inherit;transition:all .15s}
   .chip:hover{color:var(--text);border-color:rgba(113,112,255,0.4);background:rgba(94,106,210,0.08)}
 
-  .msg{padding:13px 17px;border-radius:10px;line-height:1.6;font-size:14.5px;max-width:85%;letter-spacing:-0.006em;animation:rise .25s ease}
+  .msg{padding:12px 16px;border-radius:11px;line-height:1.6;font-size:14.5px;max-width:92%;letter-spacing:-0.006em;animation:rise .25s ease}
   @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  .user{
-    background:linear-gradient(135deg,rgba(94,106,210,0.16),rgba(113,112,255,0.10));
-    border:1px solid rgba(94,106,210,0.25);color:var(--text);
-    align-self:flex-end;border-radius:12px 12px 3px 12px;
-  }
-  .ai{
-    background:var(--surface);border:1px solid var(--border);color:var(--text2);
-    white-space:pre-wrap;align-self:flex-start;border-radius:12px 12px 12px 3px;
-  }
+  .user{background:linear-gradient(135deg,rgba(94,106,210,0.16),rgba(113,112,255,0.10));border:1px solid rgba(94,106,210,0.25);color:var(--text);align-self:flex-end;border-radius:12px 12px 3px 12px}
+  .ai{background:var(--surface);border:1px solid var(--border);color:var(--text2);white-space:pre-wrap;align-self:flex-start;border-radius:12px 12px 12px 3px}
   .ai.err{border-color:rgba(229,83,75,0.35);color:var(--danger)}
-  .srcs{margin-top:10px;padding-top:10px;border-top:1px solid var(--border-sub);white-space:normal}
-  .src{
-    display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.04);color:var(--text3);
-    padding:3px 9px;border-radius:5px;font-size:11px;font-weight:510;margin:2px 4px 0 0;
-    border:1px solid var(--border-sub);
-  }
-  .src::before{content:'§';color:var(--accent2);font-size:10px}
+  .cite-chips{margin-top:10px;padding-top:10px;border-top:1px solid var(--border-sub);display:flex;flex-wrap:wrap;gap:6px}
+  .cbtn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);color:var(--text3);padding:3px 10px 3px 7px;border-radius:6px;font-size:11.5px;font-weight:510;border:1px solid var(--border-sub);cursor:pointer;font-family:inherit;transition:all .15s;max-width:100%}
+  .cbtn:hover{color:var(--text);border-color:rgba(113,112,255,0.45);background:rgba(94,106,210,0.10)}
+  .cbtn .num{flex:0 0 auto;width:15px;height:15px;border-radius:4px;background:rgba(113,112,255,0.28);color:#fff;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700}
+  .cbtn .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-  .typing{display:flex;gap:5px;align-items:center;padding:16px 18px}
+  .typing{display:flex;gap:5px;align-items:center;padding:15px 18px}
   .typing .dot{width:6px;height:6px;border-radius:50%;background:var(--text4);animation:pulse 1.2s infinite ease-in-out}
   .typing .dot:nth-child(2){animation-delay:.15s}
   .typing .dot:nth-child(3){animation-delay:.3s}
   @keyframes pulse{0%,60%,100%{opacity:.25;transform:scale(.85)}30%{opacity:1;transform:scale(1)}}
 
-  .input-row{
-    position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 24%);
-    padding:20px 0 24px;display:flex;gap:8px;
-  }
-  .input-shell{
-    flex:1;display:flex;gap:6px;align-items:center;
-    background:var(--surface);border:1px solid var(--border);border-radius:10px;
-    padding:5px 5px 5px 16px;transition:border-color .15s,box-shadow .15s;
-  }
+  .input-row{flex:0 0 auto;display:flex;gap:8px;padding:14px 24px 18px;border-top:1px solid var(--border-sub);background:var(--bg)}
+  .input-shell{flex:1;display:flex;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:5px 5px 5px 16px;transition:border-color .15s,box-shadow .15s}
   .input-shell:focus-within{border-color:rgba(113,112,255,0.5);box-shadow:0 0 0 3px rgba(94,106,210,0.15)}
   input{flex:1;background:transparent;border:none;color:var(--text);font-size:14.5px;font-family:inherit;outline:none;padding:8px 0}
   input::placeholder{color:var(--text4)}
-  button.primary{
-    padding:9px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;
-    border:none;border-radius:7px;font-size:13.5px;font-weight:560;cursor:pointer;font-family:inherit;
-    transition:opacity .15s,box-shadow .15s;box-shadow:0 1px 8px rgba(94,106,210,0.3);
-  }
+  button.primary{padding:9px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:7px;font-size:13.5px;font-weight:560;cursor:pointer;font-family:inherit;transition:opacity .15s,box-shadow .15s;box-shadow:0 1px 8px rgba(94,106,210,0.3)}
   button.primary:hover{box-shadow:0 2px 16px rgba(113,112,255,0.45)}
   button.primary:disabled{opacity:.4;cursor:default;box-shadow:none}
-  button.secondary{
-    padding:9px 16px;background:transparent;color:var(--text4);border:1px solid var(--border);
-    border-radius:10px;font-size:13px;font-weight:510;cursor:pointer;font-family:inherit;transition:all .15s;
-  }
+  button.secondary{padding:9px 14px;background:transparent;color:var(--text4);border:1px solid var(--border);border-radius:10px;font-size:13px;font-weight:510;cursor:pointer;font-family:inherit;transition:all .15s}
   button.secondary:hover{color:var(--text2);border-color:rgba(255,255,255,0.16);background:rgba(255,255,255,0.03)}
-  @media(max-width:640px){.msg{max-width:95%}}
+
+  /* Citation pane */
+  #cites{flex:1;min-height:0;overflow-y:auto;padding:8px 24px 20px;display:flex;flex-direction:column;gap:12px}
+  .cite-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--text4);padding:40px 24px}
+  .cite-empty .glyph{width:42px;height:42px;border-radius:11px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;font-size:19px;background:rgba(255,255,255,0.03);border:1px solid var(--border-sub)}
+  .cite-empty p{font-size:13px;max-width:280px;line-height:1.55}
+  .passage{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;animation:rise .25s ease;scroll-margin-top:12px}
+  .passage.flash{animation:flashbg 1.6s ease}
+  @keyframes flashbg{0%,22%{border-color:rgba(113,112,255,0.7);box-shadow:0 0 0 3px var(--hl)}100%{border-color:var(--border);box-shadow:none}}
+  .passage .p-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 13px;border-bottom:1px solid var(--border-sub)}
+  .passage .p-head .who{display:flex;align-items:center;gap:8px;min-width:0}
+  .passage .p-head .num{flex:0 0 auto;width:17px;height:17px;border-radius:5px;background:rgba(113,112,255,0.28);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+  .passage .p-head .src{font-size:12px;font-weight:590;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .passage .p-copy{font-size:11px;color:var(--accent2);cursor:pointer;background:none;border:none;font-weight:560;padding:3px 7px;border-radius:5px;font-family:inherit;transition:background .15s;flex:0 0 auto}
+  .passage .p-copy:hover{background:rgba(94,106,210,0.12)}
+  .passage .p-copy.done{color:var(--green,#27a644)}
+  .passage .p-body{padding:12px 14px;font-size:13px;line-height:1.65;color:var(--text3);white-space:pre-wrap;max-height:360px;overflow-y:auto}
+  .cite-for{font-size:11.5px;color:var(--text4);padding:2px 0 2px}
+
+  /* Mobile: citation pane becomes a slide-over overlay */
+  .cite-toggle{display:none}
+  @media(max-width:820px){
+    .split{flex-direction:column}
+    .conv-pane{flex:1;border-right:none}
+    .cite-pane{position:fixed;inset:52px 0 0 0;z-index:40;background:var(--bg);transform:translateX(100%);transition:transform .22s ease;border-left:1px solid var(--border)}
+    .cite-pane.open{transform:none}
+    .cite-toggle{display:inline-flex;align-items:center;gap:6px}
+    .cite-close{display:inline-block}
+  }
+  @media(min-width:821px){.cite-close{display:none}}
 </style>
 </head>
 <body>
 <nav>
   <a class="brand" href="/"><span class="mark">S</span>SLUT</a>
-  <div class="nav-right" style="display:flex;gap:4px">
+  <div class="nav-right">
     <a class="nav-link" href="/reports">Forms →</a>
     <a class="nav-link" href="/logout">Log out</a>
   </div>
 </nav>
-<div class="container">
-  <h1>Reference Search</h1>
-  <p class="sub">Search administrative policies, directives, and unit procedures.</p>
-  <div id="chat"></div>
-  <div class="input-row">
-    <div class="input-shell">
-      <input id="q" placeholder="What procedure are you looking for?" autofocus autocomplete="off" onkeypress="if(event.key==='Enter')send()">
-      <button class="primary" id="btn" onclick="send()">Search</button>
+
+<div class="split">
+  <!-- Conversation -->
+  <section class="conv-pane">
+    <div class="pane-head">
+      <h1>Reference Search</h1>
+      <p class="sub">Search administrative policies, directives, and unit procedures.</p>
     </div>
-    <button class="secondary" onclick="clearChat()">Clear</button>
-  </div>
+    <div id="chat"></div>
+    <div class="input-row">
+      <div class="input-shell">
+        <input id="q" placeholder="What procedure are you looking for?" autofocus autocomplete="off" onkeypress="if(event.key==='Enter')send()">
+        <button class="primary" id="btn" onclick="send()">Search</button>
+      </div>
+      <button class="secondary cite-toggle" id="citeToggle" onclick="openCites()">Sources</button>
+      <button class="secondary" onclick="clearChat()">Clear</button>
+    </div>
+  </section>
+
+  <!-- Cited policy -->
+  <aside class="cite-pane" id="citePane">
+    <div class="pane-head cite-head">
+      <div>
+        <h1 style="font-size:16px">Cited Policy</h1>
+        <p class="sub" id="citeFor">The exact passages behind each answer.</p>
+      </div>
+      <button class="secondary cite-close" onclick="closeCites()" style="padding:5px 12px">Close</button>
+    </div>
+    <div id="cites"></div>
+  </aside>
 </div>
+
 <script>
 const chat=document.getElementById('chat');
+const citesEl=document.getElementById('cites');
+const citeFor=document.getElementById('citeFor');
+let convos=[];            // per-answer: {question, citations:[{n,source,text}]}
+let activeConv=-1;
+
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
 function emptyState(){
   return `<div class="empty" id="empty">
     <div class="glyph">📑</div>
     <h2>Search the reference library</h2>
-    <p>Ask about any policy, directive, or unit procedure. Answers cite their source documents.</p>
+    <p>Ask about any policy, directive, or unit procedure. The exact source passages appear on the right.</p>
     <div class="chips">
       <button class="chip" onclick="ask('Use of force reporting requirements')">Use of force reporting</button>
       <button class="chip" onclick="ask('Inmate visitation procedures')">Visitation procedures</button>
@@ -139,12 +169,22 @@ function emptyState(){
     </div>
   </div>`;
 }
-function ask(q){document.getElementById('q').value=q;send()}
-function clearChat(){
-  chat.innerHTML=emptyState();
-  document.getElementById('q').value='';
-  document.getElementById('q').focus();
+function citeEmpty(){
+  return `<div class="cite-empty" id="citeEmpty">
+    <div class="glyph">§</div>
+    <p>Citations will appear here. Ask a question, then select a citation under any answer to view the exact policy passage.</p>
+  </div>`;
 }
+function ask(q){document.getElementById('q').value=q;send()}
+
+function clearChat(){
+  convos=[];activeConv=-1;
+  chat.innerHTML=emptyState();
+  citesEl.innerHTML=citeEmpty();
+  citeFor.textContent='The exact passages behind each answer.';
+  const q=document.getElementById('q');q.value='';q.focus();
+}
+
 function send(){
   const i=document.getElementById('q'),b=document.getElementById('btn');
   const q=i.value.trim();if(!q)return;
@@ -152,19 +192,68 @@ function send(){
   chat.insertAdjacentHTML('beforeend',`<div class="msg user">${esc(q)}</div>`);
   i.value='';b.disabled=true;
   chat.insertAdjacentHTML('beforeend',`<div class="msg ai typing" id="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`);
-  chat.lastElementChild?.scrollIntoView({behavior:'smooth',block:'end'});
+  chat.scrollTop=chat.scrollHeight;
   fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})})
   .then(r=>r.json()).then(d=>{
     document.getElementById('typing')?.remove();
-    let srcs='';
-    if(d.sources&&d.sources.length)srcs=`<div class="srcs">`+d.sources.map(s=>`<span class="src" title="${esc(s)}">${esc(s.substring(0,60))}</span>`).join('')+`</div>`;
-    chat.insertAdjacentHTML('beforeend',`<div class="msg ai">${esc(d.answer||d.error)}${srcs}</div>`);
-    chat.lastElementChild?.scrollIntoView({behavior:'smooth',block:'end'});
+    if(d.error){chat.insertAdjacentHTML('beforeend',`<div class="msg ai err">${esc(d.error)}</div>`);return}
+    const citations=d.citations||[];
+    const idx=convos.push({question:q,citations})-1;
+    let chips='';
+    if(citations.length){
+      chips=`<div class="cite-chips">`+citations.map(c=>{
+        const label=c.source||('Excerpt '+c.n);
+        return `<button class="cbtn" onclick="showCites(${idx},${c.n})"><span class="num">${c.n}</span><span class="lbl">${esc(label)}</span></button>`;
+      }).join('')+`</div>`;
+    }
+    chat.insertAdjacentHTML('beforeend',`<div class="msg ai">${esc(d.answer)}${chips}</div>`);
+    chat.scrollTop=chat.scrollHeight;
+    if(citations.length)showCites(idx);   // auto-load newest answer's sources
   }).catch(e=>{
     document.getElementById('typing')?.remove();
     chat.insertAdjacentHTML('beforeend',`<div class="msg ai err">Error: ${esc(e.message)}</div>`);
   }).finally(()=>{b.disabled=false;i.focus()});
 }
+
+function showCites(convIdx,focusN){
+  const c=convos[convIdx];if(!c)return;
+  if(activeConv!==convIdx){
+    activeConv=convIdx;
+    citeFor.textContent='For: "'+(c.question.length>60?c.question.slice(0,60)+'…':c.question)+'"';
+    if(!c.citations.length){
+      citesEl.innerHTML=`<div class="cite-empty"><div class="glyph">§</div><p>No source passages were returned for this answer.</p></div>`;
+    }else{
+      citesEl.innerHTML=c.citations.map(p=>{
+        const label=p.source||('Policy excerpt '+p.n);
+        return `<div class="passage" id="p-${convIdx}-${p.n}">
+          <div class="p-head">
+            <div class="who"><span class="num">${p.n}</span><span class="src">${esc(label)}</span></div>
+            <button class="p-copy" onclick="copyPassage(${convIdx},${p.n},this)">Copy</button>
+          </div>
+          <div class="p-body">${esc(p.text)}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+  if(window.matchMedia('(max-width:820px)').matches)openCites();
+  if(focusN){
+    const el=document.getElementById(`p-${convIdx}-${focusN}`);
+    if(el){el.scrollIntoView({behavior:'smooth',block:'nearest'});el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');}
+  }else{
+    citesEl.scrollTop=0;
+  }
+}
+function copyPassage(convIdx,n,btn){
+  const p=(convos[convIdx]?.citations||[]).find(x=>x.n===n);
+  const text=p?p.text:'';
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.textContent='Copied ✓';btn.classList.add('done');
+    setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('done')},1500);
+  }).catch(()=>prompt('Copy manually:',text));
+}
+function openCites(){document.getElementById('citePane').classList.add('open')}
+function closeCites(){document.getElementById('citePane').classList.remove('open')}
+
 clearChat();
 </script>
 </body>
