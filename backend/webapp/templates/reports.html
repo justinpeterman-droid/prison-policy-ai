@@ -3,208 +3,135 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Report Writer</title>
-<link rel="stylesheet" href="/static/style.css">
+<title>Document Preparation | DocFlow</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#08090a;--panel:#0f1011;--surface:#191a1b;--text:#f7f8f8;--text2:#d0d6e0;--text3:#8a8f98;--text4:#62666d;--accent:#5e6ad2;--accent2:#7170ff;--border:rgba(255,255,255,0.08);--border-sub:rgba(255,255,255,0.05);--green:#27a644}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-feature-settings:'cv01','ss03'}
+  nav{position:sticky;top:0;z-index:50;background:var(--panel);border-bottom:1px solid var(--border-sub);padding:0 24px;display:flex;align-items:center;height:48px;justify-content:space-between}
+  nav .brand{font-size:13px;font-weight:510;color:var(--text2);letter-spacing:-0.13px}
+  nav .brand span{color:var(--accent2)}
+  nav a{font-size:13px;font-weight:510;color:var(--text3);text-decoration:none;transition:color 0.15s}
+  nav a:hover{color:var(--text)}
+  .layout{display:flex;max-width:1100px;margin:0 auto;gap:0;min-height:calc(100vh - 48px)}
+  .input-panel{width:380px;flex-shrink:0;padding:32px 28px;border-right:1px solid var(--border);overflow-y:auto}
+  .preview-panel{flex:1;padding:40px;overflow-y:auto;display:flex;justify-content:center}
+  @media(max-width:768px){.layout{flex-direction:column}.input-panel{width:100%;border-right:none;border-bottom:1px solid var(--border)}}
+  h2{font-size:20px;font-weight:590;letter-spacing:-0.24px;color:var(--text);margin-bottom:4px}
+  .sub{font-size:13px;color:var(--text4);margin-bottom:24px}
+  textarea{width:100%;height:160px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:6px;padding:12px 14px;color:var(--text2);font-family:'Inter',system-ui,sans-serif;font-size:13px;resize:vertical;outline:none;line-height:1.5;margin-bottom:12px;transition:border-color 0.15s}
+  textarea:focus{border-color:var(--accent2)}
+  button{width:100%;padding:10px 0;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:510;cursor:pointer;font-family:inherit;transition:background 0.15s;margin-bottom:12px}
+  button:hover{background:var(--accent2)}
+  button:disabled{opacity:0.4}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .badge{display:inline-block;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:510;margin:2px 4px 2px 0}
+  .badge-type{background:rgba(94,106,210,0.2);color:var(--accent2);border:1px solid rgba(94,106,210,0.3)}
+  .badge-charge{background:rgba(255,255,255,0.05);color:var(--text3);border:1px solid var(--border-sub)}
+  .error{background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);color:#e74c3c;padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:12px}
+
+  .page{width:8.5in;min-height:11in;background:#fff;color:#111;padding:0.8in;font-family:'Times New Roman',serif;box-shadow:0 0 60px rgba(0,0,0,0.5);border-radius:2px;font-size:12pt;line-height:1.6}
+  .page .header{border-bottom:3px solid #111;padding-bottom:12pt;margin-bottom:18pt;text-align:center}
+  .page .header h3{font-size:11pt;font-weight:bold;text-transform:uppercase;letter-spacing:1pt}
+  .page .field-row{display:flex;gap:24pt;margin-bottom:8pt;font-size:11pt}
+  .page .field{flex:1}
+  .page .field label{font-weight:bold;font-size:9pt;text-transform:uppercase;color:#555;display:block}
+  .page .section-title{font-weight:bold;font-size:10pt;text-transform:uppercase;color:#555;border-bottom:1px solid #ccc;margin:16pt 0 8pt 0;padding-bottom:2pt}
+  .page .narrative{font-size:11pt;line-height:1.7;margin-bottom:12pt;white-space:pre-wrap}
+  .sig{margin-top:40pt;display:flex;gap:24pt}
+  .sig div{flex:1;border-top:1px solid #111;padding-top:4pt;font-size:9pt;color:#555}
+
+  .report-box{margin-bottom:20px}
+  .report-box h3{font-size:14px;font-weight:590;color:var(--text2);margin-bottom:6px}
+  .report-box pre{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:14px;font-size:12px;color:var(--text2);white-space:pre-wrap;line-height:1.5;max-height:200px;overflow-y:auto;font-family:inherit}
+  .copy-link{font-size:11px;color:var(--accent2);cursor:pointer;background:none;border:none;font-weight:510;padding:0;width:auto;margin-top:6px}
+</style>
 </head>
 <body>
-<div class="reports-layout">
-  <div class="nav">
-    <a href="/">← Home</a>
-    <span class="brand">| Report Writing Assistant</span>
+<nav>
+  <div class="brand"><a href="/" style="color:inherit;text-decoration:none">Doc<span>Flow</span></a></div>
+  <a href="/chat">Reference Search →</a>
+</nav>
+
+<div class="layout">
+  <div class="input-panel">
+    <h2>Document Preparation</h2>
+    <p class="sub">Enter field notes to generate required documentation.</p>
+    
+    <textarea id="notes" placeholder="0600 - D-WING: Head count complete. All present.
+0615 - Mess hall: Inmate Johnson complained of chest pain. Escorted to medical office.
+0620 - Medical notified. Nurse Alvarez on duty."></textarea>
+    
+    <button id="genBtn" onclick="generate()"><span id="spinner" class="spinner" style="display:none"></span>Generate Documents</button>
+    <div id="error"></div>
+    <div id="badges"></div>
+    
+    <div id="reports"></div>
   </div>
-
-  <div style="margin: 16px 0 20px">
-    <h1 style="color:#fff;font-size:1.5rem;margin-bottom:4px">📝 Generate Reports</h1>
-    <p style="color:var(--text-dim);font-size:.9rem">Paste field notes. Auto-classifies, generates reports, fills forms.</p>
-  </div>
-
-  <textarea id="notes" placeholder="Enter your field notes — chronological, include all relevant observations...
-Example:
-0600 — D-WING: Head count complete. All present.
-0615 — Mess hall: Inmate #123456 complained of chest pain. Escorted to medical.
-0620 — Medical notified. Nurse Alvarez on duty. Vitals taken.
-0645 — Inmate cleared by medical, returned to wing. No further complaints."></textarea>
-  <div class="char-count"><span id="charCount">0</span> characters</div>
-
-  <div class="btn-row">
-    <button class="btn" id="genBtn" onclick="generate()">⚡ Generate Reports</button>
-    <div class="spinner"></div>
-  </div>
-
-  <div id="results"></div>
-  <div id="downloadArea" class="download-area" style="display:none">
-    <h4>📎 Download 005/409 Form</h4>
-    <p>AI-generated narrative filled into the official incident report template.</p>
-    <button class="btn" id="downloadBtn" onclick="downloadForm()">⬇ Download DOC</button>
+  
+  <div class="preview-panel">
+    <div class="page" id="preview">
+      <div class="header"><h3>Document Preview</h3></div>
+      <p style="color:#999;text-align:center;margin-top:100pt;font-family:Inter,sans-serif;font-size:11pt">
+        Generated documents will appear here
+      </p>
+    </div>
   </div>
 </div>
 
 <script>
-const $ = id => document.getElementById(id);
-
-// Character counter
-$('notes').addEventListener('input', () => {
-  $('charCount').textContent = $('notes').value.length.toLocaleString();
-});
-
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function copyToClipboard(text){
+  navigator.clipboard.writeText(text).then(()=>{}).catch(()=>prompt('Copy manually:',text));
 }
-
-async function copyToClipboard(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
+async function generate(){
+  const notes=document.getElementById('notes').value.trim();
+  if(!notes)return;
+  const btn=document.getElementById('genBtn'),sp=document.getElementById('spinner');
+  btn.disabled=true;sp.style.display='inline-block';
+  document.getElementById('error').innerHTML='';
+  document.getElementById('badges').innerHTML='';
+  document.getElementById('reports').innerHTML='';
+  try{
+    const r=await fetch('/api/reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes})});
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    
+    let badges='';
+    if(d.incident_type)badges+=`<span class="badge badge-type">${esc(d.incident_type.replace(/_/g,' '))}</span>`;
+    (d.charges||[]).forEach(c=>{badges+=`<span class="badge badge-charge">${esc(c)}</span>`});
+    document.getElementById('badges').innerHTML=badges;
+    
+    let html='';
+    const rp=d.reports||{};
+    if(rp.supervisor_summary)html+=reportBox('Supervisor Summary',rp.supervisor_summary);
+    if(rp.first_person)html+=reportBox('First Person Report',rp.first_person);
+    if(rp.disciplinary)html+=reportBox('Disciplinary Supplement',rp.disciplinary);
+    document.getElementById('reports').innerHTML=html;
+    
+    updatePreview(d);
+  }catch(e){
+    document.getElementById('error').innerHTML=`<div class="error">${esc(e.message)}</div>`;
+  }finally{btn.disabled=false;sp.style.display='none';}
 }
-
-function showCopyFeedback(btn) {
-  const orig = btn.textContent;
-  btn.textContent = '✓ Copied!';
-  btn.style.color = 'var(--success)';
-  btn.style.borderColor = 'var(--success)';
-  setTimeout(() => {
-    btn.textContent = orig;
-    btn.style.color = '';
-    btn.style.borderColor = '';
-  }, 2000);
+function reportBox(title,text){
+  return `<div class="report-box"><h3>${esc(title)}</h3><pre>${esc(text)}</pre><button class="copy-link" onclick="copyToClipboard(${JSON.stringify(text)})">Copy to clipboard</button></div>`;
 }
-
-async function generate() {
-  const notes = $('notes').value.trim();
-  if (!notes) return;
-
-  const btn = $('genBtn');
-  const row = document.querySelector('.btn-row');
-  btn.disabled = true;
-  row.classList.add('loading');
-  $('results').innerHTML = '';
-  $('downloadArea').style.display = 'none';
-
-  try {
-    const r = await fetch('/api/reports', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes })
-    });
-    const d = await r.json();
-    if (d.error) throw new Error(d.error);
-    renderResults(d);
-  } catch (e) {
-    $('results').innerHTML =
-      `<div class="status-banner error">⚠ ${esc(e.message)}</div>`;
-  } finally {
-    btn.disabled = false;
-    row.classList.remove('loading');
-  }
-}
-
-function renderResults(d) {
-  // Classification badges
-  let html = '<div class="badges">';
-  html += `<span class="badge badge-type">${esc(d.incident_type || 'General Incident')}</span>`;
-  (d.forms_required || []).forEach(f =>
-    html += `<span class="badge badge-form">📄 ${esc(f)}</span>`
-  );
-  (d.charges || []).forEach(c =>
-    html += `<span class="badge badge-charge">⚖ ${esc(c)}</span>`
-  );
-  html += '</div>';
-
-  const reports = d.reports || {};
-  const tabs = [];
-  if (reports.supervisor_summary) tabs.push(['supervisor', '📋 Supervisor Summary']);
-  if (reports.first_person) tabs.push(['first', '👤 First Person Report']);
-  if (reports.disciplinary) tabs.push(['disciplinary', '⚖ Disciplinary Supplement']);
-
-  if (tabs.length === 0) {
-    html += '<div class="status-banner info">No reports generated. Check field notes content.</div>';
-    $('results').innerHTML = html;
-    return;
-  }
-
-  // Tab buttons
-  html += '<div class="tabs">';
-  tabs.forEach(([id, label], i) => {
-    html += `<button class="tab-btn${i === 0 ? ' active' : ''}" onclick="switchTab('${id}')">${label}</button>`;
-  });
-  html += '</div>';
-
-  // Tab panels
-  const reportMap = {
-    supervisor: reports.supervisor_summary,
-    first: reports.first_person,
-    disciplinary: reports.disciplinary
-  };
-  tabs.forEach(([id], i) => {
-    html +=
-      `<div class="tab-panel${i === 0 ? ' active' : ''}" id="panel-${id}">
-        <div class="report-card">
-          <div class="report-body">${esc(reportMap[id])}</div>
-          <div class="report-actions">
-            <button class="btn-outline" onclick="doCopy(this, '${id}')">📋 Copy</button>
-          </div>
-        </div>
-      </div>`;
-  });
-
-  // Store reports for copy
-  window._reports = reportMap;
-
-  $('results').innerHTML = html;
-  $('downloadArea').style.display = 'block';
-}
-
-function switchTab(id) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  const tabs = ['supervisor', 'first', 'disciplinary'];
-  document.querySelectorAll('.tab-btn').forEach((b, i) => {
-    if (tabs[i] === id) b.classList.add('active');
-  });
-  const panel = document.getElementById('panel-' + id);
-  if (panel) panel.classList.add('active');
-  // Match button to tab
-  document.querySelectorAll('.tab-btn').forEach((b, i) => {
-    const tabs = ['supervisor', 'first', 'disciplinary'];
-    if (tabs[i] === id) b.classList.add('active');
-  });
-}
-
-function doCopy(btn, reportId) {
-  const text = window._reports[reportId];
-  if (!text) return;
-  copyToClipboard(text).then(ok => {
-    if (ok) showCopyFeedback(btn);
-    else prompt('Copy manually:', text);
-  });
-}
-
-function downloadForm() {
-  const notes = $('notes').value.trim();
-  if (!notes) return;
-  // POST to download endpoint
-  fetch('/api/reports/download', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ notes })
-  }).then(r => {
-    if (!r.ok) throw new Error('Download failed');
-    return r.blob();
-  }).then(blob => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'Incident_Report_Form.docx';
-    a.click();
-    URL.revokeObjectURL(url);
-  }).catch(e => {
-    alert('Download not yet available: ' + e.message);
-  });
+function updatePreview(d){
+  const r=d.reports||{};
+  const fp=r.first_person||'';
+  document.getElementById('preview').innerHTML=`
+    <div class="header"><h3>Document Draft</h3></div>
+    <div class="field-row">
+      <div class="field"><label>Incident Type</label>${esc((d.incident_type||'N/A').replace(/_/g,' '))}</div>
+      <div class="field"><label>Date</label>${new Date().toLocaleDateString()}</div>
+    </div>
+    <div class="section-title">Narrative</div>
+    <div class="narrative">${esc(fp||'No narrative generated.')}</div>
+    <div class="sig"><div>Reporting Officer</div><div>Supervisor Review</div><div>Date</div></div>
+  `;
 }
 </script>
 </body>

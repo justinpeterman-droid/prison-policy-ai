@@ -3,51 +3,81 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Policy reference and documentation tools">
-<title>Training & Policy Reference | ADC</title>
+<title>Documentation & Forms Processing | ADC</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {--bg:#f4f5f7;--card:#fff;--accent:#1a3a5c;--text:#222;--muted:#666;--border:#d0d4da;}
+  :root {
+    --bg: #08090a; --panel: #0f1011; --surface: #191a1b; --elevated: #1e1f20;
+    --text: #f7f8f8; --text2: #d0d6e0; --text3: #8a8f98; --text4: #62666d;
+    --accent: #5e6ad2; --accent2: #7170ff; --border: rgba(255,255,255,0.08); --border-sub: rgba(255,255,255,0.05);
+    --green: #27a644; --radius: 8px;
+  }
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
-  .topbar{background:var(--accent);color:#fff;padding:10px 24px;font-size:13px;display:flex;justify-content:space-between;align-items:center;}
-  .topbar span{opacity:0.8;}
-  .container{max-width:840px;margin:0 auto;padding:40px 20px;}
-  h1{font-size:1.6rem;color:var(--accent);margin-bottom:6px;font-weight:600;}
-  .sub{color:var(--muted);font-size:0.95rem;margin-bottom:40px;}
-  .cards{display:flex;gap:24px;}
-  @media(max-width:640px){.cards{flex-direction:column;}}
-  .card{flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:32px 28px;text-decoration:none;color:inherit;box-shadow:0 1px 3px rgba(0,0,0,0.06);transition:box-shadow 0.2s;}
-  .card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.1);}
-  .card h2{font-size:1.1rem;color:var(--accent);margin-bottom:8px;font-weight:600;}
-  .card p{color:var(--muted);font-size:0.9rem;line-height:1.5;margin-bottom:16px;}
-  .card .link{color:var(--accent);font-weight:600;font-size:0.9rem;}
-  footer{text-align:center;padding:24px;color:var(--muted);font-size:0.8rem;}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-feature-settings:'cv01','ss03';}
+  nav{position:sticky;top:0;z-index:50;background:var(--panel);border-bottom:1px solid var(--border-sub);padding:0 24px;display:flex;align-items:center;height:48px;justify-content:space-between;}
+  nav .brand{font-size:13px;font-weight:510;color:var(--text2);letter-spacing:-0.13px;}
+  nav .brand span{color:var(--accent2);}
+  nav .links{display:flex;gap:20px;}
+  nav a{font-size:13px;font-weight:510;color:var(--text3);text-decoration:none;transition:color 0.15s;}
+  nav a:hover{color:var(--text);}
+  
+  .container{max-width:960px;margin:0 auto;padding:60px 24px;}
+  h1{font-size:48px;font-weight:510;line-height:1.0;letter-spacing:-1.056px;color:var(--text);margin-bottom:16px;}
+  .sub{font-size:18px;font-weight:400;color:var(--text3);line-height:1.6;letter-spacing:-0.165px;margin-bottom:48px;}
+
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:640px){.cards{grid-template-columns:1fr;}}
+  
+  .card{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:28px;text-decoration:none;color:inherit;transition:background 0.15s,border-color 0.15s;display:block;}
+  .card:hover{background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.12);}
+  .card .icon{font-size:24px;margin-bottom:16px;opacity:0.8;}
+  .card h2{font-size:20px;font-weight:590;letter-spacing:-0.24px;color:var(--text);margin-bottom:8px;}
+  .card p{font-size:14px;font-weight:400;color:var(--text3);line-height:1.5;margin-bottom:6px;}
+  .card .hint{font-size:12px;color:var(--text4);font-weight:400;}
+
+  .joke-line{font-size:12px;color:var(--text4);text-align:center;margin-top:60px;line-height:1.6;opacity:0.6;}
+  .joke-line:hover{opacity:1;transition:opacity 0.3s;}
+  
+  footer{text-align:center;padding:40px 24px;border-top:1px solid var(--border-sub);margin-top:80px;}
+  footer p{font-size:13px;color:var(--text4);}
 </style>
 </head>
 <body>
-<div class="topbar">
-  <strong>Training & Policy Reference</strong>
-  <span>Arkansas Department of Correction</span>
-</div>
+<nav>
+  <div class="brand">Doc<span>Flow</span> · Forms & Reference</div>
+  <div class="links">
+    <a href="/chat">Reference Search</a>
+    <a href="/reports">Forms</a>
+  </div>
+</nav>
 
 <div class="container">
-  <h1>Policy Reference & Documentation Tools</h1>
-  <p class="sub">Access policy manuals and prepare required documentation.</p>
+  <h1>Documentation &<br>Forms Processing</h1>
+  <p class="sub">Administrative reference tools and documentation preparation. Version 2.0 — now with enhanced compliance workflows.</p>
 
   <div class="cards">
     <a href="/chat" class="card">
-      <h2>Policy Manual Search</h2>
-      <p>Search and reference facility policies, administrative directives, and unit procedures.</p>
-      <span class="link">Search Documents →</span>
+      <div class="icon">📑</div>
+      <h2>Policy Reference Search</h2>
+      <p>Search administrative manuals, directives, and unit procedures.</p>
+      <span class="hint">Search Documents →</span>
     </a>
     <a href="/reports" class="card">
+      <div class="icon">📄</div>
       <h2>Documentation Preparation</h2>
-      <p>Prepare incident reports, supervisor summaries, and disciplinary documentation from field notes.</p>
-      <span class="link">Prepare Documents →</span>
+      <p>Prepare incident reports and required documentation from field notes.</p>
+      <span class="hint">Prepare Documents →</span>
     </a>
+  </div>
+
+  <div class="joke-line">
+    Please ensure all TPS reports have the new cover sheet.<br>
+    Did you get the memo? We're putting cover sheets on all reports now.
   </div>
 </div>
 
-<footer>For authorized personnel use only. Arkansas Department of Correction.</footer>
+<footer>
+  <p>For authorized personnel only. Arkansas Department of Correction.</p>
+</footer>
 </body>
 </html>
