@@ -4,34 +4,70 @@ from pathlib import Path
 
 TEMPLATES_DIR = Path(__file__).parent.parent.parent / "templates"
 
-# ── Classifier Prompt ──────────────────────────────────────────
-CLASSIFIER_PROMPT = """You are an incident classifier for a corrections facility.
+# ── Charge Catalog ─────────────────────────────────────────────
+
+def load_charges() -> dict:
+    """Load disciplinary charges from parsed JSON."""
+    path = TEMPLATES_DIR / "disciplinary_charges.json"
+    if path.exists():
+        return json.loads(path.read_text())
+    return {}
+
+
+def build_classifier_prompt() -> tuple[str, dict]:
+    """Build classifier prompt with charge catalog injected.
+    Returns (system_prompt, charge_catalog_dict)."""
+    charges = load_charges()
+    # Build compact charge reference for the prompt
+    charge_lines = []
+    for code, info in sorted(charges.items()):
+        charge_lines.append(
+            f"  {code}: {info['description'][:120]}"
+        )
+    charge_ref = "\n".join(charge_lines[:60])  # Cap at 60 to fit context
+
+    prompt = f"""You are an incident classifier for a corrections facility.
 Analyze the field notes and classify the incident.
 
 Output ONLY valid JSON with these fields:
-{
+{{
   "incident_type": "<category>",
   "forms_required": ["<form1>", "<form2>"],
-  "persons_involved": [{"role": "reporting_officer"|"inmate"|"witness", "name": "...", "adc_number": "..."}],
+  "persons_involved": [{{"role": "reporting_officer"|"inmate"|"witness", "name": "Last, First", "adc_number": "..."}}],
   "charges_applicable": ["<rule_number>"],
   "facility": "<facility>",
-  "shift": "<shift>"
-}
+  "shift": "<shift>",
+  "location": "<location within facility>",
+  "date": "<date of incident>",
+  "time": "<time of incident>"
+}}
 
 Incident categories: use_of_force, major_disciplinary, contraband, prea, medical_emergency, escape_walkaway, general_incident, hunger_strike, restrictive_housing
 Forms: 005_409, major_disciplinary_form, chain_of_custody, confiscation_form, prea_supplement, photo_video, cover_letter
+
+AVAILABLE CHARGE CATALOG (only use rule numbers from this list):
+{charge_ref}
 """
+    return prompt, charges
+
 
 # ── Supervisor Summary Prompt ──────────────────────────────────
 SUPERVISOR_SUMMARY_PROMPT = """You are a corrections supervisor writing a summary for an incident file.
 Write in THIRD PERSON, past tense, factual and objective.
 
+Use the KNOWN METADATA below — do not re-extract from notes:
+- Incident Type: {incident_type}
+- Facility: {facility}
+- Date/Time: {date} / {time}
+- Location: {location}
+- Persons Involved: {persons}
+
 Format:
 SUPERVISOR SUMMARY
-Incident Type: [CATEGORY]
-Date/Time: [extract from notes]
-Location: [extract from notes]
-Persons Involved: [names + roles]
+Incident Type: {incident_type}
+Date/Time: {date} / {time}
+Location: {location}
+Persons Involved: {persons}
 
 [2-3 paragraph chronological narrative in 3rd person]
 
@@ -43,6 +79,13 @@ Do NOT use first person (I, me, my). Do NOT add information not in the notes."""
 # ── First Person Report Prompt ─────────────────────────────────
 FIRST_PERSON_REPORT_PROMPT = """You are a corrections officer writing an incident report.
 Write in FIRST PERSON ("I, Officer [Name], ..."), past tense.
+
+Use the KNOWN METADATA below — do not re-extract from notes:
+- Incident Type: {incident_type}
+- Facility: {facility}
+- Date/Time: {date} / {time}
+- Location: {location}
+- Persons Involved: {persons}
 
 Format:
 FIRST PERSON REPORT
@@ -63,6 +106,10 @@ DISCIPLINARY_PROMPT = """You are a corrections disciplinary officer drafting a d
 Use the 1st person report as source. Remove non-relevant details (medical, administrative).
 Add applicable charge lines from the inmate disciplinary manual.
 
+Use the KNOWN METADATA below:
+- Inmates Involved: {persons}
+- Charges: {charges}
+
 Format:
 DISCIPLINARY SUPPLEMENT
 Inmate: [Last, First] #[Number]
@@ -81,6 +128,14 @@ RECOMMENDED ACTION:
 # ── 005/409 Field Filler Prompt ────────────────────────────────
 FORM_005_PROMPT = """Extract the following fields from the incident report for the 005/409 form:
 
+Use the KNOWN METADATA below:
+- Persons Involved: {persons}
+- Facility: {facility}
+- Date: {date}
+- Time: {time}
+- Location: {location}
+
+Return ONLY valid JSON:
 {{
   "unit_division": "...",
   "reporting_employee_last": "...",
@@ -97,14 +152,6 @@ FORM_005_PROMPT = """Extract the following fields from the incident report for t
 }}
 
 Use ONLY information from the notes and generated report. Do not fabricate."""
-
-
-def load_charges() -> dict:
-    """Load disciplinary charges from parsed JSON."""
-    path = TEMPLATES_DIR / "disciplinary_charges.json"
-    if path.exists():
-        return json.loads(path.read_text())
-    return {}
 
 
 def format_charge_lines(charge_codes: list[str]) -> str:

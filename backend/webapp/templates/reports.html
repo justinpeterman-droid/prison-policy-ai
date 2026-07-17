@@ -22,9 +22,12 @@
   .sub{font-size:13px;color:var(--text4);margin-bottom:24px}
   textarea{width:100%;height:160px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:6px;padding:12px 14px;color:var(--text2);font-family:'Inter',system-ui,sans-serif;font-size:13px;resize:vertical;outline:none;line-height:1.5;margin-bottom:12px;transition:border-color 0.15s}
   textarea:focus{border-color:var(--accent2)}
-  button{width:100%;padding:10px 0;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:510;cursor:pointer;font-family:inherit;transition:background 0.15s;margin-bottom:12px}
-  button:hover{background:var(--accent2)}
-  button:disabled{opacity:0.4}
+  .btn-row{display:flex;gap:8px;margin-bottom:12px}
+  button.primary{flex:1;padding:10px 0;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:510;cursor:pointer;font-family:inherit;transition:background 0.15s}
+  button.primary:hover{background:var(--accent2)}
+  button.primary:disabled{opacity:0.4}
+  button.secondary{flex:1;padding:10px 0;background:rgba(255,255,255,0.04);color:var(--text3);border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:510;cursor:pointer;font-family:inherit;transition:all 0.15s}
+  button.secondary:hover{background:rgba(255,255,255,0.08);color:var(--text2)}
   .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:8px}
   @keyframes spin{to{transform:rotate(360deg)}}
   .badge{display:inline-block;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:510;margin:2px 4px 2px 0}
@@ -64,7 +67,10 @@
 0615 - Mess hall: Inmate Johnson complained of chest pain. Escorted to medical office.
 0620 - Medical notified. Nurse Alvarez on duty."></textarea>
     
-    <button id="genBtn" onclick="generate()"><span id="spinner" class="spinner" style="display:none"></span>Generate Documents</button>
+    <div class="btn-row">
+      <button class="primary" id="genBtn" onclick="generate()"><span id="spinner" class="spinner" style="display:none"></span>Generate Documents</button>
+      <button class="secondary" onclick="clearAll()">Clear</button>
+    </div>
     <div id="error"></div>
     <div id="badges"></div>
     
@@ -83,9 +89,23 @@
 
 <script>
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function fmt(val){return val||'—'}
 function copyToClipboard(text){
   navigator.clipboard.writeText(text).then(()=>{}).catch(()=>prompt('Copy manually:',text));
 }
+
+function clearAll(){
+  document.getElementById('notes').value='';
+  document.getElementById('error').innerHTML='';
+  document.getElementById('badges').innerHTML='';
+  document.getElementById('reports').innerHTML='';
+  document.getElementById('preview').innerHTML=`
+    <div class="header"><h3>Document Preview</h3></div>
+    <p style="color:#999;text-align:center;margin-top:100pt;font-family:Inter,sans-serif;font-size:11pt">
+      Generated documents will appear here
+    </p>`;
+}
+
 async function generate(){
   const notes=document.getElementById('notes').value.trim();
   if(!notes)return;
@@ -122,15 +142,31 @@ function reportBox(title,text){
 function updatePreview(d){
   const r=d.reports||{};
   const fp=r.first_person||'';
+  const m=d.metadata||{};
   document.getElementById('preview').innerHTML=`
-    <div class="header"><h3>Document Draft</h3></div>
+    <div class="header"><h3>Incident Report</h3></div>
     <div class="field-row">
       <div class="field"><label>Incident Type</label>${esc((d.incident_type||'N/A').replace(/_/g,' '))}</div>
-      <div class="field"><label>Date</label>${new Date().toLocaleDateString()}</div>
+      <div class="field"><label>Date</label>${esc(fmt(m.date||'N/A'))}</div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Officer</label>${esc(fmt(m.officer_last?m.officer_last+', '+m.officer_first:'N/A'))}</div>
+      <div class="field"><label>Rank</label>${esc(fmt(m.rank||'N/A'))}</div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Facility</label>${esc(fmt(m.facility||'N/A'))}</div>
+      <div class="field"><label>Shift</label>${esc(fmt(m.shift||'N/A'))}</div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Location</label>${esc(fmt(m.location||'N/A'))}</div>
+      <div class="field"><label>Time</label>${esc(fmt(m.time||'N/A'))}</div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Inmates Involved</label>${esc(fmt(m.inmates_involved||'N/A'))}</div>
     </div>
     <div class="section-title">Narrative</div>
     <div class="narrative">${esc(fp||'No narrative generated.')}</div>
-    <div class="sig"><div>Reporting Officer</div><div>Supervisor Review</div><div>Date</div></div>
+    <div class="sig"><div>${esc(fmt(m.officer_first+' '+m.officer_last||'Reporting Officer'))}</div><div>Supervisor Review</div><div>${esc(fmt(m.date||'Date'))}</div></div>
   `;
 }
 </script>

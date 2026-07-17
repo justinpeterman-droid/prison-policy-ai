@@ -25,9 +25,11 @@
   .input-row{display:flex;gap:8px;position:sticky;bottom:0;background:var(--bg);padding:16px 0;border-top:1px solid var(--border-sub)}
   input{flex:1;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text);font-size:15px;font-family:inherit;outline:none;transition:border-color 0.15s}
   input:focus{border-color:var(--accent2)}
-  button{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:510;cursor:pointer;transition:background 0.15s;font-family:inherit}
-  button:hover{background:var(--accent2)}
-  button:disabled{opacity:0.4}
+  button.primary{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:510;cursor:pointer;transition:background 0.15s;font-family:inherit}
+  button.primary:hover{background:var(--accent2)}
+  button.primary:disabled{opacity:0.4}
+  button.secondary{padding:10px 20px;background:rgba(255,255,255,0.04);color:var(--text3);border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:510;cursor:pointer;font-family:inherit;transition:all 0.15s}
+  button.secondary:hover{background:rgba(255,255,255,0.08);color:var(--text2)}
   @media(max-width:640px){.msg{margin-left:10px!important;margin-right:10px!important}}
 </style>
 </head>
@@ -42,11 +44,17 @@
   <div id="chat"></div>
   <div class="input-row">
     <input id="q" placeholder="What procedure are you looking for?" autofocus onkeypress="if(event.key==='Enter')send()">
-    <button id="btn" onclick="send()">Search</button>
+    <button class="primary" id="btn" onclick="send()">Search</button>
+    <button class="secondary" onclick="clearChat()">Clear</button>
   </div>
 </div>
 <script>
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function clearChat(){
+  document.getElementById('chat').innerHTML='';
+  document.getElementById('q').value='';
+  document.getElementById('q').focus();
+}
 function send(){
   const i=document.getElementById('q'),b=document.getElementById('btn');
   const q=i.value.trim();if(!q)return;
