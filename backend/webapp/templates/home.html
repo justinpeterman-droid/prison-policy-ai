@@ -3,30 +3,51 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Policy Assistant</title>
-<link rel="stylesheet" href="/static/style.css">
+<meta name="description" content="Policy reference and documentation tools">
+<title>Training & Policy Reference | ADC</title>
+<style>
+  :root {--bg:#f4f5f7;--card:#fff;--accent:#1a3a5c;--text:#222;--muted:#666;--border:#d0d4da;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+  .topbar{background:var(--accent);color:#fff;padding:10px 24px;font-size:13px;display:flex;justify-content:space-between;align-items:center;}
+  .topbar span{opacity:0.8;}
+  .container{max-width:840px;margin:0 auto;padding:40px 20px;}
+  h1{font-size:1.6rem;color:var(--accent);margin-bottom:6px;font-weight:600;}
+  .sub{color:var(--muted);font-size:0.95rem;margin-bottom:40px;}
+  .cards{display:flex;gap:24px;}
+  @media(max-width:640px){.cards{flex-direction:column;}}
+  .card{flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:32px 28px;text-decoration:none;color:inherit;box-shadow:0 1px 3px rgba(0,0,0,0.06);transition:box-shadow 0.2s;}
+  .card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.1);}
+  .card h2{font-size:1.1rem;color:var(--accent);margin-bottom:8px;font-weight:600;}
+  .card p{color:var(--muted);font-size:0.9rem;line-height:1.5;margin-bottom:16px;}
+  .card .link{color:var(--accent);font-weight:600;font-size:0.9rem;}
+  footer{text-align:center;padding:24px;color:var(--muted);font-size:0.8rem;}
+</style>
 </head>
 <body>
-<div class="home-layout">
-  <div class="hero">
-    <h1>Policy Assistant</h1>
-    <p class="sub">AI-powered policy lookup and incident report generation.</p>
-  </div>
+<div class="topbar">
+  <strong>Training & Policy Reference</strong>
+  <span>Arkansas Department of Correction</span>
+</div>
+
+<div class="container">
+  <h1>Policy Reference & Documentation Tools</h1>
+  <p class="sub">Access policy manuals and prepare required documentation.</p>
 
   <div class="cards">
     <a href="/chat" class="card">
-      <div class="icon">📋</div>
-      <h2>Policy Knowledge Expert</h2>
-      <p>Search and reference policies instantly. Get cited answers grounded in your policy documents.</p>
-      <span class="cta">Search Policies</span>
+      <h2>Policy Manual Search</h2>
+      <p>Search and reference facility policies, administrative directives, and unit procedures.</p>
+      <span class="link">Search Documents →</span>
     </a>
     <a href="/reports" class="card">
-      <div class="icon">📝</div>
-      <h2>Report Writing Assistant</h2>
-      <p>Paste field notes, auto-classify the incident, generate supervisor summaries, first-person reports, and disciplinary supplements with correct charge codes.</p>
-      <span class="cta">Write Reports</span>
+      <h2>Documentation Preparation</h2>
+      <p>Prepare incident reports, supervisor summaries, and disciplinary documentation from field notes.</p>
+      <span class="link">Prepare Documents →</span>
     </a>
   </div>
 </div>
+
+<footer>For authorized personnel use only. Arkansas Department of Correction.</footer>
 </body>
 </html>
