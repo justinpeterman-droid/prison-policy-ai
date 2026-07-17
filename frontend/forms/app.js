@@ -51,7 +51,6 @@ function ShiftChecklist() {
     ...s,
     [id]: v
   }));
-  let n = 0;
   const rows = [{
     box: true,
     l: 0,
@@ -511,12 +510,81 @@ function ChainOfCustody() {
 }
 
 /* =========================================================
+   FORM 6 — PREA Step by Step Checklist (two pages)
+   ========================================================= */
+function PreaStepChecklist() {
+  const [cb, setCbState] = useState({});
+  const set = (id, v) => setCbState(s => ({
+    ...s,
+    [id]: v
+  }));
+  const CheckRow = ({
+    id,
+    children
+  }) => /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    className: "box"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    className: "cbx",
+    checked: !!cb[id],
+    onChange: e => set(id, e.target.checked)
+  })), /*#__PURE__*/React.createElement("td", null, children));
+  const steps = ["Received information or observed PREA incident", "Separate inmates if not consensual victim goes to Medical aggressor goes to restrictive housing", "Never place aggressor, victim, or recent consensual in the shower until after all evidence is collected", /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("i", null, /*#__PURE__*/React.createElement("u", null, "Do not house a victim")), " in restrictive housing"), "Initiate PREA Checklist SD-2025-01 pg. 14", "Place clean sheet down. Inmate on the sheet; strip all clothing off so that evidence can be collected", "Place damp evidence where it can dry then place it in a paper bag.", "Contact Duty Warden get approval for gate pass to hospital for rape kit if applicable", "Interview each Party separately and privately to get both sides of the story"];
+  const emails = [["Thomas Hurst", "Warden"], ["Kennie Bolden", "Dept. Warden/ PREA Coordinator"], ["Marjorie Hall (MarHall@Wellpath.us)", "Health Services Admin."], ["Lisa Downing (ldowning@wellpath.us)", "Health Services"], ["Caitlin Williams (DOC) <Cait.Williams@wellpath.us>", "Mental Health"], ["Brian Sights (DOC) <Brian.Sights@Doc.arkansas.gov>", "Chaplain / Victim Advocate"], ["Breann Cowgill (DOC) <Breann.Cowgill@arkansas.gov>", "Classification"], ["E-Mail (see duty roster)", "Internal Affairs on call"], ["Haley Trantham (DOC) haley.trantham@arkansas.gov.", "PREA Compliance"], [/*#__PURE__*/React.createElement("span", null, "Christina Thrower (Christina.Thrower@Doc.Arkansas.gov)"), /*#__PURE__*/React.createElement("span", null, "HIV Coord. ", /*#__PURE__*/React.createElement("small", null, "(Only In event of penetration)"))], [/*#__PURE__*/React.createElement("span", null, "Rand Champion (Rand.Champion@doc.arkansas.gov)"), /*#__PURE__*/React.createElement("span", null, "DOC Comm. Dir. ", /*#__PURE__*/React.createElement("small", null, "If I/M taken offsite"))], [/*#__PURE__*/React.createElement("span", null, "Wade Hodge (DOC)<Wade.Hodge@doc.arkansas.gov>"), /*#__PURE__*/React.createElement("span", null, "Chief oF Staff ", /*#__PURE__*/React.createElement("small", null, "(Only In event of penetration)"))], ["Aaron A. Rogers", "Chief of Security"], ["Christopher Brandon", "Building Captain"], ["David Foster", "Building Captain"], ["Bruce Sanders", "Field Captain"]];
+  const paperwork = ["Cover letter from supervisor reviewing the incident packet", "Incident Checklist", "PREA Check list", "Incident Number in the PREA checklist and on every 005", "Major disciplinary reports if applicable", "Photo of each inmate involved including any marks or bruises", "Video of incident if available", "Still photos of incident if applicable", "Confiscation forms for any evidence", "Chain of custody for evidence", "Copy of gate pass if inmate sent out for medical", "Infirmary reports for both inmates", "RH placement for anyone who went to RH", "Copy of area security Logs/ Unannounced rounds", "Copy of the camera logs for that day", "Witness statements from involved parties", "Witness statements from other witnesses", "Housing area roster for the date of the incident", "Drug test for any inmate involved", "Offender Separation alert paperwork"];
+  const eomis = ["Open incident Umbrella", "Incident summary should say ongoing investigation.", "Generate a separation Alert reccomendation. Short summary of why separated and incident # in the alert.", "Do not scan packet in. E-mail it to CSO for Confidential scan into E-Omis", "Put inmate names in Inmates Involved", "Put officer conducting investigation name in e-Omis", "Enter all evidence retained in its box in e-Omis"];
+  return /*#__PURE__*/React.createElement("div", {
+    className: "prea"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "title"
+  }, "PREA Step by Step Checklist"), /*#__PURE__*/React.createElement("table", {
+    className: "preatbl"
+  }, /*#__PURE__*/React.createElement("tbody", null, steps.map((t, i) => /*#__PURE__*/React.createElement(CheckRow, {
+    key: i,
+    id: "s" + i
+  }, t)))), /*#__PURE__*/React.createElement("table", {
+    className: "preatbl emailtbl"
+  }, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    className: "section",
+    colSpan: 2
+  }, "Email Notification List")), emails.map((r, i) => /*#__PURE__*/React.createElement("tr", {
+    key: i
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "name"
+  }, r[0]), /*#__PURE__*/React.createElement("td", {
+    className: "role"
+  }, r[1]))))), /*#__PURE__*/React.createElement("p", {
+    className: "advocate"
+  }, "Victim Advocate: Taylors House Batesville #870-569-8024\xA0\xA0\xA024hr hot line"), /*#__PURE__*/React.createElement("table", {
+    className: "preatbl"
+  }, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    className: "section",
+    colSpan: 2
+  }, "Paperwork Checklist")), paperwork.map((t, i) => /*#__PURE__*/React.createElement(CheckRow, {
+    key: i,
+    id: "p" + i
+  }, t)))), /*#__PURE__*/React.createElement("table", {
+    className: "preatbl"
+  }, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    className: "section",
+    colSpan: 2
+  }, "E-Omis Do's and Don'ts")), eomis.map((t, i) => /*#__PURE__*/React.createElement(CheckRow, {
+    key: i,
+    id: "e" + i
+  }, t)))));
+}
+
+/* =========================================================
    App shell
    ========================================================= */
 const FORMS = [{
   id: "checklist",
   label: "Supervisor Checklist",
   C: ShiftChecklist
+}, {
+  id: "preastep",
+  label: "PREA Step Checklist",
+  C: PreaStepChecklist
 }, {
   id: "cover",
   label: "PREA Cover",
