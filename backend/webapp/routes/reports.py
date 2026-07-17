@@ -91,10 +91,46 @@ def reports_api():
         return jsonify({"error": "Report generation failed", "detail": str(e)}), 500
 
 
+def _send_filled(metadata: dict):
+    """Fill the 005 template and return it as a DOCX (or text fallback)."""
+    output = fill_template(metadata)
+
+    if output.get("text"):
+        return jsonify({
+            "format": "text",
+            "content": output["text"],
+            "message": "DOC template not available — text report returned"
+        })
+
+    return send_file(
+        output["path"],
+        as_attachment=True,
+        download_name="Incident_Report_Form.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+
 @reports_bp.route("/api/reports/download", methods=["POST"])
 def reports_download():
-    """Generate + fill incident report form, return as DOCX."""
+    """Fill the incident report form and return it as DOCX.
+
+    Preferred path: the client sends `metadata` — the already-generated
+    (and possibly officer-corrected) field values + narrative — so the
+    document matches exactly what was reviewed on screen, with no second
+    LLM pass. Legacy path: raw `notes` re-runs the full pipeline.
+    """
     data = request.get_json(silent=True) or {}
+
+    metadata = data.get("metadata")
+    if isinstance(metadata, dict) and metadata:
+        metadata = {k: str(v) for k, v in metadata.items() if isinstance(k, str)}
+        logger.info("Document download from reviewed metadata — %d fields", len(metadata))
+        try:
+            return _send_filled(metadata)
+        except Exception as e:
+            logger.exception("Document fill failed")
+            return jsonify({"error": "Document generation failed", "detail": str(e)}), 500
+
     notes = data.get("notes", "").strip()
     if not notes:
         return jsonify({"error": "No field notes provided"}), 400
@@ -130,21 +166,7 @@ def reports_download():
             "officer_signature": f"{first} {last}".strip(),
         }
 
-        output = fill_template(metadata)
-
-        if output.get("text"):
-            return jsonify({
-                "format": "text",
-                "content": output["text"],
-                "message": "DOC template not available — text report returned"
-            })
-
-        return send_file(
-            output["path"],
-            as_attachment=True,
-            download_name="Incident_Report_Form.docx",
-            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
+        return _send_filled(metadata)
     except Exception as e:
         logger.exception("Document download failed")
         return jsonify({"error": "Document generation failed", "detail": str(e)}), 500
