@@ -21,7 +21,7 @@ def require_access(f):
         # Check query param (for bookmarkable links)
         if request.args.get("code") == ACCESS_CODE:
             resp = make_response(redirect(request.path))
-            resp.set_cookie("access_code", ACCESS_CODE, max_age=60*60*24*365, httponly=True)
+            resp.set_cookie("access_code", ACCESS_CODE, max_age=60*60*24, httponly=True)
             return resp
         # Not authenticated — show login or redirect
         if request.path == "/login":
@@ -62,10 +62,16 @@ def create_app() -> Flask:
             if code == ACCESS_CODE:
                 next_url = request.args.get("next", "/")
                 resp = make_response(redirect(next_url))
-                resp.set_cookie("access_code", ACCESS_CODE, max_age=60*60*24*365, httponly=True)
+                resp.set_cookie("access_code", ACCESS_CODE, max_age=60*60*24, httponly=True)
                 return resp
             error = "Invalid access code."
         return render_template("login.html", error=error, next=request.args.get("next", "/"))
+
+    @app.route("/logout")
+    def logout():
+        resp = make_response(redirect("/login"))
+        resp.delete_cookie("access_code")
+        return resp
 
     if ACCESS_CODE:
         logger.info("Access code auth enabled")

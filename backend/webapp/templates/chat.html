@@ -4,8 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reference Search · SLUT</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/fonts.css">
 <style>
   :root{
     --bg:#08090a;--panel:rgba(10,11,12,0.78);--surface:#131416;--elevated:#1b1c1f;
@@ -108,7 +107,10 @@
 <body>
 <nav>
   <a class="brand" href="/"><span class="mark">S</span>SLUT</a>
-  <a class="nav-link" href="/reports">Forms →</a>
+  <div class="nav-right" style="display:flex;gap:4px">
+    <a class="nav-link" href="/reports">Forms →</a>
+    <a class="nav-link" href="/logout">Log out</a>
+  </div>
 </nav>
 <div class="container">
   <h1>Reference Search</h1>
@@ -155,7 +157,7 @@ function send(){
   .then(r=>r.json()).then(d=>{
     document.getElementById('typing')?.remove();
     let srcs='';
-    if(d.sources&&d.sources.length)srcs=`<div class="srcs">`+d.sources.map(s=>`<span class="src">${esc(s.substring(0,60))}</span>`).join('')+`</div>`;
+    if(d.sources&&d.sources.length)srcs=`<div class="srcs">`+d.sources.map(s=>`<span class="src" title="${esc(s)}">${esc(s.substring(0,60))}</span>`).join('')+`</div>`;
     chat.insertAdjacentHTML('beforeend',`<div class="msg ai">${esc(d.answer||d.error)}${srcs}</div>`);
     chat.lastElementChild?.scrollIntoView({behavior:'smooth',block:'end'});
   }).catch(e=>{
