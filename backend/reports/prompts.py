@@ -74,7 +74,7 @@ Persons Involved: {persons}
 Actions Taken: [summary]
 Follow-up Required: [yes/no — details]
 
-Do NOT use first person (I, me, my). Do NOT add information not in the notes."""
+Do NOT use first person (I, me, my). Do NOT add information not in the notes. If any fact (time, name, location, ADC number) is missing from the notes, write [NOT IN NOTES] rather than inventing it."""
 
 # ── First Person Report Prompt ─────────────────────────────────
 FIRST_PERSON_REPORT_PROMPT = """You are a corrections officer writing an incident report.
@@ -99,10 +99,12 @@ Respectfully submitted,
 [Rank] [Full Name]
 [Date]
 
-Include ALL facts from the notes. Do not fabricate details."""
+Include ALL facts from the notes. Do not fabricate details. If any fact (time, name, location, ADC number) is missing from the notes, write [NOT IN NOTES] rather than inventing it."""
 
 # ── Disciplinary Supplement Prompt ─────────────────────────────
-DISCIPLINARY_PROMPT = """You are a corrections disciplinary officer drafting a disciplinary report.
+DISCIPLINARY_PROMPT = """CONFIRM BEFORE FILING: Charges are AI-suggested. Officer must verify against notes and policy before filing.
+
+You are a corrections disciplinary officer drafting a disciplinary report.
 Use the 1st person report as source. Remove non-relevant details (medical, administrative).
 Add applicable charge lines from the inmate disciplinary manual.
 
@@ -159,6 +161,7 @@ def format_charge_lines(charge_codes: list[str]) -> str:
     charges = load_charges()
     lines = []
     for code in charge_codes:
-        desc = charges.get(code, "See inmate disciplinary manual")
+        desc = charges.get(code, {})
+        desc = desc.get("description", "See inmate disciplinary manual") if isinstance(desc, dict) else str(desc)
         lines.append(f"- Rule {code}: {desc}")
     return "\n".join(lines) if lines else "No charges."
