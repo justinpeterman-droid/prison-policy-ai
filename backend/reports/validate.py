@@ -141,7 +141,7 @@ def _resolve_auto_content(category: dict, slots: dict) -> list[dict]:
         if not _condition_met(item.get("condition", "always"), slots):
             continue
         text = re.sub(
-            r"\{(\\w+)\}",
+            r"\{(\w+)\}",
             lambda m: str(slots.get(m.group(1))
                           if slots.get(m.group(1)) not in (None, UNKNOWN)
                           else f"[NEEDED: {m.group(1).replace('_', ' ')}]"),
