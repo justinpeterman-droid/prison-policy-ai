@@ -1,5 +1,6 @@
 """Incident classifier — determines type, forms needed, persons, charges."""
 import json
+import os
 import re
 import logging
 import vertexai
@@ -8,7 +9,11 @@ from backend.pipeline.config import PROJECT_ID, LOCATION, GENERATION_MODEL
 from backend.reports.prompts import build_classifier_prompt
 
 logger = logging.getLogger(__name__)
-vertexai.init(project=PROJECT_ID, location=LOCATION)
+
+# Model may need a different location than the app default (e.g. gemini-3.5-flash
+# is global-only while RAG/corpus lives in us-central1).
+MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", LOCATION)
+vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
 
 
 def _extract_json_from_response(text: str) -> str:
@@ -26,6 +31,9 @@ def _extract_json_from_response(text: str) -> str:
 
 def classify_incident(notes: str) -> dict:
     """Classify field notes into structured incident data."""
+    # Re-init in case another module changed vertexai's global location.
+    vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
+
     system_prompt, charge_catalog = build_classifier_prompt()
 
     model = GenerativeModel(

@@ -1,4 +1,5 @@
 """Report generator — produces all required report texts."""
+import os
 import logging
 import vertexai
 from vertexai.generative_models import GenerativeModel
@@ -11,10 +12,17 @@ from backend.reports.prompts import (
 )
 
 logger = logging.getLogger(__name__)
-vertexai.init(project=PROJECT_ID, location=LOCATION)
+
+# Model may need a different location than the app default (e.g. gemini-3.5-flash
+# is global-only while RAG/corpus lives in us-central1).
+MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", LOCATION)
+vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
 
 
 def _generate(system_prompt: str, user_prompt: str) -> str:
+    # Re-init in case another module changed vertexai's global location.
+    vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
+
     model = GenerativeModel(
         model_name=GENERATION_MODEL,
         system_instruction=system_prompt,
