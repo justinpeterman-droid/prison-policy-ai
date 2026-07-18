@@ -204,6 +204,55 @@
   .page .narrative.ed[contenteditable]:hover{background:#f7f8fc;border-color:#c3c8d9}
   .page .narrative.ed[contenteditable]:focus{background:#fbfcff;border:1px dashed #5e6ad2}
 
+  /* 005/409 Form styling */
+  .form005-page{width:8.5in;min-height:11in;background:#fff;color:#000080;font-family:'Times New Roman',serif;font-size:11pt;padding:0.6in 0.7in;box-shadow:0 1px 2px rgba(0,0,0,0.3),0 8px 30px rgba(0,0,0,0.4);border-radius:2px;margin-bottom:30px;page-break-after:always}
+  .form005-page .f5header{display:flex;align-items:center;gap:16px;margin-bottom:18pt;padding-bottom:14pt;border-bottom:2px solid #000080}
+  .form005-page .f5seal{font-size:42pt;line-height:1;flex-shrink:0}
+  .form005-page .f5title{flex:1}
+  .form005-page .f5ar{font-size:8.5pt;font-weight:bold;text-transform:uppercase;letter-spacing:0.5pt;line-height:1.4}
+  .form005-page .f5right{display:flex;gap:16px;flex-shrink:0}
+  .form005-page .f5chk{display:flex;align-items:flex-start;gap:4px}
+  .form005-page .f5num{font-size:14pt;font-weight:bold}
+  .form005-page .f5cb{width:14px;height:14px;border:1.5px solid #000080;accent-color:#000080;margin-top:2px}
+  .form005-page .f5chklbl{font-size:7pt;line-height:1.2;text-transform:uppercase}
+  .form005-page .f5row{margin-bottom:12pt}
+  .form005-page .f5label{font-weight:bold;text-transform:uppercase;font-size:9pt;display:inline-block;margin-right:6pt}
+  .form005-page .f5val{display:inline;border-bottom:1px solid #000080;min-width:120px}
+  .form005-page .f5line{border-bottom:1px solid #000080;padding:3pt 0;margin-bottom:2pt;position:relative;min-height:14pt}
+  .form005-page .f5hint{position:absolute;right:0;top:3pt;font-size:7pt;color:#666;font-style:italic}
+  .form005-page .f5cols3{display:flex;gap:16pt;margin-top:4pt}
+  .form005-page .f5cols3>div{flex:1}
+  .form005-page .f5cols3 label{display:block;font-size:7pt;text-transform:uppercase;margin-bottom:2pt}
+  .form005-page .f5cols3 .ed{display:block;border-bottom:1px solid #000080;min-height:14pt;padding:2pt 0}
+  .form005-page .f5inline{display:flex;gap:16pt;flex-wrap:wrap}
+  .form005-page .f5inline .f5label{white-space:nowrap}
+  .form005-page .f5subj{margin-bottom:22pt}
+  .form005-page .f5subjt{font-weight:bold;font-size:9pt}
+  .form005-page .f5section{font-weight:bold;text-transform:uppercase;font-size:9pt;margin:16pt 0 6pt 0;padding-bottom:3pt;border-bottom:1px solid #000080}
+  .form005-page .f5narrative{min-height:180pt;border:1px solid #000080;padding:6pt;font-size:10pt;line-height:1.6;white-space:pre-wrap;margin-bottom:10pt}
+  .form005-page .f5rec{min-height:60pt;border:1px solid #000080;padding:6pt;font-size:10pt;margin-bottom:10pt}
+  .form005-page .f5sigrow{display:flex;gap:24pt;margin:10pt 0}
+  .form005-page .f5sig{flex:1}
+  .form005-page .f5sigline{border-bottom:1px solid #000080;min-height:16pt;margin-bottom:3pt;font-size:10pt}
+  .form005-page .f5sig div:last-child{font-size:7.5pt;text-transform:uppercase}
+  .form005-page .f5dist{margin-top:16pt;font-size:8pt}
+  .form005-page .f5distlist{display:flex;gap:24pt;margin-top:4pt}
+  .form005-page .f5distlist span{flex:1;border-bottom:1px solid #000080;padding-bottom:2pt}
+  .form005-page .f5footer{text-align:center;font-size:7pt;color:#666;margin-top:14pt;border-top:1px solid #000080;padding-top:4pt}
+
+  .form005-page .ed[contenteditable]{outline:none;border-bottom-style:dashed;border-bottom-color:#aab;cursor:text;transition:background .12s}
+  .form005-page .ed[contenteditable]:hover{background:#f0f0ff}
+  .form005-page .ed[contenteditable]:focus{background:#e8e8ff;border-bottom:1px solid #000080}
+  .form005-page .f5narrative.ed[contenteditable],.form005-page .f5rec.ed[contenteditable]{border:1px dashed #aab}
+  .form005-page .f5narrative.ed[contenteditable]:hover,.form005-page .f5rec.ed[contenteditable]:hover{background:#f8f8ff;border-color:#666}
+  .form005-page .f5narrative.ed[contenteditable]:focus,.form005-page .f5rec.ed[contenteditable]:focus{background:#f4f4ff;border:1px solid #000080}
+
+  @media print{
+    .form005-page{box-shadow:none;border-radius:0;margin:0;padding:0.4in 0.5in}
+    .form005-page .ed[contenteditable]{border-bottom-color:transparent!important;background:none!important}
+    .form005-page .f5narrative.ed[contenteditable],.form005-page .f5rec.ed[contenteditable]{border-color:transparent!important;background:none!important}
+  }
+
   /* Print: only the active paper page, unscaled, black on white */
   @media print{
     nav,.input-panel,.preview-toolbar,.preview-toggle,.edit-hint{display:none!important}
@@ -233,9 +282,7 @@
     <p class="sub">Enter field notes to generate required documentation with a live form preview.</p>
 
     <label class="field-label" for="notes">Field Notes</label>
-    <textarea id="notes" oninput="onNotesInput()" placeholder="0600 - D-WING: Head count complete. All present.
-0615 - Mess hall: Inmate Johnson complained of chest pain. Escorted to medical office.
-0620 - Medical notified. Nurse Alvarez on duty."></textarea>
+    <textarea id="notes" oninput="onNotesInput()" placeholder="Approximately 10:00pm, Inmates Smith ADC#123456 and Jones ADC#654321 were fighting in 8 Barracks. Sgt. Peterman and Cpl. Powell responded. Jones had a cut over his right eye. Sgt. Peterman placed hand restraints on Jones. Cpl. Powell and Cpl. Sohns escorted Jones to Restrictive Housing. Infirmary staff evaluated Jones. Video footage captured on D-Wing camera 3."></textarea>
     <div class="meta-row">
       <span class="draft-note" id="draftNote"></span>
       <span class="char-count" id="charCount">0 characters</span>
@@ -699,39 +746,116 @@ function renderChecklist(checklist){
 function edField(label,key,value){
   return `<div class="field"><label>${label}</label><span class="ed" data-key="${key}" contenteditable="true">${esc(fmt(value))}</span></div>`;
 }
+/* ---- 005/409 Form replicas ---- */
+function ln(id,val,hint){
+  const v=val||'';
+  const h=hint?`<span class="f5hint">(${hint})</span>`:'';
+  return `<div class="f5line"><span class="ed" data-key="${id}" contenteditable="true">${esc(v)}</span>${h}</div>`;
+}
+function f5head(label,val){
+  return `<span class="f5label">${label}</span><span class="ed f5val" data-key="${label.toLowerCase().replace(/[^a-z]/g,'_')}" contenteditable="true">${esc(val||'')}</span>`;
+}
+function form005Front(o){
+  return `
+  <div class="f5header">
+    <div class="f5seal">⚖</div>
+    <div class="f5title">
+      <div class="f5ar">ADMINISTRATIVE REGULATIONS</div>
+      <div class="f5ar">STATE OF ARKANSAS</div>
+      <div class="f5ar">DEPARTMENT OF CORRECTION</div>
+    </div>
+    <div class="f5right">
+      <div class="f5chk"><span class="f5num">005</span><input type="checkbox" class="f5cb" checked> <span class="f5chklbl">Incident<br>Report<br>and</span></div>
+      <div class="f5chk"><span class="f5num">409</span><input type="checkbox" class="f5cb"> <span class="f5chklbl">Use of<br>Force</span></div>
+    </div>
+  </div>
+  <div class="f5row"><span class="f5label">UNIT / DIVISION</span><span class="ed f5val" data-key="unit_division" contenteditable="true">${esc(o.unit)}</span></div>
+  <div class="f5row f5subj"><span class="f5label">SUBJECT:</span><span class="f5subjt">Reporting of Incidents-005; Use of Force-409</span></div>
+  <div class="f5row"><span class="f5label">REPORTING EMPLOYEE:</span>
+    <div class="f5cols3"><div><label>LAST</label><span class="ed" data-key="officer_last" contenteditable="true">${esc(o.officerLast)}</span></div><div><label>FIRST</label><span class="ed" data-key="officer_first" contenteditable="true">${esc(o.officerFirst)}</span></div><div><label>MIDDLE</label><span class="ed" data-key="employee_number" contenteditable="true">${esc(o.emp)}</span></div></div>
+  </div>
+  <div class="f5row f5inline">
+    ${f5head('RANK:',o.rank)} ${f5head('SHIFT ASSIGNMENT:',o.shift)}
+  </div>
+  <div class="f5row f5inline">
+    ${f5head('DATE:',o.date)} ${f5head('TIME:',o.time)} ${f5head('LOCATION:',o.loc)}
+  </div>
+  <div class="f5row"><span class="f5label">INMATE(S) INVOLVED:</span>${ln('inmates_involved',o.inmates,'Names and ADC Numbers')}${ln('inmates2','','')}${ln('inmates3','','')}</div>
+  <div class="f5row"><span class="f5label">EMPLOYEE(S) INVOLVED:</span>${ln('employees_involved',o.employees,'Names, Titles, Rank')}${ln('employees2','','')}${ln('employees3','','')}</div>
+  <div class="f5row"><span class="f5label">INMATE(S) PRESENT:</span>${ln('inmates_present','','Names and ADC Numbers')}${ln('inmates_present2','','')}${ln('inmates_present3','','')}</div>
+  <div class="f5row"><span class="f5label">EMPLOYEE(S) PRESENT:</span>${ln('employees_present','','Names, Titles, Rank')}${ln('employees_present2','','')}${ln('employees_present3','','')}</div>
+  <div class="f5row"><span class="f5label">OTHERS PRESENT/INVOLVED: (Specify)</span>${ln('others_present','','Names & Addresses')}${ln('others_present2','','')}${ln('others_present3','','')}</div>
+  <div class="f5row"><span class="f5label">EXTENT OF INJURY TO INMATE(S):</span>${ln('inmate_injuries','','')}${ln('inmate_injuries2','','')}${ln('inmate_injuries3','','')}</div>
+  <div class="f5row"><span class="f5label">TREATMENT AFFORDED INMATE(S):</span>${ln('inmate_treatment','','')}${ln('inmate_treatment2','','')}${ln('inmate_treatment3','','')}</div>
+  <div class="f5row"><span class="f5label">EXTENT OF INJURY TO OFFICER(S):</span>${ln('officer_injuries','','')}${ln('officer_injuries2','','')}${ln('officer_injuries3','','')}</div>
+  <div class="f5row"><span class="f5label">TREATMENT AFFORDED OFFICER(S):</span>${ln('officer_treatment','','')}${ln('officer_treatment2','','')}${ln('officer_treatment3','','')}</div>
+  <div class="f5footer">005/409 &nbsp; 005-3 of 3 &nbsp; 409-9 of 9</div>
+  `;
+}
+function form005Back(o){
+  const n=o.narrative||'';
+  return `
+  <div class="f5section">STATEMENT OF FACTS (If force used, state type and explain):</div>
+  <div class="f5narrative ed" data-key="narrative" contenteditable="true">${n}</div>
+  <div class="f5section">RECOMMENDATION:</div>
+  <div class="f5rec ed" data-key="recommendation" contenteditable="true"></div>
+  <div class="f5sigrow">
+    <div class="f5sig"><div class="f5sigline"></div><div>Signature of Reporting Employee</div></div>
+    <div class="f5sig"><div class="f5sigline">${esc(o.sigName)}</div><div>Date: ${esc(o.date)}</div></div>
+  </div>
+  <div class="f5sigrow">
+    <div class="f5sig"><div class="f5sigline"></div><div>Signature of Supervisor</div></div>
+    <div class="f5sig"><div class="f5sigline"></div><div>Date</div></div>
+  </div>
+  <div class="f5section">RECOMMENDATION:</div>
+  <div class="f5rec ed" data-key="recommendation2" contenteditable="true"></div>
+  <div class="f5sigrow">
+    <div class="f5sig"><div class="f5sigline"></div><div>Reviewed by (Signature) Warden/Center Supervisor/Administrator</div></div>
+    <div class="f5sig"><div class="f5sigline"></div><div>Date</div></div>
+  </div>
+  <div class="f5sigrow">
+    <div class="f5sig"><div class="f5sigline"></div><div>Reviewed by (Signature) Assistant Director</div></div>
+    <div class="f5sig"><div class="f5sigline"></div><div>Date</div></div>
+  </div>
+  <div class="f5sigrow">
+    <div class="f5sig"><div class="f5sigline"></div><div>Reviewed by (Signature) Director</div></div>
+    <div class="f5sig"><div class="f5sigline"></div><div>Date</div></div>
+  </div>
+  <div class="f5dist">
+    <div class="f5section">DISTRIBUTION OF COPIES:</div>
+    <div>Original to Assistant Director, then to Director, and then to Inmate Institutional File.</div>
+    <div class="f5distlist"><span>Assistant Director</span><span>Warden/Center Supervisor/Administrator</span></div>
+  </div>
+  `;
+}
+
 function render005(d){
   const r=d.reports||{};
   const fp=r.first_person||'';
   const m=d.form005||d.metadata||{};
-  const officer=m.officer_last?m.officer_last+', '+m.officer_first:'';
   const flags=d.flags||[];
   const markers=d.markers||[];
+  const emp=m.employee_number||'';
+  const officerLast=m.officer_last||'';
+  const officerFirst=m.officer_first||'';
+  const rank=m.rank||'';
+  const shift=m.shift_assignment||'';
+  const unit=m.unit_division||'BMU';
+  const date=m.date||'';
+  const time=m.time||'';
+  const loc=m.location||'';
+  const inmates=m.inmates_involved||'';
+  const employees=m.employees_involved||'';
+  const narrative=highlightFlags(fp||'No narrative generated.',flags);
+  const sigName=officerFirst&&officerLast?officerFirst+' '+officerLast:'';
   document.getElementById('preview').innerHTML=`
-    <div class="header"><div class="agency">Arkansas Department of Correction</div><h3>Incident Report</h3></div>
     ${markersBanner(markers)}
-    <div class="field-row">
-      <div class="field"><label>Incident Type</label>${esc((_confirmedCategory||'N/A').replace(/_/g,' '))}</div>
-      ${edField('Date','date',m.date)}
+    <div class="form005-page" id="page1">
+      ${form005Front({officerLast,officerFirst,emp,rank,shift,unit,date,time,loc,inmates,employees})}
     </div>
-    <div class="field-row">
-      ${edField('Officer (Last, First)','officer',officer)}
-      ${edField('Rank','rank',m.rank)}
+    <div class="form005-page" id="page2">
+      ${form005Back({narrative,sigName,date})}
     </div>
-    <div class="field-row">
-      ${edField('Employee #','employee_number',m.employee_number)}
-      ${edField('Shift','shift_assignment',m.shift_assignment)}
-    </div>
-    <div class="field-row">
-      ${edField('Facility','unit_division',m.unit_division||'BMU')}
-      ${edField('Location','location',m.location)}
-    </div>
-    <div class="field-row">
-      ${edField('Time','time',m.time)}
-      ${edField('Inmates Involved','inmates_involved',m.inmates_involved)}
-    </div>
-    <div class="section-title">Narrative</div>
-    <div class="narrative ed" data-key="narrative" contenteditable="true">${highlightFlags(fp||'No narrative generated.',flags)}</div>
-    <div class="sig"><div>${esc(m.officer_first&&m.officer_last?m.officer_first+' '+m.officer_last:'Reporting Officer')}</div><div>Supervisor Review</div><div>${esc(fmt(m.date||'Date'))}</div></div>
     ${renderChecklist(d.checklist||_extractedData?.checklist||[])}
   `;
 }
@@ -781,15 +905,8 @@ function edVal(key){
   return t;
 }
 function collectMetadata(){
-  const officer=edVal('officer');
-  let last='',first='';
-  if(officer){
-    const parts=officer.split(',');
-    last=parts[0].trim();
-    first=(parts[1]||'').trim().split(/\s+/)[0]||'';
-  }
   return {
-    officer_last:last,officer_first:first,
+    officer_last:edVal('officer_last'),officer_first:edVal('officer_first'),
     employee_number:edVal('employee_number'),
     rank:edVal('rank'),
     unit_division:edVal('unit_division'),
@@ -797,7 +914,7 @@ function collectMetadata(){
     date:edVal('date'),time:edVal('time'),location:edVal('location'),
     inmates_involved:edVal('inmates_involved'),
     narrative:edVal('narrative'),
-    officer_signature:(first+' '+last).trim(),
+    officer_signature:((edVal('officer_first')||'')+' '+(edVal('officer_last')||'')).trim(),
   };
 }
 function collectAnswers(){
