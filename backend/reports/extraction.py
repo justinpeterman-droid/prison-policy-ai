@@ -6,13 +6,18 @@ returns null for anything not stated. It never writes report prose here.
 """
 import json
 import logging
+import os
 import vertexai
 from vertexai.generative_models import GenerativeModel, GenerationConfig
 from backend.pipeline.config import PROJECT_ID, LOCATION, GENERATION_MODEL
 from backend.reports.schema import build_response_schema, load_checklist
 
 logger = logging.getLogger(__name__)
-vertexai.init(project=PROJECT_ID, location=LOCATION)
+
+# Model may need a different location than the app default (e.g. gemini-3.5-flash
+# is global-only while RAG/corpus lives in us-central1).
+MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", LOCATION)
+vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
 
 EXTRACTION_SYSTEM = """You extract facts from a corrections officer's field notes.
 Rules:
