@@ -1,0 +1,14 @@
+{
+  "hosting": {
+    "public": "public",
+    "redirects": [{
+      "source": "/",
+      "destination": "https://prison-policy-ai-403037827694.us-central1.run.app",
+      "type": 302
+    }, {
+      "source": "/:path*",
+      "destination": "https://prison-policy-ai-403037827694.us-central1.run.app/:path*",
+      "type": 302
+    }]
+  }
+}
