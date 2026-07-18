@@ -34,24 +34,29 @@ def build_classifier_prompt() -> tuple[str, dict]:
         )
     charge_ref = "\n".join(charge_lines[:60])  # Cap at 60 to fit context
 
-    prompt = f"""You are an incident classifier for a corrections facility.
+    prompt = f"""You are an incident classifier for the Benny Magness Unit (BMU), Arkansas Department of Correction.
 Analyze the field notes and classify the incident.
 
 Output ONLY valid JSON with these fields:
 {{
-  "incident_type": "<category>",
-  "forms_required": ["<form1>", "<form2>"],
-  "persons_involved": [{{"role": "reporting_officer"|"inmate"|"witness", "name": "Last, First", "adc_number": "..."}}],
+  "incident_type": "<one of the 7 category names below>",
+  "persons_involved": [{{"role": "reporting_officer"|"inmate"|"security_staff"|"witness", "name": "Last, First", "rank": "Cpl.|Sgt.|Lt.|Cpt.", "adc_number": "digits or null"}}],
   "charges_applicable": ["<rule_number>"],
-  "facility": "<facility>",
+  "facility": "Benny Magness Unit",
   "shift": "<shift>",
   "location": "<location within facility>",
   "date": "<date of incident>",
   "time": "<time of incident>"
 }}
 
-Incident categories: use_of_force, major_disciplinary, contraband, prea, medical_emergency, escape_walkaway, general_incident, hunger_strike, restrictive_housing
-Forms: 005_409, major_disciplinary_form, chain_of_custody, confiscation_form, prea_supplement, photo_video, cover_letter
+Incident categories — use EXACTLY one of these 7 names:
+  contraband               — Introducing contraband (drugs, weapons, money, etc.)
+  inmate_fight             — Inmate on inmate fight or assault
+  staff_assault            — Inmate assaulting/battering staff
+  forced_cell_movement     — Forced cell movement (extracting non-compliant inmate)
+  prea                     — PREA (Prison Rape Elimination Act)
+  incident_no_disciplinary — Incident that does not require disciplinary action
+  other_rule_violation     — Any other rule violation not covered above
 
 AVAILABLE CHARGE CATALOG (only use rule numbers from this list):
 {charge_ref}

@@ -7,8 +7,24 @@ import vertexai
 from vertexai.generative_models import GenerativeModel
 from backend.pipeline.config import PROJECT_ID, LOCATION, GENERATION_MODEL
 from backend.reports.prompts import build_classifier_prompt
+from backend.reports.schema import load_checklist
 
 logger = logging.getLogger(__name__)
+
+VALID_CATEGORIES = {
+    "contraband", "inmate_fight", "staff_assault", "forced_cell_movement",
+    "prea", "incident_no_disciplinary", "other_rule_violation",
+}
+
+def _category_label(incident_type: str) -> str:
+    try:
+        cl = load_checklist()
+        for cat in cl.get("categories", []):
+            if cat["name"] == incident_type:
+                return cat["label"]
+    except Exception:
+        pass
+    return incident_type.replace("_", " ").title()
 
 # Model may need a different location than the app default (e.g. gemini-3.5-flash
 # is global-only while RAG/corpus lives in us-central1).
@@ -55,6 +71,13 @@ def classify_incident(notes: str) -> dict:
 
     try:
         result = json.loads(text)
+        # Constrain to the 7 valid categories
+        if result.get("incident_type") not in VALID_CATEGORIES:
+            logger.warning("Classifier returned invalid category %r — defaulting to other_rule_violation",
+                           result.get("incident_type"))
+            result["incident_type"] = "other_rule_violation"
+        # Always add the human-readable label
+        result["label"] = _category_label(result["incident_type"])
         # Validate charges against catalog
         result["charges_applicable"] = [
             c for c in result.get("charges_applicable", [])
@@ -69,12 +92,12 @@ def classify_incident(notes: str) -> dict:
     except (json.JSONDecodeError, KeyError) as e:
         logger.warning("Classification JSON parse failed: %s — raw: %.300s", e, text)
         return {
-            "incident_type": "general_incident",
-            "forms_required": ["005_409"],
+            "incident_type": "other_rule_violation",
+            "label": _category_label("other_rule_violation"),
             "persons_involved": [],
             "charges_applicable": [],
             "charge_descriptions": {},
-            "facility": "Unknown",
+            "facility": "Benny Magness Unit",
             "shift": "Unknown",
             "raw_classification": text,
         }

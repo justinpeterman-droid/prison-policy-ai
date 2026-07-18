@@ -94,6 +94,16 @@
   .copy-link:hover{background:rgba(94,106,210,0.12)}
   .copy-link.done{color:var(--green)}
 
+  /* Category chip */
+  .cat-chip-row{display:none;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .cat-chip-row.visible{display:flex}
+  .cat-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(39,166,68,0.12);border:1px solid rgba(39,166,68,0.36);color:#27a644;padding:5px 12px;border-radius:9999px;font-size:12px;font-weight:600}
+  .cat-chip .check{font-size:10px}
+  .change-link{font-size:12px;color:var(--text4);cursor:pointer;padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;font-family:inherit;transition:all .15s}
+  .change-link:hover{color:var(--text2);border-color:rgba(255,255,255,0.16)}
+  .cat-override{margin-top:6px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--text2);font-family:inherit;font-size:13px;padding:8px 10px;outline:none;cursor:pointer}
+  .cat-override:focus{border-color:rgba(113,112,255,0.5);box-shadow:0 0 0 3px rgba(94,106,210,0.15)}
+
   /* Preview toolbar: form switcher + actions */
   .preview-toolbar{display:none;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
   .preview-toolbar.visible{display:flex}
@@ -200,6 +210,21 @@
     <div id="error"></div>
     <div id="badges"></div>
 
+    <!-- Category chip: shown after classify -->
+    <div class="cat-chip-row" id="catChipRow">
+      <span class="cat-chip"><span class="check">✓</span><span id="chipLabel"></span></span>
+      <button class="change-link" onclick="toggleCatOverride()">change ▾</button>
+      <select class="cat-override" id="catOverride" style="display:none" onchange="onCatOverride(this.value)">
+        <option value="contraband">Introduction of Contraband</option>
+        <option value="inmate_fight">Inmate on Inmate Fight/Assault</option>
+        <option value="staff_assault">Staff Assault/Battery</option>
+        <option value="forced_cell_movement">Forced Cell Movement</option>
+        <option value="prea">PREA</option>
+        <option value="incident_no_disciplinary">Incident (No Disciplinary)</option>
+        <option value="other_rule_violation">Other Rule Violation</option>
+      </select>
+    </div>
+
     <div id="reports"></div>
     <button class="secondary preview-toggle" id="previewToggle" onclick="togglePreview()">Show preview</button>
   </div>
@@ -224,10 +249,39 @@
 
 <script>
 const DRAFT_KEY='slut_notes_draft';
+const CATEGORY_LABELS={
+  contraband:'Introduction of Contraband',
+  inmate_fight:'Inmate on Inmate Fight/Assault',
+  staff_assault:'Staff Assault/Battery',
+  forced_cell_movement:'Forced Cell Movement',
+  prea:'PREA',
+  incident_no_disciplinary:'Incident (No Disciplinary)',
+  other_rule_violation:'Other Rule Violation',
+};
 let _reportTexts=[];
 let _data=null;
+let _confirmedCategory=null;
 let _activeForm='form005';
 let _draftTimer=null,_stageTimer=null;
+
+/* ---- Category chip ---- */
+function showCatChip(incidentType,label){
+  _confirmedCategory=incidentType;
+  document.getElementById('chipLabel').textContent=label||CATEGORY_LABELS[incidentType]||incidentType;
+  const sel=document.getElementById('catOverride');
+  sel.value=incidentType;
+  sel.style.display='none';
+  document.getElementById('catChipRow').classList.add('visible');
+}
+function toggleCatOverride(){
+  const sel=document.getElementById('catOverride');
+  sel.style.display=sel.style.display==='none'?'block':'none';
+}
+function onCatOverride(val){
+  _confirmedCategory=val;
+  document.getElementById('chipLabel').textContent=CATEGORY_LABELS[val]||val;
+  document.getElementById('catOverride').style.display='none';
+}
 
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function fmt(val){return val||'—'}
@@ -269,7 +323,8 @@ function clearAll(){
   document.getElementById('error').innerHTML='';
   document.getElementById('badges').innerHTML='';
   document.getElementById('reports').innerHTML='';
-  _reportTexts=[];_data=null;
+  document.getElementById('catChipRow').classList.remove('visible');
+  _reportTexts=[];_data=null;_confirmedCategory=null;
   localStorage.removeItem(DRAFT_KEY);
   countChars();
   document.getElementById('toolbar').classList.remove('visible');
@@ -297,8 +352,9 @@ async function generate(){
     if(d.error)throw new Error(d.error);
     _data=d;
 
+    if(d.incident_type)showCatChip(d.incident_type,d.label);
+
     let badges='';
-    if(d.incident_type)badges+=`<span class="badge badge-type">${esc(d.incident_type.replace(/_/g,' '))}</span>`;
     (d.charges||[]).forEach(c=>{badges+=`<span class="badge badge-charge">${esc(c)}</span>`});
     document.getElementById('badges').innerHTML=badges;
 
