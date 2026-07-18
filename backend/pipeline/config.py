@@ -14,7 +14,7 @@ TEMPLATES_DIR = ROOT / "templates"
 
 # GCP
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "gen-lang-client-0968389176")
-LOCATION = os.getenv("GCP_LOCATION", "global")
+LOCATION = os.getenv("GCP_LOCATION", "us-central1")
 BUCKET_NAME = os.getenv("GCS_BUCKET", f"{PROJECT_ID}-policy-ai")
 
 # Vertex AI

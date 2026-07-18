@@ -1,4 +1,5 @@
 """RAG query: retrieve + generate answers from policy corpus."""
+import os
 import vertexai
 from vertexai.preview import rag
 from vertexai.generative_models import GenerativeModel
@@ -6,7 +7,13 @@ from backend.pipeline.config import (
     PROJECT_ID, LOCATION, GENERATION_MODEL, CORPUS_NAME
 )
 
-vertexai.init(project=PROJECT_ID, location=LOCATION)
+# RAG corpus lives in a specific region; the generation model may need a
+# different location (gemini-3.5-flash is global-only, for instance).
+RAG_LOCATION = os.getenv("GCP_RAG_LOCATION", LOCATION)
+MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", "global")
+
+# Init once for RAG — the model path re-inits when needed (see _generate).
+vertexai.init(project=PROJECT_ID, location=RAG_LOCATION)
 
 CHAT_SYSTEM_PROMPT = (
     "You are a policy assistant. Answer questions using ONLY the policy "
@@ -72,6 +79,10 @@ def answer_question(question: str) -> dict:
 
     context_text = "\n\n---\n\n".join(c["text"] for c in contexts)
     prompt = f"POLICY DOCUMENTS:\n{context_text}\n\nQUESTION: {question}"
+
+    # Re-init at the generation model's location if it differs from RAG.
+    if MODEL_LOCATION != RAG_LOCATION:
+        vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
 
     model = GenerativeModel(
         model_name=GENERATION_MODEL,
