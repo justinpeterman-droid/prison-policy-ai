@@ -38,6 +38,10 @@ def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
         os.close(fd)  # close fd, we'll write via zipfile
     output_path = Path(output_path)
     
+    # Decision §3: the 005 "middle" spot is the employee #, not middle name.
+    # Map employee_number → officer_middle so the template placeholder is filled.
+    metadata.setdefault("officer_middle", metadata.get("employee_number", ""))
+
     # Fill defaults
     defaults = {
         "unit_division": "",

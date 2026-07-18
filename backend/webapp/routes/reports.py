@@ -67,6 +67,7 @@ def reports_api():
 
         return jsonify({
             "incident_type": classification.get("incident_type"),
+            "label": classification.get("label", classification.get("incident_type", "")),
             "forms_required": classification.get("forms_required", []),
             "charges": classification.get("charges_applicable", []),
             "charge_descriptions": classification.get("charge_descriptions", {}),
@@ -75,7 +76,7 @@ def reports_api():
             "metadata": {
                 "officer_last": last,
                 "officer_first": first,
-                "officer_middle": middle,
+                "employee_number": officer.get("employee_number", ""),
                 "rank": officer.get("rank", ""),
                 "facility": classification.get("facility", ""),
                 "shift": classification.get("shift", ""),
@@ -154,7 +155,7 @@ def reports_download():
         metadata = {
             "officer_last": last,
             "officer_first": first,
-            "officer_middle": middle,
+            "employee_number": officer.get("employee_number", ""),
             "rank": officer.get("rank", ""),
             "unit_division": classification.get("facility", ""),
             "shift_assignment": classification.get("shift", ""),
