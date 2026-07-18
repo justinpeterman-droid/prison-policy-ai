@@ -129,6 +129,39 @@
   .edit-hint.visible{display:block}
   .edit-hint b{color:var(--text3);font-weight:560}
 
+  /* Missing Information panel */
+  .mi-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .mi-title{font-size:14px;font-weight:600;color:var(--text2)}
+  .mi-progress{font-size:11px;color:var(--accent2);font-weight:560}
+  .mi-group{margin-bottom:10px}
+  .mi-group-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:8px;padding-top:10px;border-top:1px solid var(--border-sub)}
+  .mi-footer{margin-top:12px}
+  .gap-item{padding:8px 0;border-bottom:1px solid var(--border-sub)}
+  .gap-q{font-size:12.5px;color:var(--text3);margin-bottom:6px;line-height:1.4}
+  .gap-controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .gap-select,.gap-input{padding:6px 10px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-family:inherit;font-size:12.5px;outline:none;flex:1;min-width:120px}
+  .gap-select:focus,.gap-input:focus{border-color:rgba(113,112,255,0.5);box-shadow:0 0 0 3px rgba(94,106,210,0.15)}
+  .yn-btn{padding:6px 16px;font-size:12px;font-weight:560;border-radius:6px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:rgba(255,255,255,0.03);color:var(--text3);transition:all .15s}
+  .yn-btn:hover{color:var(--text2);border-color:rgba(255,255,255,0.2)}
+  .yn-btn.yn-active{background:rgba(94,106,210,0.22);border-color:var(--accent2);color:#fff}
+  .unknown-btn{padding:5px 10px;font-size:11px;font-weight:560;border-radius:5px;cursor:pointer;font-family:inherit;border:1px solid rgba(229,83,75,0.3);background:rgba(229,83,75,0.08);color:var(--danger);transition:all .15s;white-space:nowrap}
+  .unknown-btn:hover{background:rgba(229,83,75,0.18);border-color:var(--danger)}
+  .unknown-btn.unknown-set{background:rgba(39,166,68,0.12);border-color:rgba(39,166,68,0.36);color:var(--green)}
+
+  /* Officer buttons */
+  .officer-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:10px 0;border-top:1px solid var(--border-sub);border-bottom:1px solid var(--border-sub)}
+  .officer-row .field-label{width:100%}
+
+  /* Yellow highlight for invented facts */
+  .page mark,.page .hl{background:#fff3b0;color:#16181d;padding:1px 2px;border-radius:2px}
+  .page .marker-banner{display:block;background:rgba(229,180,75,0.15);border:1px solid rgba(229,180,75,0.4);border-left:3px solid #e5b44b;color:#b8840a;padding:6px 10px;margin:6px 0;font-size:9.5pt;border-radius:2px;font-weight:600}
+
+  /* Checklist panel */
+  .checklist-panel{margin-top:14px;padding-top:10px;border-top:1px solid var(--border-sub)}
+  .checklist-item{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:var(--text3)}
+  .checklist-item .cb{width:14px;height:14px;border:1.5px solid var(--border);border-radius:3px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;transition:all .15s}
+  .checklist-item .cb.checked{background:var(--green);border-color:var(--green);color:#fff}
+
   /* Mobile preview toggle */
   .preview-toggle{display:none;width:100%;margin-top:4px}
   @media(max-width:820px){
@@ -336,7 +369,11 @@ function clearAll(){
   document.getElementById('badges').innerHTML='';
   document.getElementById('reports').innerHTML='';
   document.getElementById('catChipRow').classList.remove('visible');
-  _reportTexts=[];_data=null;_confirmedCategory=null;
+  document.getElementById('missingPanel').style.display='none';
+  document.getElementById('missingPanel').innerHTML='';
+  document.getElementById('officerButtons').style.display='none';
+  document.getElementById('officerButtons').innerHTML='';
+  _reportTexts=[];_data=null;_confirmedCategory=null;_extractedSlots={};_officers=[];_extractedData=null;
   localStorage.removeItem(DRAFT_KEY);
   countChars();
   document.getElementById('toolbar').classList.remove('visible');
@@ -396,6 +433,7 @@ async function runExtract(){
     _extractedSlots=d.slots||{};
     _officers=d.officers||[];
     _extractedData=d;
+    _data=d; // store for checklist access
     renderMissingPanel(d);
   }catch(e){
     document.getElementById('error').innerHTML=`<div class="error">${esc(e.message)}</div>`;
@@ -455,12 +493,129 @@ function copyReport(idx,btn){
   }).catch(()=>prompt('Copy manually:',text));
 }
 
-/* ---- Missing Information panel stub (expanded in Task 4) ---- */
+/* ---- Missing Information panel ---- */
 function renderMissingPanel(d){
   const panel=document.getElementById('missingPanel');
   panel.style.display='';
-  // Full implementation in Task 4
-  panel.innerHTML=`<div style="margin:12px 0;font-size:13px;color:var(--text3)">${d.blocking_remaining||0} required items to fill in. <button class="primary" id="continueBtn" onclick="runGenerate(0)" ${d.blocking_remaining?'disabled':''}>Continue →</button></div>`;
+  const gaps=d.gaps||[];
+  const blocking=gaps.filter(g=>g.blocking);
+  const nonBlocking=gaps.filter(g=>!g.blocking);
+  const total=blocking.length;
+
+  let html=`<div class="mi-header">
+    <span class="mi-title">Missing Information</span>
+    <span class="mi-progress" id="miProgress">${total} of ${total} required items remaining</span>
+  </div>`;
+
+  if(blocking.length){
+    html+=`<div class="mi-group">`;
+    blocking.forEach(g=>{html+=renderGapWidget(g,'blocking');});
+    html+=`</div>`;
+  }
+
+  if(nonBlocking.length){
+    html+=`<div class="mi-group mi-group-checklist"><div class="mi-group-label">Checklist Items</div>`;
+    nonBlocking.forEach(g=>{html+=renderGapWidget(g,'nonblocking');});
+    html+=`</div>`;
+  }
+
+  html+=`<div class="mi-footer"><button class="primary" id="continueBtn" onclick="runGenerate(0)" ${total?'disabled':''} style="width:100%">Continue →</button></div>`;
+  panel.innerHTML=html;
+  updateProgress();
+}
+
+function renderGapWidget(g,cls){
+  const slot=g.slot;
+  const opts=g.options||[];
+  let widget='';
+  if(g.answer_type==='choice'){
+    // Choice: dropdown + "Other" option swaps to text; Unknown button
+    widget=`<select class="gap-select" data-slot="${esc(slot)}" onchange="onChoiceChange(this,'${esc(slot)}')">
+      <option value="">— select —</option>
+      ${opts.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}
+    </select>
+    <input type="text" class="gap-input" data-slot="${esc(slot)}_other" placeholder="Specify..." style="display:none;margin-top:6px" oninput="onOtherInput(this,'${esc(slot)}')">`;
+  }else if(g.answer_type==='yes_no'){
+    widget=`<div class="gap-yn">
+      <button class="yn-btn" onclick="setYN(this,'${esc(slot)}','Yes')">Yes</button>
+      <button class="yn-btn" onclick="setYN(this,'${esc(slot)}','No')">No</button>
+      <input type="hidden" data-slot="${esc(slot)}" value="">
+    </div>`;
+  }else{
+    widget=`<input type="text" class="gap-input" data-slot="${esc(slot)}" placeholder="Enter..." oninput="updateProgress()">`;
+  }
+  const unknownBtn=`<button class="unknown-btn" onclick="setUnknown('${esc(slot)}',this)">Unknown</button>`;
+  return `<div class="gap-item ${cls}" data-gap-slot="${esc(slot)}">
+    <div class="gap-q">${esc(g.question)}</div>
+    <div class="gap-controls">${widget}${unknownBtn}</div>
+  </div>`;
+}
+
+function onChoiceChange(sel,slot){
+  const other=sel.parentElement.querySelector('input[type=text]');
+  if(sel.value==='Other (type your own)'){
+    other.style.display='';
+    other.focus();
+    // Remove the slot from select so the hidden input wins
+    const h=sel.parentElement.querySelector('input[data-slot="'+slot+'"]');
+    if(h)h.value='';
+  }else{
+    if(other)other.style.display='none';
+  }
+  updateProgress();
+}
+function onOtherInput(inp,slot){
+  // Sync value to the select's data-slot by adding a hidden input if needed
+  let h=inp.parentElement.querySelector('select[data-slot="'+slot+'"]');
+  // Override the select's data-slot with a hidden input
+  let hid=inp.parentElement.querySelector('input[type=hidden][data-slot="'+slot+'"]');
+  if(!hid){hid=document.createElement('input');hid.type='hidden';hid.dataset.slot=slot;inp.parentElement.appendChild(hid);}
+  hid.value=inp.value;
+  updateProgress();
+}
+function setYN(btn,slot,val){
+  const row=btn.closest('.gap-yn');
+  row.querySelectorAll('.yn-btn').forEach(b=>b.classList.toggle('yn-active',b===btn));
+  row.querySelector('input[type=hidden][data-slot]').value=val;
+  updateProgress();
+}
+function setUnknown(slot,btn){
+  const item=btn.closest('.gap-item');
+  item.querySelectorAll('[data-slot]').forEach(el=>{
+    if(el.dataset.slot===slot)el.value='UNKNOWN';
+  });
+  const sel=item.querySelector('select[data-slot="'+slot+'"]');
+  if(sel){
+    let opt=[...sel.options].find(o=>o.value==='UNKNOWN');
+    if(!opt){opt=new Option('UNKNOWN','UNKNOWN');sel.appendChild(opt);}
+    sel.value='UNKNOWN';
+  }
+  btn.classList.add('unknown-set');btn.textContent='Set ✓';
+  updateProgress();
+}
+function updateProgress(){
+  const blocking=document.querySelectorAll('.gap-item.blocking');
+  let remaining=0;
+  blocking.forEach(item=>{
+    const slot=item.dataset.gapSlot;
+    const filled=!!getSlotVal(item,slot);
+    if(!filled)remaining++;
+  });
+  const prog=document.getElementById('miProgress');
+  const total=blocking.length;
+  if(prog)prog.textContent=`${remaining} of ${total} required items remaining`;
+  const btn=document.getElementById('continueBtn');
+  if(btn)btn.disabled=remaining>0;
+}
+function getSlotVal(container,slot){
+  // Prefer hidden input override, then input/textarea, then select
+  const hid=container.querySelector('input[type=hidden][data-slot="'+slot+'"]');
+  if(hid&&hid.value)return hid.value;
+  const inp=container.querySelector('input:not([type=hidden])[data-slot="'+slot+'"],textarea[data-slot="'+slot+'"]');
+  if(inp&&inp.value.trim())return inp.value.trim();
+  const sel=container.querySelector('select[data-slot="'+slot+'"]');
+  if(sel&&sel.value&&sel.value!=='— select —')return sel.value;
+  return '';
 }
 
 /* ---- Form switcher ---- */
@@ -497,14 +652,50 @@ function renderOfficerButtons(officers){
   if(!el)return;
   if(!officers||!officers.length){el.style.display='none';return;}
   const rankAbbr=r=>r||'Officer';
-  el.innerHTML='<div class="field-label" style="margin-bottom:8px">Generate per-officer report</div>'+
-    officers.map((o,i)=>`<button class="secondary" style="margin-bottom:6px;margin-right:6px" onclick="runGenerate(${i})">
-      Generate ${esc(rankAbbr(o.rank))} ${esc(o.last)}'s report
-    </button>`).join('');
+  let html='<div class="officer-row"><div class="field-label">Generate per-officer report</div>';
+  officers.forEach((o,i)=>{
+    const hasActions=o.actions&&o.actions.length;
+    if(hasActions){
+      html+=`<button class="secondary" onclick="runGenerate(${i})">Generate ${esc(rankAbbr(o.rank))} ${esc(o.last)}'s report</button>`;
+    }else{
+      html+=`<button class="secondary" onclick="promptOfficerActions(${i},'${esc(rankAbbr(o.rank))}','${esc(o.last||'')}')">Generate ${esc(rankAbbr(o.rank))} ${esc(o.last)}'s report</button>`;
+    }
+  });
+  html+='</div>';
+  el.innerHTML=html;
   el.style.display='';
 }
+function promptOfficerActions(idx,rank,name){
+  const ans=prompt(`What did ${rank} ${name} do or observe?`);
+  if(ans&&ans.trim()){
+    if(!_extractedSlots.persons)return;
+    const staff=_extractedSlots.persons.filter(p=>p.role==='security_staff');
+    if(staff[idx]){staff[idx].actions=staff[idx].actions||[];staff[idx].actions.push(ans.trim());}
+    runGenerate(idx);
+  }
+}
 
-/* ---- Paper renderers ---- */
+/* ---- Highlight + markers ---- */
+function highlightFlags(text,flags){
+  if(!flags||!flags.length)return esc(text);
+  let out=esc(text);
+  flags.forEach(f=>{
+    const escaped=esc(f);
+    const re=new RegExp(escaped.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
+    out=out.replace(re,m=>`<mark>${m}</mark>`);
+  });
+  return out;
+}
+function markersBanner(markers){
+  if(!markers||!markers.length)return '';
+  return markers.map(m=>`<span class="marker-banner">⚠ ${esc(m)}</span>`).join('');
+}
+function renderChecklist(checklist){
+  if(!checklist||!checklist.length)return '';
+  return `<div class="checklist-panel"><div class="field-label">Checklist</div>`+
+    checklist.map(c=>`<div class="checklist-item"><span class="cb${c.checked?' checked':''}">${c.checked?'✓':''}</span>${esc(c.form.replace(/_/g,' '))}</div>`).join('')+
+    `</div>`;
+}
 function edField(label,key,value){
   return `<div class="field"><label>${label}</label><span class="ed" data-key="${key}" contenteditable="true">${esc(fmt(value))}</span></div>`;
 }
@@ -513,8 +704,11 @@ function render005(d){
   const fp=r.first_person||'';
   const m=d.form005||d.metadata||{};
   const officer=m.officer_last?m.officer_last+', '+m.officer_first:'';
+  const flags=d.flags||[];
+  const markers=d.markers||[];
   document.getElementById('preview').innerHTML=`
     <div class="header"><div class="agency">Arkansas Department of Correction</div><h3>Incident Report</h3></div>
+    ${markersBanner(markers)}
     <div class="field-row">
       <div class="field"><label>Incident Type</label>${esc((_confirmedCategory||'N/A').replace(/_/g,' '))}</div>
       ${edField('Date','date',m.date)}
@@ -536,12 +730,14 @@ function render005(d){
       ${edField('Inmates Involved','inmates_involved',m.inmates_involved)}
     </div>
     <div class="section-title">Narrative</div>
-    <div class="narrative ed" data-key="narrative" contenteditable="true">${esc(fp||'No narrative generated.')}</div>
+    <div class="narrative ed" data-key="narrative" contenteditable="true">${highlightFlags(fp||'No narrative generated.',flags)}</div>
     <div class="sig"><div>${esc(m.officer_first&&m.officer_last?m.officer_first+' '+m.officer_last:'Reporting Officer')}</div><div>Supervisor Review</div><div>${esc(fmt(m.date||'Date'))}</div></div>
+    ${renderChecklist(d.checklist||_extractedData?.checklist||[])}
   `;
 }
 function renderSummary(d){
   const m=d.form005||d.metadata||{};
+  const flags=d.flags||[];
   const officer=m.officer_last?(m.rank?m.rank+' ':'')+m.officer_first+' '+m.officer_last:'Reporting Officer';
   document.getElementById('preview').innerHTML=`
     <div class="header"><div class="agency">Arkansas Department of Correction</div><h3>Inter-Office Communication</h3></div>
@@ -554,12 +750,13 @@ function renderSummary(d){
       <div class="field"><label>Re</label>${esc((_confirmedCategory||'Incident').replace(/_/g,' '))}</div>
     </div>
     <div class="section-title">Summary of Incident</div>
-    <div class="narrative">${esc((d.reports||{}).supervisor_summary||'')}</div>
+    <div class="narrative">${highlightFlags((d.reports||{}).supervisor_summary||'',flags)}</div>
     <div class="sig"><div>Prepared by ${esc(officer)}</div><div>Received — Supervisor</div></div>
   `;
 }
 function renderDisciplinary(d){
   const m=d.form005||d.metadata||{};
+  const flags=d.flags||[];
   document.getElementById('preview').innerHTML=`
     <div class="header"><div class="agency">Arkansas Department of Correction</div><h3>Disciplinary Report — Supplement</h3></div>
     <div class="field-row">
@@ -571,7 +768,7 @@ function renderDisciplinary(d){
       <div class="field"><label>Time</label>${esc(fmt(m.time))}</div>
     </div>
     <div class="section-title">Statement</div>
-    <div class="narrative">${esc((d.reports||{}).disciplinary||'')}</div>
+    <div class="narrative">${highlightFlags((d.reports||{}).disciplinary||'',flags)}</div>
     <div class="sig"><div>Reporting Officer</div><div>Disciplinary Hearing Officer</div></div>
   `;
 }

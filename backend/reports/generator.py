@@ -1,117 +1,179 @@
-"""Report generator — produces all required report texts."""
+"""Report generator v3 — structured facts only, never raw notes.
+
+Uses prompts_v2.py which receives extraction slots (narrative_facts, quotes,
+per-officer actions) + auto_content sentences. Every header field is rendered
+by code from slots — the model writes narrative prose ONLY.
+"""
 import os
 import logging
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from backend.pipeline.config import PROJECT_ID, LOCATION, GENERATION_MODEL
-from backend.reports.prompts import (
+from backend.reports.prompts_v2 import (
+    FIRST_PERSON_PROMPT,
     SUPERVISOR_SUMMARY_PROMPT,
-    FIRST_PERSON_REPORT_PROMPT,
     DISCIPLINARY_PROMPT,
-    format_charge_lines,
+    COVER_LETTER_PROMPT,
 )
 
 logger = logging.getLogger(__name__)
 
-# Model may need a different location than the app default (e.g. gemini-3.5-flash
-# is global-only while RAG/corpus lives in us-central1).
 MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", LOCATION)
 vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
 
 
 def _generate(system_prompt: str, user_prompt: str) -> str:
-    # Re-init in case another module changed vertexai's global location.
     vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
-
-    model = GenerativeModel(
-        model_name=GENERATION_MODEL,
-        system_instruction=system_prompt,
-    )
+    model = GenerativeModel(model_name=GENERATION_MODEL, system_instruction=system_prompt)
     response = model.generate_content(user_prompt)
     return response.text
 
 
-def _format_persons(persons: list[dict]) -> str:
-    """Format persons list for prompt injection."""
-    if not persons:
-        return "None listed"
-    return ", ".join(
-        f"{p.get('name', 'Unknown')} ({p.get('role', 'unknown')}, ADC #{p.get('adc_number', 'N/A')})"
-        for p in persons
-    )
-
-
 def _fmt(val, default="Unknown") -> str:
-    """Format a value with fallback."""
     return str(val) if val else default
 
 
-def generate_supervisor_summary(notes: str, classification: dict) -> str:
-    """Generate 3rd-person supervisor summary."""
+def _auto_for(report_type: str, auto_content: list[dict] | None) -> str:
+    """Collect auto_content sentences targeted at this report type."""
+    if not auto_content:
+        return ""
+    lines = []
+    for ac in auto_content:
+        if report_type in ac.get("insert_into", []):
+            lines.append(ac["text"])
+    return "\n".join(lines) if lines else "(none)"
+
+
+def _narrative_facts_str(slots: dict) -> str:
+    facts = slots.get("narrative_facts", [])
+    if not facts:
+        return "(none)"
+    return "\n".join(f"- {f}" for f in facts)
+
+
+def _quotes_str(slots: dict) -> str:
+    quotes = slots.get("quotes", [])
+    if not quotes:
+        return "(none)"
+    return "\n".join(f'"{q}"' for q in quotes)
+
+
+def _reporter_actions_str(slots: dict, reporter_index: int = 0) -> str:
+    persons = slots.get("persons", [])
+    staff = [p for p in persons if p.get("role") == "security_staff"]
+    if staff and reporter_index < len(staff):
+        actions = staff[reporter_index].get("actions", [])
+    else:
+        actions = []
+    if not actions:
+        return "(no actions attributed to this officer in the notes)"
+    return "\n".join(f"- {a}" for a in actions)
+
+
+def _opening_actor(slots: dict) -> str:
+    rank = slots.get("rank", "")
+    first = slots.get("officer_first", "")
+    last = slots.get("officer_last", "")
+    return f"{rank} {first} {last}".strip() or "the reporting officer"
+
+
+# ── Per-report generators (all receive structured data ONLY) ──────
+
+
+def generate_first_person(slots: dict, auto_content: list[dict] | None = None,
+                          reporter_index: int = 0) -> str:
+    prompt = FIRST_PERSON_PROMPT.format(
+        rank=_fmt(slots.get("rank")),
+        officer_first=_fmt(slots.get("officer_first")),
+        officer_last=_fmt(slots.get("officer_last")),
+        date=_fmt(slots.get("date")),
+        time=_fmt(slots.get("time")),
+        reporter_actions=_reporter_actions_str(slots, reporter_index),
+        narrative_facts=_narrative_facts_str(slots),
+        quotes=_quotes_str(slots),
+        auto_content=_auto_for("first_person", auto_content),
+    )
+    return _generate(prompt, prompt)  # system=user for single-message flow
+
+
+def generate_supervisor_summary(slots: dict, auto_content: list[dict] | None = None) -> str:
     prompt = SUPERVISOR_SUMMARY_PROMPT.format(
-        incident_type=_fmt(classification.get("incident_type")),
-        facility=_fmt(classification.get("facility")),
-        date=_fmt(classification.get("date")),
-        time=_fmt(classification.get("time")),
-        location=_fmt(classification.get("location")),
-        persons=_format_persons(classification.get("persons_involved", [])),
+        date=_fmt(slots.get("date")),
+        time=_fmt(slots.get("time")),
+        opening_actor=_opening_actor(slots),
+        narrative_facts=_narrative_facts_str(slots),
+        quotes=_quotes_str(slots),
+        auto_content=_auto_for("supervisor_summary", auto_content),
     )
-    return _generate(prompt, notes)
+    return _generate(prompt, prompt)
 
 
-def generate_first_person(notes: str, classification: dict) -> str:
-    """Generate 1st-person officer report."""
-    prompt = FIRST_PERSON_REPORT_PROMPT.format(
-        incident_type=_fmt(classification.get("incident_type")),
-        facility=_fmt(classification.get("facility")),
-        date=_fmt(classification.get("date")),
-        time=_fmt(classification.get("time")),
-        location=_fmt(classification.get("location")),
-        persons=_format_persons(classification.get("persons_involved", [])),
+def generate_cover_letter(slots: dict, auto_content: list[dict] | None = None) -> str:
+    prompt = COVER_LETTER_PROMPT.format(
+        rank=_fmt(slots.get("rank")),
+        officer_first=_fmt(slots.get("officer_first")),
+        officer_last=_fmt(slots.get("officer_last")),
+        date=_fmt(slots.get("date")),
+        time=_fmt(slots.get("time")),
+        narrative_facts=_narrative_facts_str(slots),
+        auto_content=_auto_for("cover_letter", auto_content),
     )
-    return _generate(prompt, notes)
+    return _generate(prompt, prompt)
 
 
-def generate_disciplinary(notes: str, first_person_report: str,
-                          classification: dict) -> str:
-    """Generate disciplinary supplement with charge lines."""
-    charges = classification.get("charges_applicable", [])
-    charge_text = format_charge_lines(charges)
-
-    # Build the prompt with charge_lines and metadata pre-filled
+def generate_disciplinary(slots: dict, first_person_report: str,
+                          auto_content: list[dict] | None = None) -> str:
+    charges = slots.get("charges", "")
     prompt = DISCIPLINARY_PROMPT.format(
-        persons=_format_persons(classification.get("persons_involved", [])),
-        charges=", ".join(charges) if charges else "None",
-        charge_lines=charge_text,
+        rank=_fmt(slots.get("rank")),
+        officer_first=_fmt(slots.get("officer_first")),
+        officer_last=_fmt(slots.get("officer_last")),
+        first_person_report=first_person_report or "",
+        charges=charges or "None",
     )
-    return _generate(prompt, f"{notes}\n\nFirst Person Report:\n{first_person_report}")
+    return _generate(prompt, prompt)
 
 
-def generate_all_reports(notes: str, classification: dict) -> dict:
-    """Generate all required reports. Returns dict with partial results on failure."""
+def generate_all_reports(slots: dict, category: str = "",
+                         auto_content: list[dict] | None = None,
+                         reporter_actions: str = "") -> dict:
+    """Generate all report types from structured slots.
+
+    Args:
+        slots: Extraction slots (narrative_facts, quotes, persons, etc.)
+        category: Incident category name
+        auto_content: Resolved auto_content sentences from validate.py
+        reporter_actions: Pre-formatted reporter actions (if already built)
+
+    Returns:
+        dict with keys: cover_letter, first_person, supervisor_summary,
+                        disciplinary (if charges present)
+    """
     reports = {}
 
     try:
-        reports["supervisor_summary"] = generate_supervisor_summary(
-            notes, classification
-        )
+        reports["first_person"] = generate_first_person(slots, auto_content)
+    except Exception:
+        logger.error("First person report generation failed", exc_info=True)
+        reports["first_person"] = "[Error generating first person report]"
+
+    try:
+        reports["supervisor_summary"] = generate_supervisor_summary(slots, auto_content)
     except Exception:
         logger.error("Supervisor summary generation failed", exc_info=True)
         reports["supervisor_summary"] = "[Error generating supervisor summary]"
 
     try:
-        reports["first_person"] = generate_first_person(
-            notes, classification
-        )
+        reports["cover_letter"] = generate_cover_letter(slots, auto_content)
     except Exception:
-        logger.error("First person report generation failed", exc_info=True)
-        reports["first_person"] = "[Error generating first person report]"
+        logger.error("Cover letter generation failed", exc_info=True)
+        reports["cover_letter"] = "[Error generating cover letter]"
 
-    charges = classification.get("charges_applicable", [])
-    if charges:
+    charges = slots.get("charges", "")
+    if charges and charges not in ("None", ""):
         try:
             reports["disciplinary"] = generate_disciplinary(
-                notes, reports.get("first_person", ""), classification
+                slots, reports.get("first_person", ""), auto_content
             )
         except Exception:
             logger.error("Disciplinary supplement generation failed", exc_info=True)

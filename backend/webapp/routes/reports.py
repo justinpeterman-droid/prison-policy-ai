@@ -163,6 +163,7 @@ def reports_generate():
             "reports": reports,
             "form005": form005,
             "flags": flags,
+            "markers": gap_result.get("markers", []),
             "officers": officers,
         })
     except Exception as e:
