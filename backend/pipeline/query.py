@@ -47,6 +47,9 @@ def _source_label(ctx) -> str:
 
 def retrieve_context(question: str, top_k: int = 5) -> list[dict]:
     """Retrieve relevant policy chunks as {text, source} dicts."""
+    # Ensure RAG location — other modules may have switched it for model calls.
+    vertexai.init(project=PROJECT_ID, location=RAG_LOCATION)
+
     corpus = _get_corpus()
     response = rag.retrieval_query(
         rag_corpora=[corpus.name],
