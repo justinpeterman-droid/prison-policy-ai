@@ -84,11 +84,16 @@ def answer_question(question: str) -> dict:
     if MODEL_LOCATION != RAG_LOCATION:
         vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
 
-    model = GenerativeModel(
-        model_name=GENERATION_MODEL,
-        system_instruction=CHAT_SYSTEM_PROMPT,
-    )
-    response = model.generate_content(prompt)
+    try:
+        model = GenerativeModel(
+            model_name=GENERATION_MODEL,
+            system_instruction=CHAT_SYSTEM_PROMPT,
+        )
+        response = model.generate_content(prompt)
+    finally:
+        # Restore RAG location so subsequent requests don't break.
+        if MODEL_LOCATION != RAG_LOCATION:
+            vertexai.init(project=PROJECT_ID, location=RAG_LOCATION)
 
     citations = [
         {"n": i + 1, "source": c["source"], "text": c["text"]}
