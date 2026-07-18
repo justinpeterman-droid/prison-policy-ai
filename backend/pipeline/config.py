@@ -19,7 +19,7 @@ BUCKET_NAME = os.getenv("GCS_BUCKET", f"{PROJECT_ID}-policy-ai")
 
 # Vertex AI
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-004")
-GENERATION_MODEL = os.getenv("GENERATION_MODEL", "gemini-3.5-flash")
+GENERATION_MODEL = os.getenv("GENERATION_MODEL", "gemini-2.5-flash")
 CORPUS_NAME = os.getenv("RAG_CORPUS_NAME", "prison-policies")
 
 # Chunking
