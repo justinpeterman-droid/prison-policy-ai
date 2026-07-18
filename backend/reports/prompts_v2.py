@@ -7,12 +7,12 @@ rendered by code from slots — the model writes narrative prose ONLY.
 """
 
 STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
-- Inmates: 'Inmate {Last}, {First} ADC#{number}' on first reference, then 'Inmate {Last}'.
-- Staff: '{Rank} {First} {Last}' (Cpl. / Sgt. / Lt. / Cpt.).
-- Times: 'approximately {H:MM}{am/pm}' (lowercase, no space). Dates exactly as provided.
+- Inmates: 'Inmate {{Last}}, {{First}} ADC#{{number}}' on first reference, then 'Inmate {{Last}}'.
+- Staff: '{{Rank}} {{First}} {{Last}}' (Cpl. / Sgt. / Lt. / Cpt.).
+- Times: 'approximately {{H:MM}}{{am/pm}}' (lowercase, no space). Dates exactly as provided.
 - Chronological order. Past tense. One action per sentence. Objective and factual.
 - NEVER add a name, ADC#, time, date, or event that is not in the provided facts.
-- Secondhand information is attributed: '{person} stated/informed me that...'.
+- Secondhand information is attributed: '{{person}} stated/informed me that...'.
 - Inmate statements/profanity from QUOTES are included verbatim in quotation marks,
   never censored or paraphrased — they are evidence.
 - Medical observations are hedged: 'appeared to have a seizure', never a diagnosis.
