@@ -1,0 +1,654 @@
+{
+  "_source": "BMU Incident Checklist (matches Grimes Unit checklist requirements)",
+  "_notes": "required_slots must be non-null before final render. rules fire conditionally; each carries its own pre-written gap question so the AI never invents wording. Slot states: value | 'UNKNOWN' (renders [TO BE SUPPLEMENTED]) | null (triggers gap question).",
+  "_answer_types": {
+    "text": "free text input (names, ADC#s, numbers)",
+    "choice": "dropdown of 'options' \u2014 always append an 'Other (type your own)' fill-in as the last entry",
+    "yes_no": "Yes / No buttons"
+  },
+  "core_005_slots": [
+    "unit_division",
+    "officer_last",
+    "officer_first",
+    "employee_number",
+    "rank",
+    "shift_assignment",
+    "date",
+    "time",
+    "location",
+    "inmates_involved",
+    "employees_involved",
+    "others_present",
+    "inmate_injuries",
+    "inmate_treatment",
+    "officer_injuries",
+    "officer_treatment",
+    "recommendation",
+    "narrative"
+  ],
+  "signatures": [
+    "shift_lieutenant",
+    "shift_captain",
+    "chief_of_security"
+  ],
+  "shared_option_sets": {
+    "medical_disposition": [
+      "Seen by Infirmary staff",
+      "Refused medical (Refuse box checked)",
+      "Sent by ambulance to outside facility",
+      "N/A - no injuries reported"
+    ],
+    "escort_destination": [
+      "Restrictive Housing",
+      "Infirmary, then Restrictive Housing",
+      "Infirmary",
+      "Returned to assigned barracks"
+    ],
+    "drug_test_disposition": [
+      "Conducted",
+      "Refused (Refuse box checked)",
+      "N/A"
+    ]
+  },
+  "universal_rules": [
+    {
+      "id": "incident_number",
+      "if": "always",
+      "require": "incident_number",
+      "question": "Incident number? (YYYY-MM-###)",
+      "answer_type": "text",
+      "blocking": true
+    },
+    {
+      "id": "medical_disposition",
+      "if": "always",
+      "require": "medical_disposition",
+      "question": "Medical disposition for the inmate(s)?",
+      "answer_type": "choice",
+      "options_ref": "medical_disposition",
+      "blocking": true
+    },
+    {
+      "id": "drug_test",
+      "if": "always",
+      "require": "drug_test_disposition",
+      "question": "Inmate drug test?",
+      "answer_type": "choice",
+      "options_ref": "drug_test_disposition",
+      "blocking": true
+    }
+  ],
+  "categories": [
+    {
+      "name": "contraband",
+      "label": "Introduction of Contraband",
+      "forms_required": [
+        "cover_letter",
+        "005_409",
+        "major_disciplinary_form",
+        "photo_video",
+        "chain_of_custody",
+        "confiscation_f401",
+        "field_test_result",
+        "medical_report",
+        "inmate_drug_test",
+        "money_receipt_business_office"
+      ],
+      "reports": [
+        "cover_letter",
+        "first_person",
+        "supervisor_summary",
+        "disciplinary"
+      ],
+      "required_slots": [
+        "date",
+        "time",
+        "location",
+        "inmates_involved",
+        "contraband_description",
+        "discovery_method",
+        "charges"
+      ],
+      "rules": [
+        {
+          "if": "contraband_is_suspected_drugs == true",
+          "require": "field_test_result_summary",
+          "question": "Field test result?",
+          "answer_type": "choice",
+          "options": [
+            "Positive",
+            "Negative",
+            "Not yet tested"
+          ],
+          "blocking": true
+        },
+        {
+          "if": "contraband_includes_money == true",
+          "require": "money_receipt_number",
+          "question": "Receipt number from the Business Office?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "chain_of_custody_officer",
+          "question": "Who took chain of custody of the contraband (rank and name)?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "confiscation_form_completed",
+          "question": "F401 Confiscation Form completed?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box",
+          "on_no": "leave checklist box unchecked"
+        },
+        {
+          "if": "always",
+          "require": "photo_video_obtained",
+          "question": "Photograph/video footage obtained?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box + insert attachment line",
+          "on_no": "leave checklist box unchecked"
+        }
+      ],
+      "auto_content": [
+        {
+          "id": "custody_line",
+          "insert_into": [
+            "first_person",
+            "supervisor_summary"
+          ],
+          "condition": "always",
+          "template": "{chain_of_custody_officer} took chain of custody of the contraband."
+        },
+        {
+          "id": "field_test_line",
+          "insert_into": [
+            "cover_letter"
+          ],
+          "condition": "field_test_result_summary != null",
+          "template": "A field test was conducted with a result of {field_test_result_summary}."
+        }
+      ]
+    },
+    {
+      "name": "inmate_fight",
+      "label": "Inmate on Inmate Fight/Assault",
+      "forms_required": [
+        "cover_letter",
+        "005_409",
+        "major_disciplinary_form",
+        "photo_video",
+        "weapon_chain_of_custody_f401",
+        "witness_statements",
+        "enemy_alert_form",
+        "medical_report",
+        "inmate_drug_test",
+        "24_hour_review",
+        "72_hour_review",
+        "emergency_gate_pass_if_treated_outside"
+      ],
+      "reports": [
+        "cover_letter",
+        "first_person",
+        "supervisor_summary",
+        "disciplinary"
+      ],
+      "required_slots": [
+        "date",
+        "time",
+        "location",
+        "inmates_involved",
+        "inmate_injuries",
+        "restraints_applied_by",
+        "escorted_by",
+        "escort_destination",
+        "charges"
+      ],
+      "rules": [
+        {
+          "if": "always",
+          "require": "restraints_applied_by",
+          "question": "Who placed hand restraints on the inmate(s) (rank and name)?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "escorted_by",
+          "question": "Who escorted the inmate(s) (usually two officers - rank and name)?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "escort_destination",
+          "question": "Escorted to?",
+          "answer_type": "choice",
+          "options_ref": "escort_destination",
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "witness_statements_collected",
+          "question": "Witness statements collected?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box",
+          "on_no": "leave checklist box unchecked"
+        },
+        {
+          "if": "always",
+          "require": "enemy_alert_filed",
+          "question": "Enemy Alert Form filed?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box",
+          "on_no": "leave checklist box unchecked"
+        },
+        {
+          "if": "weapon_involved == true",
+          "require": "weapon_custody_officer",
+          "question": "Who took chain of custody of the weapon (F401)?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "medical_disposition == 'Sent by ambulance to outside facility'",
+          "require": "emergency_gate_pass",
+          "question": "Emergency Gate Pass issued?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box",
+          "on_no": "leave checklist box unchecked"
+        },
+        {
+          "if": "always",
+          "require": "photo_video_obtained",
+          "question": "Photograph/video footage obtained?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box + insert attachment line",
+          "on_no": "leave checklist box unchecked"
+        }
+      ],
+      "auto_content": [
+        {
+          "id": "enemy_alert_line",
+          "insert_into": [
+            "disciplinary",
+            "cover_letter"
+          ],
+          "condition": "always",
+          "template": "{inmate_a} and {inmate_b} was involved in a physical altercation at BMU in {location} on {date} (refer to BMU Incident Report {incident_number})."
+        },
+        {
+          "id": "footage_attached",
+          "insert_into": [
+            "cover_letter"
+          ],
+          "condition": "photo_video_obtained == 'Yes'",
+          "template": "Photograph/video footage of the incident is attached."
+        },
+        {
+          "id": "restraint_escort_line",
+          "insert_into": [
+            "first_person",
+            "supervisor_summary"
+          ],
+          "condition": "always",
+          "template": "{restraints_applied_by} placed hand restraints onto {inmate} and {escorted_by} escorted him to {escort_destination}."
+        }
+      ]
+    },
+    {
+      "name": "staff_assault",
+      "label": "Staff Assault/Battery",
+      "forms_required": [
+        "cover_letter",
+        "005_409",
+        "major_disciplinary_form",
+        "photo_video",
+        "injured_staff_company_nurse",
+        "officer_accident_report",
+        "weapon_chain_of_custody_f401",
+        "medical_report",
+        "inmate_drug_test",
+        "24_hour_review",
+        "72_hour_review"
+      ],
+      "reports": [
+        "cover_letter",
+        "first_person",
+        "supervisor_summary",
+        "disciplinary"
+      ],
+      "required_slots": [
+        "date",
+        "time",
+        "location",
+        "inmates_involved",
+        "employees_involved",
+        "officer_injuries",
+        "restraints_applied_by",
+        "escorted_by",
+        "escort_destination",
+        "charges"
+      ],
+      "rules": [
+        {
+          "if": "staff_injured == true",
+          "require": "company_nurse_confirmation_number",
+          "question": "Company Nurse called at (877) 854-6877 - confirmation number?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "staff_injured == true",
+          "require": "officer_accident_report_completed",
+          "question": "Officer Accident Report completed?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box",
+          "on_no": "leave checklist box unchecked"
+        },
+        {
+          "if": "always",
+          "require": "restraints_applied_by",
+          "question": "Who placed hand restraints on the inmate (rank and name)?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "escorted_by",
+          "question": "Who escorted the inmate (usually two officers - rank and name)?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "escort_destination",
+          "question": "Escorted to?",
+          "answer_type": "choice",
+          "options_ref": "escort_destination",
+          "blocking": true
+        },
+        {
+          "if": "weapon_involved == true",
+          "require": "weapon_custody_officer",
+          "question": "Who took chain of custody of the weapon (F401)?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "photo_video_obtained",
+          "question": "Photograph/video footage obtained?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box + insert attachment line",
+          "on_no": "leave checklist box unchecked"
+        }
+      ],
+      "auto_content": [
+        {
+          "id": "footage_attached",
+          "insert_into": [
+            "cover_letter"
+          ],
+          "condition": "photo_video_obtained == 'Yes'",
+          "template": "Photograph/video footage of the incident is attached."
+        },
+        {
+          "id": "company_nurse_line",
+          "insert_into": [
+            "cover_letter"
+          ],
+          "condition": "staff_injured == true",
+          "template": "The Company Nurse line was contacted, confirmation number {company_nurse_confirmation_number}."
+        },
+        {
+          "id": "restraint_escort_line",
+          "insert_into": [
+            "first_person",
+            "supervisor_summary"
+          ],
+          "condition": "always",
+          "template": "{restraints_applied_by} placed hand restraints onto {inmate} and {escorted_by} escorted him to {escort_destination}."
+        }
+      ]
+    },
+    {
+      "name": "forced_cell_movement",
+      "label": "Forced Cell Movement",
+      "forms_required": [
+        "cover_letter",
+        "005_409",
+        "major_disciplinary_form",
+        "forced_cell_movement_fact_sheet",
+        "photo_video",
+        "chain_of_custody",
+        "medical_report",
+        "inmate_drug_test",
+        "24_hour_review",
+        "72_hour_review",
+        "emergency_gate_pass_if_treated_outside"
+      ],
+      "reports": [
+        "cover_letter",
+        "first_person",
+        "supervisor_summary",
+        "disciplinary"
+      ],
+      "required_slots": [
+        "date",
+        "time",
+        "location",
+        "inmates_involved",
+        "authorization",
+        "orders_given",
+        "video_recorded",
+        "charges"
+      ],
+      "rules": [
+        {
+          "if": "always",
+          "require": "authorization",
+          "question": "Who authorized the forced cell movement?",
+          "answer_type": "choice",
+          "options": [
+            "Shift Lieutenant",
+            "Shift Captain",
+            "Chief of Security",
+            "Warden / Deputy Warden"
+          ],
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "orders_given",
+          "question": "What direct orders were given before force was used, and how many times?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "video_recorded",
+          "question": "Movement recorded on video? By whom?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "medical_disposition == 'Sent by ambulance to outside facility'",
+          "require": "emergency_gate_pass",
+          "question": "Emergency Gate Pass issued?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box",
+          "on_no": "leave checklist box unchecked"
+        },
+        {
+          "if": "always",
+          "require": "photo_video_obtained",
+          "question": "Photograph/video footage obtained?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box + insert attachment line",
+          "on_no": "leave checklist box unchecked"
+        }
+      ],
+      "auto_content": [
+        {
+          "id": "forced_cell_movement_line",
+          "insert_into": [
+            "first_person",
+            "supervisor_summary"
+          ],
+          "condition": "always",
+          "template": "A forced cell movement was authorized by {authorization}. Orders were given: {orders_given}. The use of force was video recorded by {video_recorded}."
+        },
+        {
+          "id": "footage_attached",
+          "insert_into": [
+            "cover_letter"
+          ],
+          "condition": "photo_video_obtained == 'Yes'",
+          "template": "Photograph/video footage of the incident is attached."
+        }
+      ]
+    },
+    {
+      "name": "prea",
+      "label": "PREA (Prison Rape Elimination Act)",
+      "forms_required": [
+        "cover_letter",
+        "005_409",
+        "prea_checklist",
+        "prea_notification",
+        "photo_video",
+        "medical_report",
+        "inmate_drug_test",
+        "emergency_gate_pass_if_treated_outside"
+      ],
+      "reports": [
+        "cover_letter",
+        "first_person",
+        "supervisor_summary",
+        "disciplinary"
+      ],
+      "required_slots": [
+        "date",
+        "time",
+        "location",
+        "inmates_involved",
+        "allegation_summary",
+        "prea_notification_made",
+        "charges"
+      ],
+      "rules": [
+        {
+          "if": "always",
+          "require": "prea_checklist_completed",
+          "question": "PREA checklist completed?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box",
+          "on_no": "leave checklist box unchecked"
+        },
+        {
+          "if": "always",
+          "require": "prea_notification_made",
+          "question": "PREA notification made to?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "photo_video_obtained",
+          "question": "Photograph/video footage obtained?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box + insert attachment line",
+          "on_no": "leave checklist box unchecked"
+        }
+      ],
+      "auto_content": []
+    },
+    {
+      "name": "incident_no_disciplinary",
+      "label": "Incident (No Disciplinary)",
+      "forms_required": [
+        "cover_letter",
+        "005_409",
+        "photo_video",
+        "medical_report"
+      ],
+      "reports": [
+        "cover_letter",
+        "first_person",
+        "supervisor_summary"
+      ],
+      "required_slots": [
+        "date",
+        "time",
+        "location",
+        "description"
+      ],
+      "rules": [
+        {
+          "if": "always",
+          "require": "photo_video_obtained",
+          "question": "Photograph/video footage obtained?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box + insert attachment line",
+          "on_no": "leave checklist box unchecked"
+        }
+      ],
+      "auto_content": []
+    },
+    {
+      "name": "other_rule_violation",
+      "label": "Other Rule Violation",
+      "forms_required": [
+        "cover_letter",
+        "005_409",
+        "major_disciplinary_form",
+        "photo_video",
+        "medical_report",
+        "inmate_drug_test"
+      ],
+      "reports": [
+        "cover_letter",
+        "first_person",
+        "supervisor_summary",
+        "disciplinary"
+      ],
+      "required_slots": [
+        "date",
+        "time",
+        "location",
+        "inmates_involved",
+        "violation_description",
+        "charges"
+      ],
+      "rules": [
+        {
+          "if": "always",
+          "require": "photo_video_obtained",
+          "question": "Photograph/video footage obtained?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box + insert attachment line",
+          "on_no": "leave checklist box unchecked"
+        }
+      ],
+      "auto_content": []
+    }
+  ]
+}

@@ -17,7 +17,7 @@ def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
     
     Args:
         metadata: dict with keys matching {{placeholders}} in template:
-            unit_division, officer_last, officer_first, officer_middle,
+            unit_division, officer_last, officer_first, employee_number,
             rank, shift_assignment, date, time, location,
             inmates_involved, employees_involved, others_present,
             inmate_injuries, inmate_treatment, officer_injuries,
@@ -43,7 +43,7 @@ def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
         "unit_division": "",
         "officer_last": "",
         "officer_first": "",
-        "officer_middle": "",
+        "employee_number": "",
         "rank": "",
         "shift_assignment": "",
         "date": datetime.now().strftime("%B %d, %Y"),
@@ -111,7 +111,7 @@ def _build_text(metadata: dict) -> str:
         "INCIDENT REPORT FORM",
         "=" * 40,
         f"Unit/Division: {metadata.get('unit_division', '')}",
-        f"Reporting Officer: {metadata.get('officer_last', '')}, {metadata.get('officer_first', '')} {metadata.get('officer_middle', '')}",
+        f"Reporting Officer: {metadata.get('officer_last', '')}, {metadata.get('officer_first', '')} {metadata.get('employee_number', '')}",
         f"Rank: {metadata.get('rank', '')}",
         f"Shift: {metadata.get('shift_assignment', '')}",
         f"Date: {metadata.get('date', '')}",

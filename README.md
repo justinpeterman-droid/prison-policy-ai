@@ -12,19 +12,20 @@ AI-powered policy assistant for Arkansas Department of Correction staff. Two too
 ## For Claude: Start Here
 
 1. **Read `VISION.md`** — project overview, what we're building, what needs work
-2. **Read `.godplans/PLAN.mdx`** — detailed 17-task plan with status per task
-3. **Key files to understand:**
+2. **Read `.godplans/PLAN.mdx`** — detailed plan with status per task
+3. **Read `REPORT_ENGINE_SPEC.md`** — authoritative spec for the report engine v2 rebuild (single source of truth)
+4. **Key files to understand:**
    - `backend/reports/classifier.py` — incident type detection (needs wiring to UI)
    - `backend/reports/generator.py` — field notes → reports (prompts need polish)
    - `backend/reports/filler.py` — DOC form filling (currently text stub, needs python-docx)
    - `backend/reports/prompts.py` — AI prompts for each report type
    - `backend/webapp/templates/home.html` — homepage (needs redesign)
    - `backend/webapp/templates/reports.html` — report page (needs professional layout)
-4. **Templates to reference:**
-   - `templates/incident_checklist.json` — which forms per incident type
+5. **Templates to reference:**
+   - `templates/incident_checklist_v2.json` — which forms per incident type
    - `templates/005.doc` — the official ADC incident report form
    - `frontend/forms/` — 6 fillable ADC forms built by Claude (React)
-5. **Charges:** `templates/disciplinary_charges.json` — stub until disciplinary manual OCR completes
+6. **Charges:** `templates/disciplinary_charges.json` — stub until disciplinary manual OCR completes
 
 ## Project Structure
 
