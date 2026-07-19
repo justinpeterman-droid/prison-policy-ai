@@ -77,6 +77,12 @@ def _opening_actor(slots: dict) -> str:
     return f"{rank} {first} {last}".strip() or "the reporting officer"
 
 
+def _esc(s: str) -> str:
+    """Escape braces so they survive .format() — needed because narrative
+    data may contain {Last}, {First}, ADC#{number}, etc."""
+    return s.replace("{", "{{").replace("}", "}}")
+
+
 # ── Per-report generators (all receive structured data ONLY) ──────
 
 
@@ -88,10 +94,10 @@ def generate_first_person(slots: dict, auto_content: list[dict] | None = None,
         officer_last=_fmt(slots.get("officer_last")),
         date=_fmt(slots.get("date")),
         time=_fmt(slots.get("time")),
-        reporter_actions=_reporter_actions_str(slots, reporter_index),
-        narrative_facts=_narrative_facts_str(slots),
-        quotes=_quotes_str(slots),
-        auto_content=_auto_for("first_person", auto_content),
+        reporter_actions=_esc(_reporter_actions_str(slots, reporter_index)),
+        narrative_facts=_esc(_narrative_facts_str(slots)),
+        quotes=_esc(_quotes_str(slots)),
+        auto_content=_esc(_auto_for("first_person", auto_content)),
     )
     return _generate(prompt, prompt)  # system=user for single-message flow
 
@@ -101,9 +107,9 @@ def generate_supervisor_summary(slots: dict, auto_content: list[dict] | None = N
         date=_fmt(slots.get("date")),
         time=_fmt(slots.get("time")),
         opening_actor=_opening_actor(slots),
-        narrative_facts=_narrative_facts_str(slots),
-        quotes=_quotes_str(slots),
-        auto_content=_auto_for("supervisor_summary", auto_content),
+        narrative_facts=_esc(_narrative_facts_str(slots)),
+        quotes=_esc(_quotes_str(slots)),
+        auto_content=_esc(_auto_for("supervisor_summary", auto_content)),
     )
     return _generate(prompt, prompt)
 
@@ -115,8 +121,8 @@ def generate_cover_letter(slots: dict, auto_content: list[dict] | None = None) -
         officer_last=_fmt(slots.get("officer_last")),
         date=_fmt(slots.get("date")),
         time=_fmt(slots.get("time")),
-        narrative_facts=_narrative_facts_str(slots),
-        auto_content=_auto_for("cover_letter", auto_content),
+        narrative_facts=_esc(_narrative_facts_str(slots)),
+        auto_content=_esc(_auto_for("cover_letter", auto_content)),
     )
     return _generate(prompt, prompt)
 
@@ -128,7 +134,7 @@ def generate_disciplinary(slots: dict, first_person_report: str,
         rank=_fmt(slots.get("rank")),
         officer_first=_fmt(slots.get("officer_first")),
         officer_last=_fmt(slots.get("officer_last")),
-        first_person_report=first_person_report or "",
+        first_person_report=_esc(first_person_report or ""),
         charges=charges or "None",
     )
     return _generate(prompt, prompt)
