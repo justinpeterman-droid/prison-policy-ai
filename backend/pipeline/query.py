@@ -1,234 +1,111 @@
-"""Agent Builder search — replaces raw RAG + Gemini with Vertex AI Agent Builder.
-
-Uses Discovery Engine (discoveryengine.googleapis.com) for managed RAG.
-Charges draw from the $1,000 Vertex AI Agent Builder credit.
-"""
+"""RAG query: retrieve + generate answers from policy corpus."""
 import os
-import logging
-import urllib.request
-import urllib.error
-import json
+import vertexai
+from vertexai.preview import rag
+from vertexai.generative_models import GenerativeModel
+from backend.pipeline.config import (
+    PROJECT_ID, LOCATION, GENERATION_MODEL, CORPUS_NAME
+)
 
-from backend.pipeline.config import PROJECT_ID
+# RAG corpus lives in a specific region; the generation model may need a
+# different location (gemini-3.5-flash is global-only, for instance).
+RAG_LOCATION = os.getenv("GCP_RAG_LOCATION", LOCATION)
+MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", "global")
 
-logger = logging.getLogger(__name__)
-
-# Agent Builder data store ID — must match what was created in the console
-DATA_STORE_ID = os.getenv("AGENT_BUILDER_DATA_STORE", "prison-policies-ds_1784585369312")
-LOCATION = os.getenv("AGENT_BUILDER_LOCATION", "global")
-
-# Serving config: Agent Builder auto-creates this when the data store is ready
-SERVING_CONFIG = "default_search"
+# Init once for RAG — the model path re-inits when needed (see _generate).
+vertexai.init(project=PROJECT_ID, location=RAG_LOCATION)
 
 CHAT_SYSTEM_PROMPT = (
     "You are a policy assistant. Answer questions using ONLY the policy "
     "documents provided. Cite document sections. If the answer is not in "
-    "the documents, say so. Be concise and use plain language."
+    "the documents, say so."
 )
 
 
-def _get_access_token() -> str:
-    """Get a fresh access token using the service account or ADC."""
-    import subprocess
-    result = subprocess.run(
-        [r"/google-cloud-sdk/bin/gcloud", "auth", "print-access-token"],
-        capture_output=True, text=True, timeout=15,
-        env={
-            **os.environ,
-            "PATH": os.environ.get("PATH", "") + ":/google-cloud-sdk/bin",
-        },
-    )
-    # Cloud Run provides ADC automatically, but we also try the gcloud fallback
-    if result.returncode != 0:
-        # Try ADC — works on Cloud Run automatically
-        import google.auth
-        import google.auth.transport.requests
-        credentials, project = google.auth.default()
-        credentials.refresh(google.auth.transport.requests.Request())
-        return credentials.token
-    return result.stdout.strip()
+def _get_corpus():
+    for c in rag.list_corpora():
+        if c.display_name == CORPUS_NAME:
+            return c
+    raise RuntimeError(f"Corpus '{CORPUS_NAME}' not found. Run embed first.")
 
 
-def search_documents(query: str, top_k: int = 5) -> list[dict]:
-    """Search the Agent Builder data store for relevant policy documents.
+def _source_label(ctx) -> str:
+    """Best-effort human-readable source name for a retrieved chunk.
 
-    Returns list of {text, source} dicts.
+    Vertex RAG contexts may expose a display name or a gs:// URI depending on
+    how the corpus was imported; fall back to empty string when neither is
+    present (the UI then labels it generically).
     """
-    token = _get_access_token()
-    url = (
-        f"https://discoveryengine.googleapis.com/v1beta/"
-        f"projects/{PROJECT_ID}/locations/{LOCATION}/"
-        f"dataStores/{DATA_STORE_ID}/"
-        f"servingConfigs/{SERVING_CONFIG}:search"
+    for attr in ("source_display_name", "source_uri"):
+        val = getattr(ctx, attr, "") or ""
+        if val:
+            # Strip any path/bucket prefix and extension for a clean label.
+            name = val.rstrip("/").split("/")[-1]
+            return name.rsplit(".", 1)[0].replace("_", " ").strip()
+    return ""
+
+
+def retrieve_context(question: str, top_k: int = 5) -> list[dict]:
+    """Retrieve relevant policy chunks as {text, source} dicts."""
+    # Ensure RAG location — other modules may have switched it for model calls.
+    vertexai.init(project=PROJECT_ID, location=RAG_LOCATION)
+
+    corpus = _get_corpus()
+    response = rag.retrieval_query(
+        rag_corpora=[corpus.name],
+        text=question,
+        similarity_top_k=top_k,
     )
-
-    body = {
-        "query": query,
-        "pageSize": top_k,
-        "queryExpansionSpec": {"condition": "AUTO"},
-        "spellCorrectionSpec": {"mode": "AUTO"},
-        "contentSearchSpec": {
-            "snippetSpec": {"returnSnippet": True},
-            "summarySpec": {
-                "summaryResultCount": 3,
-                "includeCitations": True,
-            },
-        },
-    }
-
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(body).encode(),
-        method="POST",
-    )
-    req.add_header("Authorization", f"Bearer {token}")
-    req.add_header("Content-Type", "application/json")
-    # Quota project header needed for on-prem ADC; harmless on Cloud Run
-    req.add_header("X-Goog-User-Project", PROJECT_ID)
-
-    try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            result = json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        logger.error("Agent Builder search failed: %s %s", e.code, e.read().decode()[:500])
-        return []
-    except Exception as e:
-        logger.error("Agent Builder search error: %s", e)
-        return []
-
     contexts = []
-    for r in result.get("results", []):
-        doc = r.get("document", {})
-        derived = doc.get("derivedStructData", {})
-
-        # Extract the best text: summary > snippet > extracted text
-        text = ""
-        snippets = derived.get("snippets", [])
-        if snippets:
-            text = snippets[0].get("snippet", "")
-
-        if not text:
-            text = derived.get("extractiveAnswers", [{}])[0].get("content", "")
-
-        if not text:
-            # Fall back to document ID
-            text = doc.get("id", "")[:200]
-
-        source = doc.get("id", "Policy Document")
-        # Clean up the source name
-        if "/" in source:
-            source = source.rsplit("/", 1)[-1]
-        source = source.rsplit(".", 1)[0].replace("_", " ").strip()
-
-        contexts.append({"text": text, "source": source})
-
+    if hasattr(response, 'contexts') and response.contexts:
+        for ctx in response.contexts.contexts:
+            contexts.append({"text": ctx.text, "source": _source_label(ctx)})
     return contexts
 
 
 def answer_question(question: str) -> dict:
-    """Full pipeline: Agent Builder search → build answer with citations.
+    """Full RAG pipeline: retrieve → generate.
 
-    Uses Agent Builder's built-in summarization for answer generation,
-    with the system prompt injected as a preamble.
-
-    Returns {answer, citations, sources}.
+    Returns {answer, citations, sources}:
+      - citations: [{n, source, text}] full retrieved passages, for the UI's
+        cited-policy pane (click a citation → view/highlight the exact passage)
+      - sources: short labels, kept for backward compatibility
     """
-    token = _get_access_token()
-    url = (
-        f"https://discoveryengine.googleapis.com/v1beta/"
-        f"projects/{PROJECT_ID}/locations/{LOCATION}/"
-        f"dataStores/{DATA_STORE_ID}/"
-        f"servingConfigs/{SERVING_CONFIG}:search"
-    )
+    contexts = retrieve_context(question)
 
-    body = {
-        "query": question,
-        "pageSize": 5,
-        "queryExpansionSpec": {"condition": "AUTO"},
-        "spellCorrectionSpec": {"mode": "AUTO"},
-        "contentSearchSpec": {
-            "snippetSpec": {"returnSnippet": True, "maxSnippetCount": 2},
-            "extractiveContentSpec": {"maxExtractiveAnswerCount": 1},
-            "summarySpec": {
-                "summaryResultCount": 3,
-                "includeCitations": True,
-                "modelSpec": {"version": "preview"},  # use latest summary model
-            },
-        },
-    }
+    if not contexts:
+        return {
+            "answer": "No relevant policy documents found for this question.",
+            "citations": [],
+            "sources": [],
+        }
 
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(body).encode(),
-        method="POST",
-    )
-    req.add_header("Authorization", f"Bearer {token}")
-    req.add_header("Content-Type", "application/json")
-    req.add_header("X-Goog-User-Project", PROJECT_ID)
+    context_text = "\n\n---\n\n".join(c["text"] for c in contexts)
+    prompt = f"POLICY DOCUMENTS:\n{context_text}\n\nQUESTION: {question}"
+
+    # Re-init at the generation model's location if it differs from RAG.
+    if MODEL_LOCATION != RAG_LOCATION:
+        vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
 
     try:
-        with urllib.request.urlopen(req, timeout=25) as resp:
-            result = json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        logger.error("Agent Builder search failed: %s", e.code)
-        return {
-            "answer": "Search is temporarily unavailable. Please try again.",
-            "citations": [],
-            "sources": [],
-        }
-    except Exception as e:
-        logger.error("Agent Builder search error: %s", e)
-        return {
-            "answer": f"Search error: {e}",
-            "citations": [],
-            "sources": [],
-        }
-
-    # Build answer from summary + snippets
-    summary = result.get("summary", {})
-    summary_text = summary.get("summaryText", "")
-
-    # Build citations from results
-    citations = []
-    sources = []
-    for i, r in enumerate(result.get("results", []), 1):
-        doc = r.get("document", {})
-        derived = doc.get("derivedStructData", {})
-        snippets = derived.get("snippets", [])
-
-        text = snippets[0].get("snippet", "") if snippets else ""
-        source = doc.get("id", f"Document {i}")
-        if "/" in source:
-            source = source.rsplit("/", 1)[-1]
-        source = source.rsplit(".", 1)[0].replace("_", " ").strip()
-
-        if text:
-            citations.append({"n": i, "source": source, "text": text})
-            sources.append(source)
-
-    # Prepend system prompt context to the summary
-    if summary_text:
-        answer = (
-            f"{CHAT_SYSTEM_PROMPT}\n\n"
-            f"=== Search Results ===\n{summary_text}"
+        model = GenerativeModel(
+            model_name=GENERATION_MODEL,
+            system_instruction=CHAT_SYSTEM_PROMPT,
         )
-        # Clean answer: strip the system prompt for display
-        display_answer = summary_text
-    else:
-        # Fallback: build answer from snippets manually
-        if not citations:
-            return {
-                "answer": "No relevant policy documents found for this question.",
-                "citations": [],
-                "sources": [],
-            }
-        parts = []
-        for c in citations:
-            parts.append(f"[{c['source']}] {c['text']}")
-        display_answer = "Based on policy documents:\n\n" + "\n\n".join(parts)
+        response = model.generate_content(prompt)
+    finally:
+        # Restore RAG location so subsequent requests don't break.
+        if MODEL_LOCATION != RAG_LOCATION:
+            vertexai.init(project=PROJECT_ID, location=RAG_LOCATION)
 
+    citations = [
+        {"n": i + 1, "source": c["source"], "text": c["text"]}
+        for i, c in enumerate(contexts)
+    ]
     return {
-        "answer": display_answer,
+        "answer": response.text,
         "citations": citations,
-        "sources": sources,
+        "sources": [
+            (c["source"] or c["text"][:80] + "...") for c in contexts
+        ],
     }
