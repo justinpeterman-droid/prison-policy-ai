@@ -1,0 +1,46 @@
+/* Shared design tokens — navy/gold gov theme.
+   Canonical source of truth for the palette. Loaded before each page's
+   inline <style>, so any page-specific :root override still wins (kept
+   intentionally for values that legitimately diverge, e.g. chat's --navy2).
+   Both naming schemes are defined so every page can use either. */
+:root{
+  /* Base surfaces */
+  --bg:#f7f5f0;
+  --panel:rgba(250,249,245,0.88);
+  --surface:#ffffff;
+  --elevated:#efece4;
+
+  /* Navy */
+  --navy:#0e1a2b;
+  --navy2:#12233c;
+
+  /* Text ramp */
+  --text:#0f1626;
+  --text2:#252e3d;
+  --text3:#5c6675;
+  --text4:#9096a4;
+
+  /* Gold — semantic names used by home/login */
+  --gold:#c9971c;
+  --gold-bright:#ddb041;
+  --gold-deep:#a87b10;
+  --gold-text:#9a7210;
+
+  /* Gold — accent aliases used by chat/reports */
+  --accent:#c9971c;
+  --accent2:#9a7210;
+  --accent-glow:rgba(201,151,28,0.30);
+  --hl:rgba(201,151,28,0.20);
+
+  /* Status */
+  --green:#0f9d58;
+  --danger:#d43c30;
+
+  /* Lines */
+  --border:rgba(16,24,40,0.13);
+  --border-sub:rgba(16,24,40,0.08);
+}
+
+/* Inline line-icon base: sizes to the surrounding font, inherits color via
+   currentColor. Add .ico to an inline <svg> and it lines up with text. */
+.ico{width:1em;height:1em;flex:0 0 auto;display:inline-block;vertical-align:-0.125em;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}

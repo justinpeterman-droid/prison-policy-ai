@@ -14,7 +14,7 @@ import time
 
 PROJECT = "gen-lang-client-0968389176"
 LOCATION = os.getenv("AGENT_BUILDER_LOCATION", "global")
-DATA_STORE_ID = os.getenv("AGENT_BUILDER_DATA_STORE", "prison-policies-ds_1784585369312")
+DATA_STORE_ID = os.getenv("AGENT_BUILDER_DATA_STORE", "prison-policies-ds_1784586463140")
 BUCKET = f"gs://{PROJECT}-policy-ai"
 
 def gcloud(args):
