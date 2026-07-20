@@ -151,8 +151,17 @@ def reports_generate():
             "location": slots.get("location") or "",
             "inmates_involved": _format_inmates(slots),
             "employees_involved": _format_employees(slots),
-            "inmate_injuries": slots.get("inmate_injuries") or "",
-            "officer_injuries": slots.get("officer_injuries") or "",
+            "inmates_present": slots.get("inmates_present") or _format_inmates(slots),
+            "employees_present": slots.get("employees_present") or _format_employees(slots),
+            "others_present": slots.get("others_present") or "N/A",
+            "inmate_injuries": slots.get("inmate_injuries") or "N/A",
+            "officer_injuries": slots.get("officer_injuries") or "N/A",
+            "inmate_treatment": slots.get("inmate_treatment") or "N/A",
+            "officer_treatment": slots.get("officer_treatment") or "N/A",
+            "recommendation": reports.get("recommendation", ""),
+            "narrative": reports.get("first_person", ""),
+            "reporting_employee_signature": f"{slots.get('officer_first', '')} {slots.get('officer_last', '')}".strip(),
+            "supervisor_signature": "",
         }
 
         all_text = " ".join(v for v in reports.values() if isinstance(v, str))

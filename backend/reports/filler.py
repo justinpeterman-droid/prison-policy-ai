@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-TEMPLATE_PATH = Path(__file__).parent.parent.parent / "templates" / "005_template.docx"
+TEMPLATE_PATH = Path(__file__).parent.parent.parent / "templates" / "005_template_v3.docx"
 
 
 def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
@@ -64,6 +64,8 @@ def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
         "officer_treatment": "N/A",
         "recommendation": "",
         "narrative": "",
+        "reporting_employee_signature": "",
+        "supervisor_signature": "",
         "officer_signature": "",
         "date_filed": datetime.now().strftime("%B %d, %Y"),
         "supervisor_name": "",
