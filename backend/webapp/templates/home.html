@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Training &amp; Policy Reference</title>
+<link rel="icon" href="/static/seal.svg">
 <link rel="stylesheet" href="/static/fonts.css">
+<link rel="stylesheet" href="/static/tokens.css">
 <style>
   :root{
     --bg:#f7f5f0;--panel:rgba(250,249,245,0.88);--surface:#ffffff;
@@ -31,11 +33,8 @@
   }
   .brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:inherit}
   .brand .mark{
-    width:32px;height:32px;border-radius:50%;flex-shrink:0;
-    background:linear-gradient(160deg,var(--gold-bright),var(--gold) 55%,var(--gold-deep));
-    display:flex;align-items:center;justify-content:center;
-    font-size:15px;font-weight:800;color:#fff;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.4),0 1px 3px rgba(16,24,40,0.3);
+    width:32px;height:32px;border-radius:50%;flex-shrink:0;display:block;
+    box-shadow:0 1px 3px rgba(16,24,40,0.3);
   }
   .brand b{font-size:16px;font-weight:800;letter-spacing:-0.01em;color:var(--text)}
   .brand span{font-size:12px;color:var(--text4);font-weight:400;margin-left:2px}
@@ -134,8 +133,38 @@
   }
   .joke-line:hover{opacity:1}
 
-  footer{text-align:center;padding:30px 24px;border-top:1px solid var(--border-sub);margin-top:40px;background:var(--surface)}
-  footer p{font-size:12px;color:var(--text4);letter-spacing:0.01em}
+  /* Stat tiles */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:44px}
+  @media(max-width:640px){.stats{grid-template-columns:1fr}}
+  .stat-tile{background:var(--surface);border:1px solid var(--border-sub);border-radius:12px;padding:22px 24px;box-shadow:0 1px 2px rgba(16,24,40,0.05),0 10px 28px -18px rgba(16,24,40,0.18)}
+  .stat-tile .n{font-size:40px;font-weight:800;letter-spacing:-0.02em;color:var(--text);line-height:1;font-variant-numeric:tabular-nums}
+  .stat-tile .n small{font-size:19px;color:var(--gold-text);font-weight:800;margin-left:3px;letter-spacing:0}
+  .stat-tile .bar{width:28px;height:3px;border-radius:2px;background:var(--gold);margin:14px 0}
+  .stat-tile .l{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.09em;color:var(--text4)}
+
+  /* How it works */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:16px}
+  @media(max-width:640px){.steps{grid-template-columns:1fr}}
+  .step{display:flex;gap:14px;align-items:flex-start}
+  .step .sn{flex:0 0 auto;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;font-weight:800;color:var(--gold-text);background:rgba(201,151,28,0.10);border:1px solid rgba(201,151,28,0.4)}
+  .step .st{font-size:15.5px;font-weight:800;color:var(--text);margin-bottom:5px;letter-spacing:-0.01em}
+  .step .sd{font-size:13.5px;color:var(--text3);line-height:1.55}
+
+  /* Gov footer */
+  footer{border-top:2px solid rgba(201,151,28,0.4);margin-top:60px;background:var(--surface)}
+  .foot-cols{max-width:960px;margin:0 auto;padding:34px 24px;display:grid;grid-template-columns:1.5fr 1fr 1.2fr;gap:28px}
+  @media(max-width:640px){.foot-cols{grid-template-columns:1fr;gap:24px}}
+  .foot-brand{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .foot-brand img{width:28px;height:28px}
+  .foot-brand b{font-size:15px;font-weight:800;color:var(--text)}
+  .foot-brand span{font-size:12px;color:var(--text4)}
+  .foot-col h4{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.09em;color:var(--text4);margin-bottom:11px}
+  .foot-col a{display:block;font-size:13px;color:var(--text3);text-decoration:none;padding:3px 0;transition:color .15s}
+  .foot-col a:hover{color:var(--gold-text)}
+  .foot-note{font-size:12.5px;color:var(--text4);line-height:1.65}
+  .foot-status{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--text3);margin-top:10px}
+  .foot-status .d{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(15,157,88,0.7)}
+  .foot-bottom{border-top:1px solid var(--border-sub);text-align:center;padding:14px 24px;font-size:11.5px;color:var(--text4);letter-spacing:0.01em}
 
   :where(a,button):focus-visible{outline:2px solid rgba(201,151,28,0.7);outline-offset:2px;border-radius:6px}
   @media (prefers-reduced-motion: reduce){
@@ -145,7 +174,7 @@
 </head>
 <body>
 <nav>
-  <a class="brand" href="/"><span class="mark">S</span><b>Standard Logistics</b><span>Unit Tools</span></a>
+  <a class="brand" href="/"><img class="mark" src="/static/seal.svg" alt="" width="32" height="32"><b>Standard Logistics</b><span>Unit Tools</span></a>
   <div class="links">
     <a href="/chat">Reference Search</a>
     <a href="/reports">Forms</a>
@@ -192,24 +221,80 @@
     </a>
   </div>
 
+  <div class="stats">
+    <div class="stat-tile">
+      <div class="n">7</div>
+      <div class="bar"></div>
+      <div class="l">Incident categories</div>
+    </div>
+    <div class="stat-tile">
+      <div class="n">3</div>
+      <div class="bar"></div>
+      <div class="l">Report formats</div>
+    </div>
+    <div class="stat-tile">
+      <div class="n">2 <small>· 005 / 409</small></div>
+      <div class="bar"></div>
+      <div class="l">Official forms</div>
+    </div>
+  </div>
+
+  <div style="margin-top:56px">
+    <div class="kicker">How it works</div>
+    <h2>Notes in, filed paperwork out.</h2>
+    <p class="lead">Three steps, each reviewed on screen before anything is committed.</p>
+    <div class="steps">
+      <div class="step">
+        <span class="sn">01</span>
+        <div><div class="st">Enter field notes</div><div class="sd">Paste raw shift notes — names, times, and what happened, in any shorthand.</div></div>
+      </div>
+      <div class="step">
+        <span class="sn">02</span>
+        <div><div class="st">Classify &amp; review gaps</div><div class="sd">The incident is categorized and any missing required details are surfaced for you to confirm.</div></div>
+      </div>
+      <div class="step">
+        <span class="sn">03</span>
+        <div><div class="st">Download the filed form</div><div class="sd">A completed 005/409 is generated, editable on screen, and downloaded as a Word document.</div></div>
+      </div>
+    </div>
+  </div>
+
   <div class="joke-line">
     Please ensure all TPS reports have the new cover sheet.<br>
     Did you get the memo? We're putting cover sheets on all reports now.
   </div>
 
   <div class="dl-row">
-    <a href="/static/NCU_Operational_Training_Manual.pdf" download class="dl-btn">📘 Download Training Manual</a>
+    <a href="/static/NCU_Operational_Training_Manual.pdf" download class="dl-btn"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg> Download Training Manual</a>
   </div>
 </div>
 
 <style>
   .dl-row{text-align:center;margin-top:20px;}
-  .dl-btn{display:inline-block;font-size:12px;color:var(--text4);text-decoration:none;padding:6px 14px;border:1px solid var(--border-sub);border-radius:6px;transition:all .15s;}
+  .dl-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text4);text-decoration:none;padding:6px 14px;border:1px solid var(--border-sub);border-radius:6px;transition:all .15s;}
   .dl-btn:hover{color:var(--gold-text);border-color:rgba(201,151,28,0.35);background:rgba(201,151,28,0.06);}
 </style>
 
 <footer>
-  <p>For authorized personnel only.</p>
+  <div class="foot-cols">
+    <div>
+      <div class="foot-brand"><img src="/static/seal.svg" alt=""><b>Standard Logistics</b><span>Unit Tools</span></div>
+      <p class="foot-note">Administrative reference and documentation processing for authorized unit personnel.</p>
+      <span class="foot-status"><span class="d"></span>System · operational</span>
+    </div>
+    <div class="foot-col">
+      <h4>Tools</h4>
+      <a href="/chat">Reference Search</a>
+      <a href="/reports">Forms</a>
+      <a href="/static/NCU_Operational_Training_Manual.pdf" download>Training Manual</a>
+      <a href="/logout">Log out</a>
+    </div>
+    <div class="foot-col">
+      <h4>Access</h4>
+      <p class="foot-note">Access code required. Sessions expire after 24 hours. For authorized personnel only.</p>
+    </div>
+  </div>
+  <div class="foot-bottom">For authorized personnel only.</div>
 </footer>
 </body>
 </html>
