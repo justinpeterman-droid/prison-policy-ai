@@ -11,59 +11,89 @@ Two AI-powered tools for Arkansas Department of Correction (ADC) staff, deployed
 **Ask any policy question → AI answers with citations from real ADC policy documents.**
 
 - 90+ NCU and SD policies indexed in Vertex AI RAG Engine
-- Gemini 2.5 Flash generates answers grounded in retrieved policy text
+- Gemini 3.5 Flash generates answers grounded in retrieved policy text
 - Every answer cites the exact policy section(s) used
 - Chat-style interface — ask naturally, get precise answers
 
-**Status:** ✅ Deployed and working  
+**Status:** ✅ Deployed and working
 **URL:** `https://prison-policy-ai-403037827694.us-central1.run.app`
 
 ---
 
-## System B: Report Writing Assistant (In Development)
+## System B: Report Writing Assistant
 
-**Paste field notes → AI classifies the incident, generates required reports, and fills official templates.**
+**Paste field notes → AI classifies, extracts structured facts, identifies gaps, generates reports, and fills official DOCX templates.**
 
-### Pipeline
+### Pipeline (v2 — Three Steps)
 
 ```
-Field Notes → Classifier → Report Router → Template Filler → Completed Documents
+Field Notes
+    │ POST /api/reports/classify
+    ▼
+Classifier → incident_type (7 BMU categories)
+    │ officer confirms/overrides
+    ▼ POST /api/reports/extract
+Extraction (Gemini, temp=0, response_schema) → structured slots
+    │ find_gaps() → deterministic validation, no AI
+    │ Missing Information panel → officer answers gaps
+    ▼ POST /api/reports/generate
+Generator → 4 report types from structured facts + auto_content
+    │ invented_facts() scan → fabricated ADC#s/dates flagged
+    ▼ POST /api/reports/download
+Template Filler → filled 005/409 DOCX
 ```
 
 ### 1. Classifier
 Reads raw officer field notes and determines:
-- **Incident category** (Use of Force, PREA, Disciplinary, Medical, General, etc.)
-- **Which report forms are required** per ADC incident package requirements
-- **Which disciplinary charges apply** (from AR Inmate Disciplinary Manual)
+- **Incident category** — 7 BMU categories (contraband, inmate_fight, staff_assault, forced_cell_movement, prea, incident_no_disciplinary, other_rule_violation)
+- Disciplinary charges validated against the real charge catalog
+- Officer confirms or overrides with one tap; dropdown to change
 
-### 2. Report Generator
-Produces three or more report types:
+### 2. Extraction + Validation
+Gemini extracts structured slots at temp=0 with response_schema:
+- **All slots nullable** — null = "not stated in notes"
+- `find_gaps()` (deterministic Python — NO AI) finds unanswered required fields
+- Gap questions rendered from `incident_checklist_v2.json` (pre-written data)
+- Answer types: choice (dropdown + Other), yes_no (buttons), text (input)
+- Every field has an "Unknown" button
+- UNKNOWN values render as ⚠ `[TO BE SUPPLEMENTED: ...]` in output
+- Yes/No never blocks — "No" just leaves the checklist box unchecked
+
+### 3. Report Generator
+Four report types from **structured facts only** (never raw notes):
 
 | Report | Voice | Delivery Format |
 |---|---|---|
+| **First Person Report** | 1st person (officer's voice) | Copyable text + DOCX |
 | **Supervisor Summary** | 3rd person | Copyable text |
-| **First Person Report** | 1st person (officer's voice) | Copyable text |
-| **005/409 Incident Form** | Narrative + metadata | Filled DOC template |
-| **Disciplinary Supplement** | Derived from 1st person report | Text with charge lines |
+| **Cover Letter** | Formal | Copyable text |
+| **Disciplinary Supplement** | Derived from 1st person | Text with charge lines |
 
-### 3. Template Filler
-- Retrieves the correct DOC/DOCX template from the template library
-- Fills metadata fields: officer name, ADC#, date, time, location, inmate names
-- Inserts AI-generated narrative into the correct field
-- For disciplinary: strips non-court information, adds charge line from inmate manual
-- Outputs completed, formatted document ready to file
+- `auto_content` sentences inserted by CODE: enemy alert cross-reference, footage-attached line, restraint line, escort line
+- Fights always document: who applied restraints, who escorted, destination (usually RH)
+- **Per-officer reports**: each security staff member gets their own 005 with correct header
+- `invented_facts()` scan: any ADC#, time, or date not in the source gets yellow-highlighted
+- Quotes verbatim and uncensored (evidence)
+- Medical events hedged ("appeared to have a seizure")
 
-### Incident Categories
+### 4. Template Filler
+- Reads `005_template_v3.docx` — exact ADC replica (navy blue, Times New Roman)
+- Fills all `{{placeholders}}` from slot values
+- `officer_middle` renamed to `employee_number` (005 header middle spot = employee #)
+- Writer/Reviewer signatures auto-filled
+- Output: completed DOCX ready to file
 
-| Category | Forms Required |
-|---|---|
-| Use of Force | 005/409, Photo/Video documentation |
-| Major Disciplinary | 005/409, Major Disciplinary Form, Chain of Custody |
-| Contraband | 005/409, Confiscation Form, Chain of Custody |
-| PREA | 005/409, PREA Step Checklist, PREA Cover |
-| Medical Emergency | 005/409 |
-| Escape/Walkaway | 005/409, Photo documentation |
-| General Incident | 005/409 |
+### Incident Categories (BMU)
+
+| Category | Slug | Forms Required |
+|---|---|---|
+| Inmate on Inmate Fight/Assault | `inmate_fight` | 005/409, Cover Letter, Disciplinary |
+| Staff Assault | `staff_assault` | 005/409, Cover Letter |
+| Contraband | `contraband` | 005/409, Confiscation Form, Chain of Custody |
+| Forced Cell Movement | `forced_cell_movement` | 005/409, Cover Letter |
+| PREA | `prea` | 005/409, PREA Checklist, PREA Cover |
+| General Incident (No Disciplinary) | `incident_no_disciplinary` | 005/409 |
+| Other Rule Violation | `other_rule_violation` | 005/409, Cover Letter |
 
 ---
 
@@ -71,7 +101,7 @@ Produces three or more report types:
 
 ```
 ┌────────────────────────────────────────────┐
-│          ADC Policy Assistant              │
+│           Policy AI Assistant              │
 │                                            │
 │  ┌──────────────┐   ┌──────────────────┐  │
 │  │ 📋 Policy    │   │ 📝 Report        │  │
@@ -81,11 +111,12 @@ Produces three or more report types:
 │  │ Search ADC   │   │ Paste notes →    │  │
 │  │ policies     │   │ completed forms  │  │
 │  └──────────────┘   └──────────────────┘  │
+│                                            │
+│  Two tools. One workflow.                  │
 └────────────────────────────────────────────┘
 ```
 
-- **Policy Expert**: Chat interface with policy search, citation display
-- **Report Assistant**: One-page form — paste notes → one click → classified + reports generated + template filled
+Theme: Linear dark — navy hero, gold accents, cream cards. No ADC branding.
 
 ---
 
@@ -93,15 +124,17 @@ Produces three or more report types:
 
 | Layer | Technology |
 |---|---|
-| AI Model | Gemini 2.5 Flash (Vertex AI) |
+| AI Model | Gemini 3.5 Flash (Vertex AI) |
 | RAG Engine | Vertex AI RAG (Serverless mode) |
-| Embeddings | text-embedding-005 (768-dim) |
+| Embeddings | text-embedding-004 (768-dim) |
 | PDF Extraction | PyMuPDF (fitz) |
-| OCR | Gemini 2.5 Flash vision |
-| Web Framework | Flask + Gunicorn |
-| Frontend | HTML/CSS + Claude's React forms app |
-| Deployment | Cloud Run (serverless, HTTPS, auto-scaling) |
-| Storage | Google Cloud Storage (policy chunks, DOC templates) |
+| OCR | Gemini Flash vision |
+| Web Framework | Flask + Gunicorn (1 worker, 8 threads) |
+| Frontend | Jinja2 templates + vanilla CSS/JS |
+| Forms App | React (standalone in `frontend/forms/`) |
+| DOCX Filling | python-docx |
+| Deployment | Cloud Run (Docker, HTTPS, auto-scaling) |
+| Storage | Google Cloud Storage (policy chunks, templates) |
 | Project | gen-lang-client-0968389176, us-central1 |
 
 ---
@@ -116,14 +149,25 @@ Corporate firewalls pass standard HTTPS traffic. No VPN, no install, no open por
 ## Data Pipeline
 
 ```
-PDF → PyMuPDF extract → Human review → Chunk (512 tokens, 64 overlap) → 
-  GCS upload → Vertex AI RAG import → text-embedding-005 → Gemini 2.5 Flash query
+PDF → PyMuPDF extract → Human review → Chunk → GCS upload →
+  Vertex AI RAG import → text-embedding-004 → Gemini 3.5 Flash query
 ```
 
 - **236 PDFs ingested**, 90 with extractable text (NCU + SD policies)
 - **146 scanned PDFs** (Post Orders) need OCR — pending
 - **1,736 chunks** indexed in RAG
 - **2,772 Q&A training examples** from correctional policy writing guide
+
+---
+
+## Anti-Fabrication Guardrails
+
+1. **temp=0 + response_schema** on extraction — zero hallucination
+2. **All slots nullable** — nulls force gap questions, Gemini cannot "fill in"
+3. **invented_facts()** — regex scan for ADC#s/dates/times not in source → yellow highlight
+4. **UNKNOWN markers** — `⚠ [TO BE SUPPLEMENTED: ...]` bold in output
+5. **Charge catalog validation** — charges not in `disciplinary_charges.json` are dropped
+6. **Generator receives structured facts only** — never raw notes
 
 ---
 
@@ -140,19 +184,20 @@ PDF → PyMuPDF extract → Human review → Chunk (512 tokens, 64 overlap) →
 
 ---
 
-## What Claude Should Work On
+## What's Next
 
-See `.godplans/PLAN.mdx` for the full 20-task plan. Priority for Claude:
+See `.godplans/PLAN.mdx` for the full task list. Remaining priorities:
 
-1. **OCR remaining documents** — 146 Post Orders + 35-page disciplinary manual
-2. **Classifier refinement** — map all incident types to required forms
-3. **Template filler** — DOC field injection (currently stubbed, needs `python-docx`)
-4. **Report page styling** — professional layout matching ADC forms aesthetic
-5. **Error handling** — loading states, retry logic, user feedback
+1. **OCR 146 Post Orders** — batch process with Gemini vision
+2. **Report history** — SQLite DB for generated reports
+3. **Cloud IAP authentication** — restrict to authorized users
+4. **Cloud Monitoring** — latency, error rate, cost tracking
+5. **Rate limiting** — per-IP, per-endpoint
 
 ---
 
 ## Contact
 
 - Justin Peterman — `justinpeterman@hometownserenity.com`
-- Hermes agent sessions: search "prison policy" or "ADC"
+- Repo: `https://github.com/justinpeterman-droid/prison-policy-ai`
+- Live: `https://prison-policy-ai-403037827694.us-central1.run.app`

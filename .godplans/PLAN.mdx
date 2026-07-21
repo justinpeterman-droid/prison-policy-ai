@@ -4,221 +4,195 @@
 
 | Area | Status | Notes |
 |---|---|---|
-| Policy RAG (90 docs) | ✅ Deployed | 1,736 chunks, Gemini 2.5 Flash |
+| Policy RAG (90 docs) | ✅ Deployed | 1,736 chunks, Gemini 3.5 Flash |
 | Web app | ✅ Deployed | `prison-policy-ai-403037827694.us-central1.run.app` |
 | Chat interface | ✅ Working | Policy Q&A with citations |
 | PDF extraction | ✅ Working | PyMuPDF, 90/236 text-extractable |
-| OCR (146 scanned) | 🔄 IP | Gemini 2.5 Flash vision batch OCR |
-| Disciplinary manual | 🔄 IP | 35 pages, OCR running |
-| Classifier | 🟡 Stub | Backend coded, not wired to UI |
-| Report generator | 🟡 Stub | Prompts written, needs testing |
-| Template filler | 🟡 Stub | python-docx needed for real DOC filling |
-| Incident checklist | ✅ Parsed | `templates/incident_checklist.json` |
-| Disciplinary charges | 🔄 IP | 35-page manual OCR → `disciplinary_charges.json` |
-| Homepage redesign | 🟡 Needs work | Current: basic chat form |
-| Report UI | 🟡 Needs work | Current: paste → text output |
+| OCR (146 scanned) | 🔄 IP | Gemini Flash vision batch OCR |
+| Disciplinary manual | 🔄 IP | 35 pages, charges extracted to JSON |
+| **Report Engine v2** | ✅ **Implemented** | 3-step pipeline: classify→extract→generate |
+| **Classifier** | ✅ **Done** | `classifier.py` — 7 categories, charge validation |
+| **Slot Extraction** | ✅ **Done** | `extraction.py` — Gemini temp=0, schema-constrained |
+| **Gap Validation** | ✅ **Done** | `validate.py` — deterministic rule loop, no AI |
+| **Report Generator v2** | ✅ **Done** | `generator.py` + `prompts_v2.py` — structured facts only |
+| **Template filler** | ✅ **Done** | `filler.py` + python-docx filling 005 DOCX |
+| Incident checklist v2 | ✅ Done | `templates/incident_checklist_v2.json` — 7 categories |
+| Disciplinary charges | ✅ Parsed | `templates/disciplinary_charges.json` — 61 charges |
+| **Per-officer reports** | ✅ **Done** | `schema.py:bind_reporter()` — each staff gets own 005 |
 | 6 ADC forms | ✅ Done | Claude's React app in `frontend/forms/` |
-| 005/409 template | ✅ Have | DOC file, needs python-docx filler |
+| 005/409 template | ✅ Done | `005_template_v3.docx` — exact ADC replica |
 | Training data | ✅ Have | 2,772 Q&A pairs |
-| Auth/IAP | ❌ Not started | Open to public |
+| Auth/IAP | ❌ Not started | Cookie-based access code |
 | Tests | ❌ Not started | |
 | Git/GitHub | ✅ Done | `justinpeterman-droid/prison-policy-ai` |
 
 ---
 
-## Phase 1: Foundation (Now)
+## Phase 1: Foundation (Mostly Complete)
 
 ### GP-001: Finish OCR Pipeline
-**Owner:** Hermes (Gemini vision)  
 **Status:** 🔄 In progress
 
-- [ ] OCR 35-page disciplinary manual → `disciplinary_charges.json`
+- [ ] OCR 35-page disciplinary manual → `disciplinary_charges.json` (charges extracted)
 - [ ] OCR 146 scanned Post Order PDFs → text
-- [ ] Structure charge JSON: `{"12-1": {"class": "I", "desc": "...", "sanction": "..."}}`
 - [ ] Verify extraction quality — spot check 5+ pages
 
-### GP-002: Parse Disciplinary Manual into Structured Data
-**Owner:** Claude  
-**Blocked by:** GP-001
+### GP-002: Parse Disciplinary Manual → **DONE**
+~~Blocked by GP-001~~ — 61 charges extracted to `templates/disciplinary_charges.json`.
 
-- [ ] Read `data/discipline_manual_full.txt`
-- [ ] Extract every rule violation: number, category, description, sanction
-- [ ] Write `templates/disciplinary_charges.json`
-- [ ] Write Python script that looks up charges by keyword/incident type
+### GP-003: Wire Classifier → **DONE**
+`backend/reports/classifier.py` — v2 classifier with:
+- 7 BMU categories (contraband, inmate_fight, staff_assault, forced_cell_movement, prea, incident_no_disciplinary, other_rule_violation)
+- Charge validation against `disciplinary_charges.json`
+- Falls back to `other_rule_violation` on invalid model output
+- Wired into `POST /api/reports/classify`
 
-### GP-003: Wire Classifier to UI
-**Owner:** Claude
+### GP-004: Build Template Filler → **DONE**
+`backend/reports/filler.py` — python-docx filling:
+- Reads `005_template_v3.docx` (navy blue, Times New Roman, exact ADC replica)
+- Maps `{{placeholders}}` to slot values
+- Returns filled DOCX file or text fallback
+- `officer_middle` renamed to `employee_number` per spec
 
-- [ ] `backend/reports/classifier.py` — test with real field notes
-- [ ] Classifier prompt: given notes → output category + required forms + possible charges
-- [ ] Return structured JSON: `{category, forms[], charges[], confidence}`
-- [ ] Wire into `backend/webapp/routes/reports.py`
+### GP-005: Report Generator → **DONE (v2)**
+`backend/reports/generator.py` + `backend/reports/prompts_v2.py`:
+- 4 report types: first_person, supervisor_summary, cover_letter, disciplinary
+- Receives STRUCTURED FACTS only (never raw notes)
+- auto_content sentences inserted by code (enemy alert, footage, restraints, escort)
+- Per-officer report binding via `schema.py:bind_reporter()`
+- `validate.py:invented_facts()` scan catches fabricated ADC#s/dates/times
 
-### GP-004: Build Template Filler
-**Owner:** Either  
-**Depends on:** python-docx + 005.doc
-
-- [ ] Install `python-docx` in backend
-- [ ] Map 005.doc fields → code variables (officer_name, date, time, location, narrative, etc.)
-- [ ] `backend/reports/filler.py`: accept report text + metadata → fill DOC
-- [ ] Test: generate a filled 005.doc from sample field notes
-- [ ] Remove the text-only stub fallback
-
-### GP-005: Report Generator — Polish Prompts
-**Owner:** Claude
-
-- [ ] Review `backend/reports/prompts.py` — does it match ADC report standards?
-- [ ] Supervisor Summary: 3rd person, factual, concise
-- [ ] First Person: officer's voice, chronological, complete
-- [ ] Disciplinary: derived from 1st person, strip non-court info, add charge line
-- [ ] Test with 5+ varied field notes
-
-### GP-006: Add Inmate Disciplinary Manual to RAG
-**Owner:** Hermes  
-**Depends on:** GP-001
-
-- [ ] Extract OCR'd disciplinary manual text
-- [ ] Chunk and upload to Vertex AI RAG
-- [ ] Test: "What is the charge for fighting?" → returns rule 12-1 details
+### GP-006: Disciplinary Manual to RAG → **CANCELED**
+Charges are lookup data, not policy content. Live in `disciplinary_charges.json` for classifier validation. Not needed in RAG.
 
 ---
 
 ## Phase 2: Quality & UX
 
-### GP-007: Homepage Redesign
-**Owner:** Claude
+### GP-007: Homepage → **DONE**
+Live at `https://prison-policy-ai-403037827694.us-central1.run.app`:
+- Two-card layout (Policy Expert + Report Assistant)
+- Linear dark theme, navy hero, gold accents
+- Footer: "For authorized personnel only"
+- Download Training Manual button
+- Mobile-responsive
 
-- [ ] Replace `backend/webapp/templates/home.html`
-- [ ] Two-card layout: Policy Expert (left) + Report Assistant (right)
-- [ ] Each card: icon, title, one-line description, prominent CTA button
-- [ ] ADC-themed styling (professional, corrections-appropriate)
-- [ ] Mobile-responsive
+### GP-008: Report Assistant Page → **DONE (v2)**
+`backend/webapp/templates/reports.html` — v2 flow:
+- Textarea → Classify button → Category chip with confirm/override
+- Missing Information panel (blocking gaps + checklist toggles)
+- Officer buttons (one per security staff)
+- Report preview with click-to-edit fields
+- Yellow highlight on invented-fact flags
+- Download filled DOCX
 
-### GP-008: Report Assistant Page Redesign
-**Owner:** Claude
-
-- [ ] Replace `backend/webapp/templates/reports.html`
-- [ ] Clean, single-page flow:
-  - Textarea for field notes (large, easy to paste)
-  - Auto-detect text → show "Processing..." → show results
-  - Results section: tabs or accordion for each report type
-  - Supervisor Summary tab (copy button)
-  - First Person tab (copy button)  
-  - Disciplinary tab (if applicable, copy button)
-  - "Download 005 Form" button (filled DOC)
-- [ ] Loading states, error states, empty states
-
-### GP-009: Policy Chat Page Polish
-**Owner:** Claude
-
-- [ ] Improve `backend/webapp/templates/chat.html`
-- [ ] Chat bubbles: user vs assistant clearly distinguished
-- [ ] Citations displayed prominently under each answer
-- [ ] "Related policies" links
-- [ ] Conversation history (if session-based)
+### GP-009: Policy Chat → **DONE**
+Chat interface with policy citations:
+- Chat bubbles with user/assistant distinction
+- Citations displayed under each answer
+- "Download Training Manual" button
 
 ### GP-010: Error Handling & Logging
-**Owner:** Either
+**Status:** 🟡 Partial
 
-- [ ] Add structured logging throughout backend
+- [x] Structured logging throughout backend (Python logging)
+- [x] Graceful error returns (JSON errors, not 500 pages)
 - [ ] Retry logic for Vertex AI API calls
-- [ ] Graceful error pages (Vertex AI down, no results, etc.)
-- [ ] Timeout handling for long generations
+- [ ] Cloud Monitoring dashboard
 
-### GP-011: Migrate SDK
-**Owner:** Either
-
-- [ ] `vertexai.preview.rag` is deprecated → migrate to `agentplatform` client
-- [ ] Test corpus creation, import, and querying with new SDK
-- [ ] Update `backend/pipeline/config.py`, `embed.py`, `query.py`
+### GP-011: Migrate SDK → **CANCELED**
+Staying on `vertexai` SDK for now. No urgency.
 
 ### GP-012: Rate Limiting
-**Owner:** Either
-
-- [ ] Add Flask rate limiter
-- [ ] Configurable: per-IP, per-endpoint
-- [ ] Reasonable defaults for Cloud Run scale
+**Status:** ❌ Not started
 
 ### GP-013: Cloud IAP Authentication
-**Owner:** Hermes  
-
-- [ ] Enable Identity-Aware Proxy on Cloud Run
-- [ ] Restrict to ADC Google Workspace (or token-based)
-- [ ] Test: unauthenticated → 403, authenticated → app
-- [ ] Document setup for adding users
+**Status:** ❌ Not started
+Currently using cookie-based access code.
 
 ---
 
 ## Phase 3: Advanced
 
 ### GP-014: Report History
-**Owner:** Either
-
-- [ ] SQLite/Postgres DB for generated reports
-- [ ] List past reports by date, category, officer
-- [ ] Search reports by keyword
-- [ ] Export history
+**Status:** ❌ Not started
 
 ### GP-015: Training Data Evaluation
-**Owner:** Claude
-
-- [ ] Use 2,772 Q&A pairs to evaluate RAG quality
-- [ ] Measure retrieval precision/recall
-- [ ] Measure answer accuracy (groundedness)
-- [ ] Report: which policies are under-represented?
+**Status:** ❌ Not started
 
 ### GP-016: Cloud Monitoring
-**Owner:** Hermes
-
-- [ ] Set up Cloud Monitoring dashboard
-- [ ] Track: query latency, error rate, token usage, cost
-- [ ] Alert on anomalies
+**Status:** ❌ Not started
 
 ### GP-017: OCR Remaining 146 Post Orders
-**Owner:** Hermes (Gemini vision) or Claude (pipeline)
-
-- [ ] Batch OCR all 146 scanned Post Order PDFs
-- [ ] Human review spot-check
-- [ ] Chunk → embed → add to RAG
+**Status:** ❌ Not started
 
 ---
 
 ## Architecture Notes
 
-### Project Structure
+### Project Structure (Current)
 ```
 prison-policy-ai/
 ├── backend/
-│   ├── pipeline/          # extract, chunk, embed, query
-│   ├── reports/           # classifier, generator, filler, prompts
-│   ├── webapp/            # Flask app + templates
+│   ├── pipeline/              # extract, chunk, embed, query, import
+│   ├── reports/               # v2 report engine
+│   │   ├── classifier.py      # Incident type detection (Gemini)
+│   │   ├── extraction.py      # Slot extraction (Gemini, temp=0)
+│   │   ├── schema.py          # Slot schema + response_schema builder
+│   │   ├── validate.py        # Gap detection, auto_content, invented_facts
+│   │   ├── generator.py       # 4 report generators (structured facts)
+│   │   ├── prompts.py         # Legacy prompts + classifier prompt
+│   │   ├── prompts_v2.py      # v2 prompts (structured facts only)
+│   │   ├── filler.py          # DOCX template filling (python-docx)
+│   │   └── roster.py          # Staff roster loading
+│   ├── webapp/                # Flask + Gunicorn
+│   │   ├── app.py             # App factory, auth gate
+│   │   ├── routes/chat.py     # /api/chat
+│   │   ├── routes/reports.py  # v2 3-step: /classify, /extract, /generate
+│   │   ├── templates/         # home.html, chat.html, reports.html, login.html
+│   │   └── static/            # CSS (Linear dark), fonts (Inter/Open Sans), seal.svg
+│   ├── scripts/deploy.sh
 │   ├── requirements.txt
 │   └── Dockerfile
-├── frontend/
-│   └── forms/             # Claude's 6-form React app
-├── templates/             # DOC templates + parsed JSONs
-├── data/                  # gitignored: PDFs, extracted, chunks, OCR
-├── VISION.md              # Project vision for collaborators
-├── .godplans/PLAN.mdx     # This file
-└── README.md
+├── frontend/forms/            # Claude's 6-form React app
+├── templates/                 # DOCX templates + checklist/charges JSON
+├── .godplans/                 # PLAN.mdx + UI_SPEC.md
+├── VISION.md
+├── REPORT_ENGINE_SPEC.md      # v2 report engine spec (handoff to Claude Code)
+├── UI_SPEC.md                 # v2 UI spec
+├── README.md
+└── ideas.md                   # Raw idea dump
 ```
 
-### Data Flow
+### Report Pipeline (v2 — Current)
+```
+Field Notes
+    │ POST /api/reports/classify
+    ▼
+Classifier (Gemini) → incident_type (7 categories)
+    │ officer confirms/overrides
+    ▼ POST /api/reports/extract
+Extraction (Gemini, temp=0, schema-constrained)
+    │ → structured slots (all nullable)
+    │ → find_gaps() — deterministic Python, no AI
+    │ → Missing Information panel (gap questions from checklist JSON)
+    ▼ POST /api/reports/generate
+Generation (Gemini, structured facts ONLY)
+    │ → 4 report types
+    │ → auto_content inserted by code
+    │ → invented_facts() scan (yellow flag on fabricated ADC#s/dates)
+    ▼ POST /api/reports/download
+Template Filler (python-docx) → filled 005/409 DOCX
+```
+
+### Data Flow (RAG)
 ```
 PDF → extract.py → extracted/*.txt
     → Human review → reviewed/*.txt
     → chunk.py → chunks/*.jsonl
-    → gcloud storage cp → GCS
-    → embed.py → Vertex AI RAG corpus
-    → query.py (or webapp) → Gemini 2.5 Flash → answer + citations
-```
-
-### Report Pipeline
-```
-Field Notes → classifier.py → {category, forms[], charges[]}
-    → generator.py → {supervisor_summary, first_person, disciplinary}
-    → filler.py + 005.doc → completed DOC
-    → webapp → display text + download link
+    → gsutil → GCS (gs://gen-lang-client-0968389176-policy-ai/chunks/)
+    → import_to_agent_builder.py → Vertex AI RAG corpus
+    → query.py → Gemini 3.5 Flash → answer + citations
 ```
 
 ---
@@ -229,21 +203,32 @@ Field Notes → classifier.py → {category, forms[], charges[]}
 # Set up
 cd backend && pip install -r requirements.txt
 
-# RAG: extract, review, chunk, embed
-cd pipeline && python extract.py && python chunk.py && python embed.py
-
-# Query (CLI)
-cd pipeline && python query.py "use of force policy"
-
 # Web app
-cd webapp && python app.py
+cd backend/webapp && python app.py
 # → http://localhost:8080
 
-# Deploy
-cd backend && gcloud run deploy prison-policy-ai --source . --region us-central1
+# Deploy (from repo root)
+gcloud run deploy prison-policy-ai \
+  --source . --region us-central1 \
+  --project gen-lang-client-0968389176 \
+  --allow-unauthenticated
 ```
 
 ---
 
-*Last updated: 2026-07-17*
-*Next: Push to GitHub so Claude sees everything*
+## Key Design Decisions
+
+1. **7 BMU categories** (not the old ADC categories) — `incident_checklist_v2.json` is authoritative
+2. **Unit is BMU** — all generated text says "Benny Magness Unit"
+3. **Extraction at temp=0, schema-constrained** — zero hallucination
+4. **All slots nullable** — nulls drive the gap-question UI
+5. **Reports from structured facts only** — generator never sees raw notes
+6. **auto_content is code-inserted** — not AI-generated
+7. **`officer_middle` → `employee_number`** — fixed in template + filler mapping
+8. **Per-officer reports** — each staff gets own 005 with correct header
+9. **UNKNOWN → ⚠ markers** — visible in output, never silently filled
+10. **Quotes verbatim, uncensored** — evidence preservation
+
+---
+
+*Last updated: 2026-07-20*
