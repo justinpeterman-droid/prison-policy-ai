@@ -103,6 +103,15 @@ def _today() -> str:
     return datetime.now().strftime("%m-%d-%Y")
 
 
+def _is_first_person_unnamed(notes: str, slots: dict) -> bool:
+    """Detect notes that use first-person ('I'/'me') but no officer name extracted."""
+    has_first_person = bool(re.search(r'\bI\b|\bme\b|\bmy\b', notes, re.I))
+    last = slots.get("officer_last")
+    first = slots.get("officer_first")
+    unnamed = not last or not first or last == "None" or first == "None"
+    return has_first_person and unnamed
+
+
 def _build_incident_number(last3) -> str:
     """Compose YYYY-MM-### from the officer's 3-digit log number."""
     digits = "".join(ch for ch in str(last3 or "") if ch.isdigit())[-3:]
@@ -263,6 +272,13 @@ def reports_extract():
             gaps.append({"slot": "shift_assignment", "blocking": False,
                          "answer_type": "text",
                          "question": "Shift assignment? (from the unit roster)"})
+        # Notes use first-person ("I"/"me") but no officer name was extracted —
+        # must ask who the reporting officer is before generating.
+        if _is_first_person_unnamed(notes, slots):
+            gaps.insert(0, {"slot": "officer_name", "blocking": True,
+                            "answer_type": "text",
+                            "question": "Who is the reporting officer? "
+                                        "(name not found in the notes)"})
         # An inmate named only by last name needs a first name — ask per inmate.
         for last in _inmates_missing_first(slots):
             gaps.append({"slot": f"inmate_first::{last}", "blocking": False,
