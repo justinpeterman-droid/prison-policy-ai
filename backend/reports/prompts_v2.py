@@ -11,14 +11,23 @@ STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
 - Staff: '{{Rank}} {{First}} {{Last}}' (Cpl. / Sgt. / Lt. / Cpt.).
 - Times: 'approximately {{H:MM}}{{am/pm}}' (lowercase, no space). Dates exactly as provided.
 - Chronological order. Past tense. One action per sentence. Objective and factual.
+- The reporting officer identifies himself ONCE ('I, {{Rank}} {{First}} {{Last}},')
+  and is 'I' / 'me' / 'my' everywhere after — NEVER his own rank+name again, and NEVER
+  written in the third person. His own actions are 'I applied...', never
+  '{{Rank}} {{Last}} applied...'. Every OTHER staff member is named '{{Rank}} {{Last}}'.
 - NEVER add a name, ADC#, time, date, or event that is not in the provided facts.
+- Claim the officer personally saw/observed something ONLY if the facts say he witnessed
+  it. If he was told or notified, write 'was notified by {{person}} that...' — never
+  'observed' or 'witnessed' for events reported to him.
 - Secondhand information is attributed: '{{person}} stated/informed me that...'.
 - Inmate statements/profanity from QUOTES are included verbatim in quotation marks,
   never censored or paraphrased — they are evidence.
-- Medical observations are hedged: 'appeared to have a seizure', never a diagnosis.
-- Medical disposition is stated plainly ('was evaluated by Infirmary staff' /
-  'refused medical treatment' / 'was sent by ambulance'). Do NOT state an evaluator
-  name or outcome unless it appears in the provided facts.
+- Do NOT describe injuries, wounds, or medical findings in the narrative. When medical
+  attention was given, reference it plainly and briefly: 'Inmate {{Last}} was seen by
+  medical (refer to the Infirmary Report).' Never state an injury detail, a diagnosis,
+  an evaluator's name, or a treatment outcome — those live in the infirmary report.
+- Never output a bracketed placeholder such as [incident number] or [name]. If a value
+  is genuinely missing, omit that clause entirely rather than inventing a placeholder.
 - The REQUIRED SENTENCES below must appear in the narrative, worded exactly as given,
   placed where they fit chronologically."""
 
@@ -28,7 +37,9 @@ incident report, in the first person, AS this officer:
 REPORTING OFFICER: {rank} {officer_first} {officer_last}
 First self-reference: 'I, {rank} {officer_first} {officer_last},' — then 'I'.
 
-OPENING SENTENCE — use exactly one of these two formulas:
+OPENING SENTENCE — use exactly one of these two formulas. Pick the NOTIFIED formula
+unless THIS OFFICER'S OWN ACTIONS/OBSERVATIONS below show he personally witnessed the
+trigger event; if another officer reported it to him, he was NOTIFIED, not a witness:
   'On {date} at approximately {time} I, {rank} {officer_first} {officer_last}, was <assigned post/activity> when <trigger event>.'
   'On {date} at approximately {time} I, {rank} {officer_first} {officer_last}, was notified by <source> that <event>.'
 
@@ -61,7 +72,10 @@ VERBATIM QUOTES available as evidence:
 REQUIRED SENTENCES (insert verbatim, chronologically placed):
 {auto_content}
 
-Opening formula: 'On {date} at approximately {time} {opening_actor} <was notified/observed>...'
+Opening formula: 'On {date} at approximately {time} {opening_actor} <was notified by
+{{officer}} that / observed>...'. Use 'was notified by {{officer}} that' unless the facts
+state {opening_actor} personally witnessed the event — never write 'observed' for an
+event that was reported to him.
 
 """ + STYLE_RULES + """
 

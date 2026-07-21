@@ -116,6 +116,27 @@
   .verify .v-chip:hover{filter:brightness(0.96)}
   .verify .v-marker{display:block;color:var(--gold-text);font-size:12px;font-weight:600;padding:2px 0}
 
+  /* AI charge confirmation */
+  .charges-panel{margin:14px 0;background:var(--surface);border:1px solid var(--border-sub);border-radius:10px;padding:12px 14px;box-shadow:0 1px 2px rgba(16,24,40,0.05)}
+  .charges-panel .cp-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:4px}
+  .charges-panel .cp-title{font-size:13px;font-weight:700;color:var(--text2)}
+  .charges-panel .cp-hint{font-size:11px;color:var(--text4)}
+  .charge{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--border-sub)}
+  .charge:first-of-type{border-top:none}
+  .charge input{margin-top:2px;width:15px;height:15px;accent-color:var(--gold);flex:0 0 auto}
+  .charge .c-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;font-weight:700;color:var(--gold-text);flex:0 0 auto}
+  .charge .c-desc{font-size:12px;color:var(--text3);line-height:1.45}
+  .charges-panel .cp-none{font-size:12px;color:var(--text4);padding:4px 0}
+  .charges-panel .cp-add{margin-top:8px;display:flex;gap:6px}
+  .charges-panel .cp-add input{flex:1;min-width:0;padding:6px 9px;background:rgba(16,24,40,0.02);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;outline:none}
+  .charges-panel .cp-add input:focus{border-color:rgba(201,151,28,0.5);box-shadow:0 0 0 3px rgba(201,151,28,0.15)}
+
+  /* Incident-number prefixed widget */
+  .inc-wrap{display:inline-flex;align-items:center;flex:1;min-width:150px;background:rgba(16,24,40,0.02);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+  .inc-wrap:focus-within{border-color:rgba(201,151,28,0.5);box-shadow:0 0 0 3px rgba(201,151,28,0.15)}
+  .inc-wrap .inc-prefix{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:var(--text4);padding:6px 2px 6px 10px;white-space:nowrap}
+  .inc-wrap input{border:none!important;box-shadow:none!important;background:transparent!important;width:56px;flex:0 0 auto;font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:1px;padding:6px 6px 6px 2px}
+
   .report-box{
     margin-bottom:14px;background:linear-gradient(180deg,#fdfcf9,var(--surface));border:1px solid var(--border);border-radius:10px;
     overflow:hidden;animation:rise .25s ease;
@@ -372,6 +393,9 @@
       </select>
     </div>
 
+    <!-- AI-suggested charges — officer confirms before generate -->
+    <div id="chargesPanel" style="display:none"></div>
+
     <!-- Missing Information panel (Task 4) -->
     <div id="missingPanel" style="display:none"></div>
 
@@ -417,8 +441,40 @@ const CATEGORY_LABELS={
 let _reportTexts=[];
 let _data=null;
 let _confirmedCategory=null;
+let _charges=[];        // AI-suggested charge codes (officer confirms)
+let _chargeDesc={};     // code -> description
 let _activeForm='form005';
 let _draftTimer=null,_stageTimer=null;
+
+/* ---- AI charge confirmation ---- */
+function renderCharges(){
+  const el=document.getElementById('chargesPanel');
+  el.style.display='';
+  el.className='charges-panel';
+  let rows;
+  if(_charges.length){
+    rows=_charges.map(code=>`<label class="charge">
+      <input type="checkbox" class="charge-cb" value="${esc(code)}" checked>
+      <span class="c-code">${esc(code)}</span>
+      <span class="c-desc">${esc(_chargeDesc[code]||'')}</span>
+    </label>`).join('');
+  }else{
+    rows=`<div class="cp-none">No disciplinary charge was auto-detected — add one below if this incident warrants it.</div>`;
+  }
+  el.innerHTML=`<div class="cp-head"><span class="cp-title">Suggested charges</span><span class="cp-hint">from the disciplinary handbook — uncheck any that don't apply</span></div>
+    <div id="chargeRows">${rows}</div>
+    <div class="cp-add"><input type="text" id="chargeAdd" placeholder="Add code, e.g. 04-1" onkeydown="if(event.key==='Enter'){event.preventDefault();addCharge()}"><button class="secondary" onclick="addCharge()" style="padding:6px 12px">Add</button></div>`;
+}
+function addCharge(){
+  const inp=document.getElementById('chargeAdd');
+  const code=(inp.value||'').trim();
+  if(!code)return;
+  if(!_charges.includes(code)){_charges.push(code);renderCharges();}
+  document.getElementById('chargeAdd').focus();
+}
+function collectCharges(){
+  return [...document.querySelectorAll('.charge-cb:checked')].map(cb=>cb.value);
+}
 
 /* ---- Category chip ---- */
 function showCatChip(incidentType,label){
@@ -485,6 +541,8 @@ function clearAll(){
   document.getElementById('officerButtons').style.display='none';
   document.getElementById('officerButtons').innerHTML='';
   _reportTexts=[];_data=null;_confirmedCategory=null;_extractedSlots={};_officers=[];_extractedData=null;
+  _charges=[];_chargeDesc={};
+  const _cp=document.getElementById('chargesPanel');if(_cp){_cp.style.display='none';_cp.innerHTML='';}
   const _v=document.getElementById('verify');if(_v){_v.className='';_v.innerHTML='';}
   hidePipeline();
   localStorage.removeItem(DRAFT_KEY);
@@ -551,6 +609,8 @@ async function generate(){
     if(d.error)throw new Error(d.error);
     setPipeline('classify','done');
     showCatChip(d.incident_type,d.label);
+    _charges=d.charges||[];_chargeDesc=d.charge_descriptions||{};
+    renderCharges();
   }catch(e){
     setPipeline('classify','idle');
     document.getElementById('error').innerHTML=`<div class="error">${esc(e.message)}</div>`;
@@ -601,7 +661,7 @@ async function runGenerate(reporterIndex){
   try{
     const answers=collectAnswers();
     const r=await fetch('/api/reports/generate',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({notes,category:_confirmedCategory,slots:_extractedSlots,answers,reporter_index:idx})});
+      body:JSON.stringify({notes,category:_confirmedCategory,slots:_extractedSlots,answers,charges:collectCharges(),reporter_index:idx})});
     const d=await r.json();
     if(d.error)throw new Error(d.error);
     setPipeline('draft','done');setPipeline('validate','done');
@@ -677,11 +737,21 @@ function renderGapWidget(g,cls){
   const slot=g.slot;
   const opts=g.options||[];
   let widget='';
+  // Incident number: prefix the current year-month, officer types only last 3.
+  if(slot==='incident_number_last3'){
+    const now=new Date();
+    const pfx=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-`;
+    return `<div class="gap-item ${cls}" data-gap-slot="${esc(slot)}">
+      <div class="gap-q">${esc(g.question)}</div>
+      <div class="gap-controls"><span class="inc-wrap"><span class="inc-prefix">${pfx}</span><input type="text" class="gap-input" data-slot="${esc(slot)}" inputmode="numeric" maxlength="3" placeholder="###" oninput="this.value=this.value.replace(/[^0-9]/g,'');updateProgress()" onkeydown="if(event.key==='Enter'){event.preventDefault();gapEnter(this)}"></span></div>
+    </div>`;
+  }
   if(g.answer_type==='choice'){
     // Choice: dropdown + "Other" option swaps to text; Unknown button
+    const preNA=slot==='drug_test_disposition';
     widget=`<select class="gap-select" data-slot="${esc(slot)}" onchange="onChoiceChange(this,'${esc(slot)}')">
-      <option value="">— select —</option>
-      ${opts.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}
+      <option value="" ${preNA?'':'selected'}>— select —</option>
+      ${opts.map(o=>`<option value="${esc(o)}" ${preNA&&o==='N/A'?'selected':''}>${esc(o)}</option>`).join('')}
     </select>
     <input type="text" class="gap-input" data-slot="${esc(slot)}_other" placeholder="Specify..." style="display:none;margin-top:6px" oninput="onOtherInput(this,'${esc(slot)}')">`;
   }else if(g.answer_type==='yes_no'){
@@ -929,8 +999,8 @@ function form005Front(o){
   <div class="f5row"><span class="f5label">INMATE(S) PRESENT:</span>${ln('inmates_present','','Names and ADC Numbers')}${ln('inmates_present2','','')}${ln('inmates_present3','','')}</div>
   <div class="f5row"><span class="f5label">EMPLOYEE(S) PRESENT:</span>${ln('employees_present','','Names, Titles, Rank')}${ln('employees_present2','','')}${ln('employees_present3','','')}</div>
   <div class="f5row"><span class="f5label">OTHERS PRESENT/INVOLVED: (Specify)</span>${ln('others_present','','Names & Addresses')}${ln('others_present2','','')}${ln('others_present3','','')}</div>
-  <div class="f5row"><span class="f5label">EXTENT OF INJURY TO INMATE(S):</span>${ln('inmate_injuries','','')}${ln('inmate_injuries2','','')}${ln('inmate_injuries3','','')}</div>
-  <div class="f5row"><span class="f5label">TREATMENT AFFORDED INMATE(S):</span>${ln('inmate_treatment','','')}${ln('inmate_treatment2','','')}${ln('inmate_treatment3','','')}</div>
+  <div class="f5row"><span class="f5label">EXTENT OF INJURY TO INMATE(S):</span>${ln('inmate_injuries',o.inmateInjuries,'')}${ln('inmate_injuries2','','')}${ln('inmate_injuries3','','')}</div>
+  <div class="f5row"><span class="f5label">TREATMENT AFFORDED INMATE(S):</span>${ln('inmate_treatment',o.inmateTreatment,'')}${ln('inmate_treatment2','','')}${ln('inmate_treatment3','','')}</div>
   <div class="f5row"><span class="f5label">EXTENT OF INJURY TO OFFICER(S):</span>${ln('officer_injuries','','')}${ln('officer_injuries2','','')}${ln('officer_injuries3','','')}</div>
   <div class="f5row"><span class="f5label">TREATMENT AFFORDED OFFICER(S):</span>${ln('officer_treatment','','')}${ln('officer_treatment2','','')}${ln('officer_treatment3','','')}</div>
   <div class="f5footer">005/409 &nbsp; 005-3 of 3 &nbsp; 409-9 of 9</div>
@@ -990,12 +1060,14 @@ function render005(d){
   const loc=m.location||'';
   const inmates=m.inmates_involved||'';
   const employees=m.employees_involved||'';
+  const inmateInjuries=m.inmate_injuries||'';
+  const inmateTreatment=m.inmate_treatment||'';
   const narrative=highlightFlags(fp||'No narrative generated.',flags);
   const sigName=officerFirst&&officerLast?officerFirst+' '+officerLast:'';
   document.getElementById('preview').innerHTML=`
     ${markersBanner(markers)}
     <div class="form005-page" id="page1">
-      ${form005Front({officerLast,officerFirst,emp,rank,shift,unit,date,time,loc,inmates,employees})}
+      ${form005Front({officerLast,officerFirst,emp,rank,shift,unit,date,time,loc,inmates,employees,inmateInjuries,inmateTreatment})}
     </div>
     <div class="form005-page" id="page2">
       ${form005Back({narrative,sigName,date})}
