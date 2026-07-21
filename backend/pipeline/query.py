@@ -62,6 +62,9 @@ def _search_data_store(query: str, page_size: int = 5) -> list[dict]:
         "pageSize": page_size,
         "queryExpansionSpec": {"condition": "AUTO"},
         "spellCorrectionSpec": {"mode": "AUTO"},
+        "contentSearchSpec": {
+            "snippetSpec": {"returnSnippet": True},
+        },
     }
     data = json.dumps(body).encode()
     req = urllib.request.Request(url, data=data, method="POST")
