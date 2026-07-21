@@ -29,19 +29,58 @@ SERVING_CONFIG = (
     f"/servingConfigs/default_search"
 )
 
+# ── Domain Guard: hard-coded facts the AI must never contradict ──
+
+DOMAIN_RULES = (
+    "CRITICAL DOMAIN KNOWLEDGE — you MUST apply these rules:\n"
+    "1. In a correctional facility, ANY personal relationship between staff "
+    "and inmates beyond professional duties — including romantic, sexual, "
+    "dating, or financial — is STRICTLY PROHIBITED under PREA (Prison Rape "
+    "Elimination Act). There is NO gray area, NO exception, NO circumstance "
+    "where this is allowed. The policy term is 'sexual misconduct' or "
+    "'staff-on-offender sexual abuse.' This is a zero-tolerance policy.\n"
+    "2. Treat informal officer language seriously: 'romantic'/'dating'/"
+    "'messing around'/'hooking up' with an inmate = PREA sexual misconduct.\n"
+    "3. If an officer asks about something that sounds minor (e.g. giving "
+    "an inmate a ride, bringing them food, giving them money), this falls "
+    "under undue familiarity / fraternization policies — also prohibited.\n"
+    "4. NEVER say 'the documents don't explicitly say' when one of the above "
+    "rules applies. State the prohibition clearly and cite PREA.\n"
+)
+
 CHAT_SYSTEM_PROMPT = (
-    "You are a policy assistant. Answer questions using ONLY the policy "
-    "documents provided. Cite document sections. If the answer is not in "
-    "the documents, say so."
+    "You are a policy assistant for prison staff. Answer questions "
+    "using ONLY the policy documents provided. Cite document numbers "
+    "and sections. If the documents don't address the question, say so.\n\n"
+    + DOMAIN_RULES
 )
 
 QUERY_EXPANSION_PROMPT = (
-    "Rewrite this officer's question into search keywords for finding "
-    "relevant prison policy documents. Use formal policy language: "
-    "'sexual misconduct' not 'romantic', 'contraband' not 'stuff', "
-    "'use of force' not 'fight'. Output ONLY the search query, no explanation.\n\n"
+    "You are helping a prison officer search policy documents. "
+    "Rewrite their question into 3-5 search keywords. "
+    "Officers use informal language — map it to formal policy terms:\n"
+    "- 'romantic' / 'dating' / 'hooking up' / 'relationship' with inmate → PREA sexual misconduct staff inmate\n"
+    "- 'fight' / 'beat down' → use of force\n"
+    "- 'stuff' / 'things they shouldn't have' → contraband\n"
+    "- 'walked off' / 'left' → escape walkaway\n"
+    "- 'ride' / 'drive' / 'favor' for inmate → undue familiarity fraternization\n"
+    "Output ONLY the keywords, no explanation.\n\n"
     "Question: {question}\n"
-    "Search query:"
+    "Keywords:"
+)
+
+GATE_PROMPT = (
+    "You are a gatekeeper for a prison policy reference tool. "
+    "Classify this query as WORK or OFF_TOPIC.\n"
+    "WORK = questions about prison policy, procedure, PREA, use of force, "
+    "contraband, inmate management, disciplinary, training, security, "
+    "emergencies, incident reports, forms, DOC regulations.\n"
+    "OFF_TOPIC = personal questions, jokes, entertainment, general knowledge, "
+    "coding, recipes, current events, politics, anything not about "
+    "correctional facility operations.\n"
+    "Output ONLY one word: WORK or OFF_TOPIC.\n\n"
+    "Query: {question}\n"
+    "Classification:"
 )
 
 _token_cache = {"token": None, "expiry": 0}
@@ -62,6 +101,71 @@ def _get_token() -> str:
     return creds.token
 
 
+def _classify_query(question: str) -> bool:
+    """Return True if this is a work-related query, False if off-topic."""
+    question_lower = question.lower().strip()
+
+    # Fast keyword pre-check: obviously off-topic → reject immediately
+    off_topic_patterns = [
+        "write a poem", "tell me a joke", "recipe for", "how to cook",
+        "weather today", "who won the", "sports score", "movie review",
+        "stock price", "crypto", "bitcoin", "python code", "javascript",
+        "write code", "debug this", "explain quantum", "who is the president",
+        "what's your name", "how are you", "sing a song", "make me a",
+        "generate a", "draw a", "translate to",
+    ]
+    for pat in off_topic_patterns:
+        if pat in question_lower:
+            logger.info("Gate rejected (keyword): %r", question[:80])
+            return False
+
+    # Obvious work terms → accept immediately
+    work_patterns = [
+        "prea", "use of force", "contraband", "inmate", "offender",
+        "policy", "procedure", "post order", "shift", "disciplinary",
+        "report", "form", "005", "training", "barracks", "cell",
+        "restraint", "search", "pat down", "visitation", "grievance",
+        "classification", "count", "lockdown", "segregation",
+        "restrictive housing", "medical", "emergency", "escape",
+        "security", "officer", "staff", "correctional", "prison",
+        "doc ", "department of correction", "bmc", "bmu", "ncu",
+        "chain of command", "gate", "tower", "rover", "sally port",
+    ]
+    for pat in work_patterns:
+        if pat in question_lower:
+            return True
+
+    # Ambiguous — use Gemini classifier
+    try:
+        vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
+        model = GenerativeModel(GENERATION_MODEL)
+        prompt = GATE_PROMPT.format(question=question)
+        response = model.generate_content(prompt)
+        verdict = response.text.strip().upper()
+        is_work = "WORK" in verdict and "OFF_TOPIC" not in verdict
+        logger.info("Gate classified: %r -> %s", question[:80], "WORK" if is_work else "OFF_TOPIC")
+        return is_work
+    except Exception:
+        logger.exception("Gate classification failed, allowing through")
+        return True  # Fail open
+
+
+def _expand_query(question: str) -> str:
+    """Rewrite colloquial officer language into policy search terms."""
+    try:
+        vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
+        model = GenerativeModel(GENERATION_MODEL)
+        prompt = QUERY_EXPANSION_PROMPT.format(question=question)
+        response = model.generate_content(prompt)
+        expanded = response.text.strip().strip('"')
+        if expanded and expanded != question:
+            logger.info("Query expanded: %r -> %r", question[:80], expanded[:120])
+            return expanded
+    except Exception:
+        logger.exception("Query expansion failed, using original query")
+    return question
+
+
 def _search_data_store(query: str, page_size: int = 5) -> list[dict]:
     """Search the Agent Builder data store. Returns [{text, source}, ...]."""
     token = _get_token()
@@ -71,7 +175,7 @@ def _search_data_store(query: str, page_size: int = 5) -> list[dict]:
         "pageSize": page_size,
         "queryExpansionSpec": {"condition": "AUTO"},
         "spellCorrectionSpec": {"mode": "AUTO"},
-        "contentSearchSpec": {"snippetSpec": {"maxSnippetCount": 3}},
+        "contentSearchSpec": {"snippetSpec": {"maxSnippetCount": 5, "returnSnippet": True}},
     }
     data = json.dumps(body).encode()
     req = urllib.request.Request(url, data=data, method="POST")
@@ -116,13 +220,27 @@ def retrieve_context(question: str, top_k: int = 5) -> list[dict]:
 
 
 def answer_question(question: str) -> dict:
-    """Full pipeline: search Agent Builder -> generate with Gemini.
+    """Full pipeline: gate → expand → search → generate.
 
     Returns {answer, citations, sources}:
       - citations: [{n, source, text}] full retrieved passages
       - sources: short labels for backward compat
     """
-    contexts = _search_data_store(question)
+    # ── Gate check ──
+    if not _classify_query(question):
+        return {
+            "answer": (
+                "This tool is for correctional policy and procedure questions "
+                "only. Please ask about PREA, use of force, contraband, "
+                "inmate management, disciplinary procedures, incident reports, "
+                "or other work-related topics."
+            ),
+            "citations": [],
+            "sources": [],
+        }
+
+    # ── Search ──
+    contexts = _search_data_store(_expand_query(question), page_size=10)
     logger.info("answer_question: %d contexts, first source=%s",
                 len(contexts),
                 contexts[0]["source"][:60] if contexts else "None")
@@ -135,7 +253,12 @@ def answer_question(question: str) -> dict:
         }
 
     context_text = "\n\n---\n\n".join(c["text"] for c in contexts)
-    prompt = f"POLICY DOCUMENTS:\n{context_text}\n\nQUESTION: {question}"
+    prompt = (
+        f"POLICY DOCUMENTS:\n{context_text}\n\n"
+        f"OFFICER'S QUESTION: {question}\n\n"
+        f"Answer using the policy documents above. "
+        f"If the officer used informal terms, map them to the formal policy language."
+    )
 
     vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
     model = GenerativeModel(
