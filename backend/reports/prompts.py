@@ -41,13 +41,25 @@ Output ONLY valid JSON with these fields:
 {{
   "incident_type": "<one of the 7 category names below>",
   "persons_involved": [{{"role": "reporting_officer"|"inmate"|"security_staff"|"witness", "name": "Last, First", "rank": "Cpl.|Sgt.|Lt.|Cpt.", "adc_number": "digits or null"}}],
-  "charges_applicable": ["<rule_number>"],
+  "charges_applicable": [{{"code": "rule_number", "inmate": "Last name of inmate this charge applies to", "description": "charge description"}}],
   "facility": "Benny Magness Unit",
   "shift": "<shift>",
   "location": "<location within facility>",
   "date": "<date of incident>",
   "time": "<time of incident>"
 }}
+
+CHARGING RULES:
+- Suggest ALL potentially applicable charges — not just the top 2. Include
+  related charges like misuse of state supplies, provoking/agitation,
+  disorderly conduct, etc. It's better to over-suggest and let the officer
+  deselect than to miss charges.
+- For each charge, indicate which specific inmate it applies to (by last name).
+- Do NOT charge a victim inmate unless the notes explicitly state they fought
+  back, resisted, or violated a policy. If one inmate struck another without
+  provocation, only the aggressor gets assault/battery charges.
+- If the notes mention state-issued items used as weapons, include misuse of
+  state supplies charges for the aggressor.
 
 Incident categories — use EXACTLY one of these 7 names:
   contraband               — Introducing contraband (drugs, weapons, money, etc.)

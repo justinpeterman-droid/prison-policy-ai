@@ -80,9 +80,14 @@ VERBATIM QUOTES available as evidence:
 REQUIRED SENTENCES (insert verbatim, chronologically placed):
 {auto_content}
 
+PER-INMATE DISPOSITION — after the narrative, add one line per inmate:
+'Inmate {Last}, {First} ADC#{number} was [placed in restrictive housing / released to barracks / transferred to medical / etc.].'
+Different inmates may have different outcomes — state each individually.
+
 """ + STYLE_RULES + """
 
-Output the narrative paragraph(s) only. No header, no signature block."""
+Output the narrative paragraph(s) only. No header, no signature block.
+Include the per-inmate disposition lines at the end."""
 
 SUPERVISOR_SUMMARY_PROMPT = """You are writing the third-person supervisor summary of an
 ADC incident. Convert the events to third person: never 'I' outside quotation marks.
@@ -104,7 +109,8 @@ event that was reported to him.
 
 """ + STYLE_RULES + """
 
-Output the summary paragraph(s) only."""
+Output the summary paragraph(s) only.
+Include per-inmate disposition at the end."""
 
 DISCIPLINARY_PROMPT = """You are writing the disciplinary report narrative for an ADC
 incident, first person as {rank} {officer_first} {officer_last}. Same events as the

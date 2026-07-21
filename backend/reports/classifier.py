@@ -78,15 +78,31 @@ def classify_incident(notes: str) -> dict:
             result["incident_type"] = "other_rule_violation"
         # Always add the human-readable label
         result["label"] = _category_label(result["incident_type"])
-        # Validate charges against catalog
-        result["charges_applicable"] = [
-            c for c in result.get("charges_applicable", [])
-            if c in charge_catalog
-        ]
-        # Fill in charge descriptions from catalog
+        # Normalize charges: support both old (list of strings) and new (list of objects)
+        raw_charges = result.get("charges_applicable", [])
+        normalized_charges = []
+        for c in raw_charges:
+            if isinstance(c, str):
+                # Old format: just a code string
+                if c in charge_catalog:
+                    normalized_charges.append({
+                        "code": c,
+                        "inmate": "",
+                        "description": charge_catalog[c]["description"],
+                    })
+            elif isinstance(c, dict):
+                code = c.get("code", "")
+                if code in charge_catalog:
+                    normalized_charges.append({
+                        "code": code,
+                        "inmate": c.get("inmate", ""),
+                        "description": c.get("description") or charge_catalog[code]["description"],
+                    })
+        result["charges_applicable"] = normalized_charges
+        # Fill in charge descriptions from catalog (backward compat for UI)
         result["charge_descriptions"] = {
-            c: charge_catalog[c]["description"]
-            for c in result["charges_applicable"]
+            c["code"]: c["description"]
+            for c in normalized_charges
         }
         return result
     except (json.JSONDecodeError, KeyError) as e:
