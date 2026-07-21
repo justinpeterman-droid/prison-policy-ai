@@ -1,25 +1,28 @@
 """Search policy documents via Vertex AI Agent Builder (Discovery Engine).
 
-Replaces the old vertexai.preview.rag path so that search costs draw
-from the $1,000 Vertex AI Agent Builder credit.
+Replaces old vertexai.preview.rag so search costs draw from the
+$1,000 Vertex AI Agent Builder credit.
 
 API contract unchanged: answer_question(question) -> {answer, citations, sources}
 """
 import os
 import json
+import logging
 import urllib.request
 import urllib.error
-import subprocess
 
+import google.auth
+import google.auth.transport.requests
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from backend.pipeline.config import PROJECT_ID, GENERATION_MODEL
+
+logger = logging.getLogger(__name__)
 
 LOCATION = os.getenv("AGENT_BUILDER_LOCATION", "global")
 DATA_STORE_ID = os.getenv("AGENT_BUILDER_DATA_STORE", "prison-policies-ds")
 MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", "global")
 
-# Discovery Engine serving config
 SERVING_CONFIG = (
     f"projects/{PROJECT_ID}/locations/{LOCATION}"
     f"/collections/default_collection/dataStores/{DATA_STORE_ID}"
@@ -32,24 +35,28 @@ CHAT_SYSTEM_PROMPT = (
     "the documents, say so."
 )
 
+_token_cache = {"token": None, "expiry": 0}
+
 
 def _get_token() -> str:
-    result = subprocess.run(
-        [r"C:\CloudSDK\google-cloud-sdk\bin\gcloud.cmd", "auth", "print-access-token"],
-        capture_output=True, text=True, timeout=15,
+    """Get an OAuth token from Application Default Credentials."""
+    import time
+    if _token_cache["token"] and time.time() < _token_cache["expiry"] - 60:
+        return _token_cache["token"]
+
+    creds, project = google.auth.default(
+        scopes=["https://www.googleapis.com/auth/cloud-platform"]
     )
-    if result.returncode != 0:
-        raise RuntimeError(f"gcloud auth failed: {result.stderr}")
-    return result.stdout.strip()
+    creds.refresh(google.auth.transport.requests.Request())
+    _token_cache["token"] = creds.token
+    _token_cache["expiry"] = creds.expiry.timestamp() if creds.expiry else time.time() + 3500
+    return creds.token
 
 
 def _search_data_store(query: str, page_size: int = 5) -> list[dict]:
-    """Search the Agent Builder data store and return [{text, source}, ...]."""
+    """Search the Agent Builder data store. Returns [{text, source}, ...]."""
     token = _get_token()
-    url = (
-        f"https://discoveryengine.googleapis.com/v1beta/"
-        f"{SERVING_CONFIG}:search"
-    )
+    url = f"https://discoveryengine.googleapis.com/v1beta/{SERVING_CONFIG}:search"
     body = {
         "query": query,
         "pageSize": page_size,
@@ -66,8 +73,9 @@ def _search_data_store(query: str, page_size: int = 5) -> list[dict]:
         with urllib.request.urlopen(req, timeout=30) as resp:
             result = json.loads(resp.read())
     except urllib.error.HTTPError as e:
-        body = e.read().decode()[:1000]
-        raise RuntimeError(f"Search API error {e.code}: {body}")
+        err_body = e.read().decode()[:1000]
+        logger.error("Search API error %s: %s", e.code, err_body)
+        raise RuntimeError(f"Search API error {e.code}")
 
     contexts = []
     for r in result.get("results", []):
@@ -75,10 +83,9 @@ def _search_data_store(query: str, page_size: int = 5) -> list[dict]:
         snippets = doc.get("snippets", [])
         text = " ".join(s.get("snippet", "") for s in snippets)
         if not text:
-            text = json.dumps(doc.get("extractiveAnswers", [{}])[0].get("content", ""))
-        title = doc.get("title", "") or (
-            doc.get("structData", {}).get("title", "")
-        )
+            extractive = doc.get("extractiveAnswers", [{}])
+            text = extractive[0].get("content", "") if extractive else ""
+        title = doc.get("title", "") or doc.get("structData", {}).get("title", "")
         if text:
             contexts.append({"text": text, "source": title or "Policy Document"})
     return contexts
@@ -90,7 +97,7 @@ def retrieve_context(question: str, top_k: int = 5) -> list[dict]:
 
 
 def answer_question(question: str) -> dict:
-    """Full pipeline: search Agent Builder → generate with Gemini.
+    """Full pipeline: search Agent Builder -> generate with Gemini.
 
     Returns {answer, citations, sources}:
       - citations: [{n, source, text}] full retrieved passages
@@ -109,7 +116,6 @@ def answer_question(question: str) -> dict:
     prompt = f"POLICY DOCUMENTS:\n{context_text}\n\nQUESTION: {question}"
 
     vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
-
     model = GenerativeModel(
         model_name=GENERATION_MODEL,
         system_instruction=CHAT_SYSTEM_PROMPT,
