@@ -59,6 +59,17 @@ def _to_12h(value):
     return value
 
 
+def _format_shift(value):
+    """Roster stores a single-letter shift code ('A'..'F'); reports write it as
+    'A Shift'. Anything already spelled out is left as-is."""
+    if not value:
+        return value
+    s = str(value).strip()
+    if len(s) == 1 and s.isalpha():
+        return f"{s.upper()} Shift"
+    return s
+
+
 def _apply_gap_defaults(category: str, gaps: list) -> None:
     """Pre-select sensible defaults on gap widgets so the officer confirms
     rather than fills. Defaults are suggestions only — every one stays
@@ -212,7 +223,7 @@ def reports_extract():
                     slots.setdefault("rank", p.get("rank", ""))
                     slots.setdefault("employee_number", p.get("employee_number", ""))
                     if p.get("shift") and not slots.get("shift_assignment"):
-                        slots["shift_assignment"] = p.get("shift")
+                        slots["shift_assignment"] = _format_shift(p.get("shift"))
                     break
 
         gap_result = find_gaps(category, slots)
@@ -307,11 +318,20 @@ def reports_generate():
 
         # Bind reporter
         officers = security_staff(slots)
+        reporter = None
         if officers and reporter_index < len(officers):
-            slots = bind_reporter(slots, officers[reporter_index])
+            reporter = officers[reporter_index]
+            slots = bind_reporter(slots, reporter)
         elif reporters := [p for p in slots.get("persons", [])
                           if p.get("role") == "security_staff"]:
-            slots = bind_reporter(slots, reporters[0])
+            reporter = reporters[0]
+            slots = bind_reporter(slots, reporter)
+        # Shift assignment: use the bound officer's roster shift (a letter like
+        # 'B') rendered as 'B Shift', else normalize whatever was answered.
+        if reporter and reporter.get("shift"):
+            slots["shift_assignment"] = _format_shift(reporter["shift"])
+        elif slots.get("shift_assignment"):
+            slots["shift_assignment"] = _format_shift(slots["shift_assignment"])
 
         reports = generate_all_reports(slots, category, auto_content=auto_content)
 
