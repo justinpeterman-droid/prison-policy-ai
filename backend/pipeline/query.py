@@ -25,7 +25,7 @@ MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", "global")
 
 SERVING_CONFIG = (
     f"projects/{PROJECT_ID}/locations/{LOCATION}"
-    f"/collections/default_collection/dataStores/{DATA_STORE_ID}"
+    f"/collections/default_collection/engines/prison-policies-engine"
     f"/servingConfigs/default_search"
 )
 

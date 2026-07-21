@@ -119,7 +119,33 @@
     "Building Utility Officer(s) Post Orders.pdf",
     "Chief of Security Post Orders.pdf",
     "Dog Kennel Lieutenant Post Orders.pdf",
-    "East Tower Post Orders.pdf"
+    "East Tower Post Orders.pdf",
+    "Entrance Building Post Orders.pdf",
+    "Fire Safety and Sanitation Post Orders.pdf",
+    "Food Production Corrections Lieutenant Post Orders.pdf",
+    "Food Service Corrections Sergeant Post Orders.pdf",
+    "Horse Barn Post Orders.pdf",
+    "Hospital Security Post Orders.pdf",
+    "ICC Garage Post Orders.pdf",
+    "Infirmary Security Post Orders.pdf",
+    "Key Control Post Orders.pdf",
+    "Laundry Supervisor Post Orders.pdf",
+    "Master Control Post Orders.pdf",
+    "North Tower Post Orders.pdf",
+    "Outside Perimeter Rober Post Orders.pdf",
+    "Recreation Security Post Orders.pdf",
+    "Regional Maintenance Lieutenant Post Orders.pdf",
+    "Regional Maintenance Sergeants or Officers Post Orders.pdf",
+    "Restrictive Housing Officer Post Orders.pdf",
+    "Restrictive Housing Sergeant Post Orders.pdf",
+    "Rover-Boiler Room Post Orders.pdf",
+    "Sally Port Area Post Orders.pdf",
+    "School Post Orders.pdf",
+    "South Tower Post Orders.pdf",
+    "Transportation Post Orders.pdf",
+    "Visitation Search Security Officer(s) Post Orders.pdf",
+    "Visitation Security Roving Officer(s) Post Orders.pdf",
+    "West Tower Post Orders.pdf"
   ],
   "failed": [
     {
@@ -158,5 +184,5 @@
       "error": "code=2: malloc (11222200 bytes) failed"
     }
   ],
-  "total_pages_ocrd": 562
+  "total_pages_ocrd": 716
 }
