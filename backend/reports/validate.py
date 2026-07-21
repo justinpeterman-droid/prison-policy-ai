@@ -18,6 +18,11 @@ CHECKLIST_PATH = TEMPLATES_DIR / "incident_checklist_v2.json"
 UNKNOWN = "UNKNOWN"
 OTHER_OPTION = "Other (type your own)"
 
+# Slots gathered elsewhere in the wizard, so they must NOT also appear as a
+# Missing-Information question. Charges are picked from the disciplinary
+# handbook and confirmed in the charges panel, then sent with /generate.
+COLLECTED_ELSEWHERE = {"charges"}
+
 
 def load_checklist() -> dict:
     return json.loads(CHECKLIST_PATH.read_text())
@@ -78,6 +83,8 @@ def find_gaps(category_name: str, slots: dict) -> dict:
 
     # required_slots without a dedicated rule get a plain text question
     for slot in category.get("required_slots", []):
+        if slot in COLLECTED_ELSEWHERE:
+            continue
         val = slots.get(slot)
         if val is None and not any(r["require"] == slot
                                    for r in category.get("rules", [])):
