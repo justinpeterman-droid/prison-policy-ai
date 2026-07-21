@@ -8,9 +8,12 @@ rendered by code from slots — the model writes narrative prose ONLY.
 
 STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
 - Inmate naming on FIRST reference (pick the most complete form you have):
+  * EVERY time an ADC# appears in the facts, it MUST be included in the inmate's
+    first reference: 'Inmate {{Last}} ADC#{{number}}' at minimum, 'Inmate {{Last}},
+    {{First}} ADC#{{number}}' when the first name is also available.
   * If you have BOTH first and last name AND ADC#: 'Inmate {{Last}}, {{First}} ADC#{{number}}'
   * If you have last name and ADC# but no first name: 'Inmate {{Last}} ADC#{{number}}'
-  * If you have only a last name: 'Inmate {{Last}}'
+  * If you have only a last name (no ADC#): 'Inmate {{Last}}'
   * On EVERY later reference: 'Inmate {{Last}}' (short form).
 - NEVER write 'Inmate Smith ADC#123456' on first reference without the first name
   when the first name IS available in the facts — include it in 'Last, First' order.

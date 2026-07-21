@@ -206,12 +206,16 @@ def validate_report(report_type: str, text: str, officer: dict,
 
 
 def invented_facts(text: str, notes: str, answers: dict) -> list[str]:
-    """Check every ADC#, time, date in output appears in input."""
+    """Check every ADC#, time, and date in output appears in input.
+    Normalizes time formats before comparing (~10pm == 10:00pm)."""
     source = (notes + " " + " ".join(str(v) for v in answers.values())).lower()
+    # Normalize times: "~10pm" -> "10:00pm", "~8am" -> "8:00am"
+    source = re.sub(r'~(\d{1,2})([ap]m)', r'\1:00\2', source, flags=re.I)
+    source = re.sub(r'(\d{1,2})([ap]m)', r'\1:00\2', source, flags=re.I)
     source_clean = re.sub(r'\s', '', source)
     
     tokens = set(re.findall(
-        r'ADC#\s?\d+|\d{1,2}[:/-]\d{2}(?:[/-]\d{2,4})?(?:\s?[ap]\.?m\.?)?',
+        r'ADC#\s?\d+|\d{1,2}:\d{2}[ap]m|\d{1,2}[:/-]\d{2}(?:[/-]\d{2,4})?',
         text, re.I))
     
     return [t for t in tokens
