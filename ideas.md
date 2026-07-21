@@ -11,6 +11,7 @@
 
 ## In Progress
 <!-- Move ideas here when we start working on them -->
+- [ ] **Unit Roster page** — 3rd tool page showing 6 shifts (A/B/C/D/U/F) with editable staff. Planned in `.godplans/roster-page.mdx`. Ready for Cursor multi-agent.
 
 ---
 

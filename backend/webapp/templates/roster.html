@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unit Roster</title>
+<link rel="icon" href="/static/seal.svg">
+<link rel="stylesheet" href="/static/fonts.css">
+<link rel="stylesheet" href="/static/tokens.css">
+<style>
+  :root{
+    --bg:#f7f5f0;--panel:rgba(250,249,245,0.88);--surface:#ffffff;--elevated:#efece4;
+    --navy:#0e1a2b;
+    --text:#0f1626;--text2:#252e3d;--text3:#5c6675;--text4:#9096a4;
+    --accent:#c9971c;--accent2:#9a7210;
+    --border:rgba(16,24,40,0.13);--border-sub:rgba(16,24,40,0.08);
+    --green:#0f9d58;--danger:#d43c30;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Open Sans','Inter',system-ui,sans-serif;color:var(--text);background:radial-gradient(1100px 620px at 50% -180px,rgba(201,151,28,0.06),transparent 60%),var(--bg);min-height:100vh;font-feature-settings:'cv01','ss03';-webkit-font-smoothing:antialiased}
+  ::selection{background:rgba(201,151,28,0.28)}
+
+  /* ── nav (same as reports/chat) ── */
+  nav{position:sticky;top:0;z-index:50;background:var(--panel);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);border-bottom:2px solid rgba(201,151,28,0.55);box-shadow:0 1px 12px -6px rgba(16,24,40,0.15);padding:0 24px;display:flex;align-items:center;height:52px;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:800;color:var(--text2);letter-spacing:-0.13px;text-decoration:none}
+  .brand .mark{width:26px;height:26px;border-radius:50%;display:block;box-shadow:0 1px 3px rgba(16,24,40,0.3)}
+  .nav-right{display:flex;gap:4px}
+  nav .nav-link{font-size:13px;font-weight:510;color:var(--text3);text-decoration:none;padding:6px 12px;border-radius:6px;transition:color .15s,background .15s}
+  nav .nav-link:hover{color:var(--text);background:rgba(16,24,40,0.05)}
+  nav .nav-link.active{color:var(--accent2);font-weight:620}
+
+  /* ── page shell ── */
+  .page{max-width:1100px;margin:0 auto;padding:36px 24px 64px}
+
+  .page-header{margin-bottom:32px}
+  .kicker{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.10em;color:var(--accent2);margin-bottom:8px}
+  .page-header h2{font-size:26px;font-weight:800;letter-spacing:-0.018em;color:var(--text);margin-bottom:6px}
+  .page-header .lead{font-size:14px;color:var(--text4);line-height:1.55;max-width:520px}
+
+  /* ── shift grid ── */
+  .shift-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  @media(max-width:920px){.shift-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:600px){.shift-grid{grid-template-columns:1fr}}
+
+  /* ── shift card ── */
+  .shift-card{
+    background:var(--surface);border:1px solid var(--border-sub);border-radius:12px;
+    box-shadow:0 1px 2px rgba(16,24,40,0.05),0 10px 28px -18px rgba(16,24,40,0.18);
+    overflow:hidden;display:flex;flex-direction:column;
+  }
+  .shift-head{
+    padding:18px 20px 14px;
+    border-bottom:1px solid var(--border-sub);
+    display:flex;justify-content:space-between;align-items:flex-start;
+  }
+  .shift-badge{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:38px;height:38px;border-radius:9px;
+    font-size:20px;font-weight:800;font-family:ui-monospace,Menlo,Consolas,monospace;
+    background:linear-gradient(180deg,#12233c,#0e1a2b);color:#ddb041;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 2px 8px rgba(14,26,43,0.35);
+    flex-shrink:0;
+  }
+  .shift-info{margin-left:12px;flex:1}
+  .shift-label{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-0.01em}
+  .shift-hours{font-size:12px;color:var(--text4);margin-top:2px;font-variant-numeric:tabular-nums}
+  .shift-count{font-size:11px;font-weight:600;color:var(--text3);margin-top:3px}
+
+  /* ── staff rows ── */
+  .staff-list{padding:6px 0;flex:1}
+  .staff-row{
+    display:flex;align-items:center;gap:10px;padding:9px 20px;
+    border-bottom:1px solid var(--border-sub);
+    transition:background .12s;
+  }
+  .staff-row:last-child{border-bottom:none}
+  .staff-row:hover{background:rgba(201,151,28,0.04)}
+  .staff-rank{font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:0.04em;width:36px;flex-shrink:0}
+  .staff-name{font-size:13.5px;font-weight:600;color:var(--text2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .staff-emp{font-size:11.5px;color:var(--text4);font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:550;flex-shrink:0}
+  .staff-actions{display:flex;gap:4px;flex-shrink:0}
+  .btn-icon{
+    width:28px;height:28px;border-radius:6px;border:1px solid var(--border-sub);
+    background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    color:var(--text4);transition:all .12s;font-size:12px;
+  }
+  .btn-icon:hover{color:var(--text);border-color:var(--border);background:rgba(16,24,40,0.04)}
+  .btn-icon.danger:hover{color:var(--danger);border-color:rgba(212,60,48,0.3);background:rgba(212,60,48,0.06)}
+
+  .empty-shift{
+    padding:28px 20px;text-align:center;color:var(--text4);
+    font-size:13px;line-height:1.55;
+  }
+
+  /* ── add button ── */
+  .add-row{border-top:1px solid var(--border-sub);padding:10px 12px}
+  .btn-add{
+    width:100%;padding:9px 0;background:transparent;color:var(--accent2);
+    border:1px dashed rgba(201,151,28,0.4);border-radius:7px;
+    font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;
+    transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .btn-add:hover{background:rgba(201,151,28,0.06);border-color:rgba(201,151,28,0.65);color:var(--accent)}
+  .btn-add .plus{font-size:16px;font-weight:400;line-height:1}
+
+  /* ── inline form (add / edit) ── */
+  .staff-form{
+    padding:14px 20px;border-bottom:1px solid var(--border-sub);
+    background:rgba(201,151,28,0.03);
+    display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;
+  }
+  .staff-form .field{display:flex;flex-direction:column;gap:3px}
+  .staff-form label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text4)}
+  .staff-form input, .staff-form select{
+    padding:6px 9px;font-size:13px;font-family:inherit;color:var(--text2);
+    background:var(--surface);border:1px solid var(--border);border-radius:6px;
+    outline:none;transition:border-color .12s;
+  }
+  .staff-form input:focus, .staff-form select:focus{border-color:rgba(201,151,28,0.5)}
+  .staff-form input{width:120px}
+  .staff-form select{width:70px}
+  .staff-form .field-num input{width:90px}
+  .staff-form .form-actions{display:flex;gap:5px;align-items:center;margin-bottom:3px}
+  .btn-sm{
+    padding:6px 14px;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;
+    border:none;transition:all .12s;
+  }
+  .btn-sm.save{background:var(--accent);color:#1a1200;box-shadow:inset 0 1px 0 rgba(255,255,255,0.2)}
+  .btn-sm.save:hover{background:#ddb041}
+  .btn-sm.cancel{background:transparent;color:var(--text4);border:1px solid var(--border)}
+  .btn-sm.cancel:hover{color:var(--text2);border-color:rgba(16,24,40,0.22)}
+
+  /* ── toast ── */
+  .toast{
+    position:fixed;bottom:32px;left:50%;transform:translateX(-50%);
+    background:var(--navy);color:#fff;padding:11px 22px;border-radius:8px;
+    font-size:13px;font-weight:600;box-shadow:0 4px 24px rgba(16,24,40,0.35);
+    z-index:100;opacity:0;transition:opacity .2s;pointer-events:none;
+  }
+  .toast.show{opacity:1}
+  .toast.err{background:var(--danger)}
+
+  /* ── confirmation overlay ── */
+  .overlay{
+    position:fixed;inset:0;background:rgba(14,26,43,0.55);z-index:80;
+    display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s;
+  }
+  .overlay.show{opacity:1;pointer-events:auto}
+  .overlay .dialog{
+    background:var(--surface);border-radius:12px;padding:28px 32px;max-width:380px;width:90%;
+    box-shadow:0 8px 40px rgba(16,24,40,0.4);text-align:center;
+  }
+  .overlay .dialog p{font-size:14px;color:var(--text2);line-height:1.55;margin-bottom:20px}
+  .overlay .dialog b{color:var(--text)}
+  .overlay .dialog .btns{display:flex;gap:9px;justify-content:center}
+</style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="/"><img class="mark" src="/static/seal.svg" alt=""><span>Standard Logistics</span></a>
+  <div class="nav-right">
+    <a class="nav-link" href="/chat">Reference Search</a>
+    <a class="nav-link" href="/reports">Forms</a>
+    <a class="nav-link active" href="/roster">Unit Roster</a>
+    <a class="nav-link" href="/logout">Log out</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <div class="kicker">Unit Management</div>
+    <h2>Shift Roster</h2>
+    <p class="lead">Staff assigned to each shift. Changes here are used to auto-fill officer details when generating reports.</p>
+  </div>
+
+  <div class="shift-grid" id="shiftGrid"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="overlay" id="overlay"><div class="dialog" id="dialog"></div></div>
+
+<script>
+// ── state ──
+let roster = null; // { shifts: {...}, staff: [...] }
+let editingShift = null; // shift letter of open form
+
+// ── API ──
+async function api(url, opts={}) {
+  const res = await fetch(url, { headers: {'Content-Type':'application/json'}, ...opts });
+  if (!res.ok) throw new Error((await res.json()).error || 'Request failed');
+  return res.json();
+}
+
+// ── toast ──
+function toast(msg, err){ const e=document.getElementById('toast'); e.textContent=msg; e.className='toast'+(err?' err':'')+' show'; setTimeout(()=>e.classList.remove('show'),2200); }
+
+// ── confirm ──
+function confirm(msg){ return new Promise(r => { const o=document.getElementById('overlay'), d=document.getElementById('dialog'); d.innerHTML=`<p>${msg}</p><div class="btns"><button class="btn-sm cancel" id="cfmNo">Cancel</button><button class="btn-sm save" id="cfmYes">Remove</button></div>`; o.classList.add('show'); d.querySelector('#cfmNo').onclick=()=>{o.classList.remove('show');r(false)}; d.querySelector('#cfmYes').onclick=()=>{o.classList.remove('show');r(true)}; }); }
+
+// ── render ──
+async function load(){ roster = await api('/api/roster'); render(); }
+
+function staffForShift(shift){ return roster.staff.filter(s => s.shift === shift); }
+
+function render(){
+  const grid = document.getElementById('shiftGrid');
+  const shiftKeys = ['A','B','C','D','U','F'];
+  grid.innerHTML = shiftKeys.map(shift => {
+    const def = roster.shifts[shift] || {label:'Unknown',hours:'—'};
+    const staff = staffForShift(shift);
+    const editing = editingShift === shift;
+
+    let rows = '';
+    if (editing) {
+      rows += `<div class="staff-form" id="form-${shift}">
+        <div class="field"><label>Rank</label><select id="f_rank"><option>Sgt.</option><option>Cpl.</option><option>Cpt.</option><option>Lt.</option><option>Ofc.</option></select></div>
+        <div class="field"><label>First</label><input id="f_first" placeholder="First"></div>
+        <div class="field"><label>Last</label><input id="f_last" placeholder="Last"></div>
+        <div class="field field-num"><label>Number</label><input id="f_emp" placeholder="B5123"></div>
+        <div class="form-actions">
+          <button class="btn-sm save" onclick="addStaff('${shift}')">Add</button>
+          <button class="btn-sm cancel" onclick="editingShift=null;render()">Cancel</button>
+        </div>
+      </div>`;
+    }
+    if (!staff.length && !editing) {
+      rows += `<div class="empty-shift">No staff assigned to ${shift} shift.</div>`;
+    } else {
+      staff.forEach(s => {
+        rows += `<div class="staff-row">
+          <span class="staff-rank">${esc(s.rank||'')}</span>
+          <span class="staff-name">${esc(s.last||'')}, ${esc(s.first||'')}</span>
+          <span class="staff-emp">${esc(s.employee_number||'')}</span>
+          <span class="staff-actions">
+            <button class="btn-icon" title="Edit" onclick="editStaff('${esc(s.employee_number)}')">✎</button>
+            <button class="btn-icon danger" title="Remove" onclick="removeStaff('${esc(s.employee_number)}')">✕</button>
+          </span>
+        </div>`;
+      });
+    }
+
+    return `<div class="shift-card">
+      <div class="shift-head">
+        <div class="shift-badge">${shift}</div>
+        <div class="shift-info">
+          <div class="shift-label">${esc(def.label)}</div>
+          <div class="shift-hours">${esc(def.hours)}</div>
+          <div class="shift-count">${staff.length} staff</div>
+        </div>
+      </div>
+      <div class="staff-list">${rows}</div>
+      ${editing ? '' : `<div class="add-row"><button class="btn-add" onclick="editingShift='${shift}';render()"><span class="plus">+</span> Add Staff to ${shift}</button></div>`}
+    </div>`;
+  }).join('');
+}
+
+// ── actions ──
+async function addStaff(shift){
+  const r = document.getElementById('f_rank').value;
+  const f = document.getElementById('f_first').value.trim();
+  const l = document.getElementById('f_last').value.trim();
+  const e = document.getElementById('f_emp').value.trim();
+  if (!l || !e) return toast('Last name and employee number are required.', true);
+  try {
+    await api('/api/roster/staff', {method:'POST',body:JSON.stringify({rank:r,first:f,last:l,employee_number:e,shift})});
+    editingShift = null;
+    await load();
+    toast(`${l}, ${f} added to ${shift} shift.`);
+  } catch(err){ toast(err.message, true); }
+}
+
+async function editStaff(emp){
+  const s = roster.staff.find(x => x.employee_number === emp);
+  if (!s) return;
+  // prompt for new shift (simple approach — could be an inline form instead)
+  const newShift = prompt(`Move ${s.rank} ${s.first} ${s.last} to which shift? (A/B/C/D/U/F)`, s.shift);
+  if (!newShift || newShift === s.shift) return;
+  if (!['A','B','C','D','U','F'].includes(newShift.toUpperCase())) return toast('Invalid shift.', true);
+  try {
+    await api(`/api/roster/staff/${encodeURIComponent(emp)}`, {method:'PUT',body:JSON.stringify({shift:newShift.toUpperCase()})});
+    await load();
+    toast(`${s.last} moved to ${newShift.toUpperCase()} shift.`);
+  } catch(err){ toast(err.message, true); }
+}
+
+async function removeStaff(emp){
+  const s = roster.staff.find(x => x.employee_number === emp);
+  if (!s) return;
+  if (!await confirm(`Remove <b>${esc(s.rank)} ${esc(s.first)} ${esc(s.last)}</b> (${esc(emp)}) from the roster?`)) return;
+  try {
+    await api(`/api/roster/staff/${encodeURIComponent(emp)}`, {method:'DELETE'});
+    await load();
+    toast(`${s.last} removed.`);
+  } catch(err){ toast(err.message, true); }
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+load();
+</script>
+</body>
+</html>

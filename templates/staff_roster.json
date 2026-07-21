@@ -5,7 +5,7 @@
     "B": {"label": "Evening Shift", "hours": "1400-2200"},
     "C": {"label": "Night Shift", "hours": "2200-0600"},
     "D": {"label": "Relief Day", "hours": "0600-1800"},
-    "E": {"label": "Relief Night", "hours": "1800-0600"},
+    "U": {"label": "Relief Night", "hours": "1800-0600"},
     "F": {"label": "Training/Admin", "hours": "0800-1600"}
   },
   "staff": [

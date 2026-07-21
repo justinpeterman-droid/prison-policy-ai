@@ -1,0 +1,179 @@
+# Unit Roster Page — Godplan
+
+## Goal
+
+Add a `Unit Roster` page — 3rd tool in the nav — that shows all 6 shifts (A, B, C, D, U, F) with assigned staff. Editable inline (add/remove/move staff). Enhanced roster lookup so the report pipeline auto-recognizes staff by first name, last name, or partial employee number.
+
+All work is **frontend + thin API layer**. No database, no migrations — the `staff_roster.json` file remains the source of truth, now managed through a UI instead of raw text.
+
+---
+
+## Tasks
+
+### RS-001: Fix shift data — E → U
+| Field | Value |
+|---|---|
+| **File** | `templates/staff_roster.json` |
+| **What** | Replace `"E": {"label": "Relief Night", "hours": "1800-0600"}` with `"U": {"label": "Relief Night", "hours": "1800-0600"}` |
+| **Verify** | `python -c "import json; d=json.load(open('templates/staff_roster.json')); assert 'U' in d['shifts']; assert 'E' not in d['shifts']; print('OK')"` |
+
+### RS-002: Roster API blueprint
+| Field | Value |
+|---|---|
+| **File** | `backend/webapp/routes/roster.py` (new) |
+| **What** | Flask blueprint at `/api/roster`. Reads/writes `templates/staff_roster.json`. All endpoints require auth (inherited from `@app.before_request`). |
+
+**Endpoints:**
+
+| Method | Path | Body | Response | Notes |
+|---|---|---|---|---|
+| `GET` | `/api/roster` | — | `{shifts: {...}, staff: [...]}` | Full roster dump |
+| `GET` | `/api/roster/lookup?q=peterman` | — | `{matches: [...]}` | Search staff by name/number |
+| `POST` | `/api/roster/staff` | `{rank, first, last, employee_number, shift}` | `{ok: true}` | Add staff member |
+| `PUT` | `/api/roster/staff/<emp_id>` | `{shift?}` or any field | `{ok: true}` | Update staff (shift reassign, name fix, etc.) |
+| `DELETE` | `/api/roster/staff/<emp_id>` | — | `{ok: true}` | Remove staff member |
+
+**Implementation notes:**
+- Use the same `ROSTER_PATH` constant as `backend/reports/roster.py` (shared path)
+- Write-through JSON: load, modify, save on every mutation
+- Validate shift letter is one of A/B/C/D/U/F on POST/PUT
+- Return 404 if employee_number not found on PUT/DELETE
+- Return 409 if employee_number already exists on POST
+- Keep the `_instructions` field in the JSON intact
+
+### RS-003: Wire roster blueprint into Flask app
+| Field | Value |
+|---|---|
+| **File** | `backend/webapp/app.py` |
+| **What** | Register `roster_bp` from `backend.webapp.routes.roster`, add `/roster` route |
+
+```python
+# In create_app():
+from backend.webapp.routes.roster import roster_bp
+app.register_blueprint(roster_bp)
+
+@app.route("/roster")
+def roster_page():
+    return render_template("roster.html")
+```
+
+### RS-004: Roster HTML page (already written)
+| Field | Value |
+|---|---|
+| **File** | `backend/webapp/templates/roster.html` |
+| **Status** | ✅ Written — design artifact in place |
+| **What** | Full page with 6 shift cards, inline add form, edit/remove, confirmation dialogs, toasts. Matches existing design system. |
+| **Verify** | Page loads at `/roster`, shows all 6 shifts, Add Staff form works, remove works |
+
+### RS-005: Enhanced roster lookup — first name + partial number
+| Field | Value |
+|---|---|
+| **File** | `backend/reports/roster.py` |
+| **What** | Extend `lookup()` to also match by first name and partial employee number |
+
+Current behavior:
+- Matches: exact last name, exact employee number, exact full name, substring of last/full name
+
+Add:
+- **First name match**: `hint == first` or `hint in first`
+- **Partial employee number**: `emp.endswith(hint)` or `hint in emp` — so typing "5123" matches "B5123"
+
+```python
+# Add after existing checks in lookup():
+# First-name match
+if hint in first:
+    return dict(person)
+# Partial employee number (e.g., "5123" matches "B5123")
+if hint in emp or emp.endswith(hint):
+    return dict(person)
+```
+
+**Verify:**
+```python
+from backend.reports.roster import lookup
+assert lookup("Justin") is not None     # first name
+assert lookup("5123") is not None       # partial number
+assert lookup("B5123") is not None      # full number (existing)
+assert lookup("Peterman") is not None   # last name (existing)
+assert lookup("BogusName") is None      # no match
+```
+
+### RS-006: Add "Unit Roster" link to all nav bars
+| Field | Value |
+|---|---|
+| **Files** | `templates/home.html`, `templates/reports.html`, `templates/chat.html` |
+| **What** | Add `<a class="nav-link" href="/roster">Unit Roster</a>` to each nav |
+
+**home.html** (line ~181):
+```html
+<a href="/chat">Reference Search</a>
+<a href="/reports">Forms</a>
+<a href="/roster">Unit Roster</a>       <!-- NEW -->
+<a href="/logout">Log out</a>
+```
+
+Same pattern for reports.html and chat.html nav. Also add to footer link lists in home.html.
+
+### RS-007: Update roster.py `lookup()` — first name + partial number
+**This is the same as RS-005 above.** Consolidated — this task covers the roster lookup enhancement.
+
+---
+
+## Task Summary
+
+| # | Task | File(s) | Complexity |
+|---|---|---|---|
+| RS-001 | Replace E → U in shift definitions | `staff_roster.json` | Trivial |
+| RS-002 | Roster API blueprint (5 endpoints) | `routes/roster.py` (new) | Medium |
+| RS-003 | Wire blueprint + /roster route | `app.py` | Trivial |
+| RS-004 | Roster HTML page | `templates/roster.html` | ✅ Done |
+| RS-005 | First-name + partial-number lookup | `reports/roster.py` | Small |
+| RS-006 | Nav links on all pages + footer | `home.html`, `reports.html`, `chat.html` | Trivial |
+
+**Total:** 3 new files, 5 files modified. ~150 lines of Python, ~60 lines of HTML nav changes.
+
+---
+
+## Execution Order
+
+1. **RS-001** — Fix data first (no deps)
+2. **RS-002** — Build API (no deps, but RS-001 should be done so validation passes)
+3. **RS-003** — Wire API + route (depends on RS-002)
+4. **RS-004** — Already done, just verify
+5. **RS-005** — Enhanced lookup (no deps on API, can be done in parallel)
+6. **RS-006** — Nav links everywhere (depends on RS-003 so `/roster` resolves)
+
+**Parallelizable:** RS-001 + RS-005 can happen while RS-002 is being written.
+
+---
+
+## Multi-Agent Split
+
+Cursor multi-agent can split this as:
+
+| Agent | Tasks | Context |
+|---|---|---|
+| **Agent 1 — API** | RS-002 (roster API) + RS-003 (wire it in) + RS-001 (shift fix) | Needs: `staff_roster.json` schema, `app.py` blueprint pattern, auth model |
+| **Agent 2 — Frontend** | RS-006 (nav links) + QA RS-004 (verify roster.html) | Needs: nav HTML from all 3 pages, roster.html |
+| **Agent 3 — Lookup** | RS-005 (roster.py enhancement) | Needs: current `roster.py`, test cases |
+
+---
+
+## Verification Checklist
+
+- [ ] `staff_roster.json` has `U` not `E` in shifts
+- [ ] `GET /api/roster` returns shifts + staff array
+- [ ] `POST /api/roster/staff` adds a staff member
+- [ ] `PUT /api/roster/staff/B5123` with `{"shift":"A"}` moves Peterman to A shift
+- [ ] `DELETE /api/roster/staff/B5123` removes a staff member
+- [ ] Duplicate employee_number returns 409
+- [ ] Invalid shift letter returns 400
+- [ ] `/roster` page loads and shows 6 shift cards
+- [ ] Add staff form works (fills, validates, adds)
+- [ ] Remove staff with confirmation works
+- [ ] Edit/reassign shift works
+- [ ] `lookup("Justin")` returns Peterman record
+- [ ] `lookup("5123")` returns Peterman record
+- [ ] Nav has "Unit Roster" on home, chat, and reports pages
+- [ ] Footer on home page lists Unit Roster
+- [ ] Full deploy to Cloud Run succeeds
