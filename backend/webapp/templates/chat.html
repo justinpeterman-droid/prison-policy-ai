@@ -25,8 +25,11 @@
   ::-webkit-scrollbar-thumb:hover{background:rgba(16,24,40,0.3)}
 
   nav{flex:0 0 auto;position:sticky;top:0;z-index:50;background:var(--panel);backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);border-bottom:2px solid rgba(201,151,28,0.55);box-shadow:0 1px 12px -6px rgba(16,24,40,0.15);padding:0 24px;display:flex;align-items:center;height:58px;justify-content:space-between}
-  .brand{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:800;color:var(--text);letter-spacing:-0.01em;text-decoration:none}
-  .brand .mark{width:30px;height:30px;border-radius:50%;display:block;box-shadow:0 1px 3px rgba(16,24,40,0.3)}
+  .brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:inherit}
+  .brand .mark{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:block;box-shadow:0 1px 3px rgba(16,24,40,0.3)}
+  .brand b{font-size:16px;font-weight:800;letter-spacing:-0.01em;color:var(--text)}
+  .brand > span{font-size:12px;color:var(--text4);font-weight:400;margin-left:2px}
+  .brand .brand-acronym{color:#c62828}
   .nav-right{display:flex;gap:4px}
   nav .nav-link{font-size:13.5px;font-weight:600;color:var(--text3);text-decoration:none;padding:7px 13px;border-radius:8px;transition:color .15s,background .15s}
   nav .nav-link:hover{color:var(--text);background:rgba(201,151,28,0.10)}
@@ -48,8 +51,21 @@
 
   .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px}
   .empty .glyph{width:48px;height:48px;border-radius:50%;margin-bottom:15px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--accent);background:rgba(201,151,28,0.12);border:1px solid rgba(201,151,28,0.35)}
-  .empty h2{font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px;letter-spacing:-0.012em}
-  .empty p{font-size:13.5px;color:var(--text3);margin-bottom:20px;max-width:330px;line-height:1.6}
+  .empty h2{font-size:16px;font-weight:800;color:var(--text);margin-bottom:10px;letter-spacing:-0.012em}
+  .empty p.empty-lead{
+    font-size:14.5px;font-weight:650;color:var(--text2);margin:0 0 22px;max-width:360px;line-height:1.55;
+    padding:12px 14px 12px 16px;text-align:left;
+    background:linear-gradient(180deg,rgba(201,151,28,0.14),rgba(201,151,28,0.06));
+    border:1px solid rgba(201,151,28,0.45);border-left:3px solid var(--accent);
+    border-radius:10px;
+    box-shadow:0 1px 2px rgba(16,24,40,0.04),0 10px 24px -16px rgba(201,151,28,0.45);
+    animation:leadIn .55s cubic-bezier(.2,.7,.2,1) both, leadGlow 2.8s ease-in-out .55s 2;
+  }
+  @keyframes leadIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes leadGlow{
+    0%,100%{box-shadow:0 1px 2px rgba(16,24,40,0.04),0 10px 24px -16px rgba(201,151,28,0.45);border-color:rgba(201,151,28,0.45)}
+    50%{box-shadow:0 1px 2px rgba(16,24,40,0.04),0 0 0 3px rgba(201,151,28,0.18),0 12px 28px -12px rgba(201,151,28,0.55);border-color:rgba(201,151,28,0.7)}
+  }
   .chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
   .chip{font-size:12.5px;font-weight:600;color:var(--text3);background:var(--surface);border:1px solid var(--border);border-radius:9999px;padding:7px 15px;cursor:pointer;font-family:inherit;transition:all .15s;box-shadow:0 1px 2px rgba(16,24,40,0.05)}
   .chip:hover{color:var(--text);border-color:rgba(201,151,28,0.55);background:rgba(201,151,28,0.07)}
@@ -118,12 +134,13 @@
   :where(a,button):focus-visible{outline:2px solid rgba(201,151,28,0.7);outline-offset:2px}
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{animation-duration:.001s!important;transition-duration:.001s!important}
+    .empty p.empty-lead{animation:none}
   }
 </style>
 </head>
 <body>
 <nav>
-  <a class="brand" href="/"><img class="mark" src="/static/seal.svg" alt="" width="30" height="30">Standard Logistics</a>
+  <a class="brand" href="/"><img class="mark" src="/static/seal.svg" alt="" width="32" height="32"><b><span class="brand-acronym">S</span>tandard <span class="brand-acronym">L</span>ogistics</b><span><span class="brand-acronym">U</span>nit <span class="brand-acronym">T</span>ools</span></a>
   <div class="nav-right">
     <a class="nav-link" href="/reports">Forms →</a>
     <a class="nav-link" href="/roster">Unit Roster</a>
@@ -175,7 +192,7 @@ function emptyState(){
   return `<div class="empty" id="empty">
     <div class="glyph"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6H8Z"/><path d="M14 3v6h6M8.5 13h7M8.5 17h7"/></svg></div>
     <h2>Search the reference library</h2>
-    <p>Ask about any policy, directive, or unit procedure. The exact source passages appear on the right.</p>
+      <p class="empty-lead">An easy way to find answers for inmate grievances — ask about the policy, and the exact Policy, Post Order, Form appear on the right.</p>
     <div class="chips">
       <button class="chip" onclick="ask('Use of force reporting requirements')">Use of force reporting</button>
       <button class="chip" onclick="ask('Inmate visitation procedures')">Visitation procedures</button>
