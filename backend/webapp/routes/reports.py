@@ -1,5 +1,6 @@
 """Report generation endpoints — v2 three-step pipeline."""
 import logging
+import re
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, send_file
 from backend.reports.classifier import classify_incident
@@ -10,14 +11,52 @@ logger = logging.getLogger(__name__)
 reports_bp = Blueprint("reports", __name__)
 
 # Per BMU practice, medical detail is not written onto the 005 — the injury
-# and treatment lines reference the separate infirmary report.
+# and treatment lines reference the separate report. Inmate injuries point to
+# the Infirmary Report; officer injuries point to the officer's Medical Report.
 SEE_INFIRMARY = "See Infirmary Report"
+SEE_MEDICAL = "See Medical Report"
+# Present lines that aren't separately stated point back to the involved lists.
+SEE_ABOVE = "See Above"
+FIRST_NAME_NEEDED = "[FIRST NAME NEEDED]"
 
 # Incidents that, by their nature, involve an inmate going to medical — the
 # medical disposition pre-selects "Seen by Infirmary staff" (still changeable).
 MEDICAL_SEEN_CATEGORIES = {
     "inmate_fight", "staff_assault", "forced_cell_movement", "prea",
 }
+# Medical dispositions that mean an inmate actually went to/was offered medical
+# (so EXTENT OF INJURY TO INMATE reads "See Infirmary Report" rather than N/A).
+MEDICAL_INJURY_DISPOSITIONS = {
+    "Seen by Infirmary staff",
+    "Refused medical (Refuse box checked)",
+    "Sent by ambulance to outside facility",
+}
+# Categories/signals where the inmate used force on the officer, so the
+# officer injury/treatment lines reference the officer's Medical Report.
+OFFICER_FORCE_CATEGORIES = {"staff_assault"}
+
+
+def _to_12h(value):
+    """Normalize a time to 12-hour 'H:MMam/pm' (BMU convention).
+
+    Accepts 24-hour ('2200', '22:00'), 12-hour ('10:00pm', '10:00 PM'), and a
+    leading 'approximately'/'~'. Returns the bare 12-hour time (no
+    'approximately' — the narrative prompt adds that). Unparseable input is
+    returned unchanged so nothing is ever lost."""
+    if not value:
+        return value
+    core = re.sub(r'^(approximately|approx\.?|~)\s*', '', str(value).strip(),
+                  flags=re.I).strip()
+    m = re.match(r'^(\d{1,2}):?(\d{2})\s*([ap])\.?\s*m\.?$', core, re.I)
+    if m:  # already 12-hour, just canonicalize
+        return f"{int(m.group(1))}:{m.group(2)}{m.group(3).lower()}m"
+    m = re.match(r'^(\d{1,2}):?(\d{2})$', core)
+    if m:  # 24-hour
+        h, mm = int(m.group(1)), m.group(2)
+        if 0 <= h <= 23:
+            ap = 'am' if h < 12 else 'pm'
+            return f"{h % 12 or 12}:{mm}{ap}"
+    return value
 
 
 def _apply_gap_defaults(category: str, gaps: list) -> None:
@@ -46,11 +85,33 @@ def _build_incident_number(last3) -> str:
 
 
 def _format_inmates(slots: dict) -> str:
-    return ", ".join(
-        f"Inmate {p.get('last', '')}, {p.get('first', '')} ADC#{p.get('adc_number', 'UNKNOWN')}"
-        for p in slots.get("persons", [])
-        if p.get("role") == "inmate" and p.get("last")
-    )
+    parts = []
+    for p in slots.get("persons", []):
+        if p.get("role") != "inmate" or not p.get("last"):
+            continue
+        first = p.get("first") or FIRST_NAME_NEEDED
+        parts.append(f"Inmate {p.get('last', '')}, {first} "
+                     f"ADC#{p.get('adc_number') or 'UNKNOWN'}")
+    return ", ".join(parts)
+
+
+def _inmates_missing_first(slots: dict) -> list:
+    """Inmates named by last name but with no first name — each one needs a
+    gap question, and if still blank at generation, a supplement marker."""
+    return [p.get("last") for p in slots.get("persons", [])
+            if p.get("role") == "inmate" and p.get("last") and not p.get("first")]
+
+
+def _apply_first_name_answers(slots: dict, answers: dict) -> None:
+    """Fold 'inmate_first::<Last>' gap answers back into the persons list."""
+    for key, val in answers.items():
+        if not (isinstance(key, str) and key.startswith("inmate_first::") and val):
+            continue
+        last = key.split("::", 1)[1]
+        for p in slots.get("persons", []):
+            if (p.get("role") == "inmate" and p.get("last") == last
+                    and not p.get("first")):
+                p["first"] = val
 
 
 def _format_employees(slots: dict) -> str:
@@ -131,6 +192,9 @@ def reports_extract():
         # If the notes never stated a date, today's is safe — don't ask for it.
         if not slots.get("date"):
             slots["date"] = _today()
+        # All reports use 12-hour time; convert whatever the notes stated.
+        if slots.get("time"):
+            slots["time"] = _to_12h(slots["time"])
 
         # ── Staff roster resolution ──
         from backend.reports.roster import resolve_staff_from_persons
@@ -139,22 +203,39 @@ def reports_extract():
         if persons:
             resolved_persons, roster_gaps = resolve_staff_from_persons(persons)
             slots["persons"] = resolved_persons
-            # Also fill officer_* slots from the first reporting officer match
+            # Also fill officer_* slots from the first reporting officer match,
+            # including the shift assignment (which comes from the roster).
             for p in resolved_persons:
                 if p.get("role") == "security_staff" and p.get("_roster_match"):
                     slots.setdefault("officer_last", p.get("last", ""))
                     slots.setdefault("officer_first", p.get("first", ""))
                     slots.setdefault("rank", p.get("rank", ""))
                     slots.setdefault("employee_number", p.get("employee_number", ""))
+                    if p.get("shift") and not slots.get("shift_assignment"):
+                        slots["shift_assignment"] = p.get("shift")
                     break
 
         gap_result = find_gaps(category, slots)
+        gaps = gap_result.get("gaps", [])
         # Merge roster gaps
         if roster_gaps:
-            gap_result["gaps"] = gap_result.get("gaps", []) + roster_gaps
-            gap_result["blocking_remaining"] = sum(1 for g in gap_result["gaps"] if g.get("blocking"))
+            gaps = gaps + roster_gaps
+        # Shift assignment comes from the unit roster — if it couldn't be
+        # resolved, ask for it (non-blocking, like the other checklist items).
+        if not slots.get("shift_assignment"):
+            gaps.append({"slot": "shift_assignment", "blocking": False,
+                         "answer_type": "text",
+                         "question": "Shift assignment? (from the unit roster)"})
+        # An inmate named only by last name needs a first name — ask per inmate.
+        for last in _inmates_missing_first(slots):
+            gaps.append({"slot": f"inmate_first::{last}", "blocking": False,
+                         "answer_type": "text",
+                         "question": f"First name for Inmate {last}? "
+                                     f"(leave blank if unknown)"})
+        gap_result["gaps"] = gaps
+        gap_result["blocking_remaining"] = sum(1 for g in gaps if g.get("blocking"))
         # Pre-select suggested defaults (medical disposition, drug test).
-        _apply_gap_defaults(category, gap_result.get("gaps", []))
+        _apply_gap_defaults(category, gaps)
         officers = security_staff(slots)
         logger.info("Extract → %d gaps (%d blocking), %d officers",
                     len(gap_result.get("gaps", [])),
@@ -193,11 +274,16 @@ def reports_generate():
         # Merge gap answers into slots
         slots = dict(slots)
         slots.update(answers)
+        # Fold any first-name answers back into the inmate records.
+        _apply_first_name_answers(slots, answers)
 
         # ── Deterministic BMU defaults (before auto_content resolves) ──
         # Date: if the notes never stated one, today's date is safe to use.
         if not slots.get("date"):
             slots["date"] = _today()
+        # All reports use 12-hour time.
+        if slots.get("time"):
+            slots["time"] = _to_12h(slots["time"])
         # Incident number: officer supplies only the last 3 digits; the
         # year and month are prefixed automatically.
         last3 = slots.get("incident_number_last3") or answers.get("incident_number_last3")
@@ -213,6 +299,11 @@ def reports_generate():
         # Re-resolve auto_content with answered slots
         gap_result = find_gaps(category, slots)
         auto_content = gap_result.get("auto_content", [])
+        markers = list(gap_result.get("markers", []))
+        # Any inmate still missing a first name at generation is flagged so the
+        # officer's attention is drawn to it on the "Review before filing" card.
+        for last in _inmates_missing_first(slots):
+            markers.append(f"[TO BE SUPPLEMENTED: first name for Inmate {last}]")
 
         # Bind reporter
         officers = security_staff(slots)
@@ -223,6 +314,18 @@ def reports_generate():
             slots = bind_reporter(slots, reporters[0])
 
         reports = generate_all_reports(slots, category, auto_content=auto_content)
+
+        # ── 005 injury / present line logic (deterministic) ──
+        # Inmate injury/treatment can only read "See Infirmary Report" or "N/A".
+        inmate_hurt = slots.get("medical_disposition") in MEDICAL_INJURY_DISPOSITIONS
+        inmate_injury_line = SEE_INFIRMARY if inmate_hurt else "N/A"
+        # Officer injury/treatment reads "See Medical Report" only when the
+        # inmate used force on the officer; otherwise N/A.
+        officer_force = (category in OFFICER_FORCE_CATEGORIES
+                         or bool(slots.get("officer_injuries"))
+                         or str(slots.get("staff_injured", "")).lower()
+                         in ("yes", "true"))
+        officer_injury_line = SEE_MEDICAL if officer_force else "N/A"
 
         form005 = {
             "unit_division": "BMU",
@@ -236,14 +339,16 @@ def reports_generate():
             "location": slots.get("location") or "",
             "inmates_involved": _format_inmates(slots),
             "employees_involved": _format_employees(slots),
-            "inmates_present": slots.get("inmates_present") or _format_inmates(slots),
-            "employees_present": slots.get("employees_present") or _format_employees(slots),
-            "others_present": slots.get("others_present") or "N/A",
-            # Medical detail lives in the infirmary report, not on the 005.
-            "inmate_injuries": slots.get("inmate_injuries") or SEE_INFIRMARY,
-            "inmate_treatment": slots.get("inmate_treatment") or SEE_INFIRMARY,
-            "officer_injuries": slots.get("officer_injuries") or "N/A",
-            "officer_treatment": slots.get("officer_treatment") or "N/A",
+            # Present lines default to "See Above" (the involved lists) unless
+            # the notes named separate people who were present.
+            "inmates_present": slots.get("inmates_present") or SEE_ABOVE,
+            "employees_present": slots.get("employees_present") or SEE_ABOVE,
+            "others_present": slots.get("others_present") or SEE_ABOVE,
+            # Medical detail lives in the infirmary/medical report, not the 005.
+            "inmate_injuries": inmate_injury_line,
+            "inmate_treatment": inmate_injury_line,
+            "officer_injuries": officer_injury_line,
+            "officer_treatment": officer_injury_line,
             "recommendation": reports.get("recommendation", ""),
             "narrative": reports.get("first_person", ""),
             "reporting_employee_signature": f"{slots.get('officer_first', '')} {slots.get('officer_last', '')}".strip(),
@@ -253,12 +358,13 @@ def reports_generate():
         all_text = " ".join(v for v in reports.values() if isinstance(v, str))
         flags = invented_facts(all_text, notes, answers)
 
-        logger.info("Generate → %d reports, %d invented-fact flags", len(reports), len(flags))
+        logger.info("Generate → %d reports, %d invented-fact flags, %d markers",
+                    len(reports), len(flags), len(markers))
         return jsonify({
             "reports": reports,
             "form005": form005,
             "flags": flags,
-            "markers": gap_result.get("markers", []),
+            "markers": markers,
             "officers": officers,
         })
     except Exception as e:

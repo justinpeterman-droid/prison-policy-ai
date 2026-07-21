@@ -970,7 +970,10 @@ function ln(id,val,hint){
   return `<div class="f5line"><span class="ed" data-key="${id}" contenteditable="true">${esc(v)}</span>${h}</div>`;
 }
 function f5head(label,val){
-  return `<span class="f5label">${label}</span><span class="ed f5val" data-key="${label.toLowerCase().replace(/[^a-z]/g,'_')}" contenteditable="true">${esc(val||'')}</span>`;
+  // Clean key: 'SHIFT ASSIGNMENT:' -> 'shift_assignment' (no trailing _ from the
+  // colon), so it matches the DOCX placeholders and collectMetadata/edVal.
+  const key=label.toLowerCase().replace(/[^a-z]+/g,'_').replace(/^_|_$/g,'');
+  return `<span class="f5label">${label}</span><span class="ed f5val" data-key="${key}" contenteditable="true">${esc(val||'')}</span>`;
 }
 function form005Front(o){
   return `
@@ -999,13 +1002,13 @@ function form005Front(o){
   </div>
   <div class="f5row"><span class="f5label">INMATE(S) INVOLVED:</span>${ln('inmates_involved',o.inmates,'Names and ADC Numbers')}${ln('inmates2','','')}${ln('inmates3','','')}</div>
   <div class="f5row"><span class="f5label">EMPLOYEE(S) INVOLVED:</span>${ln('employees_involved',o.employees,'Names, Titles, Rank')}${ln('employees2','','')}${ln('employees3','','')}</div>
-  <div class="f5row"><span class="f5label">INMATE(S) PRESENT:</span>${ln('inmates_present','','Names and ADC Numbers')}${ln('inmates_present2','','')}${ln('inmates_present3','','')}</div>
-  <div class="f5row"><span class="f5label">EMPLOYEE(S) PRESENT:</span>${ln('employees_present','','Names, Titles, Rank')}${ln('employees_present2','','')}${ln('employees_present3','','')}</div>
-  <div class="f5row"><span class="f5label">OTHERS PRESENT/INVOLVED: (Specify)</span>${ln('others_present','','Names & Addresses')}${ln('others_present2','','')}${ln('others_present3','','')}</div>
+  <div class="f5row"><span class="f5label">INMATE(S) PRESENT:</span>${ln('inmates_present',o.inmatesPresent,'Names and ADC Numbers')}${ln('inmates_present2','','')}${ln('inmates_present3','','')}</div>
+  <div class="f5row"><span class="f5label">EMPLOYEE(S) PRESENT:</span>${ln('employees_present',o.employeesPresent,'Names, Titles, Rank')}${ln('employees_present2','','')}${ln('employees_present3','','')}</div>
+  <div class="f5row"><span class="f5label">OTHERS PRESENT/INVOLVED: (Specify)</span>${ln('others_present',o.othersPresent,'Names & Addresses')}${ln('others_present2','','')}${ln('others_present3','','')}</div>
   <div class="f5row"><span class="f5label">EXTENT OF INJURY TO INMATE(S):</span>${ln('inmate_injuries',o.inmateInjuries,'')}${ln('inmate_injuries2','','')}${ln('inmate_injuries3','','')}</div>
   <div class="f5row"><span class="f5label">TREATMENT AFFORDED INMATE(S):</span>${ln('inmate_treatment',o.inmateTreatment,'')}${ln('inmate_treatment2','','')}${ln('inmate_treatment3','','')}</div>
-  <div class="f5row"><span class="f5label">EXTENT OF INJURY TO OFFICER(S):</span>${ln('officer_injuries','','')}${ln('officer_injuries2','','')}${ln('officer_injuries3','','')}</div>
-  <div class="f5row"><span class="f5label">TREATMENT AFFORDED OFFICER(S):</span>${ln('officer_treatment','','')}${ln('officer_treatment2','','')}${ln('officer_treatment3','','')}</div>
+  <div class="f5row"><span class="f5label">EXTENT OF INJURY TO OFFICER(S):</span>${ln('officer_injuries',o.officerInjuries,'')}${ln('officer_injuries2','','')}${ln('officer_injuries3','','')}</div>
+  <div class="f5row"><span class="f5label">TREATMENT AFFORDED OFFICER(S):</span>${ln('officer_treatment',o.officerTreatment,'')}${ln('officer_treatment2','','')}${ln('officer_treatment3','','')}</div>
   <div class="f5footer">005/409 &nbsp; 005-3 of 3 &nbsp; 409-9 of 9</div>
   `;
 }
@@ -1065,12 +1068,17 @@ function render005(d){
   const employees=m.employees_involved||'';
   const inmateInjuries=m.inmate_injuries||'';
   const inmateTreatment=m.inmate_treatment||'';
+  const inmatesPresent=m.inmates_present||'';
+  const employeesPresent=m.employees_present||'';
+  const othersPresent=m.others_present||'';
+  const officerInjuries=m.officer_injuries||'';
+  const officerTreatment=m.officer_treatment||'';
   const narrative=highlightFlags(fp||'No narrative generated.',flags);
   const sigName=officerFirst&&officerLast?officerFirst+' '+officerLast:'';
   document.getElementById('preview').innerHTML=`
     ${markersBanner(markers)}
     <div class="form005-page" id="page1">
-      ${form005Front({officerLast,officerFirst,emp,rank,shift,unit,date,time,loc,inmates,employees,inmateInjuries,inmateTreatment})}
+      ${form005Front({officerLast,officerFirst,emp,rank,shift,unit,date,time,loc,inmates,employees,inmateInjuries,inmateTreatment,inmatesPresent,employeesPresent,othersPresent,officerInjuries,officerTreatment})}
     </div>
     <div class="form005-page" id="page2">
       ${form005Back({narrative,sigName,date})}
@@ -1124,15 +1132,28 @@ function edVal(key){
   return t;
 }
 function collectMetadata(){
+  // Send every field the DOCX template expects, read from the reviewed/edited
+  // on-screen 005 so the download matches the preview exactly.
+  const date=edVal('date');
   return {
+    unit_division:edVal('unit_division'),
     officer_last:edVal('officer_last'),officer_first:edVal('officer_first'),
     employee_number:edVal('employee_number'),
     rank:edVal('rank'),
-    unit_division:edVal('unit_division'),
     shift_assignment:edVal('shift_assignment'),
-    date:edVal('date'),time:edVal('time'),location:edVal('location'),
+    date,time:edVal('time'),location:edVal('location'),
     inmates_involved:edVal('inmates_involved'),
+    employees_involved:edVal('employees_involved'),
+    inmates_present:edVal('inmates_present'),
+    employees_present:edVal('employees_present'),
+    others_present:edVal('others_present'),
+    inmate_injuries:edVal('inmate_injuries'),
+    inmate_treatment:edVal('inmate_treatment'),
+    officer_injuries:edVal('officer_injuries'),
+    officer_treatment:edVal('officer_treatment'),
+    recommendation:edVal('recommendation'),
     narrative:edVal('narrative'),
+    date_filed:date,
     officer_signature:((edVal('officer_first')||'')+' '+(edVal('officer_last')||'')).trim(),
   };
 }

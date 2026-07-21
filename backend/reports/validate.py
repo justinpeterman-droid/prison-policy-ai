@@ -151,14 +151,26 @@ def _inmate_phrases(slots: dict) -> dict:
     """
     inmates = [p for p in slots.get("persons", [])
                if p.get("role") == "inmate" and p.get("last")]
+    names = [f"Inmate {p['last']}" for p in inmates]
+    if len(names) == 1:
+        inmate_list = names[0]
+    elif len(names) == 2:
+        inmate_list = f"{names[0]} and {names[1]}"
+    elif len(names) >= 3:
+        inmate_list = ", ".join(names[:-1]) + f", and {names[-1]}"
+    else:
+        inmate_list = "the inmate"
     if len(inmates) == 1:
-        name = f"Inmate {inmates[0]['last']}"
-        return {"inmate_subject": name, "inmate_be": "was", "inmate_object": name}
+        name = names[0]
+        return {"inmate_subject": name, "inmate_be": "was", "inmate_object": name,
+                "inmate_list": inmate_list, "inmate_them": "him"}
     if len(inmates) >= 2:
         return {"inmate_subject": "The inmates", "inmate_be": "were",
-                "inmate_object": "the inmates"}
+                "inmate_object": "the inmates", "inmate_list": inmate_list,
+                "inmate_them": "them"}
     return {"inmate_subject": "The inmate", "inmate_be": "was",
-            "inmate_object": "the inmate"}
+            "inmate_object": "the inmate", "inmate_list": "the inmate",
+            "inmate_them": "him"}
 
 
 def _resolve_auto_content(category: dict, slots: dict,
