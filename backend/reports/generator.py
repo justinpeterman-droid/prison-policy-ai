@@ -29,7 +29,14 @@ def _generate(system_prompt: str, user_prompt: str) -> str:
     return response.text
 
 
-def _fmt(val, default="Unknown") -> str:
+def _clean_time(s: str) -> str:
+    """Strip 'approximately'/'approx'/'~' prefixes from time values
+    so they don't duplicate the prompt's built-in 'at approximately'."""
+    import re
+    return re.sub(r'^(approximately|approx\.?|~)\s*', '', s.strip(), flags=re.I)
+
+
+def _fmt(val, default="[NOT IN NOTES]") -> str:
     return str(val) if val else default
 
 
@@ -93,7 +100,7 @@ def generate_first_person(slots: dict, auto_content: list[dict] | None = None,
         officer_first=_fmt(slots.get("officer_first")),
         officer_last=_fmt(slots.get("officer_last")),
         date=_fmt(slots.get("date")),
-        time=_fmt(slots.get("time")),
+        time=_clean_time(_fmt(slots.get("time"), "")),
         reporter_actions=_esc(_reporter_actions_str(slots, reporter_index)),
         narrative_facts=_esc(_narrative_facts_str(slots)),
         quotes=_esc(_quotes_str(slots)),

@@ -1,0 +1,23 @@
+{
+  "facility": "Benny Magness Unit",
+  "shifts": {
+    "A": {"label": "Day Shift", "hours": "0600-1400"},
+    "B": {"label": "Evening Shift", "hours": "1400-2200"},
+    "C": {"label": "Night Shift", "hours": "2200-0600"},
+    "D": {"label": "Relief Day", "hours": "0600-1800"},
+    "E": {"label": "Relief Night", "hours": "1800-0600"},
+    "F": {"label": "Training/Admin", "hours": "0800-1600"}
+  },
+  "staff": [
+    {"last": "Peterman", "first": "Justin", "rank": "Sgt.", "employee_number": "B5123", "shift": "B"},
+    {"last": "Powell", "first": "Austin", "rank": "Cpl.", "employee_number": "B7841", "shift": "B"},
+    {"last": "Sohns", "first": "Jack", "rank": "Cpl.", "employee_number": "B6392", "shift": "B"},
+    {"last": "Davis", "first": "Michael", "rank": "Cpt.", "employee_number": "A1104", "shift": "A"},
+    {"last": "Adams", "first": "Robert", "rank": "Sgt.", "employee_number": "A3356", "shift": "A"},
+    {"last": "Torres", "first": "Maria", "rank": "Cpl.", "employee_number": "A7791", "shift": "A"},
+    {"last": "Miller", "first": "David", "rank": "Cpl.", "employee_number": "C4420", "shift": "C"},
+    {"last": "White", "first": "Thomas", "rank": "Cpl.", "employee_number": "C5583", "shift": "C"},
+    {"last": "Roberts", "first": "James", "rank": "Cpl.", "employee_number": "D2218", "shift": "D"}
+  ],
+  "_instructions": "Replace staff entries with real officers. Add/remove rows freely. 'shift' must match a key in 'shifts' above. Last name is the primary lookup key — make sure there are no duplicates."
+}

@@ -86,7 +86,27 @@ def reports_extract():
         return jsonify({"error": "notes and category required"}), 400
     try:
         slots = extract_slots(notes, category)
+
+        # ── Staff roster resolution ──
+        from backend.reports.roster import resolve_staff_from_persons
+        persons = slots.get("persons", [])
+        if persons:
+            resolved_persons, roster_gaps = resolve_staff_from_persons(persons)
+            slots["persons"] = resolved_persons
+            # Also fill officer_* slots from the first reporting officer match
+            for p in resolved_persons:
+                if p.get("role") == "security_staff" and p.get("_roster_match"):
+                    slots.setdefault("officer_last", p.get("last", ""))
+                    slots.setdefault("officer_first", p.get("first", ""))
+                    slots.setdefault("rank", p.get("rank", ""))
+                    slots.setdefault("employee_number", p.get("employee_number", ""))
+                    break
+
         gap_result = find_gaps(category, slots)
+        # Merge roster gaps
+        if roster_gaps:
+            gap_result["gaps"] = gap_result.get("gaps", []) + roster_gaps
+            gap_result["blocking_remaining"] = sum(1 for g in gap_result["gaps"] if g.get("blocking"))
         officers = security_staff(slots)
         logger.info("Extract → %d gaps (%d blocking), %d officers",
                     len(gap_result.get("gaps", [])),
