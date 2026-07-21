@@ -1,0 +1,297 @@
+# Policy PDFs in Vertex AI Agent Builder RAG (Discovery Engine)
+# Data store: prison-policies-ds
+# Total: 292 files
+# These draw from the ,000 Vertex AI Agent Builder grant
+
+1 Barracks Key Inventory.pdf
+1 Barracks Post Orders.pdf
+11 and 12 Barracks Key Inventory.pdf
+11 and 12 Barracks Post Orders.pdf
+13 and 14 Barracks Key Inventory.pdf
+13 and 14 Barracks Post Orders.pdf
+2 and 3 Barracks Key Inventory.pdf
+2 and 3 Barracks Post Orders.pdf
+4 and 5 Barracks Key Inventory.pdf
+4 and 5 Barracks Post Orders.pdf
+6 and 7 Barracks Key Inventory.pdf
+6 and 7 Barracks Post Orders.pdf
+8 Barracks Key Inventory.pdf
+8 Barracks Post Orders.pdf
+9 and 10 Barracks Key Inventory.pdf
+9 and 10 Barracks Post Orders.pdf
+AACET Membership App.pdf
+ADC_Inmate_Disciplinary_Manual.pdf
+Accident Investigation Report.pdf
+Additional Good Time Program Entry Request Form.pdf
+Address Change Form.pdf
+Agreement to Return.pdf
+Alternative Meal Order.pdf
+Armory Post Orders.pdf
+Attachment to Affidavit.pdf
+Attorney Visitation Form 2024.pdf
+BMU 1.01.0 Establishment of the Unit and Delineation of its Mission.pdf
+BMU 1.02.0 Establishment of the Warden as Chief Administration Officer and Defining Criteria for Selection.pdf
+BMU 1.03.0, Roles of Consultants, Contract Agents, and Employees of other Agencies.pdf
+BMU 1.04.0, Organizational Chart.pdf
+BMU 1.05.0 Communication among Inmates, Staff, Department Heads and the Warden.pdf
+BMU 1.06.0, Establishment and Maintenance of Unit Department Manuals.pdf
+BMU 1.07.0, Establishment and Maintenance of Unit Policy and Procedure Manual.pdf
+BMU 1.08.0, Relationships with Public, Media, and other Agencies.pdf
+BMU 1.09.0 Cooperation with Community Agencies and Educational Institutions.pdf
+BMU 1.10.0, Legal Assistance for Warden and Staff.pdf
+BMU 1.11.0, Policy of Institutional Programming, Reporting and Review.pdf
+BMU 1.12.0, Policy for Polotocal Activities of Employees.pdf
+BMU 1.13.0, Duty WardenOfficers.pdf
+BMU 1.14.0, Unit Management Overview and Objectives.pdf
+BMU 1.15.0, Facility and Court Ordered Tours.pdf
+BMU 2.01.0, Fiscal Responsibility.pdf
+BMU 2.02.0, Budgeting for Funds, Space and Personnel.pdf
+BMU 2.03.0, Warden's Participation in the Deparatment's Budgeting Process.pdf
+BMU 2.04.0, Accounting for Appropriations and Expenditure of Funds.pdf
+BMU 2.05.0, Internal Control and Monitoring of Accounting Procedures.pdf
+BMU 2.06.0, Inventory Control.pdf
+BMU 2.07.0, Procurement.pdf
+BMU 2.08.0, Position Control and Procurement of Community Program Services.pdf
+BMU 2.09.0, Insurance Coverage.pdf
+BMU 2.10.0, Inmate Welfare Fund.pdf
+BMU 2.11.0, Commissary Sales and Accounts.pdf
+BMU 2.12.0, Inmate Fund Account.pdf
+BMU 2.13.0, Inmate Investments.pdf
+BMU 2.14.0, Vehicle Logs.pdf
+BMU 3.01.0, Personnel Function.pdf
+BMU 3.02.0, Regular Review of Staffing Requirements.pdf
+BMU 3.03.0, Evaluation of Probationary Employees and Employee Performance Ratings.pdf
+BMU 3.04.0, Agency Policy for Employee's Pay Comparablility and Expense Reimbursements.pdf
+BMU 3.05.0, Employee Management Relations and Grievances.pdf
+BMU 3.06.0, Establishment and Review of the Employee Handbook.pdf
+BMU 3.07.0, Employee Conduct Standards-Code of Ethics.pdf
+BMU 3.08.0, Alcohol and Drug Testing for Staff.pdf
+BMU 3.09.0, Uniform Dress Policy.pdf
+BMU 3.10.0, Non-Uniform Dress Policy.pdf
+BMU 3.11.0, Notification of Inablity to Report.pdf
+BMU 3.12.0, Use of Cellular Phones and other Electronic Devices inside the Unit.pdf
+BMU 3.13.0, Employee Driver's License.pdf
+BMU 3.14.0, Employee Awards.pdf
+BMU 3.15.0, Employee Review Board.pdf
+BMU 4.01.0, Establishment and Coordination of the Training Department.pdf
+BMU 4.02.0, Library and other Resources for Staff Training.pdf
+BMU 4.03.0, Minimum Training Criteria for Different Groups of Employees.pdf
+BMU 4.04.0, Emergency Training for Specialized Groups of Employees.pdf
+BMU 4.05.0, Educational Programming and Prefessional Association for Employees.pdf
+BMU 4.06.0, Training Plan.pdf
+BMU 5.01.0, Management Information System.pdf
+BMU 5.02.0, Research Activities.pdf
+BMU 6.01.0, Management of Institutional Files.pdf
+BMU 6.02.0, Unit Population Roster and Daily Population Accountability Sheet.pdf
+BMU 6.03.0, Sentence Computation Requirements.pdf
+BMU 7.01.0, Establishment of the Inmate Housing Review Committee.pdf
+BMU 7.02.0, Requirements for Unit Service Areas.pdf
+BMU 7.03.0, Preventive Maintenance Program.pdf
+BMU 7.04.0, Independent Audits of Conditions of Environmental Health.pdf
+BMU 7.05.0, New Facility Planning or Remodeling within the Unit.pdf
+BMU 8.01.0, Fire Safety and Evacuation Plan.pdf
+BMU 8.02.0, Fire Prevention Procedures and Equipment.pdf
+BMU 8.03.0, Monitoring Fire and Emergency Procedures.pdf
+BMU 8.04.0, Control and Use of Flammable, Toxic, Caustic Materials and Hazardous Materials.pdf
+BMU 8.05.0, Responsibility during Fire-Emergencies Drills.pdf
+BMU 8.06.0, Unit Emergency Preparedness Plans.pdf
+Barracks Utility Closet Inventory.pdf
+Building Lieutenant Post Orders.pdf
+Building Security Captain Post Orders.pdf
+Building Sergeant Post Orders.pdf
+Building Utility Officer(s) Post Orders.pdf
+Chain of Custody.pdf
+Chief of Security Post Orders.pdf
+Confiscation Form.pdf
+Control Center Equipment Log.pdf
+Control Center Handcuff Log.pdf
+DOC Updated Virtual Bulletin Board form.pdf
+Daily Barracks Inspection Log Sheet.pdf
+Day Shift Out Count.pdf
+Disciplinary Extension Form.pdf
+Dog Kennel Lieutenant Post Orders.pdf
+East Tower Post Orders.pdf
+Entrance Building Post Orders.pdf
+Fire Safety and Sanitation Post Orders.pdf
+Food Production Corrections Lieutenant Post Orders.pdf
+Food Service Corrections Sergeant Post Orders.pdf
+Horse Barn Post Orders.pdf
+Hospital Security Post Orders.pdf
+ICC Garage Post Orders.pdf
+Incoming Package Mail Log.pdf
+Infirmary Key Inventory.pdf
+Infirmary Security Post Orders.pdf
+Inmate Personal  Withdrawal Request.pdf
+Inmate Refill Request Form.pdf
+Inmate Transfer of Funds Request.pdf
+Inmate Work Craft Agreement.pdf
+Isolation Key Log.pdf
+Key Control Post Orders.pdf
+Laundry Supervisor Post Orders.pdf
+Legal Assist Form.pdf
+Legal Supply, Typing and Copy Form.pdf
+Lock Log.pdf
+Major Disciplinary Appeal Form F-831-4.pdf
+Master Control Post Orders.pdf
+Money Order Deposit Slips.pdf
+NCU 09.01.00 Security Manual and Post Orders.pdf
+NCU 09.02.00 Perimeter Security.pdf
+NCU 09.03.00 Control Centers.pdf
+NCU 09.04.00 Inmate Movement and Lay-Ins.pdf
+NCU 09.05.00 Count Principles and Procedures.pdf
+NCU 09.06.00 Transporation of Inmate Outside the Unit.pdf
+NCU 09.07.00 Unit Inspections and Use of Permanent Logs.pdf
+NCU 09.08.00 Searches of Persons and Various Areas for Control of Contraband recommendation.pdf
+NCU 09.09.00 Key Control .pdf
+NCU 09.10.00 Control of Tools and Equipment.pdf
+NCU 09.11.00 Use of Official and Personal Vehicles.pdf
+NCU 09.12.00 Control of Firearms and Other Security Equipment (1).pdf
+NCU 09.13.00 Use of Force and Application of Restraints.pdf
+NCU 09.14.00 Complacency Prevention Plan for Security and Non Security Operations.pdf
+NCU 09.15.00 Inmate Domestic Help.pdf
+NCU 09.16.00 Resident Firearms.pdf
+NCU 09.17.00 Identification Card System.pdf
+NCU 09.18.00 High Stress Areas.pdf
+NCU 09.19.00 Enemy Alert.pdf
+NCU 09.20.00 Inmate Identification Cards - Copy.pdf
+NCU 09.21.00 Security-Terrorist Threat Groups.docx (edited).pdf
+NCU 09.22.00 Criminal Evidence Control.pdf
+NCU 09.23.00 Security Surveillance System.pdf
+NCU 09.24.0 Canine Unit, Handlers and Care.pdf
+NCU 09.25.00 Critical Incident Review.pdf
+NCU 09.26.0 Use of Oleoresin Capsicum (OC).pdf
+NCU 09.27.00 Sexual Abuse-Assault-PREA (Prison Rape Elimination Act)-NCU103194DT.pdf
+NCU 09.28.00 Electronic Control Devices (Taser)-recommendation.pdf
+NCU 09.29.00 Entrance Building procedures for Staff and Visitors.pdf
+NCU 10.01.00 Investigative Status.pdf
+NCU 10.02.0 Restrictive Housing.pdf
+NCU 10.03.0 Restraint Chair.pdf
+NCU 10.04.00 Behavior Control.pdf
+NCU 10.05.00 Spit Mask.pdf
+NCU 10.06.00 Hunger Strike.pdf
+NCU 10.07.00 Restrictive Housing-Restriction 2nd update.pdf
+NCU 11.01.00 Nutritional Adequacy of the Diet for Inmates.pdf
+NCU 11.02.0 Menu Planning and Meal Service.pdf
+NCU 11.03.0 Safety and Sanitation for Food Service.pdf
+NCU 12.01.0 Housekeeping and Inspection of Sanitation Practices.pdf
+NCU 12.02.0 Waste Disposal and Pest Control.pdf
+NCU 12.03.0 Inmate Clothing, Bedding and Linen Supplies.pdf
+NCU 12.04.0 Bathing and Hair Care Facilities for Inmates.pdf
+NCU 13.01.0 Medical Care, Mental Health Care and Dental Care.pdf
+NCU 13.02.0 Medical Limitations of Recreational Activities.pdf
+NCU 14.01.0 Legal Rights of Inmates.pdf
+NCU 14.02.0 Environmental and Programmatic Rights of Inmates.pdf
+NCU 14.03.0 Operational Programming.pdf
+NCU 14.04.0 Inmate Grievance Procedure (2).pdf
+NCU 14.05.0 Inmate Access to News Media.pdf
+NCU 14.06 Law Library.pdf
+NCU 15.01.0 Disciplinary Procedures.pdf
+NCU 15.02.0 Inmate Grooming.pdf
+NCU 15.03.0 Inmate Rules and Regulations.pdf
+NCU 16.01.00 Inmate Correspondence.pdf
+NCU 16.02.0 Inspection of Mail.pdf
+NCU 16.03.0 Inmate Access to Telephones.pdf
+NCU 16.04.0 Inmate Visitation.pdf
+NCU 16.06.0 Inmate Access to Electronic Tablets.pdf
+NCU 17.01.0 Inmate Reception and Personal Property.pdf
+NCU 17.02.0 Orientation.pdf
+NCU 18.01.0 Classification Program Planning.pdf
+NCU 18.02.0 Program Status, Review and Changes.pdf
+NCU 18.03.0 Special Needs Inmates.pdf
+NCU 19.01.0 Inmate Employment.pdf
+NCU 19.02.0 Inmate Compensation and Incentives.pdf
+NCU 19.03.0 Community Service and Unit Inmate Work Force.pdf
+NCU 19.04.0 Hot and Cold Weather Policy.pdf
+NCU 19.05.0 Paws in Prison Canine Training Program.pdf
+NCU 20.01 Educational Program Planning.pdf
+NCU 20.02.0 Educational Program Cirriculum.pdf
+NCU 20.03.0 Educationa Personnel Practices.pdf
+NCU 21.01.0 Library.pdf
+NCU 21.02.0 Library Staffing.pdf
+NCU 22.01.0 Inmate Work Craft Program.pdf
+NCU 22.02.0 Program Planning.pdf
+NCU 22.03.0 Recreation Personnel.pdf
+NCU 22.04.0 Television Viewing.pdf
+NCU 23.01.0 Religious Programming.pdf
+NCU 23.02.0 Chaplain's Responsibilities.pdf
+NCU 24.01.0 Social Services Programs.pdf
+NCU 24.02.0 Social Services Personnel.pdf
+NCU 25.01.0 Think Legacy.pdf
+NCU 25.02.0 Inmate Participation in Community Programs.pdf
+NCU 25.03.0 Inmate Release Proccedures.pdf
+NCU 25.04.0 Meritorious Furloughs.pdf
+NCU 25.05.0 Emergency Furloughs.pdf
+NCU 26.01 Volunteer Services Program.pdf
+NCU 26.02.0 Recruitment, Selection and Training of Volunteers.pdf
+NCU 27.01.0 Mental Health Services.pdf
+NCU 27.02.0 Implementation of Treatment Precaution.pdf
+NCU 27.03.0 Request for Mental Health Services.pdf
+NCU 27.04.0 On-Call Emergency.pdf
+NCU 27.05.0 Self-Study.pdf
+NCU Inmate Request for Interview Form.pdf
+New 309 Application.pdf
+New Time Adjustment form with lunch.pdf
+North Tower Post Orders.pdf
+Out Count Sheets.pdf
+Outside Perimeter Rober Post Orders.pdf
+Overtime Authorization Form.pdf
+Property Disposal Notice and Form.pdf
+REPORT OF TOOL INVENTORY.pdf
+Recreation Security Post Orders.pdf
+Regional Maintenance Lieutenant Post Orders.pdf
+Regional Maintenance Sergeants or Officers Post Orders.pdf
+Report of Stolen Property.pdf
+Restrictive Housing Key Log.pdf
+Restrictive Housing Officer Post Orders.pdf
+Restrictive Housing Placement.pdf
+Restrictive Housing Sergeant Post Orders.pdf
+Restrictive Housing Temperature Log.pdf
+Rover-Boiler Room Post Orders.pdf
+SD 19-04 Equal Employment Opportunity.pdf
+SD 19-07 Data-driven Decision Making.pdf
+SD 20-03 Employee Orientation, Training, and Certification.pdf
+SD 20-05   Employee Assistance Program.pdf
+SD 20-08 Employment References for Current and Former Employees.pdf
+SD 2021-03 Dress Code for Non-Uniformed Personnel.pdf
+SD 2021-05 Prison Rape Elimination Act.pdf
+SD 2021-07 Legislative Liaison and Legislative Communications.pdf
+SD 2021-09  Information Technology Resources.pdf
+SD 2021-13 Department Website.pdf
+SD 2021-14  Incident Notification Procedures.pdf
+SD 2021-17 Americans with Disabilities Act.pdf
+SD 2021-18 Employee Work Schedules and Leave.pdf
+SD 2021-20 Policy Development and Implementation.pdf
+SD 2022-01 Revised COVID Visitation Directive.pdf
+SD 2022-02 Employee Grievance Procedures.pdf
+SD 2022-03 Personnel Drug Testing.pdf
+SD 2022-05 Procurement.pdf
+SD 2022-06 Secondary Employment.pdf
+SD 2022-07 Armory Inventory and Procedures.pdf
+SD 2022-08 Facility Improvements PDF.pdf
+SD 2022-10 Public Relations and Release of Information CLEAN.pdf
+SD 2022-11 Social Media CLEAN.pdf
+SD 2022-12 Dress Code for Uniformed Personnel.pdf
+SD 2022-13 Time Comp Review.pdf
+SD 2022-14 Divisive Concepts Revised CLEAN.pdf
+SD 2022-16 Code of Ethics.pdf
+SD 2022-17 Employee Conduct Standards and Discipline.pdf
+SD 2024-01 Access to Facilities by Attorneys.pdf
+SD 2025-02 Internal Investigations & Criminal Evidence Handling.pdf
+SD 2026-01 Prison Rape Elimination Act - PREA.pdf
+SD 2026-02 Processing of Lawsuits.pdf
+SD2024-04 Employment 10.25.24.pdf
+STORAGE AREA TOOL INVENTORY.pdf
+Sally Port Area Post Orders.pdf
+School Post Orders.pdf
+Security File Checklist.pdf
+South Tower Post Orders.pdf
+Transportation Post Orders.pdf
+Updated Virtual Bulletin Board form.pdf
+Visitation Search Security Officer(s) Post Orders.pdf
+Visitation Security Roving Officer(s) Post Orders.pdf
+Waiver of Disciplinary Hearing.pdf
+Waiver of Liability Form.pdf
+Weekly Standing Mainline.pdf
+West Tower Post Orders.pdf
+Work-Study Release Application.pdf
+misc_ded_cancel.pdf
