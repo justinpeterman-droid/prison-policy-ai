@@ -1,0 +1,25 @@
+---
+description: Keep agent browser automation in the background — do not steal editor or tab focus unless the user asks to watch
+alwaysApply: true
+---
+
+# Browser: do not steal focus
+
+Default: browse silently. Never yank the user's Cursor tab, editor group, or OS focus to the agent browser.
+
+## cursor-ide-browser (built-in)
+
+- On `browser_navigate` and `browser_tabs` (`action: "new"`): **omit `position`** so focus is preserved.
+- Do **not** set `position: "active"` or `position: "side"` unless the user explicitly asks to see/reveal the browser.
+- Prefer `browser_tabs` `action: "list"` over `select`. Do not `select` a tab just to inspect — navigate/lock the target `viewId` in the background.
+- Screenshots/snapshots are enough for the agent; the user does not need the pane foregrounded.
+
+## plugin-browse-browser (external Chrome)
+
+- Prefer `browser_navigate` / `browser_pages` over `browser_switch_tab` / `browser_new_tab` unless a switch is required for the task.
+- Do not bring Chrome to the foreground or call OS focus APIs.
+- Avoid unnecessary tab switches that steal the user's Chrome focus.
+
+## Exception — user asked to watch
+
+Only focus/reveal when the user clearly wants to see it, e.g. "show me in the browser", "open it beside", "side panel", "watch this". Then you MAY set `position: "side"` (or `"active"` if they asked to focus/reveal).
