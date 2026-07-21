@@ -113,6 +113,9 @@ def answer_question(question: str) -> dict:
       - sources: short labels for backward compat
     """
     contexts = _search_data_store(question)
+    logger.info("answer_question: %d contexts, first source=%s",
+                len(contexts),
+                contexts[0]["source"][:60] if contexts else "None")
 
     if not contexts:
         return {

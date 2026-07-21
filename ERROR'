@@ -1,0 +1,6 @@
+ERROR: (gcloud.logging.read) unrecognized arguments:
+  AND
+  resource.labels.service_name=prison-policy-ai
+  severity
+  To search the help text of gcloud commands, run:
+  gcloud help -- SEARCH_TERMS
