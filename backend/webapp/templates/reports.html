@@ -737,13 +737,31 @@ function renderGapWidget(g,cls){
   const slot=g.slot;
   const opts=g.options||[];
   let widget='';
-  // Incident number: prefix the current year-month, officer types only last 3.
+  // Incident number: auto-generated YYYY-MM-###, fully editable.
   if(slot==='incident_number_last3'){
-    const now=new Date();
-    const pfx=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-`;
+    // Use incident date from slots (if available) for the prefix, not today.
+    const incidentDate = (state.slots && state.slots.date) || null;
+    let pfx = '';
+    if (incidentDate) {
+      // Parse MM-DD-YYYY or YYYY-MM-DD
+      const m = incidentDate.match(/(\d{4})[-/](\d{2})/) || incidentDate.match(/(\d{2})[-/](\d{2})[-/](\d{4})/);
+      if (m) {
+        const yr = m[1].length === 4 ? m[1] : m[3];
+        const mo = m[1].length === 4 ? m[2] : m[1];
+        pfx = `${yr}-${mo}-`;
+      }
+    }
+    if (!pfx) {
+      const now = new Date();
+      pfx = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-`;
+    }
+    // Pre-fill from auto-generated number if available, otherwise just the digits
+    const existing = (state.slots && state.slots.incident_number) || '';
+    const defVal = existing || '';
     return `<div class="gap-item ${cls}" data-gap-slot="${esc(slot)}">
       <div class="gap-q">${esc(g.question)}</div>
-      <div class="gap-controls"><span class="inc-wrap"><span class="inc-prefix">${pfx}</span><input type="text" class="gap-input" data-slot="${esc(slot)}" inputmode="numeric" maxlength="3" placeholder="###" oninput="this.value=this.value.replace(/[^0-9]/g,'');updateProgress()" onkeydown="if(event.key==='Enter'){event.preventDefault();gapEnter(this)}"></span></div>
+      <div class="gap-controls"><span class="inc-wrap"><span class="inc-prefix">${pfx}</span><input type="text" class="gap-input" data-slot="${esc(slot)}" inputmode="numeric" maxlength="3" placeholder="###" value="${esc(defVal.split('-').pop() || '')}" oninput="this.value=this.value.replace(/[^0-9]/g,'');updateProgress()" onkeydown="if(event.key==='Enter'){event.preventDefault();gapEnter(this)}"></span></div>
+      <div style="font-size:11px;color:var(--text4);margin-top:4px">Auto-generated: <code style="font-size:11px">${pfx}###</code>. You can edit the full number after generation if needed.</div>
     </div>`;
   }
   if(g.answer_type==='choice'){

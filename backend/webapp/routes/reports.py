@@ -46,14 +46,14 @@ def _titlecase(value):
         return value
     return " ".join(w[:1].upper() + w[1:] if w else w for w in str(value).split())
 
-
 def _to_12h(value):
     """Normalize a time to 12-hour 'H:MMam/pm' (BMU convention).
 
     Accepts 24-hour ('2200', '22:00'), 12-hour ('10:00pm', '10:00 PM'), and a
     leading 'approximately'/'~'. Returns the bare 12-hour time (no
     'approximately' — the narrative prompt adds that). Unparseable input is
-    returned unchanged so nothing is ever lost."""
+    returned unchanged so nothing is ever lost.
+    """
     if not value:
         return value
     core = re.sub(r'^(approximately|approx\.?|~)\s*', '', str(value).strip(),
@@ -68,6 +68,48 @@ def _to_12h(value):
             ap = 'am' if h < 12 else 'pm'
             return f"{h % 12 or 12}:{mm}{ap}"
     return value
+
+
+def _validate_and_clean_time(value):
+    """Attempt to clean up common time typos. Returns (cleaned_str, is_valid).
+
+    Handles:
+      - Double suffix: '7:22AAm' -> '7:22am'
+      - Out-of-range minutes: '7:77am' -> rejected
+      - Random suffix: '2:30sm' -> rejected
+      - Military time: '1422' -> '2:22pm'
+    """
+    if not value:
+        return value, False
+    raw = str(value).strip()
+    # Already valid — let _to_12h handle it
+    if re.match(r'^\d{1,2}:?\d{2}\s*[ap]\.?m\.?$', raw, re.I):
+        return _to_12h(raw), True
+    # Bare 24-hour (e.g. '2200', '1422')
+    if re.match(r'^\d{3,4}$', raw):
+        h, mm = int(raw[:-2]), raw[-2:]
+        if 0 <= h <= 23 and 0 <= int(mm) <= 59:
+            return _to_12h(f"{h}:{mm}"), True
+        return raw, False
+    # Try to clean: strip any trailing letters, keep digits and colon
+    cleaned = re.sub(r'\s*[a-zA-Z]+$', '', raw).strip()
+    # '7:22AAm' -> '7:22' after strip, then append 'am' based on hour guess
+    m = re.match(r'^(\d{1,2}):?(\d{2})$', cleaned)
+    if m:
+        h, mm = int(m.group(1)), m.group(2)
+        if 1 <= h <= 12 and 0 <= int(mm) <= 59:
+            # Can't know AM/PM, use the suffix if any hint
+            suffix_match = re.search(r'([ap])', raw, re.I)
+            ap = suffix_match.group(1).lower() + 'm' if suffix_match else 'am'
+            return _to_12h(f"{h}:{mm}{ap}"), True
+        return raw, False
+    # 'approximately' prefix
+    approx = re.match(r'^(approximately|approx\.?|~)\s+(.+)', raw, re.I)
+    if approx:
+        inner, valid = _validate_and_clean_time(approx.group(2))
+        if valid:
+            return inner, True
+    return raw, False
 
 
 def _format_shift(value):
@@ -112,10 +154,29 @@ def _is_first_person_unnamed(notes: str, slots: dict) -> bool:
     return has_first_person and unnamed
 
 
-def _build_incident_number(last3) -> str:
-    """Compose YYYY-MM-### from the officer's 3-digit log number."""
+def _build_incident_number(last3, incident_date=None) -> str:
+    """Compose YYYY-MM-### from the officer's 3-digit log number.
+
+    Uses the incident date for year-month when available; falls back to today.
+    """
     digits = "".join(ch for ch in str(last3 or "") if ch.isdigit())[-3:]
-    return f"{datetime.now():%Y-%m}-{digits.zfill(3)}" if digits else ""
+    if not digits:
+        return ""
+    # Try to extract year-month from the incident date
+    year, month = None, None
+    if incident_date:
+        # YYYY-MM-DD or YYYY/MM/DD
+        m = re.match(r'(\d{4})[-/](\d{2})', str(incident_date))
+        if m:
+            year, month = m.group(1), m.group(2)
+        else:
+            # MM-DD-YYYY or MM/DD/YYYY
+            m = re.match(r'(\d{2})[-/](\d{2})[-/](\d{4})', str(incident_date))
+            if m:
+                year, month = m.group(3), m.group(1)
+    if year and month:
+        return f"{year}-{month}-{digits.zfill(3)}"
+    return f"{datetime.now():%Y-%m}-{digits.zfill(3)}"
 
 
 def _format_inmates(slots: dict) -> str:
@@ -227,9 +288,14 @@ def reports_extract():
         # If the notes never stated a date, today's is safe — don't ask for it.
         if not slots.get("date"):
             slots["date"] = _today()
-        # All reports use 12-hour time; convert whatever the notes stated.
+        # All reports use 12-hour time; try to clean common typos first.
         if slots.get("time"):
-            slots["time"] = _to_12h(slots["time"])
+            cleaned, valid = _validate_and_clean_time(slots["time"])
+            if valid:
+                slots["time"] = cleaned
+            else:
+                # Leave as-is but flag for the officer
+                slots["time"] = _to_12h(slots["time"])
 
         # ── Staff roster resolution ──
         from backend.reports.roster import resolve_staff_from_persons
@@ -341,7 +407,8 @@ def reports_generate():
         # year and month are prefixed automatically.
         last3 = slots.get("incident_number_last3") or answers.get("incident_number_last3")
         if last3 and not slots.get("incident_number"):
-            slots["incident_number"] = _build_incident_number(last3)
+            slots["incident_number"] = _build_incident_number(
+                last3, incident_date=slots.get("date"))
         # Inmate drug test defaults to N/A unless the officer chose otherwise.
         if not slots.get("drug_test_disposition"):
             slots["drug_test_disposition"] = "N/A"
