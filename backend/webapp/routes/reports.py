@@ -40,6 +40,31 @@ FIGHT_RH_CATEGORIES = {"inmate_fight", "staff_assault"}
 RESTRICTIVE_HOUSING = "Restrictive Housing"
 
 
+def _normalize_location(value):
+    """Map slang location names to formal BMU terms."""
+    if not value:
+        return value
+    import json
+    from pathlib import Path
+    map_path = Path(__file__).parent.parent.parent.parent / "templates" / "location_map.json"
+    try:
+        loc_map = json.loads(map_path.read_text())
+    except Exception:
+        return value
+    val_lower = str(value).strip().lower()
+    # Direct match
+    if val_lower in loc_map:
+        return loc_map[val_lower]
+    # Partial match — find the longest matching key
+    best = None
+    for slang, formal in loc_map.items():
+        if slang in val_lower and (best is None or len(slang) > len(best[0])):
+            best = (slang, formal)
+    if best:
+        return str(value).replace(best[0], best[1]).replace(best[0].title(), best[1])
+    return value
+
+
 def _titlecase(value):
     """Capitalize each word of a name so hand-typed 'john' becomes 'John'."""
     if not value:
@@ -288,6 +313,9 @@ def reports_extract():
         # If the notes never stated a date, today's is safe — don't ask for it.
         if not slots.get("date"):
             slots["date"] = _today()
+        # Normalize slang location names to formal BMU terms.
+        if slots.get("location"):
+            slots["location"] = _normalize_location(slots["location"])
         # All reports use 12-hour time; try to clean common typos first.
         if slots.get("time"):
             cleaned, valid = _validate_and_clean_time(slots["time"])
