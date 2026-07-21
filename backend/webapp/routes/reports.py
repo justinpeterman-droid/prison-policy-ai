@@ -380,13 +380,25 @@ def reports_generate():
             reporter = reporters[0]
             slots = bind_reporter(slots, reporter)
 
-        # Sanitize null/None officer names: "[NOT IN NOTES]" breaks prompts.
-        for field in ("officer_last", "officer_first", "rank"):
-            val = slots.get(field)
-            if not val or str(val).lower() in ("none", "[not in notes]"):
-                slots[field] = "Reporting Officer" if field != "rank" else "Officer"
-        if not slots.get("employee_number") or str(slots.get("employee_number")).lower() in ("none",):
-            slots["employee_number"] = ""
+        # Sanitize null/None officer names — only when ALL fields are null.
+        # Don't touch slots that already have real data or partial data.
+        officer_last = slots.get("officer_last")
+        officer_first = slots.get("officer_first")
+        null_last = not officer_last or str(officer_last).lower() in ("none", "[not in notes]")
+        null_first = not officer_first or str(officer_first).lower() in ("none", "[not in notes]")
+        if null_last or null_first:
+            if not null_last:
+                # Have last name but no first — leave as-is, gap asks for first
+                pass
+            elif not null_first:
+                # Have first name but no last — odd case, leave as-is
+                pass
+            else:
+                # Both null — use generic fallback
+                slots["officer_last"] = "Reporting Officer"
+                slots["officer_first"] = ""
+                if not slots.get("rank") or str(slots.get("rank")).lower() in ("none",):
+                    slots["rank"] = ""
 
         # Shift assignment: use the bound officer's roster shift (a letter like
         # 'B') rendered as 'B Shift', else normalize whatever was answered.
