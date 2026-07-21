@@ -18,6 +18,11 @@ CHECKLIST_PATH = TEMPLATES_DIR / "incident_checklist_v2.json"
 UNKNOWN = "UNKNOWN"
 OTHER_OPTION = "Other (type your own)"
 
+# Slots gathered elsewhere in the wizard, so they must NOT also appear as a
+# Missing-Information question. Charges are picked from the disciplinary
+# handbook and confirmed in the charges panel, then sent with /generate.
+COLLECTED_ELSEWHERE = {"charges"}
+
 
 def load_checklist() -> dict:
     return json.loads(CHECKLIST_PATH.read_text())
@@ -78,6 +83,8 @@ def find_gaps(category_name: str, slots: dict) -> dict:
 
     # required_slots without a dedicated rule get a plain text question
     for slot in category.get("required_slots", []):
+        if slot in COLLECTED_ELSEWHERE:
+            continue
         val = slots.get(slot)
         if val is None and not any(r["require"] == slot
                                    for r in category.get("rules", [])):
@@ -106,7 +113,7 @@ def find_gaps(category_name: str, slots: dict) -> dict:
         "markers": [f"[TO BE SUPPLEMENTED: {m.replace('_', ' ')}]"
                     for m in markers],
         "checklist": _checklist_state(category, slots),
-        "auto_content": _resolve_auto_content(category, slots),
+        "auto_content": _resolve_auto_content(category, slots, checklist),
     }
 
 
@@ -133,11 +140,18 @@ def _checklist_state(category: dict, slots: dict) -> list[dict]:
     return out
 
 
-def _resolve_auto_content(category: dict, slots: dict) -> list[dict]:
+def _resolve_auto_content(category: dict, slots: dict,
+                          checklist: dict | None = None) -> list[dict]:
     """Fill each auto_content template whose condition is met. Unfilled
-    placeholders render as visible [NEEDED: ...] markers — never dropped."""
+    placeholders render as visible [NEEDED: ...] markers — never dropped.
+
+    Universal auto_content (checklist-level) fires for every category — these
+    are the simple confirmation lines driven purely by the officer's checklist
+    answers (medical, photographs, drug test, witness statements), so the
+    officer never has to type them into the notes."""
+    universal = (checklist or {}).get("universal_auto_content", [])
     resolved = []
-    for item in category.get("auto_content", []):
+    for item in list(category.get("auto_content", [])) + list(universal):
         if not _condition_met(item.get("condition", "always"), slots):
             continue
         text = re.sub(

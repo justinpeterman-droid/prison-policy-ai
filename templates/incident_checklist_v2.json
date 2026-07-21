@@ -78,6 +78,71 @@
       "blocking": false
     }
   ],
+  "universal_auto_content": [
+    {
+      "id": "medical_seen_line",
+      "insert_into": [
+        "first_person",
+        "supervisor_summary"
+      ],
+      "condition": "medical_disposition == 'Seen by Infirmary staff'",
+      "template": "The inmate was seen by medical staff (refer to the Infirmary Report)."
+    },
+    {
+      "id": "medical_refused_line",
+      "insert_into": [
+        "first_person",
+        "supervisor_summary"
+      ],
+      "condition": "medical_disposition == 'Refused medical (Refuse box checked)'",
+      "template": "The inmate refused medical attention and the Refuse box was checked (refer to the Infirmary Report)."
+    },
+    {
+      "id": "medical_ambulance_line",
+      "insert_into": [
+        "first_person",
+        "supervisor_summary"
+      ],
+      "condition": "medical_disposition == 'Sent by ambulance to outside facility'",
+      "template": "The inmate was transported by ambulance to an outside facility for medical treatment (refer to the Infirmary Report)."
+    },
+    {
+      "id": "photographs_line",
+      "insert_into": [
+        "first_person",
+        "supervisor_summary"
+      ],
+      "condition": "photo_video_obtained == 'Yes'",
+      "template": "Photographs were taken."
+    },
+    {
+      "id": "drug_test_conducted_line",
+      "insert_into": [
+        "first_person",
+        "supervisor_summary"
+      ],
+      "condition": "drug_test_disposition == 'Conducted'",
+      "template": "A drug test was conducted on the inmate."
+    },
+    {
+      "id": "drug_test_refused_line",
+      "insert_into": [
+        "first_person",
+        "supervisor_summary"
+      ],
+      "condition": "drug_test_disposition == 'Refused (Refuse box checked)'",
+      "template": "The inmate refused a drug test and the Refuse box was checked."
+    },
+    {
+      "id": "witness_statements_line",
+      "insert_into": [
+        "first_person",
+        "supervisor_summary"
+      ],
+      "condition": "witness_statements_collected == 'Yes'",
+      "template": "Witness statements were collected."
+    }
+  ],
   "categories": [
     {
       "name": "contraband",

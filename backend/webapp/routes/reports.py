@@ -13,6 +13,26 @@ reports_bp = Blueprint("reports", __name__)
 # and treatment lines reference the separate infirmary report.
 SEE_INFIRMARY = "See Infirmary Report"
 
+# Incidents that, by their nature, involve an inmate going to medical — the
+# medical disposition pre-selects "Seen by Infirmary staff" (still changeable).
+MEDICAL_SEEN_CATEGORIES = {
+    "inmate_fight", "staff_assault", "forced_cell_movement", "prea",
+}
+
+
+def _apply_gap_defaults(category: str, gaps: list) -> None:
+    """Pre-select sensible defaults on gap widgets so the officer confirms
+    rather than fills. Defaults are suggestions only — every one stays
+    editable, and none of them block generation."""
+    for g in gaps:
+        slot = g.get("slot")
+        if slot == "medical_disposition":
+            g["default"] = ("Seen by Infirmary staff"
+                            if category in MEDICAL_SEEN_CATEGORIES
+                            else "N/A - no injuries reported")
+        elif slot == "drug_test_disposition":
+            g["default"] = "N/A"
+
 
 def _today() -> str:
     """Current date in the MM-DD-YYYY form officers use in the notes."""
@@ -133,6 +153,8 @@ def reports_extract():
         if roster_gaps:
             gap_result["gaps"] = gap_result.get("gaps", []) + roster_gaps
             gap_result["blocking_remaining"] = sum(1 for g in gap_result["gaps"] if g.get("blocking"))
+        # Pre-select suggested defaults (medical disposition, drug test).
+        _apply_gap_defaults(category, gap_result.get("gaps", []))
         officers = security_staff(slots)
         logger.info("Extract → %d gaps (%d blocking), %d officers",
                     len(gap_result.get("gaps", [])),

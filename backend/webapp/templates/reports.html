@@ -713,7 +713,7 @@ function renderMissingPanel(d){
 
   let html=`<div class="mi-header">
     <span class="mi-title">Missing Information</span>
-    <span class="mi-progress" id="miProgress">${total} of ${total} required items remaining</span>
+    <span class="mi-progress" id="miProgress"></span>
   </div>`;
 
   if(blocking.length){
@@ -728,7 +728,7 @@ function renderMissingPanel(d){
     html+=`</div>`;
   }
 
-  html+=`<div class="mi-footer"><button class="primary" id="continueBtn" onclick="runGenerate(0)" ${total?'disabled':''} style="width:100%">Continue →</button></div>`;
+  html+=`<div class="mi-footer"><button class="primary" id="continueBtn" onclick="runGenerate(0)" style="width:100%">Continue →</button></div>`;
   panel.innerHTML=html;
   updateProgress();
 }
@@ -747,11 +747,12 @@ function renderGapWidget(g,cls){
     </div>`;
   }
   if(g.answer_type==='choice'){
-    // Choice: dropdown + "Other" option swaps to text; Unknown button
-    const preNA=slot==='drug_test_disposition';
+    // Choice: dropdown + "Other" option swaps to text; Unknown button.
+    // g.default (from the backend) is pre-selected but fully changeable.
+    const def=g.default||'';
     widget=`<select class="gap-select" data-slot="${esc(slot)}" onchange="onChoiceChange(this,'${esc(slot)}')">
-      <option value="" ${preNA?'':'selected'}>— select —</option>
-      ${opts.map(o=>`<option value="${esc(o)}" ${preNA&&o==='N/A'?'selected':''}>${esc(o)}</option>`).join('')}
+      <option value="" ${def?'':'selected'}>— select —</option>
+      ${opts.map(o=>`<option value="${esc(o)}" ${def&&o===def?'selected':''}>${esc(o)}</option>`).join('')}
     </select>
     <input type="text" class="gap-input" data-slot="${esc(slot)}_other" placeholder="Specify..." style="display:none;margin-top:6px" oninput="onOtherInput(this,'${esc(slot)}')">`;
   }else if(g.answer_type==='yes_no'){
@@ -821,10 +822,12 @@ function updateProgress(){
     if(!filled)remaining++;
   });
   const prog=document.getElementById('miProgress');
-  const total=blocking.length;
-  if(prog)prog.textContent=`${remaining} of ${total} required items remaining`;
+  // Informational only — a blank never blocks generation. Anything left open
+  // is flagged on the report as [TO BE SUPPLEMENTED] for the officer to fill.
+  if(prog)prog.textContent=remaining?`${remaining} open — you can continue anyway`:'All set';
+  // Continue is always available; the officer decides when to generate.
   const btn=document.getElementById('continueBtn');
-  if(btn)btn.disabled=remaining>0;
+  if(btn)btn.disabled=false;
 }
 function gapEnter(inp){
   updateProgress();
