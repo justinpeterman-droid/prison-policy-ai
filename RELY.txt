@@ -1,0 +1,71 @@
+RELY.txt — Report Generator Quality Fixes (2026-07-21)
+========================================================
+
+Applied: 8 changes from colleague field test feedback.
+Commits: ab46040, 296791b, 869ef00
+
+GP-1: Incident number year fix + editable
+  BEFORE: _build_incident_number() used datetime.now() — always current year.
+          Officer typed 3 digits with no way to edit the full number.
+  AFTER:  Uses incident date from notes for year-month prefix.
+          UI shows auto-generated preview. Officer can type full override.
+          If notes already state a full number (e.g. "2027-07-120"),
+          extraction preserves it — never overwrites.
+  Files:  backend/webapp/routes/reports.py, backend/webapp/templates/reports.html
+
+GP-2: Time validation and correction
+  BEFORE: _to_12h() silently passed through unparseable times like "7:22AAm".
+  AFTER:  _validate_and_clean_time() detects and cleans:
+            - Double suffix: "7:22AAm" → "7:22am"
+            - Military time: "1422" → "2:22pm"
+            - Unparseable: returned as-is (officer sees it in UI)
+  Files:  backend/webapp/routes/reports.py
+
+GP-3: Name ordering — "Last, First" enforced
+  BEFORE: Extraction copied names exactly as typed — "Harry Vagina" stayed as
+          first="Harry", last="Vagina" only if written in that order.
+  AFTER:  Extraction prompt now enforces Last, First order. Gemini detects
+          "First Last" order using common-first-name heuristics and auto-flips.
+          Reports always format inmates as "Inmate Last, First ADC#...".
+  Files:  backend/reports/extraction.py (EXTRACTION_SYSTEM prompt)
+
+GP-4: Profanity and slur filter
+  BEFORE: Raw profanity/slurs in injury descriptions passed through unchecked.
+          "Fat nigger lips" appeared verbatim in reports.
+  AFTER:  Extraction prompt: "NEVER reproduce racial slurs. Describe injuries
+          clinically." Quotes preserved but flagged with content warning.
+  Files:  backend/reports/extraction.py (EXTRACTION_SYSTEM prompt)
+
+GP-5: Injury classification
+  BEFORE: Injuries extracted as raw text — no standardization.
+  AFTER:  Extraction maps raw descriptions to clinical categories:
+          "fat lip" → "swollen lip", "black eye" → "periorbital contusion",
+          multiple minor → "minor injuries to the facial area".
+  Files:  backend/reports/extraction.py (EXTRACTION_SYSTEM prompt)
+
+GP-6: Broader charge suggestions + per-inmate charging
+  BEFORE: Classifier suggested 2 charges max. Both inmates charged identically.
+          No misuse-of-supplies or provoking charges.
+  AFTER:  Classifier prompt: "Suggest ALL potentially applicable charges.
+          Over-suggest — officer deselects." Per-inmate attribution.
+          Victim NOT charged unless notes state they fought back.
+          State-issued items as weapons → misuse of supplies charge.
+          Charges format: [{code, inmate, description}] (was [code]).
+          Backward-compatible: old string format still accepted.
+  Files:  backend/reports/prompts.py, backend/reports/classifier.py
+
+GP-7: Per-inmate disposition
+  BEFORE: All inmates treated as a group — one conclusion for all.
+  AFTER:  First-person and supervisor prompts now require one disposition
+          line per inmate. Different inmates can have different outcomes
+          (one RH, one released to barracks, one transferred to medical).
+  Files:  backend/reports/prompts_v2.py
+
+GP-8: Location slang normalization
+  BEFORE: "Chow hall" appeared verbatim in reports.
+  AFTER:  templates/location_map.json maps slang → formal BMU terms.
+          _normalize_location() applies partial matching.
+          "chow hall" → "Dining Hall", "RH" → "Restrictive Housing", etc.
+  Files:  templates/location_map.json, backend/webapp/routes/reports.py
+
+NOT YET DEPLOYED — run: gcloud run deploy prison-policy-ai --source . --region us-central1
