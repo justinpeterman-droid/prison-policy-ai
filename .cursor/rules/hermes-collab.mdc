@@ -1,0 +1,66 @@
+---
+description: Easiest Cursor↔Hermes talk path (kanban + hermes chat -q)
+alwaysApply: true
+---
+
+# Hermes connection (easy path)
+
+No Slack. Use CLI + kanban.
+
+## Env (required)
+```
+$env:HERMES_HOME = "C:\Users\justi\AppData\Local\hermes"
+```
+`hermes` is on User PATH (`...\hermes-agent\venv\Scripts`). Shim also at `~\.local\bin\hermes.cmd`.
+
+## Talk to Hermes (Cursor → Hermes)
+
+### Quick handoff (fire-and-forget summary)
+```
+hermes chat -q "summary of what just happened"
+```
+
+### Multi-turn session (Hermes remembers prior messages in the same thread)
+```
+# Start a session, capture the session ID
+hermes chat -q "reviewing PR #3 — can you check XSS in static/js/chat.js?"
+# Output includes session ID: 20260721_093015_d4e5f6
+
+# Resume it later — Hermes has full context of the prior exchange
+hermes --resume 20260721_093015_d4e5f6 -q "fixed the two XSS vectors in a1b2c3d. re-review?"
+
+# Find a session by title
+hermes sessions list --limit 10
+
+# Resume by title prefix (e.g. "reviewing PR")
+hermes --resume "reviewing PR" -q "update: tests pass now"
+```
+
+### Leave work for Hermes (kanban)
+```
+hermes kanban boards switch prison-policy-ai
+hermes kanban create "title" --body "details" --project prison-policy-ai --created-by cursor
+```
+
+## Hear from Hermes (Hermes → Cursor)
+```
+hermes kanban boards switch prison-policy-ai
+hermes kanban list
+hermes kanban show <task-id>
+```
+
+## Session start checklist
+1. `hermes project use prison-policy-ai`
+2. `hermes kanban boards switch prison-policy-ai`
+3. `hermes kanban list` — pick up anything assigned / ready
+4. If Justin says "ping Hermes" / "tell Hermes X" → `hermes chat -q`
+5. For multi-turn threads: capture the session ID from output, resume with `hermes --resume <id> -q "followup"`
+
+## Role split
+- Cursor: code in this repo
+- Hermes: memory, orchestration, research, deploy/OCR handoffs, long-lived context
+
+## Do not
+- Use stale `C:\Users\justi\.hermes`
+- Paste secrets from Hermes `.env` / MEMORY.md
+- Expect Hermes MCP messaging tools to work until Slack/Telegram is configured (optional later)
