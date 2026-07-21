@@ -99,6 +99,23 @@
   .pipe-node.done .pd::after{content:"";position:absolute;left:3.5px;top:1px;width:3.5px;height:6px;border:solid #0c1626;border-width:0 1.6px 1.6px 0;transform:rotate(45deg)}
   @media (prefers-reduced-motion: reduce){.pipe-node.active .pd{animation:none}}
 
+  /* Verification verdict — Review before filing */
+  .verify{margin:14px 0;border-radius:10px;overflow:hidden;border:1px solid var(--border-sub);animation:rise .25s ease}
+  .verify:empty{display:none;margin:0;border:none}
+  .verify.clean{background:rgba(15,157,88,0.07);border-color:rgba(15,157,88,0.35)}
+  .verify.warn{background:rgba(201,151,28,0.08);border-color:rgba(201,151,28,0.42)}
+  .verify .v-head{display:flex;align-items:center;gap:9px;padding:11px 14px;font-size:13px;font-weight:700;line-height:1.4}
+  .verify.clean .v-head{color:#0b7f47}
+  .verify.warn .v-head{color:var(--gold-text)}
+  .verify .v-ic{flex:0 0 auto;width:18px;height:18px}
+  .verify .v-body{padding:0 14px 12px;font-size:12.5px;color:var(--text3);line-height:1.6}
+  .verify .v-sub{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--text4);margin:6px 0 6px}
+  .verify .v-hint{font-size:12px;color:var(--text3);margin-top:2px}
+  .verify .v-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .verify .v-chip{display:inline-flex;align-items:center;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;font-weight:700;color:#8a5a00;background:#fff3b0;border:1px solid rgba(201,151,28,0.5);border-radius:5px;padding:2px 8px;cursor:pointer;transition:filter .15s}
+  .verify .v-chip:hover{filter:brightness(0.96)}
+  .verify .v-marker{display:block;color:var(--gold-text);font-size:12px;font-weight:600;padding:2px 0}
+
   .report-box{
     margin-bottom:14px;background:linear-gradient(180deg,#fdfcf9,var(--surface));border:1px solid var(--border);border-radius:10px;
     overflow:hidden;animation:rise .25s ease;
@@ -361,6 +378,9 @@
     <!-- Officer buttons (Task 5) -->
     <div id="officerButtons" style="display:none"></div>
 
+    <!-- Verification verdict: fabrication flags + supplement markers -->
+    <div id="verify"></div>
+
     <div id="reports"></div>
     <button class="secondary preview-toggle" id="previewToggle" onclick="togglePreview()">Show preview</button>
   </div>
@@ -465,6 +485,7 @@ function clearAll(){
   document.getElementById('officerButtons').style.display='none';
   document.getElementById('officerButtons').innerHTML='';
   _reportTexts=[];_data=null;_confirmedCategory=null;_extractedSlots={};_officers=[];_extractedData=null;
+  const _v=document.getElementById('verify');if(_v){_v.className='';_v.innerHTML='';}
   hidePipeline();
   localStorage.removeItem(DRAFT_KEY);
   countChars();
@@ -595,6 +616,7 @@ async function runGenerate(reporterIndex){
     document.getElementById('reports').innerHTML=html;
 
     renderOfficerButtons(d.officers||[]);
+    renderVerify(d);
     buildToolbar(d);
     showForm('form005');
     if(window.matchMedia('(max-width: 820px)').matches)togglePreview(true);
@@ -669,7 +691,7 @@ function renderGapWidget(g,cls){
       <input type="hidden" data-slot="${esc(slot)}" value="">
     </div>`;
   }else{
-    widget=`<input type="text" class="gap-input" data-slot="${esc(slot)}" placeholder="Enter..." oninput="updateProgress()">`;
+    widget=`<input type="text" class="gap-input" data-slot="${esc(slot)}" placeholder="Enter..." oninput="updateProgress()" onkeydown="if(event.key==='Enter'){event.preventDefault();gapEnter(this)}">`;
   }
   const unknownBtn=`<button class="unknown-btn" onclick="setUnknown('${esc(slot)}',this)">Unknown</button>`;
   return `<div class="gap-item ${cls}" data-gap-slot="${esc(slot)}">
@@ -733,6 +755,15 @@ function updateProgress(){
   if(prog)prog.textContent=`${remaining} of ${total} required items remaining`;
   const btn=document.getElementById('continueBtn');
   if(btn)btn.disabled=remaining>0;
+}
+function gapEnter(inp){
+  updateProgress();
+  // Move to the next empty text gap, or focus Continue once nothing's left.
+  const inputs=[...document.querySelectorAll('.gap-item .gap-input[data-slot]:not([data-slot$="_other"])')];
+  const next=inputs.slice(inputs.indexOf(inp)+1).find(i=>!i.value.trim());
+  if(next){next.focus();return;}
+  const btn=document.getElementById('continueBtn');
+  if(btn&&!btn.disabled)btn.focus();
 }
 function getSlotVal(container,slot){
   // Prefer hidden input override, then input/textarea, then select
@@ -800,6 +831,39 @@ function promptOfficerActions(idx,rank,name){
     if(staff[idx]){staff[idx].actions=staff[idx].actions||[];staff[idx].actions.push(ans.trim());}
     runGenerate(idx);
   }
+}
+
+/* ---- Verification verdict (Review before filing) ---- */
+function renderVerify(d){
+  const el=document.getElementById('verify');
+  const flags=d.flags||[];
+  const markers=d.markers||[];
+  if(!flags.length && !markers.length){
+    el.className='verify clean';
+    el.innerHTML=`<div class="v-head"><svg class="ico v-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Verified — every date, time, and ADC# in the draft traces to your notes.</div>`;
+    return;
+  }
+  let body='';
+  if(flags.length){
+    body+=`<div class="v-sub">Not found in your notes (${flags.length})</div>`+
+      `<div class="v-hint">These values appear in the draft but not in your input — confirm or correct each one before filing.</div>`+
+      `<div class="v-chips" style="margin-top:7px">`+
+      flags.map(f=>`<button class="v-chip" onclick="jumpToFlag()" title="Show in the form">${esc(f)}</button>`).join('')+`</div>`;
+  }
+  if(markers.length){
+    body+=`<div class="v-sub">Marked to be supplemented (${markers.length})</div>`+
+      markers.map(m=>`<span class="v-marker">⚠ ${esc(m)}</span>`).join('');
+  }
+  el.className='verify warn';
+  el.innerHTML=`<div class="v-head"><svg class="ico v-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h16.9a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>Review before filing</div><div class="v-body">${body}</div>`;
+}
+function jumpToFlag(){
+  showForm('form005');
+  if(window.matchMedia('(max-width:820px)').matches)togglePreview(true);
+  requestAnimationFrame(()=>{
+    const m=document.querySelector('#preview mark,.page mark,.page .hl');
+    if(m)m.scrollIntoView({behavior:'smooth',block:'center'});
+  });
 }
 
 /* ---- Highlight + markers ---- */
