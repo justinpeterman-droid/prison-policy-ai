@@ -54,8 +54,8 @@
     {
       "id": "incident_number",
       "if": "always",
-      "require": "incident_number",
-      "question": "Incident number? (YYYY-MM-###)",
+      "require": "incident_number_last3",
+      "question": "Incident log number — last 3 digits only (the year and month are added automatically)",
       "answer_type": "text",
       "blocking": true
     },
@@ -72,10 +72,10 @@
       "id": "drug_test",
       "if": "always",
       "require": "drug_test_disposition",
-      "question": "Inmate drug test?",
+      "question": "Inmate drug test? (defaults to N/A)",
       "answer_type": "choice",
       "options_ref": "drug_test_disposition",
-      "blocking": true
+      "blocking": false
     }
   ],
   "categories": [
