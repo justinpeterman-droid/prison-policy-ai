@@ -69,13 +69,22 @@ def _search_data_store(query: str, page_size: int = 5) -> list[dict]:
     req.add_header("Content-Type", "application/json")
     req.add_header("X-Goog-User-Project", PROJECT_ID)
 
+    logger.info("Discovery Engine search: query=%r url=%s", query[:80], url)
+
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            result = json.loads(resp.read())
+            raw = resp.read()
+            result = json.loads(raw)
+            logger.info("Search returned %d results (totalSize=%s)",
+                        len(result.get("results", [])),
+                        result.get("totalSize", "?"))
     except urllib.error.HTTPError as e:
         err_body = e.read().decode()[:1000]
         logger.error("Search API error %s: %s", e.code, err_body)
         raise RuntimeError(f"Search API error {e.code}")
+    except Exception as e:
+        logger.error("Search failed: %s", e)
+        raise
 
     contexts = []
     for r in result.get("results", []):
