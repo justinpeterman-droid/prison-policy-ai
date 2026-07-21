@@ -1,150 +1,176 @@
-# Report-Writing Rules & Behavior (living spec)
+# REPORT_WRITING_RULES.md — Single Source of Truth
 
-This is the current, authoritative description of how the report generator
-should behave — the accumulated rules Justin has asked for. It complements
-`REPORT_ENGINE_SPEC.md` (the original build spec): that one says how the engine
-was built; **this one says exactly what the output must do**, so Hermes (with
-live GCP) can run reports, compare against these rules, and refine.
+Every rule BMU/ADC reports must follow. Sourced from Sgt. Peterman's actual
+reports (2023–2024) and codified into deterministic checks.
 
-Each rule notes **where it lives** in code and whether it's **deterministic**
-(guaranteed by Python, verified in-sandbox) or **prompt** (depends on the LLM,
-must be validated on a live run).
+## Rule Index
+
+Each rule has an ID (`RW-###`) and a severity: `BLOCKING` (must fix before use),
+`ERROR` (should fix), `WARN` (review).
 
 ---
 
-## 1. Pipeline & safety model
+## NAMING CONVENTIONS
 
+### RW-001 — Inmate First Reference [BLOCKING]
+`Inmate {Last}, {First} ADC#{number}`
+- Example: "Inmate Smith, John ADC#123456"
+- After first reference: "Inmate {Last}" is acceptable
+- Regex: `Inmate [A-Z][a-z]+, [A-Z][a-z]+ ADC#\d+`
+
+### RW-002 — Staff Naming [BLOCKING]
+`{Rank} {First} {Last}` — Cpl. / Sgt. / Lt. / Cpt.
+- Example: "Sgt. Justin Peterman"
+- Never: "Officer Joe" or bare last name alone
+
+### RW-003 — Reporting Officer Self-Reference [BLOCKING]
+- FIRST reference: `I, {Rank} {First} {Last},`
+- EVERY reference after: `I` / `me` / `my` — NEVER own rank+name again
+- NEVER written in third person for self
+- Check: count of `I, {own_rank} {own_first} {own_last}` must be exactly 1
+- Check: own name must NOT appear again outside first reference
+
+### RW-004 — Time Format [BLOCKING]
+`approximately {H:MM}{am/pm}` — lowercase, no space
+- Example: "approximately 10:00pm"
+- Never: "10:00 PM", "2200 hours", "22:00"
+- Check: all times match `approximately \d{1,2}:\d{2}[ap]m`
+
+### RW-005 — Dates [WARN]
+As provided by officer — do not reformat
+- Both `7/21/2026` and `7-21-26` are valid
+- Check: date in output matches date in input
+
+### RW-006 — Unknown Names [BLOCKING]
+If first name unknown: "Inmate {Last}" only
+- NEVER: "None", "Unknown", placeholder text
+- Check: no "None" or "Unknown" as a name
+
+---
+
+## STRUCTURE RULES
+
+### RW-010 — Opening Sentence [BLOCKING]
+Exactly one of two formulas:
+1. Activity: `On {date} at approximately {time} I, {Rank} {First} {Last}, was {assigned post/activity} when {trigger event}.`
+2. Notification: `On {date} at approximately {time} I, {Rank} {First} {Last}, was notified by {source} that {event}.`
+
+Pick NOTIFIED unless officer personally witnessed the trigger.
+Check: first sentence must match one of these patterns.
+
+### RW-011 — Chronological Order [WARN]
+Past tense. One action per sentence. Events in order they occurred.
+
+### RW-012 — Single Combined Sentences [ERROR]
+When same action applies to multiple people, write ONE combined sentence:
+- ✓ "I applied hand restraints to Inmate Smith and Inmate Jones."
+- ✗ "I applied hand restraints to Inmate Smith. I applied hand restraints to Inmate Jones."
+- Check: no consecutive sentences with identical structure differing only by name
+
+### RW-013 — Disciplinary Closing [BLOCKING]
+Disciplinary reports MUST end with:
+`Due to the above stated facts I, {Rank} {First} {Last}, am charging Inmate {Last}, {First} ADC#{number} with rule violation {codes}. Pending DCR.`
+- One sentence per charged inmate
+- Check: report ends with "Pending DCR."
+
+---
+
+## ATTRIBUTION RULES
+
+### RW-020 — Personal Observation Only [BLOCKING]
+Only claim officer saw/observed what facts state he witnessed.
+- If told/notified: `was notified by {person} that...`
+- Never: `observed` or `witnessed` for reported events
+- Check: if notes say "notified" or "reported," output must NOT say "observed"
+
+### RW-021 — Secondhand Attribution [ERROR]
+Attributed with: `{person} stated/informed me that...`
+- No unattributed secondhand facts
+
+### RW-022 — Verbatim Quotes [BLOCKING]
+Inmate statements/profanity in QUOTES are verbatim — never censored or paraphrased.
+- They are evidence
+
+### RW-023 — Unsubstantiated Allegations [WARN]
+Stated as: `I was unable to substantiate...`
+
+---
+
+## CONTENT RULES
+
+### RW-030 — No Fabrication [BLOCKING]
+Every name, ADC#, time, and date in output MUST appear in officer's input.
+- invented_facts() scan runs automatically
+- Flagged tokens get yellow highlight in UI
+
+### RW-031 — No Medical Detail [BLOCKING]
+Do NOT describe injuries, wounds, diagnoses, evaluator names, or treatment outcomes.
+- Medical reference is provided by auto_content sentences — use those verbatim
+- Never add: diagnosis, injury detail, evaluator's name, treatment outcome
+- Check: no words like "laceration," "fracture," "diagnosed," "treated by"
+
+### RW-032 — Required Sentences [BLOCKING]
+auto_content sentences from checklist MUST appear verbatim in narrative.
+- Check: every auto_content text string is a substring of the output (case-insensitive)
+
+### RW-033 — No Bracketed Placeholders [BLOCKING]
+Never: `[incident number]`, `[name]`, `[NEEDED: ...]`
+- If value missing, omit the clause — don't invent a placeholder
+- (Exception: TO BE SUPPLEMENTED markers only in draft, stripped before final)
+
+### RW-034 — Objective Tone [ERROR]
+No opinions, speculation, or emotional language.
+- No: "clearly," "obviously," "unfortunately," "thankfully"
+- "Appeared to have a seizure" — not "had a seizure" (officers aren't medical staff)
+- Check: prohibited words list
+
+### RW-035 — No First-Person in Supervisor Summary [BLOCKING]
+Supervisor summary must be third person throughout.
+- Never: "I" outside quotation marks
+- Check: count of " I " and " me " and " my " equals 0 (except in quotes)
+
+---
+
+## SIGNATURE / FORM RULES
+
+### RW-040 — Per-Officer Reports [WARN]
+Each staff member named in notes can have own report.
+- Contains ONLY their actions/observations
+- Secondhand for that officer: "{Other Officer} informed me that..."
+
+---
+
+## HARD CHECKS (deterministic, run in code)
+
+| Check | Severity | Implementation |
+|-------|----------|---------------|
+| Inmate first-ref matches regex | BLOCKING | validate.py |
+| Every ADC#/time/date in output appears in input | BLOCKING | invented_facts() |
+| Disciplinary ends with "Pending DCR." | BLOCKING | regex |
+| No first-person in supervisor summary | BLOCKING | regex |
+| No medical detail words | BLOCKING | keyword blocklist |
+| Required sentences present verbatim | BLOCKING | substring check |
+| Officer self-reference count = 1 | ERROR | regex |
+| No bracketed placeholders | BLOCKING | regex |
+| No consecutive duplicate sentences | ERROR | levenshtein |
+| Names match roster when available | WARN | roster lookup |
+
+---
+
+## TEST NOTES (canonical test cases)
+
+### Test 1: Standard Fight
 ```
-notes ──▶ /classify ──▶ officer confirms type + AI-suggested charges
-      ──▶ /extract  ──▶ Gemini fills a strict slot schema (null = not stated)
-                        + deterministic gap questions
-      ──▶ officer answers gaps (nothing blocks generation)
-      ──▶ /generate ──▶ narrative-only LLM pass over STRUCTURED SLOTS
-                        + deterministic auto-content sentences
+Smith ADC#123456 and Jones ADC#654321 fighting 8 Barracks ~10pm.
+Jones cut over eye. Sgt Peterman cuffed both.
+Cpl Powell and Sohns escorted Jones to Infirmary.
 ```
+Expected: enemy_alert, restraint_line, escort_line, medical note, charges
 
-- **Extraction is the ONLY place the raw notes are read.** It is grammar-constrained
-  (`backend/reports/schema.py`) and returns `null` for anything the notes don't state.
-- **Generation never sees the raw notes** — only structured slots + required
-  sentences. Every header field is rendered by code.
-- `invented_facts()` hard-checks that every ADC#, time, and date in the output
-  traces back to the officer's input. Files: `backend/reports/validate.py`,
-  `backend/reports/generator.py`, `backend/reports/prompts_v2.py`.
-
----
-
-## 2. Missing-Information (gap) behavior
-
-| Rule | Behavior | Where | Type |
-|---|---|---|---|
-| Nothing blocks generation | Continue is always enabled; blanks become `[TO BE SUPPLEMENTED]` markers on the Review card | `reports.html` `updateProgress()` | deterministic |
-| Charges are not asked here | Picked from the handbook, confirmed in the charges panel | `validate.COLLECTED_ELSEWHERE` | deterministic |
-| Involved lists not asked | `inmates_involved` / `employees_involved` come from the extracted persons | `routes/reports.py` `/extract` | deterministic |
-| Medical disposition default | Pre-selects "Seen by Infirmary staff" for medical-involving incidents (fight, staff assault, forced cell move, PREA), else "N/A - no injuries reported"; changeable | `_apply_gap_defaults` | deterministic |
-| Drug test default | Pre-selects "N/A" | `_apply_gap_defaults` | deterministic |
-| Escort default (fights) | Pre-selects "Infirmary, then Restrictive Housing" | `_apply_gap_defaults` | deterministic |
-| Missing inmate first name | Asks "First name for Inmate <Last>?" per inmate; if left blank, the name renders `[FIRST NAME NEEDED]` and a marker is surfaced | `/extract`, `/generate`, `_inmates_missing_first` | deterministic |
-| Shift assignment | Filled from the unit roster; if unresolved, asks a question | `/extract`, roster | deterministic |
-
----
-
-## 3. Deterministic field & value rules
-
-| Field / rule | Behavior | Where |
-|---|---|---|
-| **Incident number** | `YYYY-MM-###` — year & month auto-filled; officer types only the last 3 digits | `_build_incident_number` |
-| **Date** | If the notes don't state one, default to today | `/extract`, `/generate` |
-| **Time** | Always 12-hour (`2200` → `10:00pm`, `0930` → `9:30am`) everywhere | `_to_12h` |
-| **Shift** | Roster stores a letter (`A`..`F`); rendered as "`B Shift`". Follows the selected reporting officer | `_format_shift` |
-| **Names capitalized** | Hand-typed names are title-cased (`john` → `John`) | `_titlecase` |
-| **EXTENT/TREATMENT — INMATE** | Only "See Infirmary Report" (when medical was involved) or "N/A". Never medical detail on the 005 | `/generate` `MEDICAL_INJURY_DISPOSITIONS` |
-| **EXTENT/TREATMENT — OFFICER** | "See Medical Report" only when the inmate used force on the officer (staff assault / recorded officer injury), else "N/A" | `/generate` `OFFICER_FORCE_CATEGORIES` |
-| **INMATE/EMPLOYEE/OTHERS PRESENT** | "See Above" when the notes didn't name separate people present | `/generate` `SEE_ABOVE` |
-| **Fights end in Restrictive Housing** | For fights/assaults the escort destination always ends at Restrictive Housing (after the infirmary if treated first) | `/generate` `FIGHT_RH_CATEGORIES` |
-| **Download == preview** | The .docx download sends every field the reviewed on-screen 005 shows; template has 21 placeholders, all filled | `reports.html` `collectMetadata`, `filler.py` |
-
----
-
-## 4. Auto-content sentences (deterministic, inserted verbatim)
-
-Driven by `templates/incident_checklist_v2.json` and resolved in
-`validate._resolve_auto_content`. A line fires only when its condition is met;
-N/A / No / a missing slot produce nothing. Inmate references adapt to the count:
-one inmate → the name ("Inmate Smith"), two or more → "The inmates" with the
-correct verb (see `validate._inmate_phrases`).
-
-**Universal (every category):**
-
-| Trigger | Sentence | Inserted into |
-|---|---|---|
-| Medical = Seen by Infirmary staff | "Inmate Smith was seen by medical staff (refer to the Infirmary Report)." | first-person, supervisor |
-| Medical = Refused | "…refused medical attention and the Refuse box was checked…" | first-person, supervisor |
-| Medical = Ambulance | "…was transported by ambulance to an outside facility…" | first-person, supervisor |
-| Photo/video = Yes | "Photographs were taken." | first-person, supervisor |
-| Drug test = Conducted | "A drug test was conducted on Inmate Smith." | first-person, supervisor |
-| Drug test = Refused | "…refused a drug test and the Refuse box was checked." | first-person, supervisor |
-| Witness statements = Yes | "Witness statements were collected." | first-person, supervisor |
-| **Charges present** | "Disciplinary action was taken against <inmate(s)> (refer to the Disciplinary Report)." | first-person, supervisor, cover letter |
-
-**Fights (inmate_fight, staff_assault):**
-
-| Trigger | Sentence | Inserted into |
-|---|---|---|
-| always | "Inmate Smith and Inmate Jones were involved in a physical altercation at BMU in <loc> on <date> (refer to BMU Incident Report <#>)." | disciplinary, cover letter |
-| always | "The inmates were placed in Restrictive Housing." | first-person |
-| always | restraint + escort, combined, ending at Restrictive Housing | supervisor |
-
-> The restraint/escort line lives in the **supervisor summary only** — it is
-> third-person, so it must not appear in the first-person report.
-
----
-
-## 5. Narrative rules (PROMPT — validate on a live run)
-
-In `backend/reports/prompts_v2.py` (`STYLE_RULES` + per-report prompts):
-
-- **First person throughout** for the reporting officer ("I, Sgt. First Last," then "I"); never revert to third person or restate his own rank+name.
-- **Notified ≠ observed**: if an event was reported to him, "was notified by X that…", never "observed"/"witnessed".
-- **First mention = full name**: staff "Rank First Last" then "Rank Last"; inmate "Inmate Last, First ADC#" then "Inmate Last". Never a bare last name on first mention.
-- **Combine repeated actions**: one sentence when the same action applies to several people ("I applied hand restraints to Inmate Smith and Inmate Jones."), never one per person.
-- **No self-written medical sentence** — the required sentences already carry the medical reference (combined). No injury/diagnosis/evaluator/outcome in the narrative.
-- **Unknown first name** → use "Inmate Last" only; never print "None"/a placeholder.
-- **Times are 12-hour** already; never restate in 24-hour form.
-- **No bracketed placeholders** in output; omit a missing clause instead.
-
----
-
-## 6. How to test (recipe)
-
-Paste into the generator, classify → Inmate on Inmate Fight:
-
+### Test 2: Notification (not witnessed)
 ```
-Smith ADC#123456 & Jones ADC#654321 fighting 8 Barracks ~2200.
-Jones cut over left eye. Sgt Peterman applied cuffs.
-Cpl Powell & Cpl Sohns escorted to infirmary.
+Inmate Williams ADC#111111 reported to me that Inmate Davis ADC#222222
+stole his commissary from 4 House ~2pm. I reviewed camera footage which
+confirmed the theft. Confiscated items returned to Williams.
 ```
-
-On Missing Info: confirm the suggested charges; medical = Seen by Infirmary
-staff; photos = Yes; witnesses = Yes; type first names in **lowercase** to test
-capitalization; leave incident # blank.
-
-Expect:
-- Time "10:00pm"; shift "B Shift"; names capitalized; first mention full form.
-- One combined restraint sentence, one combined escort sentence, one medical
-  line, no third-person leakage in the first-person report.
-- "The inmates were placed in Restrictive Housing." + "Disciplinary action was
-  taken against the inmates (refer to the Disciplinary Report)."
-- 005 front: PRESENT = "See Above", inmate injury/treatment = "See Infirmary
-  Report", officer injury/treatment = "N/A".
-- Download .docx matches the on-screen 005.
-
----
-
-## 7. Refining
-
-- **Deterministic rules** (sections 2–4): change the JSON checklist or the
-  helpers in `routes/reports.py` / `validate.py`; they're covered by the
-  sandbox tests and need no LLM.
-- **Narrative rules** (section 5): tune `prompts_v2.py`; must be checked on a
-  live GCP run. If a narrative rule keeps failing, promote it into the
-  deterministic auto-content layer (section 4) where it can be guaranteed.
+Expected: NOTIFIED opening, attributed facts, no "observed"

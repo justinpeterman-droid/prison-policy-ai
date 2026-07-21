@@ -1,0 +1,55 @@
+{
+  "incident_type": "inmate_fight",
+  "persons_involved": [
+    {
+      "role": "inmate",
+      "name": "Smith",
+      "rank": null,
+      "adc_number": "165238"
+    },
+    {
+      "role": "inmate",
+      "name": "Williams",
+      "rank": null,
+      "adc_number": "171549"
+    },
+    {
+      "role": "security_staff",
+      "name": "Peterman",
+      "rank": "Sgt.",
+      "adc_number": null
+    },
+    {
+      "role": "security_staff",
+      "name": "Powell",
+      "rank": "Cpl.",
+      "adc_number": null
+    },
+    {
+      "role": "security_staff",
+      "name": "Sohns",
+      "rank": "Cpl.",
+      "adc_number": null
+    },
+    {
+      "role": "security_staff",
+      "name": "Roberts",
+      "rank": "Lt.",
+      "adc_number": null
+    }
+  ],
+  "charges_applicable": [
+    "04-08",
+    "05-5"
+  ],
+  "facility": "Benny Magness Unit",
+  "shift": "Night Shift",
+  "location": "8 Barracks",
+  "date": null,
+  "time": "10:15 pm",
+  "label": "Inmate on Inmate Fight/Assault",
+  "charge_descriptions": {
+    "04-08": "Battery \u2014 Use of physical force upon an inmate.",
+    "05-5": "Provoking or agitating a fight."
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "gaps": [
+    {
+      "slot": "date",
+      "blocking": true,
+      "answer_type": "text",
+      "question": "Date?"
+    },
+    {
+      "slot": "charges",
+      "blocking": true,
+      "answer_type": "text",
+      "question": "Charges?"
+    },
+    {
+      "slot": "incident_number",
+      "blocking": true,
+      "answer_type": "text",
+      "question": "Incident number? (YYYY-MM-###)",
+      "options": null
+    },
+    {
+      "slot": "drug_test_disposition",
+      "blocking": true,
+      "answer_type": "choice",
+      "question": "Inmate drug test?",
+      "options": [
+        "Conducted",
+        "Refused (Refuse box checked)",
+        "N/A",
+        "Other (type your own)"
+      ]
+    },
+    {
+      "slot": "witness_statements_collected",
+      "blocking": false,
+      "answer_type": "yes_no",
+      "question": "Witness statements collected?",
+      "options": null
+    },
+    {
+      "slot": "enemy_alert_filed",
+      "blocking": false,
+      "answer_type": "yes_no",
+      "question": "Enemy Alert Form filed?",
+      "options": null
+    }
+  ],
+  "blocking_remaining": 4,
+  "markers": [],
+  "checklist": [
+    {
+      "form": "cover_letter",
+      "checked": null
+    },
+    {
+      "form": "005_409",
+      "checked": null
+    },
+    {
+      "form": "major_disciplinary_form",
+      "checked": null
+    },
+    {
+      "form": "photo_video",
+      "checked": false
+    },
+    {
+      "form": "weapon_chain_of_custody_f401",
+      "checked": null
+    },
+    {
+      "form": "witness_statements",
+      "checked": false
+    },
+    {
+      "form": "enemy_alert_form",
+      "checked": false
+    },
+    {
+      "form": "medical_report",
+      "checked": null
+    },
+    {
+      "form": "inmate_drug_test",
+      "checked": null
+    },
+    {
+      "form": "24_hour_review",
+      "checked": null
+    },
+    {
+      "form": "72_hour_review",
+      "checked": null
+    },
+    {
+      "form": "emergency_gate_pass_if_treated_outside",
+      "checked": null
+    }
+  ],
+  "auto_content": [
+    {
+      "id": "enemy_alert_line",
+      "insert_into": [
+        "disciplinary",
+        "cover_letter"
+      ],
+      "text": "[NEEDED: inmate a] and [NEEDED: inmate b] was involved in a physical altercation at BMU in 8 Barracks on [NEEDED: date] (refer to BMU Incident Report [NEEDED: incident number])."
+    },
+    {
+      "id": "restraint_escort_line",
+      "insert_into": [
+        "first_person",
+        "supervisor_summary"
+      ],
+      "text": "Sgt Peterman cuffed Smith, Cpl Powell cuffed Williams placed hand restraints onto [NEEDED: inmate] and Cpl Powell & Cpl Sohns escorted him to Restrictive Housing."
+    }
+  ]
+}

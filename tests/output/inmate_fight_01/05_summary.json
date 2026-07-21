@@ -1,0 +1,16 @@
+{
+  "timing": {
+    "classify": 10.16,
+    "extract": 22.11,
+    "generate": 145.96
+  },
+  "errors": [],
+  "flags": [
+    "10:20pm."
+  ],
+  "synopsis": {
+    "first_person": "On [NOT IN NOTES] at approximately 10:15pm I, Sgt. Justin Peterman, was notified by Cpl. [NOT IN NOTES] Powell that Inma...",
+    "supervisor_summary": "On [NOT IN NOTES] at approximately ~10:15pm Sgt. Justin Peterman observed Inmate Smith, [First Name] ADC#[Number] and In...",
+    "cover_letter": "On [NOT IN NOTES] I, Sgt. Justin Peterman, was notified by the reporting officer who was working as [NOT IN NOTES] that ..."
+  }
+}

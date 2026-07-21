@@ -1,0 +1,119 @@
+{
+  "incident_number": null,
+  "unit_division": null,
+  "date": null,
+  "time": "~10:15pm",
+  "location": "8 Barracks",
+  "persons": [
+    {
+      "role": "inmate",
+      "last": "Smith",
+      "first": null,
+      "adc_number": "165238",
+      "actions": [
+        "fighting in 8 Barracks",
+        "on top throwing punches",
+        "refused medical",
+        "claimed the other started it"
+      ],
+      "injuries": null
+    },
+    {
+      "role": "inmate",
+      "last": "Williams",
+      "first": null,
+      "adc_number": "171549",
+      "actions": [
+        "fighting in 8 Barracks",
+        "claimed the other started it",
+        "said \"that pussy been running his mouth all week, I told him I'd fuck him up\""
+      ],
+      "injuries": "cut over left eye, bleeding, 3 sutures to eyebrow"
+    },
+    {
+      "role": "security_staff",
+      "last": "Peterman",
+      "first": "Justin",
+      "rank": "Sgt.",
+      "actions": [
+        "pulled Smith off",
+        "cuffed Smith"
+      ],
+      "injuries": null,
+      "employee_number": "B5123",
+      "shift": "B",
+      "_roster_match": true
+    },
+    {
+      "role": "security_staff",
+      "last": "Powell",
+      "first": "Austin",
+      "rank": "Cpl.",
+      "actions": [
+        "cuffed Williams",
+        "escorted both inmates to Restrictive Housing"
+      ],
+      "injuries": null,
+      "employee_number": "B7841",
+      "shift": "B",
+      "_roster_match": true
+    },
+    {
+      "role": "security_staff",
+      "last": "Sohns",
+      "first": "Jack",
+      "rank": "Cpl.",
+      "actions": [
+        "escorted both inmates to Restrictive Housing"
+      ],
+      "injuries": null,
+      "employee_number": "B6392",
+      "shift": "B",
+      "_roster_match": true
+    },
+    {
+      "role": "security_staff",
+      "last": "Roberts",
+      "first": "James",
+      "rank": "Lt.",
+      "actions": [
+        "notified at 10:20pm"
+      ],
+      "injuries": null,
+      "employee_number": "D2218",
+      "shift": "D",
+      "_roster_match": true
+    }
+  ],
+  "reporting_officer_index": null,
+  "inmate_injuries": "Williams: cut over left eye, bleeding, 3 sutures to eyebrow",
+  "officer_injuries": null,
+  "narrative_facts": [
+    "Inmates Smith and Williams were fighting in 8 Barracks.",
+    "The reporting officer arrived and observed Smith on top of Williams throwing punches.",
+    "Williams had a cut over his left eye and was bleeding.",
+    "Sgt Peterman pulled Smith off and cuffed him.",
+    "Cpl Powell cuffed Williams.",
+    "Cpl Powell and Cpl Sohns escorted both inmates to Restrictive Housing.",
+    "Williams was seen by the Infirmary and received 3 sutures to his eyebrow.",
+    "Smith refused medical treatment.",
+    "Photos were taken of Williams' injuries and blood on the floor.",
+    "Lt Roberts was notified at 10:20pm.",
+    "Both inmates claimed the other started the fight."
+  ],
+  "quotes": [
+    "that pussy been running his mouth all week, I told him I'd fuck him up"
+  ],
+  "enemy_alert_filed": null,
+  "restraints_applied_by": "Sgt Peterman cuffed Smith, Cpl Powell cuffed Williams",
+  "drug_test_disposition": null,
+  "escort_destination": "Restrictive Housing",
+  "medical_disposition": "Williams seen by Infirmary \u2014 3 sutures to eyebrow; Smith refused medical",
+  "escorted_by": "Cpl Powell & Cpl Sohns",
+  "witness_statements_collected": null,
+  "emergency_gate_pass": null,
+  "weapon_custody_officer": null,
+  "inmates_involved": "Smith, Williams",
+  "charges": null,
+  "photo_video_obtained": "Photos taken of Williams injuries & blood on floor"
+}

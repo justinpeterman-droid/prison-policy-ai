@@ -1,0 +1,26 @@
+Test: inmate_fight_01
+Fixture: C:\Users\justi\workspace\prison-policy-ai\tests\fixtures\inmate_fight_01.txt
+Ran: generate
+Total time: 178.24s
+
+Incident type: inmate_fight (Inmate on Inmate Fight/Assault)
+Charges: ['04-08', '05-5']
+  - inmate: Smith
+  - inmate: Williams
+  - security_staff: Peterman
+  - security_staff: Powell
+  - security_staff: Sohns
+  - security_staff: Roberts
+
+Persons: 6
+Narrative facts: 11
+Quotes: 1
+
+── first_person (1491 chars) ──
+   On [NOT IN NOTES] at approximately 10:15pm I, Sgt. Justin Peterman, was notified by Cpl. [NOT IN NOTES] Powell that Inmate Smith, [NOT IN NOTES] ADC#[NOT IN NOTES] and Inmate Williams, [NOT IN NOTES] ...
+
+── supervisor_summary (1065 chars) ──
+   On [NOT IN NOTES] at approximately ~10:15pm Sgt. Justin Peterman observed Inmate Smith, [First Name] ADC#[Number] and Inmate Williams, [First Name] ADC#[Number] fighting in 8 Barracks. Sgt. Justin Pet...
+
+── cover_letter (1320 chars) ──
+   On [NOT IN NOTES] I, Sgt. Justin Peterman, was notified by the reporting officer who was working as [NOT IN NOTES] that at approximately 10:15pm Inmate Smith, [NOT IN NOTES] ADC#[NOT IN NOTES] and Inm...

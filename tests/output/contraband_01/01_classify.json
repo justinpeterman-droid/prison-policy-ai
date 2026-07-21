@@ -1,0 +1,59 @@
+{
+  "incident_type": "contraband",
+  "persons_involved": [
+    {
+      "role": "inmate",
+      "name": "Davis",
+      "rank": null,
+      "adc_number": "188432"
+    },
+    {
+      "role": "security_staff",
+      "name": "Peterman",
+      "rank": "Sgt.",
+      "adc_number": null
+    },
+    {
+      "role": "security_staff",
+      "name": "Torres",
+      "rank": "Cpl.",
+      "adc_number": null
+    },
+    {
+      "role": "security_staff",
+      "name": "Powell",
+      "rank": "Cpl.",
+      "adc_number": null
+    },
+    {
+      "role": "security_staff",
+      "name": "Miller",
+      "rank": "Cpl.",
+      "adc_number": null
+    },
+    {
+      "role": "security_staff",
+      "name": "Jameson",
+      "rank": "Lt.",
+      "adc_number": null
+    }
+  ],
+  "charges_applicable": [
+    "09-3",
+    "09-4",
+    "02-16",
+    "09-5"
+  ],
+  "facility": "Benny Magness Unit",
+  "shift": "Day",
+  "location": "4 Barracks",
+  "date": null,
+  "time": "14:30",
+  "label": "Introduction of Contraband",
+  "charge_descriptions": {
+    "09-3": "Possession/introduction/manufacture of any drug, narcotic intoxicant, tobacco, chemical, OR drug paraphernalia not prescribed by medical staff.",
+    "09-4": "Possession or movement of money or currency, unless specifically authorized.",
+    "02-16": "Refusal to submit to substance abuse testing.",
+    "09-5": "Possession/introduction of clothing or property not issued to inmate nor authorized by the center/unit."
+  }
+}

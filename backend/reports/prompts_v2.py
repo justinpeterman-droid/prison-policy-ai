@@ -7,12 +7,22 @@ rendered by code from slots — the model writes narrative prose ONLY.
 """
 
 STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
-- Inmates: 'Inmate {{Last}}, {{First}} ADC#{{number}}' on first reference, then 'Inmate {{Last}}'.
+- Inmate naming on FIRST reference (pick the most complete form you have):
+  * If you have BOTH first and last name AND ADC#: 'Inmate {{Last}}, {{First}} ADC#{{number}}'
+  * If you have last name and ADC# but no first name: 'Inmate {{Last}} ADC#{{number}}'
+  * If you have only a last name: 'Inmate {{Last}}'
+  * On EVERY later reference: 'Inmate {{Last}}' (short form).
+- NEVER write 'Inmate Smith ADC#123456' on first reference without the first name
+  when the first name IS available in the facts — include it in 'Last, First' order.
 - Staff: '{{Rank}} {{First}} {{Last}}' on first reference (Cpl. / Sgt. / Lt. / Cpt.),
   then '{{Rank}} {{Last}}'.
 - The FIRST time any person is named, give the full form above (never a bare last
   name on first mention); every later mention uses the short form.
-- Times: 'approximately {{H:MM}}{{am/pm}}' (lowercase, no space). Dates exactly as provided.
+- Times: 'approximately {{H:MM}}{{am/pm}}' (lowercase, no space). Use the exact time
+  from the facts — if the notes say '~10pm', write 'approximately 10:00pm'.
+- Dates: write the date EXACTLY as provided in the header (do NOT reformat it).
+  If the header date is 'July 21, 2026', use 'July 21, 2026'. Follow the format
+  the officer provided.
 - Chronological order. Past tense. One action per sentence. Objective and factual.
 - The reporting officer identifies himself ONCE ('I, {{Rank}} {{First}} {{Last}},')
   and is 'I' / 'me' / 'my' everywhere after — NEVER his own rank+name again, and NEVER
