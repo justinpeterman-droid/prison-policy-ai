@@ -379,6 +379,15 @@ def reports_generate():
                           if p.get("role") == "security_staff"]:
             reporter = reporters[0]
             slots = bind_reporter(slots, reporter)
+
+        # Sanitize null/None officer names: "[NOT IN NOTES]" breaks prompts.
+        for field in ("officer_last", "officer_first", "rank"):
+            val = slots.get(field)
+            if not val or str(val).lower() in ("none", "[not in notes]"):
+                slots[field] = "Reporting Officer" if field != "rank" else "Officer"
+        if not slots.get("employee_number") or str(slots.get("employee_number")).lower() in ("none",):
+            slots["employee_number"] = ""
+
         # Shift assignment: use the bound officer's roster shift (a letter like
         # 'B') rendered as 'B Shift', else normalize whatever was answered.
         if reporter and reporter.get("shift"):
