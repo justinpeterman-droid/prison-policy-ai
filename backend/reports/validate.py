@@ -113,7 +113,8 @@ def find_gaps(category_name: str, slots: dict) -> dict:
         "markers": [f"[TO BE SUPPLEMENTED: {m.replace('_', ' ')}]"
                     for m in markers],
         "checklist": _checklist_state(category, slots),
-        "auto_content": _resolve_auto_content(category, slots, checklist),
+        "auto_content": _resolve_auto_content(
+            category, {**slots, **_inmate_phrases(slots)}, checklist),
     }
 
 
@@ -138,6 +139,26 @@ def _checklist_state(category: dict, slots: dict) -> list[dict]:
         out.append({"form": form,
                     "checked": slot in yes if slot else None})
     return out
+
+
+def _inmate_phrases(slots: dict) -> dict:
+    """Derive how to refer to the inmate(s) in auto_content lines.
+
+    One inmate -> use the name ('Inmate Smith', 'was'); two or more -> plural
+    generic ('The inmates', 'were') so the sentence still reads correctly.
+    `inmate_subject` is sentence-start capitalized; `inmate_object` is the
+    mid-sentence object form.
+    """
+    inmates = [p for p in slots.get("persons", [])
+               if p.get("role") == "inmate" and p.get("last")]
+    if len(inmates) == 1:
+        name = f"Inmate {inmates[0]['last']}"
+        return {"inmate_subject": name, "inmate_be": "was", "inmate_object": name}
+    if len(inmates) >= 2:
+        return {"inmate_subject": "The inmates", "inmate_be": "were",
+                "inmate_object": "the inmates"}
+    return {"inmate_subject": "The inmate", "inmate_be": "was",
+            "inmate_object": "the inmate"}
 
 
 def _resolve_auto_content(category: dict, slots: dict,
