@@ -35,6 +35,15 @@ CHAT_SYSTEM_PROMPT = (
     "the documents, say so."
 )
 
+QUERY_EXPANSION_PROMPT = (
+    "Rewrite this officer's question into search keywords for finding "
+    "relevant prison policy documents. Use formal policy language: "
+    "'sexual misconduct' not 'romantic', 'contraband' not 'stuff', "
+    "'use of force' not 'fight'. Output ONLY the search query, no explanation.\n\n"
+    "Question: {question}\n"
+    "Search query:"
+)
+
 _token_cache = {"token": None, "expiry": 0}
 
 

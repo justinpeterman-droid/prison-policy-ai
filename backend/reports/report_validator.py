@@ -209,9 +209,10 @@ def invented_facts(text: str, notes: str, answers: dict) -> list[str]:
     """Check every ADC#, time, and date in output appears in input.
     Normalizes time formats before comparing (~10pm == 10:00pm)."""
     source = (notes + " " + " ".join(str(v) for v in answers.values())).lower()
-    # Normalize times: "~10pm" -> "10:00pm", "~8am" -> "8:00am"
-    source = re.sub(r'~(\d{1,2})([ap]m)', r'\1:00\2', source, flags=re.I)
-    source = re.sub(r'(\d{1,2})([ap]m)', r'\1:00\2', source, flags=re.I)
+    # Normalize times: "~10pm" -> "10:00pm", "8am" -> "8:00am"
+    # (?<![\d:]) prevents matching "0pm" inside already-normalized "10:00pm"
+    source = re.sub(r'~', '', source)  # strip tildes
+    source = re.sub(r'(?<![\d:])(\d{1,2})([ap]m)\b', r'\1:00\2', source, flags=re.I)
     source_clean = re.sub(r'\s', '', source)
     
     tokens = set(re.findall(
