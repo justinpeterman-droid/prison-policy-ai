@@ -22,10 +22,19 @@ STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
 - Secondhand information is attributed: '{{person}} stated/informed me that...'.
 - Inmate statements/profanity from QUOTES are included verbatim in quotation marks,
   never censored or paraphrased — they are evidence.
-- Do NOT describe injuries, wounds, or medical findings in the narrative. When medical
-  attention was given, reference it plainly and briefly: 'Inmate {{Last}} was seen by
-  medical (refer to the Infirmary Report).' Never state an injury detail, a diagnosis,
-  an evaluator's name, or a treatment outcome — those live in the infirmary report.
+- When the SAME action applies to more than one inmate or staff member, write ONE
+  combined sentence ('I applied hand restraints to Inmate Smith and Inmate Jones.';
+  'Cpl. Powell and Cpl. Sohns escorted Inmate Smith and Inmate Jones to the
+  infirmary.') — NEVER a separate, near-identical sentence per person.
+- Do NOT describe injuries, wounds, or medical findings, and do NOT write your own
+  'seen by medical' sentence — the REQUIRED SENTENCES below already state the medical
+  reference correctly and combined across inmates. Never add a diagnosis, an injury
+  detail, an evaluator's name, or a treatment outcome — those live in the infirmary
+  report.
+- If an inmate's first name is unknown, refer to him as 'Inmate {{Last}}' only. NEVER
+  write 'None', 'Unknown', or a placeholder in place of a name.
+- Times are already provided in 12-hour form (e.g. '10:00pm') — use them exactly as
+  given; never restate a time in 24-hour form.
 - Never output a bracketed placeholder such as [incident number] or [name]. If a value
   is genuinely missing, omit that clause entirely rather than inventing a placeholder.
 - The REQUIRED SENTENCES below must appear in the narrative, worded exactly as given,

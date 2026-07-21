@@ -349,7 +349,7 @@
             "cover_letter"
           ],
           "condition": "always",
-          "template": "{inmate_a} and {inmate_b} was involved in a physical altercation at BMU in {location} on {date} (refer to BMU Incident Report {incident_number})."
+          "template": "{inmate_list} {inmate_be} involved in a physical altercation at BMU in {location} on {date} (refer to BMU Incident Report {incident_number})."
         },
         {
           "id": "footage_attached",
@@ -362,11 +362,10 @@
         {
           "id": "restraint_escort_line",
           "insert_into": [
-            "first_person",
             "supervisor_summary"
           ],
           "condition": "always",
-          "template": "{restraints_applied_by} placed hand restraints onto {inmate} and {escorted_by} escorted him to {escort_destination}."
+          "template": "{restraints_applied_by} placed hand restraints onto {inmate_object} and {escorted_by} escorted {inmate_them} to {escort_destination}."
         }
       ]
     },
@@ -480,11 +479,10 @@
         {
           "id": "restraint_escort_line",
           "insert_into": [
-            "first_person",
             "supervisor_summary"
           ],
           "condition": "always",
-          "template": "{restraints_applied_by} placed hand restraints onto {inmate} and {escorted_by} escorted him to {escort_destination}."
+          "template": "{restraints_applied_by} placed hand restraints onto {inmate_object} and {escorted_by} escorted {inmate_them} to {escort_destination}."
         }
       ]
     },
