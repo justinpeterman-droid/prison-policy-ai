@@ -45,6 +45,12 @@ def lookup(name_hint: str) -> dict | None:
         # Partial: hint appears in last name or full name
         if hint in last or hint in full:
             return dict(person)
+        # First-name match
+        if hint in first:
+            return dict(person)
+        # Partial employee number (e.g., "5123" matches "B5123")
+        if hint in emp or emp.endswith(hint):
+            return dict(person)
 
     return None
 
@@ -71,13 +77,11 @@ def resolve_staff_from_persons(persons: list[dict]) -> tuple[list[dict], list[di
         match = lookup(last) or lookup(name)
 
         if match:
-            # Fill in missing fields from roster
+            # Fill in missing fields from roster — override None values
             merged = dict(p)
-            merged.setdefault("rank", match.get("rank", ""))
-            merged.setdefault("first", match.get("first", ""))
-            merged.setdefault("last", match.get("last", ""))
-            merged.setdefault("employee_number", match.get("employee_number", ""))
-            merged.setdefault("shift", match.get("shift", ""))
+            for key in ("rank", "first", "last", "employee_number", "shift"):
+                if not merged.get(key):  # None, empty, or missing
+                    merged[key] = match.get(key, "")
             merged["_roster_match"] = True
             resolved.append(merged)
         else:
@@ -92,16 +96,16 @@ def resolve_staff_from_persons(persons: list[dict]) -> tuple[list[dict], list[di
                 "type": "staff_identity",
             })
 
-    # Also flag any resolved staff missing required fields
+    # Also flag any resolved staff missing required fields (after roster fill)
     required_staff_fields = ["rank", "first", "last"]
     for r in resolved:
-        if r.get("role") == "security_staff":
+        if r.get("role") == "security_staff" and not r.get("_roster_match"):
             missing = [f for f in required_staff_fields if not r.get(f)]
             if missing:
                 gaps.append({
                     "field": f"officer_{r.get('last', r.get('name', 'unknown'))}",
                     "label": f"Missing info for {r.get('last', r.get('name', '?'))}",
-                    "question": f"Officer {r.get('last', r.get('name', '?'))} is missing: {', '.join(missing)}. Please provide.",
+                    "question": f"Officer {r.get('last', r.get('name', '?'))} not found in roster and is missing: {', '.join(missing)}. Please provide.",
                     "required": True,
                     "blocking": True,
                     "type": "staff_missing_fields",

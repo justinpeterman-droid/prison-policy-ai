@@ -26,9 +26,11 @@ def create_app() -> Flask:
     # Routes
     from backend.webapp.routes.chat import chat_bp
     from backend.webapp.routes.reports import reports_bp
+    from backend.webapp.routes.roster import roster_bp
 
     app.register_blueprint(chat_bp)
     app.register_blueprint(reports_bp)
+    app.register_blueprint(roster_bp)
 
     @app.before_request
     def auth_gate():
@@ -55,6 +57,10 @@ def create_app() -> Flask:
     @app.route("/health")
     def health():
         return {"status": "ok"}
+
+    @app.route("/roster")
+    def roster_page():
+        return render_template("roster.html")
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
