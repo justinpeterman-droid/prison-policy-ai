@@ -141,6 +141,16 @@
       ],
       "condition": "witness_statements_collected == 'Yes'",
       "template": "Witness statements were collected."
+    },
+    {
+      "id": "disciplinary_action_line",
+      "insert_into": [
+        "first_person",
+        "supervisor_summary",
+        "cover_letter"
+      ],
+      "condition": "charges != null",
+      "template": "Disciplinary action was taken against {inmate_object} (refer to the Disciplinary Report)."
     }
   ],
   "categories": [
@@ -352,6 +362,14 @@
           "template": "{inmate_list} {inmate_be} involved in a physical altercation at BMU in {location} on {date} (refer to BMU Incident Report {incident_number})."
         },
         {
+          "id": "restrictive_housing_line",
+          "insert_into": [
+            "first_person"
+          ],
+          "condition": "always",
+          "template": "{inmate_subject} {inmate_be} placed in Restrictive Housing."
+        },
+        {
           "id": "footage_attached",
           "insert_into": [
             "cover_letter"
@@ -475,6 +493,14 @@
           ],
           "condition": "staff_injured == true",
           "template": "The Company Nurse line was contacted, confirmation number {company_nurse_confirmation_number}."
+        },
+        {
+          "id": "restrictive_housing_line",
+          "insert_into": [
+            "first_person"
+          ],
+          "condition": "always",
+          "template": "{inmate_subject} {inmate_be} placed in Restrictive Housing."
         },
         {
           "id": "restraint_escort_line",

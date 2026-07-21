@@ -34,6 +34,17 @@ MEDICAL_INJURY_DISPOSITIONS = {
 # Categories/signals where the inmate used force on the officer, so the
 # officer injury/treatment lines reference the officer's Medical Report.
 OFFICER_FORCE_CATEGORIES = {"staff_assault"}
+# Fights/assaults: the inmate is always ultimately placed in Restrictive
+# Housing (after the infirmary if they were treated first).
+FIGHT_RH_CATEGORIES = {"inmate_fight", "staff_assault"}
+RESTRICTIVE_HOUSING = "Restrictive Housing"
+
+
+def _titlecase(value):
+    """Capitalize each word of a name so hand-typed 'john' becomes 'John'."""
+    if not value:
+        return value
+    return " ".join(w[:1].upper() + w[1:] if w else w for w in str(value).split())
 
 
 def _to_12h(value):
@@ -82,6 +93,9 @@ def _apply_gap_defaults(category: str, gaps: list) -> None:
                             else "N/A - no injuries reported")
         elif slot == "drug_test_disposition":
             g["default"] = "N/A"
+        elif slot == "escort_destination" and category in FIGHT_RH_CATEGORIES:
+            # Fights end in Restrictive Housing (via the infirmary if treated).
+            g["default"] = "Infirmary, then Restrictive Housing"
 
 
 def _today() -> str:
@@ -100,8 +114,8 @@ def _format_inmates(slots: dict) -> str:
     for p in slots.get("persons", []):
         if p.get("role") != "inmate" or not p.get("last"):
             continue
-        first = p.get("first") or FIRST_NAME_NEEDED
-        parts.append(f"Inmate {p.get('last', '')}, {first} "
+        first = _titlecase(p.get("first")) or FIRST_NAME_NEEDED
+        parts.append(f"Inmate {_titlecase(p.get('last', ''))}, {first} "
                      f"ADC#{p.get('adc_number') or 'UNKNOWN'}")
     return ", ".join(parts)
 
@@ -122,12 +136,13 @@ def _apply_first_name_answers(slots: dict, answers: dict) -> None:
         for p in slots.get("persons", []):
             if (p.get("role") == "inmate" and p.get("last") == last
                     and not p.get("first")):
-                p["first"] = val
+                p["first"] = _titlecase(val)
 
 
 def _format_employees(slots: dict) -> str:
     return ", ".join(
-        f"{p.get('rank', '')} {p.get('first', '')} {p.get('last', '')}".strip()
+        f"{p.get('rank', '')} {_titlecase(p.get('first', ''))} "
+        f"{_titlecase(p.get('last', ''))}".strip()
         for p in slots.get("persons", [])
         if p.get("role") == "security_staff" and p.get("last")
     )
@@ -226,6 +241,17 @@ def reports_extract():
                         slots["shift_assignment"] = _format_shift(p.get("shift"))
                     break
 
+        # The involved lists come from the extracted persons — don't ask for
+        # them again as a Missing-Information question.
+        if not slots.get("inmates_involved") and any(
+                p.get("role") == "inmate" and p.get("last")
+                for p in slots.get("persons", [])):
+            slots["inmates_involved"] = _format_inmates(slots)
+        if not slots.get("employees_involved") and any(
+                p.get("role") == "security_staff" and p.get("last")
+                for p in slots.get("persons", [])):
+            slots["employees_involved"] = _format_employees(slots)
+
         gap_result = find_gaps(category, slots)
         gaps = gap_result.get("gaps", [])
         # Merge roster gaps
@@ -306,6 +332,17 @@ def reports_generate():
         # Officer-confirmed charges win over anything extracted.
         if isinstance(charges, list) and charges:
             slots["charges"] = ", ".join(charges)
+
+        # Fights/assaults always end in Restrictive Housing — after the
+        # infirmary if the inmate was treated first.
+        if category in FIGHT_RH_CATEGORIES:
+            dest = (slots.get("escort_destination") or "").strip()
+            if not dest:
+                slots["escort_destination"] = RESTRICTIVE_HOUSING
+            elif "restrictive" not in dest.lower():
+                slots["escort_destination"] = (
+                    f"Infirmary, then {RESTRICTIVE_HOUSING}"
+                    if "infirmary" in dest.lower() else RESTRICTIVE_HOUSING)
 
         # Re-resolve auto_content with answered slots
         gap_result = find_gaps(category, slots)
