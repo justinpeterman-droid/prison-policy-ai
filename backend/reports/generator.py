@@ -37,7 +37,10 @@ def _clean_time(s: str) -> str:
 
 
 def _fmt(val, default="[NOT IN NOTES]") -> str:
-    return str(val) if val else default
+    v = str(val) if val else ""
+    if not v or v.lower() in ("none", "[not in notes]", "null"):
+        return default
+    return v
 
 
 def _auto_for(report_type: str, auto_content: list[dict] | None) -> str:

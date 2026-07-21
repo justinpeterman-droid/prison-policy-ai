@@ -394,11 +394,9 @@ def reports_generate():
                 # Have first name but no last — odd case, leave as-is
                 pass
             else:
-                # Both null — use generic fallback
-                slots["officer_last"] = "Reporting Officer"
-                slots["officer_first"] = ""
-                if not slots.get("rank") or str(slots.get("rank")).lower() in ("none",):
-                    slots["rank"] = ""
+                # Both null — leave as-is. The gap question asks for the name.
+                # Reports won't generate with [NOT IN NOTES] officer names.
+                pass
 
         # Shift assignment: use the bound officer's roster shift (a letter like
         # 'B') rendered as 'B Shift', else normalize whatever was answered.
