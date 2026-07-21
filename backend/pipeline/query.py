@@ -230,10 +230,8 @@ def answer_question(question: str) -> dict:
     if not _classify_query(question):
         return {
             "answer": (
-                "This tool is for correctional policy and procedure questions "
-                "only. Please ask about PREA, use of force, contraband, "
-                "inmate management, disciplinary procedures, incident reports, "
-                "or other work-related topics."
+                "Good try — you're at work. If you believe this is wrong, "
+                "contact Regional Three."
             ),
             "citations": [],
             "sources": [],
