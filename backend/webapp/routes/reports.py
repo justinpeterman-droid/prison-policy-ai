@@ -298,7 +298,7 @@ def reports_classify():
 
 @reports_bp.route("/api/reports/extract", methods=["POST"])
 def reports_extract():
-    from backend.reports.extraction import extract_slots
+    from backend.reports.extraction import extract_slots, compute_provenance
     from backend.reports.validate import find_gaps
     from backend.reports.schema import security_staff
 
@@ -384,10 +384,12 @@ def reports_extract():
         # Pre-select suggested defaults (medical disposition, drug test).
         _apply_gap_defaults(category, gaps)
         officers = security_staff(slots)
-        logger.info("Extract → %d gaps (%d blocking), %d officers",
+        provenance = compute_provenance(notes, slots)
+        logger.info("Extract → %d gaps (%d blocking), %d officers, %d provenance entries",
                     len(gap_result.get("gaps", [])),
                     gap_result.get("blocking_remaining", 0),
-                    len(officers))
+                    len(officers),
+                    len(provenance))
         return jsonify({
             "slots": slots,
             "gaps": gap_result.get("gaps", []),
@@ -396,6 +398,7 @@ def reports_extract():
             "checklist": gap_result.get("checklist", []),
             "auto_content": gap_result.get("auto_content", []),
             "officers": officers,
+            "provenance": provenance,
         })
     except Exception as e:
         logger.exception("Extraction failed")

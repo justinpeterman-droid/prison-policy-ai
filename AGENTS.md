@@ -43,3 +43,21 @@ To enable them, provide ADC (e.g. `GOOGLE_APPLICATION_CREDENTIALS` service-accou
   Python is PEP-668 externally-managed and `python3-venv` is not preinstalled). The update
   script handles this; console-scripts land in `~/.local/bin` (not needed since we invoke
   `python3 -m` / module entrypoints).
+
+## Learned User Preferences
+
+- Use "field notes" (never "shift notes") for officer input copy across homepage and reports.
+- Trust-first UX copy: AI does not invent facts; officer stays in control; nothing files itself — sell usefulness without over-explaining internals or packing detail stats.
+- Keep nav brand markup consistent with the hero/home page on chat, reports, and roster.
+- "Forms page" usually means the Report Writing Assistant at `/reports`, not `frontend/forms/`.
+- Do not switch or steal browser/editor focus while working; browse in the background unless asked to show it.
+- Prefer subtle, corrections-professional visuals (navy/gold, light blue LIVE/CTA accents) over flashy redesigns.
+- Prefer live localhost preview in the agent browser when iterating on UI.
+
+## Learned Workspace Facts
+
+- Product brand is Standard Logistics & Unit Tools (S-L-U-T); navy + gold.
+- Local Flask app is run from the repo root and serves on port 8080.
+- Hermes coordination is CLI + `HERMES_HOME=C:\Users\justi\AppData\Local\hermes`; do not use Hermes WebUI on port 8787.
+- Staff roster shifts: A/B = Day, C/D = Night, U = Utility, F = Field; grid order top A B U / bottom C D F; omit clock times from shift labels.
+- Sample field-note placeholders use terse officer tone (ADC#, barracks, approximate times).

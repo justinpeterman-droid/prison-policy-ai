@@ -1,12 +1,12 @@
 {
   "facility": "Benny Magness Unit",
   "shifts": {
-    "A": {"label": "Day Shift", "hours": "0600-1400"},
-    "B": {"label": "Day Shift", "hours": "0600-1800"},
-    "C": {"label": "Night Shift", "hours": "2200-0600"},
-    "D": {"label": "Night Shift", "hours": "1800-0600"},
-    "U": {"label": "Utility", "hours": "1400-2200"},
-    "F": {"label": "Field", "hours": "0800-1600"}
+    "A": {"label": "Day Shift", "hours": ""},
+    "B": {"label": "Day Shift", "hours": ""},
+    "C": {"label": "Night Shift", "hours": ""},
+    "D": {"label": "Night Shift", "hours": ""},
+    "U": {"label": "Utility", "hours": ""},
+    "F": {"label": "Field", "hours": ""}
   },
   "staff": [
     {"last": "Peterman", "first": "Justin", "rank": "Sgt.", "employee_number": "B5123", "shift": "B"},

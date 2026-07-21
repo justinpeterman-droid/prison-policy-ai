@@ -24,8 +24,11 @@
   ::-webkit-scrollbar-thumb:hover{background:rgba(16,24,40,0.30)}
 
   nav{position:sticky;top:0;z-index:50;background:var(--panel);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);border-bottom:2px solid rgba(201,151,28,0.55);box-shadow:0 1px 12px -6px rgba(16,24,40,0.15);padding:0 24px;display:flex;align-items:center;height:52px;justify-content:space-between}
-  .brand{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:800;color:var(--text2);letter-spacing:-0.13px;text-decoration:none}
-  .brand .mark{width:26px;height:26px;border-radius:50%;display:block;box-shadow:0 1px 3px rgba(16,24,40,0.3)}
+  .brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:inherit}
+  .brand .mark{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:block;box-shadow:0 1px 3px rgba(16,24,40,0.3)}
+  .brand b{font-size:16px;font-weight:800;letter-spacing:-0.01em;color:var(--text)}
+  .brand > span{font-size:12px;color:var(--text4);font-weight:400;margin-left:2px}
+  .brand .brand-acronym{color:#c62828}
   .nav-right{display:flex;gap:4px}
   nav .nav-link{font-size:13px;font-weight:510;color:var(--text3);text-decoration:none;padding:6px 12px;border-radius:6px;transition:color .15s,background .15s}
   nav .nav-link:hover{color:var(--text);background:rgba(16,24,40,0.05)}
@@ -37,7 +40,18 @@
   @media(max-width:820px){.layout{flex-direction:column}.input-panel{width:100%;border-right:none;border-bottom:1px solid var(--border-sub)}.preview-panel{padding:20px 12px 40px}}
 
   h2{font-size:20px;font-weight:590;letter-spacing:-0.016em;color:var(--text);margin-bottom:4px}
-  .sub{font-size:13px;color:var(--text4);margin-bottom:22px;line-height:1.5}
+  .sub{font-size:13px;color:var(--text4);margin-bottom:12px;line-height:1.5}
+  .demo-cta{
+    font-size:13px;line-height:1.5;margin:0 0 18px;
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  }
+  .demo-cta a{
+    color:var(--accent2);font-weight:600;text-decoration:none;
+    border-bottom:1px dashed rgba(201,151,28,0.45);
+    transition:border-color .15s,color .15s;
+  }
+  .demo-cta a:hover{color:var(--accent);border-bottom-color:rgba(201,151,28,0.75)}
+  .demo-cta span{color:var(--text4);font-size:12.5px}
   .field-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text4);margin-bottom:8px;display:block}
 
   textarea{
@@ -215,6 +229,35 @@
   .unknown-btn:hover{background:rgba(212,60,48,0.18);border-color:var(--danger)}
   .unknown-btn.unknown-set{background:rgba(15,157,88,0.12);border-color:rgba(15,157,88,0.36);color:var(--green)}
 
+  /* Provenance trace — "Show sources" section */
+  .sources-toggle{
+    display:inline-flex;align-items:center;gap:7px;
+    font-size:11.5px;font-weight:600;color:var(--text4);
+    background:none;border:1px solid var(--border);border-radius:7px;
+    padding:7px 14px;cursor:pointer;font-family:inherit;
+    transition:all .15s;margin-top:6px;
+  }
+  .sources-toggle:hover{color:var(--text2);border-color:rgba(16,24,40,0.25);background:rgba(16,24,40,0.03)}
+  .sources-toggle .chev{transition:transform .15s;color:var(--text4)}
+  .sources-toggle.open .chev{transform:rotate(90deg)}
+  .sources-count{font-size:11px;color:var(--accent2);font-weight:560}
+  .trace-panel{display:none;margin-top:10px;background:linear-gradient(180deg,#fefefa,var(--surface));border:1px solid var(--border-sub);border-radius:10px;overflow:hidden;box-shadow:0 1px 2px rgba(16,24,40,0.04),0 6px 18px -12px rgba(16,24,40,0.12)}
+  .trace-panel.visible{display:block;animation:rise .2s ease}
+  .trace-head{display:flex;align-items:center;justify-content:space-between;padding:8px 13px;border-bottom:1px solid var(--border-sub);font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em}
+  .trace-head em{font-style:normal;color:var(--accent2);font-weight:700}
+  .trace-row{display:flex;align-items:flex-start;gap:10px;padding:8px 13px;border-bottom:1px solid rgba(16,24,40,0.04);font-size:12px;line-height:1.5}
+  .trace-row:last-child{border-bottom:none}
+  .trace-label{flex:0 0 auto;min-width:100px;font-weight:600;color:var(--text2)}
+  .trace-value{flex:1;color:var(--text3)}
+  .trace-value.inferred{color:var(--accent2);font-style:italic}
+  .trace-src{flex:1;color:var(--text4);font-size:11px;line-height:1.45;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .trace-src b{color:var(--text2);font-weight:700}
+  .trace-src.inferred{color:var(--accent2);font-style:italic}
+  @media(max-width:640px){
+    .trace-row{flex-direction:column;gap:2px;padding:10px 12px}
+    .trace-label{min-width:0}
+  }
+
   /* Officer buttons */
   .officer-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:10px 0;border-top:1px solid var(--border-sub);border-bottom:1px solid var(--border-sub)}
   .officer-row .field-label{width:100%}
@@ -341,7 +384,7 @@
 </head>
 <body>
 <nav>
-  <a class="brand" href="/"><img class="mark" src="/static/seal.svg" alt="" width="26" height="26">Standard Logistics</a>
+  <a class="brand" href="/"><img class="mark" src="/static/seal.svg" alt="" width="32" height="32"><b><span class="brand-acronym">S</span>tandard <span class="brand-acronym">L</span>ogistics</b><span><span class="brand-acronym">U</span>nit <span class="brand-acronym">T</span>ools</span></a>
   <div class="nav-right">
     <a class="nav-link" href="/chat">Reference Search →</a>
     <a class="nav-link" href="/roster">Unit Roster</a>
@@ -353,6 +396,7 @@
   <div class="input-panel">
     <h2>Field notes → forms</h2>
     <p class="sub">Paste what you wrote. Preview the 005/409 live, then download Word when it looks right.</p>
+    <p class="demo-cta"><a href="/reports?demo=1">Try a demo →</a><span>Watch sample field notes run through the whole pipeline — no typing, one click.</span></p>
 
     <label class="field-label" for="notes">Field Notes</label>
     <textarea id="notes" oninput="onNotesInput()" placeholder="Garcia ADC#448291 &amp; Whitaker ADC#773015 fighting 8 Barracks ~10pm. Whitaker cut over eye. Sgt Delgado cuffed. Cpl Brennan &amp; Ortiz escorted to RH."></textarea>
@@ -406,6 +450,12 @@
     <div id="verify"></div>
 
     <div id="reports"></div>
+    <div id="sourcesArea" style="display:none">
+      <button class="sources-toggle" id="sourcesToggle" onclick="toggleSources()">
+        Show sources <span class="chev">▸</span> <span class="sources-count" id="sourcesCnt"></span>
+      </button>
+      <div class="trace-panel" id="tracePanel"></div>
+    </div>
     <button class="secondary preview-toggle" id="previewToggle" onclick="togglePreview()">Show preview</button>
   </div>
 
@@ -544,6 +594,8 @@ function clearAll(){
   _charges=[];_chargeDesc={};
   const _cp=document.getElementById('chargesPanel');if(_cp){_cp.style.display='none';_cp.innerHTML='';}
   const _v=document.getElementById('verify');if(_v){_v.className='';_v.innerHTML='';}
+  document.getElementById('sourcesArea').style.display='none';
+  document.getElementById('tracePanel').innerHTML='';
   hidePipeline();
   localStorage.removeItem(DRAFT_KEY);
   countChars();
@@ -679,6 +731,7 @@ async function runGenerate(reporterIndex){
     renderVerify(d);
     buildToolbar(d);
     showForm('form005');
+    renderProvenance();
     if(window.matchMedia('(max-width: 820px)').matches)togglePreview(true);
   }catch(e){
     setPipeline('draft','idle');
@@ -686,6 +739,47 @@ async function runGenerate(reporterIndex){
   }finally{
     if(continueBtn){continueBtn.disabled=false;continueBtn.textContent='Continue →';}
   }
+}
+function renderProvenance(){
+  const area=document.getElementById('sourcesArea');
+  const cnt=document.getElementById('sourcesCnt');
+  const panel=document.getElementById('tracePanel');
+  const btn=document.getElementById('sourcesToggle');
+  const provenance=_extractedData?.provenance;
+  if(!provenance||!provenance.length){
+    area.style.display='none';
+    return;
+  }
+  const anchored=provenance.filter(e=>e.source);
+  const inferred=provenance.filter(e=>!e.source);
+  cnt.textContent=`${anchored.length} anchored · ${inferred.length} inferred`;
+  area.style.display='';
+
+  let html=`<div class="trace-head">Field notes → form fields <em>${anchored.length} matched</em></div>`;
+  provenance.forEach(e=>{
+    const hasSrc=e.source&&!e.source.startsWith('~');
+    const fuzzy=e.source&&e.source.startsWith('~');
+    const srcClass=hasSrc?'':' inferred';
+    const cleanSource=(e.source||'').replace(/^\u007e/,'');
+    html+=`<div class="trace-row">
+      <span class="trace-label">${esc(e.label)}</span>
+      ${e.source
+        ?`<span class="trace-src${srcClass}">${fuzzy?'≈ ':''}${cleanSource}</span>`
+        :`<span class="trace-src inferred">⚡ Inferred — not verbatim in notes</span>`
+      }
+    </div>`;
+  });
+  panel.innerHTML=html;
+  // Reset toggle state
+  panel.classList.remove('visible');
+  btn.classList.remove('open');
+}
+function toggleSources(){
+  const panel=document.getElementById('tracePanel');
+  const btn=document.getElementById('sourcesToggle');
+  const open=!panel.classList.contains('visible');
+  panel.classList.toggle('visible',open);
+  btn.classList.toggle('open',open);
 }
 function reportBox(title,text){
   const idx=_reportTexts.push(text)-1;
@@ -1224,13 +1318,23 @@ function saveBlob(blob,name){
 (function(){
   const saved=localStorage.getItem(DRAFT_KEY);
   const notes=document.getElementById('notes');
-  if(saved&&!notes.value){
+  const params=new URLSearchParams(window.location.search);
+  const isDemo=params.get('demo')==='1';
+
+  if(isDemo && !notes.value){
+    notes.value="Garcia ADC#448291 & Whitaker ADC#773015 fighting 8 Barracks ~10pm. Whitaker cut over eye. Sgt Delgado cuffed. Cpl Brennan & Ortiz escorted to RH.";
+    countChars();
+    // Brief delay so the user sees the pre-filled notes, then auto-run
+    setTimeout(function(){generate()},800);
+  }else if(saved&&!notes.value){
     notes.value=saved;
     const note=document.getElementById('draftNote');
     note.textContent='Draft restored';note.classList.add('saved');
     setTimeout(()=>{note.textContent='';note.classList.remove('saved')},2500);
+    countChars();
+  }else{
+    countChars();
   }
-  countChars();
 })();
 </script>
 </body>
