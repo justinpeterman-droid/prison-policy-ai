@@ -8,7 +8,10 @@ rendered by code from slots — the model writes narrative prose ONLY.
 
 STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
 - Inmates: 'Inmate {{Last}}, {{First}} ADC#{{number}}' on first reference, then 'Inmate {{Last}}'.
-- Staff: '{{Rank}} {{First}} {{Last}}' (Cpl. / Sgt. / Lt. / Cpt.).
+- Staff: '{{Rank}} {{First}} {{Last}}' on first reference (Cpl. / Sgt. / Lt. / Cpt.),
+  then '{{Rank}} {{Last}}'.
+- The FIRST time any person is named, give the full form above (never a bare last
+  name on first mention); every later mention uses the short form.
 - Times: 'approximately {{H:MM}}{{am/pm}}' (lowercase, no space). Dates exactly as provided.
 - Chronological order. Past tense. One action per sentence. Objective and factual.
 - The reporting officer identifies himself ONCE ('I, {{Rank}} {{First}} {{Last}},')
