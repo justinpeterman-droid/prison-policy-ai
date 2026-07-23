@@ -1,23 +1,15 @@
 {
-  "facility": "Benny Magness Unit",
   "shifts": {
-    "A": {"label": "Day Shift", "hours": ""},
-    "B": {"label": "Day Shift", "hours": ""},
-    "C": {"label": "Night Shift", "hours": ""},
-    "D": {"label": "Night Shift", "hours": ""},
-    "U": {"label": "Utility", "hours": ""},
-    "F": {"label": "Field", "hours": ""}
+    "A": {"label": "A Shift", "hours": "Day (06:00–18:00)"},
+    "B": {"label": "B Shift", "hours": "Day (06:00–18:00)"},
+    "C": {"label": "C Shift", "hours": "Night (18:00–06:00)"},
+    "D": {"label": "D Shift", "hours": "Night (18:00–06:00)"},
+    "U": {"label": "U Shift", "hours": "Utility"},
+    "F": {"label": "F Shift", "hours": "Field"}
   },
   "staff": [
-    {"last": "Peterman", "first": "Justin", "rank": "Sgt.", "employee_number": "B5123", "shift": "B"},
-    {"last": "Powell", "first": "Austin", "rank": "Cpl.", "employee_number": "B7841", "shift": "B"},
-    {"last": "Sohns", "first": "Jack", "rank": "Cpl.", "employee_number": "B6392", "shift": "B"},
-    {"last": "Davis", "first": "Michael", "rank": "Cpt.", "employee_number": "A1104", "shift": "A"},
-    {"last": "Adams", "first": "Robert", "rank": "Sgt.", "employee_number": "A3356", "shift": "A"},
-    {"last": "Torres", "first": "Maria", "rank": "Cpl.", "employee_number": "A7791", "shift": "A"},
-    {"last": "Miller", "first": "David", "rank": "Cpl.", "employee_number": "C4420", "shift": "C"},
-    {"last": "White", "first": "Thomas", "rank": "Cpl.", "employee_number": "C5583", "shift": "C"},
-    {"last": "Roberts", "first": "James", "rank": "Cpl.", "employee_number": "D2218", "shift": "D"}
-  ],
-  "_instructions": "Replace staff entries with real officers. Add/remove rows freely. 'shift' must match a key in 'shifts' above. Last name is the primary lookup key — make sure there are no duplicates."
+    {"rank": "Sgt", "first": "Miguel", "last": "Delgado", "employee_number": "D4721", "shift": "A"},
+    {"rank": "Cpl", "first": "Thomas", "last": "Brennan", "employee_number": "B3398", "shift": "A"},
+    {"rank": "Cpl", "first": "Daniel", "last": "Ortiz", "employee_number": "O5521", "shift": "A"}
+  ]
 }

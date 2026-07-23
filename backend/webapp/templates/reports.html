@@ -834,7 +834,7 @@ function renderGapWidget(g,cls){
   // Incident number: auto-generated YYYY-MM-###, fully editable.
   if(slot==='incident_number_last3'){
     // Use incident date from slots (if available) for the prefix, not today.
-    const incidentDate = (state.slots && state.slots.date) || null;
+    const incidentDate = (_extractedSlots && _extractedSlots.date) || null;
     let pfx = '';
     if (incidentDate) {
       // Parse MM-DD-YYYY or YYYY-MM-DD
@@ -850,7 +850,7 @@ function renderGapWidget(g,cls){
       pfx = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-`;
     }
     // Pre-fill from auto-generated number if available, otherwise just the digits
-    const existing = (state.slots && state.slots.incident_number) || '';
+    const existing = (_extractedSlots && _extractedSlots.incident_number) || '';
     const defVal = existing || '';
     return `<div class="gap-item ${cls}" data-gap-slot="${esc(slot)}">
       <div class="gap-q">${esc(g.question)}</div>
