@@ -132,6 +132,8 @@ def run_test(name: str, notes: str, verbose: bool = True) -> dict:
             answers[slot] = g.get("default", "") or (g.get("options", [""])[0] if g.get("options") else "")
         elif atype == "yes_no":
             answers[slot] = "Yes"
+        elif slot == "officer_name":
+            answers[slot] = "Sgt. Justin Peterman"
         else:
             answers[slot] = f"TEST-{slot}"
     
