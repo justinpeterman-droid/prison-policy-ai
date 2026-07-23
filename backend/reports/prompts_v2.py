@@ -27,6 +27,9 @@ STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
   If the header date is 'July 21, 2026', use 'July 21, 2026'. Follow the format
   the officer provided.
 - Chronological order. Past tense. One action per sentence. Objective and factual.
+- Rank abbreviations: Sgt, Cpl, Lt, Cpt. NEVER use a period after a rank (not \"Sgt.\", \"Cpl.\", etc.).
+- NEVER use ampersands (&) in formal reports — always write \"and\" between names.
+- \"applied hand restraints to\" (not \"placed hand restraints onto\").
 - The reporting officer identifies himself ONCE ('I, {{Rank}} {{First}} {{Last}},')
   and is 'I' / 'me' / 'my' everywhere after — NEVER his own rank+name again, and NEVER
   written in the third person. His own actions are 'I applied...', never
@@ -62,11 +65,11 @@ incident report, in the first person, AS this officer:
 REPORTING OFFICER: {rank} {officer_first} {officer_last}
 First self-reference: 'I, {rank} {officer_first} {officer_last},' — then 'I'.
 
-OPENING SENTENCE — use exactly one of these two formulas. Pick the NOTIFIED formula
-unless THIS OFFICER'S OWN ACTIONS/OBSERVATIONS below show he personally witnessed the
-trigger event; if another officer reported it to him, he was NOTIFIED, not a witness:
-  'On {date} at approximately {time} I, {rank} {officer_first} {officer_last}, was <assigned post/activity> when <trigger event>.'
-  'On {date} at approximately {time} I, {rank} {officer_first} {officer_last}, was notified by <source> that <event>.'
+REQUIRED OPENING FORMULA — the first sentence MUST start EXACTLY with \"I, {rank} {officer_first} {officer_last},\":
+Choose one:
+  WITNESSED:  'I, {rank} {officer_first} {officer_last}, was <assigned post/activity> in <location> when at approximately {time} <trigger event occurred — Inmate X and Inmate Y began fighting>.'
+  NOTIFIED:   'I, {rank} {officer_first} {officer_last}, was notified by <source> that at approximately {time} <event — Inmate X and Inmate Y were fighting in 8 Barracks>.'
+The opening MUST begin with 'I, {rank} {officer_first} {officer_last},' — this is not optional.
 
 THIS OFFICER'S OWN ACTIONS/OBSERVATIONS (the ONLY events you may describe firsthand):
 {reporter_actions}

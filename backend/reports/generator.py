@@ -93,6 +93,18 @@ def _esc(s: str) -> str:
     return s.replace("{", "{{").replace("}", "}}")
 
 
+def _clean_report(text: str) -> str:
+    """Post-process AI-generated report to fix common mistakes."""
+    import re
+    # "Sgt." → "Sgt", "Cpl." → "Cpl", etc. (only when followed by space/name)
+    text = re.sub(r'\b(Sgt|Cpl|Lt|Cpt)\.(\s)', r'\1\2', text)
+    # Ampersands between names → "and"
+    text = re.sub(r'(\w)\s*&\s*(\w)', r'\1 and \2', text)
+    # "placed hand restraints onto" → "applied hand restraints to"
+    text = re.sub(r'placed hand restraints onto', 'applied hand restraints to', text)
+    return text
+
+
 # ── Per-report generators (all receive structured data ONLY) ──────
 
 
@@ -109,7 +121,7 @@ def generate_first_person(slots: dict, auto_content: list[dict] | None = None,
         quotes=_esc(_quotes_str(slots)),
         auto_content=_esc(_auto_for("first_person", auto_content)),
     )
-    return _generate(prompt, prompt)  # system=user for single-message flow
+    return _clean_report(_generate(prompt, prompt))  # system=user for single-message flow
 
 
 def generate_supervisor_summary(slots: dict, auto_content: list[dict] | None = None) -> str:
@@ -121,7 +133,7 @@ def generate_supervisor_summary(slots: dict, auto_content: list[dict] | None = N
         quotes=_esc(_quotes_str(slots)),
         auto_content=_esc(_auto_for("supervisor_summary", auto_content)),
     )
-    return _generate(prompt, prompt)
+    return _clean_report(_generate(prompt, prompt))
 
 
 def generate_cover_letter(slots: dict, auto_content: list[dict] | None = None) -> str:
@@ -134,7 +146,7 @@ def generate_cover_letter(slots: dict, auto_content: list[dict] | None = None) -
         narrative_facts=_esc(_narrative_facts_str(slots)),
         auto_content=_esc(_auto_for("cover_letter", auto_content)),
     )
-    return _generate(prompt, prompt)
+    return _clean_report(_generate(prompt, prompt))
 
 
 def generate_disciplinary(slots: dict, first_person_report: str,
