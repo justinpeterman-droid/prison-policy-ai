@@ -37,7 +37,7 @@
   /* Split layout */
   .split{flex:1;min-height:0;display:flex;max-width:1280px;width:100%;margin:0 auto}
   .conv-pane{flex:1 1 58%;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--border-sub)}
-  .cite-pane{flex:1 1 42%;min-width:0;display:flex;flex-direction:column;background:linear-gradient(180deg,#0c1626,var(--navy) 55%,#101f34)}
+  .cite-pane{flex:1 1 42%;min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column;background:linear-gradient(180deg,#0c1626,var(--navy) 55%,#101f34)}
 
   .pane-head{flex:0 0 auto;padding:22px 24px 12px}
   .pane-head h1{font-size:23px;font-weight:800;letter-spacing:-0.018em;color:var(--text)}
@@ -105,7 +105,7 @@
   .cite-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#8f9aab;padding:40px 24px}
   .cite-empty .glyph{width:44px;height:44px;border-radius:50%;margin-bottom:14px;display:flex;align-items:center;justify-content:center;font-size:19px;background:rgba(201,151,28,0.14);border:1px solid rgba(201,151,28,0.4);color:var(--accent)}
   .cite-empty p{font-size:13px;max-width:280px;line-height:1.6}
-  .passage{background:linear-gradient(180deg,#16294a,var(--navy2));border:1px solid rgba(255,255,255,0.10);border-radius:10px;overflow:hidden;animation:rise .25s ease;scroll-margin-top:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 10px 26px -14px rgba(0,0,0,0.5)}
+  .passage{background:linear-gradient(180deg,#16294a,var(--navy2));border:1px solid rgba(255,255,255,0.10);border-radius:10px;overflow:hidden;animation:rise .25s ease;scroll-margin-top:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 10px 26px -14px rgba(0,0,0,0.5);cursor:pointer}
   .passage.flash{animation:flashbg 1.6s ease}
   @keyframes flashbg{0%,22%{border-color:rgba(221,176,65,0.85);box-shadow:0 0 0 3px var(--hl)}100%{border-color:rgba(255,255,255,0.10);box-shadow:none}}
   .passage .p-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 13px;border-bottom:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03)}
@@ -115,7 +115,11 @@
   .passage .p-copy{font-size:11px;color:#ddb041;cursor:pointer;background:none;border:none;font-weight:700;padding:3px 7px;border-radius:5px;font-family:inherit;transition:background .15s;flex:0 0 auto}
   .passage .p-copy:hover{background:rgba(201,151,28,0.18)}
   .passage .p-copy.done{color:#3ddc84}
-  .passage .p-body{padding:12px 14px;font-size:13px;line-height:1.7;color:#b9c2d0;white-space:pre-wrap;max-height:360px;overflow-y:auto}
+  .passage .p-body{position:relative;padding:12px 14px;font-size:13px;line-height:1.7;color:#b9c2d0;white-space:pre-wrap;max-height:200px;overflow:hidden}
+  .passage .p-body::after{content:'';position:absolute;bottom:0;left:0;right:0;height:48px;background:linear-gradient(transparent,rgba(19,36,65,0.92));pointer-events:none}
+  .passage .p-body .p-more{display:block;text-align:center;font-size:11px;font-weight:600;color:#ddb041;padding:4px 0 0;cursor:pointer}
+  .passage.expanded .p-body{max-height:none;overflow-y:auto}
+  .passage.expanded .p-body::after{display:none}
   .cite-for{font-size:11.5px;color:#8f9aab;padding:2px 0 2px}
 
   /* Mobile: citation pane becomes a slide-over overlay */
@@ -250,18 +254,18 @@ function showCites(convIdx,focusN){
   const c=convos[convIdx];if(!c)return;
   if(activeConv!==convIdx){
     activeConv=convIdx;
-    citeFor.textContent='For: "'+(c.question.length>60?c.question.slice(0,60)+'…':c.question)+'"';
+    citeFor.textContent='For: "'+(c.question.length>60?c.question.slice(0,60)+'\u2026':c.question)+'"';
     if(!c.citations.length){
-      citesEl.innerHTML=`<div class="cite-empty"><div class="glyph">§</div><p>No source passages were returned for this answer.</p></div>`;
+      citesEl.innerHTML=`<div class="cite-empty"><div class="glyph">\u00a7</div><p>No source passages were returned for this answer.</p></div>`;
     }else{
       citesEl.innerHTML=c.citations.map(p=>{
         const label=p.source||('Policy excerpt '+p.n);
-        return `<div class="passage" id="p-${convIdx}-${p.n}">
+        return `<div class="passage" id="p-${convIdx}-${p.n}" onclick="togglePassage(this,event)">
           <div class="p-head">
             <div class="who"><span class="num">${p.n}</span><span class="src">${esc(label)}</span></div>
-            <button class="p-copy" onclick="copyPassage(${convIdx},${p.n},this)">Copy</button>
+            <button class="p-copy" onclick="copyPassage(${convIdx},${p.n},this);event.stopPropagation()">Copy</button>
           </div>
-          <div class="p-body">${esc(p.text)}</div>
+          <div class="p-body">${esc(p.text)}<span class="p-more">Show more \u25bc</span></div>
         </div>`;
       }).join('');
     }
@@ -273,6 +277,14 @@ function showCites(convIdx,focusN){
   }else{
     citesEl.scrollTop=0;
   }
+}
+function togglePassage(el,event){
+  if(event.target.closest('.p-copy'))return;
+  const wasExpanded=el.classList.contains('expanded');
+  el.classList.toggle('expanded');
+  const more=el.querySelector('.p-more');
+  if(more)more.textContent=wasExpanded?'Show more \u25bc':'Show less \u25b2';
+  if(!wasExpanded)el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function copyPassage(convIdx,n,btn){
   const p=(convos[convIdx]?.citations||[]).find(x=>x.n===n);
