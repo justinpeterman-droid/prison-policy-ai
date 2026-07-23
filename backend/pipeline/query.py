@@ -166,7 +166,7 @@ def _expand_query(question: str) -> str:
     return question
 
 
-def _search_data_store(query: str, page_size: int = 5) -> list[dict]:
+def _search_data_store(query: str, page_size: int = 10) -> list[dict]:
     """Search the Agent Builder data store. Returns [{text, source}, ...]."""
     token = _get_token()
     url = f"https://discoveryengine.googleapis.com/v1beta/{SERVING_CONFIG}:search"
@@ -175,7 +175,7 @@ def _search_data_store(query: str, page_size: int = 5) -> list[dict]:
         "pageSize": page_size,
         "queryExpansionSpec": {"condition": "AUTO"},
         "spellCorrectionSpec": {"mode": "AUTO"},
-        "contentSearchSpec": {"snippetSpec": {"maxSnippetCount": 20, "returnSnippet": True}},
+        "contentSearchSpec": {"snippetSpec": {"maxSnippetCount": 5, "returnSnippet": True}},
     }
     data = json.dumps(body).encode()
     req = urllib.request.Request(url, data=data, method="POST")
@@ -238,7 +238,7 @@ def answer_question(question: str) -> dict:
         }
 
     # ── Search ──
-    contexts = _search_data_store(_expand_query(question), page_size=10)
+    contexts = _search_data_store(_expand_query(question), page_size=25)
     logger.info("answer_question: %d contexts, first source=%s",
                 len(contexts),
                 contexts[0]["source"][:60] if contexts else "None")
