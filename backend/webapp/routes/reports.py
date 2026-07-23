@@ -440,31 +440,6 @@ def reports_generate():
         # Merge gap answers into slots
         slots = dict(slots)
         slots.update(answers)
-        # If the officer_name gap was answered, parse it into component fields.
-        officer_name = slots.pop("officer_name", None)
-        if officer_name:
-            name = str(officer_name).strip()
-            # Extract rank prefix first
-            rank_parsed = _parse_rank(name)
-            if rank_parsed:
-                name = name[len(rank_parsed):].strip()
-            # Parse remaining name
-            if "," in name:
-                last, first, middle = _parse_name(name)
-            else:
-                parts = name.split()
-                if len(parts) == 1:
-                    last, first = parts[0], ""
-                else:
-                    first, last = parts[0], parts[-1]
-            if last and not slots.get("officer_last"):
-                slots["officer_last"] = last
-            if first and not slots.get("officer_first"):
-                slots["officer_first"] = first
-            if rank_parsed and not slots.get("rank"):
-                slots["rank"] = rank_parsed
-            logger.info("Parsed officer_name %r -> rank=%r first=%r last=%r",
-                        officer_name, rank_parsed, first if 'first' in dir() else '', last if 'last' in dir() else '')
         # Fold any first-name answers back into the inmate records.
         _apply_first_name_answers(slots, answers)
 
@@ -514,6 +489,31 @@ def reports_generate():
         if officers and reporter_index < len(officers):
             reporter = officers[reporter_index]
             slots = bind_reporter(slots, reporter)
+        # If the officer_name gap was answered, parse into component fields
+        # (must run AFTER bind_reporter so person-dict nulls don't overwrite)
+        officer_name = answers.get("officer_name", "")
+        if officer_name:
+            name = str(officer_name).strip()
+            rank_parsed = _parse_rank(name)
+            if rank_parsed:
+                name = name[len(rank_parsed):].strip()
+            if "," in name:
+                last, first, middle = _parse_name(name)
+            else:
+                parts = name.split()
+                if len(parts) == 1:
+                    last, first = parts[0], ""
+                else:
+                    first, last = parts[0], parts[-1]
+            if last:
+                slots["officer_last"] = last
+            if first:
+                slots["officer_first"] = first
+            if rank_parsed:
+                slots["rank"] = rank_parsed
+            logger.info("Parsed officer_name %r -> rank=%r first=%r last=%r",
+                        officer_name, rank_parsed, first, last)
+
         elif reporters := [p for p in slots.get("persons", [])
                           if p.get("role") == "security_staff"]:
             reporter = reporters[0]
