@@ -175,7 +175,10 @@ def _search_data_store(query: str, page_size: int = 5) -> list[dict]:
         "pageSize": page_size,
         "queryExpansionSpec": {"condition": "AUTO"},
         "spellCorrectionSpec": {"mode": "AUTO"},
-        "contentSearchSpec": {"snippetSpec": {"maxSnippetCount": 5, "returnSnippet": True}},
+        "contentSearchSpec": {
+            "snippetSpec": {"maxSnippetCount": 20, "returnSnippet": True},
+            "extractiveContentSpec": {"maxExtractiveSegmentCount": 5},
+        },
     }
     data = json.dumps(body).encode()
     req = urllib.request.Request(url, data=data, method="POST")
@@ -203,8 +206,21 @@ def _search_data_store(query: str, page_size: int = 5) -> list[dict]:
     contexts = []
     for r in result.get("results", []):
         doc = r.get("document", {}).get("derivedStructData", {})
+        # Gather snippets
         snippets = doc.get("snippets", [])
-        text = " ".join(s.get("snippet", "") for s in snippets)
+        snippet_text = " ".join(s.get("snippet", "") for s in snippets)
+        # Gather extractive segments (longer coherent passages)
+        extractive_segments = doc.get("extractiveSegments", [])
+        segment_text = " ".join(
+            s.get("content", "") for s in extractive_segments
+        )
+        # Build text: prefer segments (longer) + supplement with snippets
+        parts = []
+        if segment_text:
+            parts.append(segment_text)
+        if snippet_text and snippet_text not in (parts[0] if parts else ""):
+            parts.append(snippet_text)
+        text = "\n\n".join(parts)
         if not text:
             extractive = doc.get("extractiveAnswers", [{}])
             text = extractive[0].get("content", "") if extractive else ""
