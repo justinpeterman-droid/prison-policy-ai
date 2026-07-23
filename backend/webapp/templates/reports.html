@@ -144,6 +144,10 @@
   .charges-panel .cp-add{margin-top:8px;display:flex;gap:6px}
   .charges-panel .cp-add input{flex:1;min-width:0;padding:6px 9px;background:rgba(16,24,40,0.02);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;outline:none}
   .charges-panel .cp-add input:focus{border-color:rgba(201,151,28,0.5);box-shadow:0 0 0 3px rgba(201,151,28,0.15)}
+  .cp-inmate-group{margin-bottom:4px}
+  .cp-inmate-group .cp-inmate-name{font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.04em;padding:8px 0 2px;border-top:1px solid var(--border-sub)}
+  .cp-inmate-group:first-child .cp-inmate-name{border-top:none}
+  .cp-inmate-group .charge{padding-left:4px}
 
   /* Incident-number prefixed widget */
   .inc-wrap{display:inline-flex;align-items:center;flex:1;min-width:150px;background:rgba(16,24,40,0.02);border:1px solid var(--border);border-radius:6px;overflow:hidden}
@@ -491,36 +495,81 @@ const CATEGORY_LABELS={
 let _reportTexts=[];
 let _data=null;
 let _confirmedCategory=null;
-let _charges=[];        // AI-suggested charge codes (officer confirms)
+let _charges=[];        // AI-suggested charges [{code, inmate, description}]
 let _chargeDesc={};     // code -> description
 let _activeForm='form005';
 let _draftTimer=null,_stageTimer=null;
 
 /* ---- AI charge confirmation ---- */
+function _inmateNames(){
+  const names=[];
+  _charges.forEach(c=>{const n=(c.inmate||'').trim();if(n)names.push(n)});
+  if(_extractedSlots&&_extractedSlots.persons){
+    _extractedSlots.persons.filter(p=>p.role==='inmate').forEach(p=>{
+      const name=[p.first,p.last].filter(Boolean).join(' ')||p.last||'';
+      if(name&&!names.includes(name))names.push(name);
+    });
+  }
+  return [...new Set(names)];
+}
 function renderCharges(){
   const el=document.getElementById('chargesPanel');
   el.style.display='';
   el.className='charges-panel';
-  let rows;
-  if(_charges.length){
-    rows=_charges.map(code=>`<label class="charge">
-      <input type="checkbox" class="charge-cb" value="${esc(code)}" checked>
-      <span class="c-code">${esc(code)}</span>
-      <span class="c-desc">${esc(_chargeDesc[code]||'')}</span>
-    </label>`).join('');
-  }else{
-    rows=`<div class="cp-none">No disciplinary charge was auto-detected — add one below if this incident warrants it.</div>`;
+  if(!_charges.length){
+    el.innerHTML=`<div class="cp-head"><span class="cp-title">Suggested charges</span><span class="cp-hint">from the disciplinary handbook — uncheck any that don't apply</span></div>
+      <div class="cp-none">No disciplinary charge was auto-detected — add one below if this incident warrants it.</div>
+      ${_addChargeRow()}`;
+    return;
+  }
+  // Group by inmate
+  const groups={},unassigned=[];
+  _charges.forEach(c=>{const n=(c.inmate||'').trim();if(n){(groups[n]=groups[n]||[]).push(c)}else{unassigned.push(c)}});
+  const groupNames=Object.keys(groups);
+  let html='';
+  groupNames.forEach(name=>{
+    html+=`<div class="cp-inmate-group"><div class="cp-inmate-name">${esc(name)}</div>`;
+    groups[name].forEach(c=>{html+=_chargeRow(c);});
+    html+='</div>';
+  });
+  if(unassigned.length){
+    if(groupNames.length)html+='<div class="cp-inmate-group"><div class="cp-inmate-name">Other</div>';
+    unassigned.forEach(c=>{html+=_chargeRow(c);});
+    if(groupNames.length)html+='</div>';
   }
   el.innerHTML=`<div class="cp-head"><span class="cp-title">Suggested charges</span><span class="cp-hint">from the disciplinary handbook — uncheck any that don't apply</span></div>
-    <div id="chargeRows">${rows}</div>
-    <div class="cp-add"><input type="text" id="chargeAdd" placeholder="Add code, e.g. 04-1" onkeydown="if(event.key==='Enter'){event.preventDefault();addCharge()}"><button class="secondary" onclick="addCharge()" style="padding:6px 12px">Add</button></div>`;
+    <div id="chargeRows">${html}</div>${_addChargeRow()}`;
+}
+function _chargeRow(c){
+  return `<label class="charge">
+    <input type="checkbox" class="charge-cb" value="${esc(c.code)}" checked>
+    <span class="c-code">${esc(c.code)}</span>
+    <span class="c-desc">${esc(c.description||_chargeDesc[c.code]||'')}</span>
+  </label>`;
+}
+function _addChargeRow(){
+  const names=_inmateNames();
+  let sel='';
+  if(names.length){
+    sel=`<select id="chargeInmate" style="padding:6px 9px;background:rgba(16,24,40,0.02);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-family:inherit;font-size:12px;outline:none;min-width:0">
+      <option value="">All inmates</option>
+      ${names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}
+    </select>`;
+  }
+  return `<div class="cp-add">${sel}<input type="text" id="chargeAdd" placeholder="Add code, e.g. 04-1" onkeydown="if(event.key==='Enter'){event.preventDefault();addCharge()}"><button class="secondary" onclick="addCharge()" style="padding:6px 12px">Add</button></div>`;
 }
 function addCharge(){
   const inp=document.getElementById('chargeAdd');
   const code=(inp.value||'').trim();
   if(!code)return;
-  if(!_charges.includes(code)){_charges.push(code);renderCharges();}
-  document.getElementById('chargeAdd').focus();
+  const sel=document.getElementById('chargeInmate');
+  const inmate=sel?sel.value:'';
+  if(!_charges.some(c=>c.code===code&&c.inmate===inmate)){
+    _charges.push({code,inmate,description:''});
+    renderCharges();
+  }
+  inp.value='';
+  inp.focus();
 }
 function collectCharges(){
   return [...document.querySelectorAll('.charge-cb:checked')].map(cb=>cb.value);
@@ -661,7 +710,7 @@ async function generate(){
     if(d.error)throw new Error(d.error);
     setPipeline('classify','done');
     showCatChip(d.incident_type,d.label);
-    _charges=[...new Set((d.charges||[]).map(c=>typeof c==='string'?c:c.code))];_chargeDesc=d.charge_descriptions||{};
+    _chargeDesc=d.charge_descriptions||{};_charges=(d.charges||[]).map(c=>typeof c==='string'?{code:c,inmate:'',description:_chargeDesc[c]||''}:c);
     renderCharges();
   }catch(e){
     setPipeline('classify','idle');
