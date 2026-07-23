@@ -81,7 +81,7 @@ REQUIRED SENTENCES (insert verbatim, chronologically placed):
 {auto_content}
 
 PER-INMATE DISPOSITION — after the narrative, add one line per inmate:
-'Inmate {Last}, {First} ADC#{number} was [placed in restrictive housing / released to barracks / transferred to medical / etc.].'
+'Inmate {{Last}}, {{First}} ADC#{{number}} was [placed in restrictive housing / released to barracks / transferred to medical / etc.].'
 Different inmates may have different outcomes — state each individually.
 
 """ + STYLE_RULES + """

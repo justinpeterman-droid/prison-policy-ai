@@ -81,9 +81,9 @@ def _reporter_actions_str(slots: dict, reporter_index: int = 0) -> str:
 
 
 def _opening_actor(slots: dict) -> str:
-    rank = slots.get("rank", "")
-    first = slots.get("officer_first", "")
-    last = slots.get("officer_last", "")
+    rank = _fmt(slots.get("rank"), "")
+    first = _fmt(slots.get("officer_first"), "")
+    last = _fmt(slots.get("officer_last"), "")
     return f"{rank} {first} {last}".strip() or "the reporting officer"
 
 
