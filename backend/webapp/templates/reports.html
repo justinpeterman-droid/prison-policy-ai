@@ -661,7 +661,7 @@ async function generate(){
     if(d.error)throw new Error(d.error);
     setPipeline('classify','done');
     showCatChip(d.incident_type,d.label);
-    _charges=d.charges||[];_chargeDesc=d.charge_descriptions||{};
+    _charges=[...new Set((d.charges||[]).map(c=>typeof c==='string'?c:c.code))];_chargeDesc=d.charge_descriptions||{};
     renderCharges();
   }catch(e){
     setPipeline('classify','idle');
