@@ -6,8 +6,8 @@ by code from slots — the model writes narrative prose ONLY.
 """
 import os
 import logging
-import vertexai
-from vertexai.generative_models import GenerativeModel
+from google import genai
+from google.genai import types
 from backend.pipeline.config import PROJECT_ID, LOCATION, GENERATION_MODEL
 from backend.reports.prompts_v2 import (
     FIRST_PERSON_PROMPT,
@@ -19,13 +19,23 @@ from backend.reports.prompts_v2 import (
 logger = logging.getLogger(__name__)
 
 MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", LOCATION)
-vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
+
+_client = None
+
+
+def _get_client() -> genai.Client:
+    global _client
+    if _client is None:
+        _client = genai.Client(vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION)
+    return _client
 
 
 def _generate(system_prompt: str, user_prompt: str) -> str:
-    vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
-    model = GenerativeModel(model_name=GENERATION_MODEL, system_instruction=system_prompt)
-    response = model.generate_content(user_prompt)
+    response = _get_client().models.generate_content(
+        model=GENERATION_MODEL,
+        contents=user_prompt,
+        config=types.GenerateContentConfig(system_instruction=system_prompt),
+    )
     return response.text
 
 

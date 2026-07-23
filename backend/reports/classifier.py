@@ -3,8 +3,8 @@ import json
 import os
 import re
 import logging
-import vertexai
-from vertexai.generative_models import GenerativeModel
+from google import genai
+from google.genai import types
 from backend.pipeline.config import PROJECT_ID, LOCATION, GENERATION_MODEL
 from backend.reports.prompts import build_classifier_prompt
 from backend.reports.schema import load_checklist
@@ -15,6 +15,7 @@ VALID_CATEGORIES = {
     "contraband", "inmate_fight", "staff_assault", "forced_cell_movement",
     "prea", "incident_no_disciplinary", "other_rule_violation",
 }
+
 
 def _category_label(incident_type: str) -> str:
     try:
@@ -29,7 +30,15 @@ def _category_label(incident_type: str) -> str:
 # Model may need a different location than the app default (e.g. gemini-3.5-flash
 # is global-only while RAG/corpus lives in us-central1).
 MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", LOCATION)
-vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
+
+_client = None
+
+
+def _get_client() -> genai.Client:
+    global _client
+    if _client is None:
+        _client = genai.Client(vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION)
+    return _client
 
 
 def _extract_json_from_response(text: str) -> str:
@@ -47,15 +56,7 @@ def _extract_json_from_response(text: str) -> str:
 
 def classify_incident(notes: str) -> dict:
     """Classify field notes into structured incident data."""
-    # Re-init in case another module changed vertexai's global location.
-    vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
-
     system_prompt, charge_catalog = build_classifier_prompt()
-
-    model = GenerativeModel(
-        model_name=GENERATION_MODEL,
-        system_instruction=system_prompt,
-    )
 
     prompt = (
         f"Classify this incident from the field notes:\n\n"
@@ -64,7 +65,11 @@ def classify_incident(notes: str) -> dict:
         f"Return ONLY valid JSON."
     )
 
-    response = model.generate_content(prompt)
+    response = _get_client().models.generate_content(
+        model=GENERATION_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(system_instruction=system_prompt),
+    )
 
     # Robust JSON extraction from model response
     text = _extract_json_from_response(response.text)

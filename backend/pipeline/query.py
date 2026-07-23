@@ -13,8 +13,8 @@ import urllib.error
 
 import google.auth
 import google.auth.transport.requests
-import vertexai
-from vertexai.generative_models import GenerativeModel
+from google import genai
+from google.genai import types
 from backend.pipeline.config import PROJECT_ID, GENERATION_MODEL
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,15 @@ logger = logging.getLogger(__name__)
 LOCATION = os.getenv("AGENT_BUILDER_LOCATION", "global")
 DATA_STORE_ID = os.getenv("AGENT_BUILDER_DATA_STORE", "prison-policies-ds")
 MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", "global")
+
+_gen_client = None
+
+
+def _get_gen_client() -> genai.Client:
+    global _gen_client
+    if _gen_client is None:
+        _gen_client = genai.Client(vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION)
+    return _gen_client
 
 SERVING_CONFIG = (
     f"projects/{PROJECT_ID}/locations/{LOCATION}"
@@ -137,10 +146,10 @@ def _classify_query(question: str) -> bool:
 
     # Ambiguous — use Gemini classifier
     try:
-        vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
-        model = GenerativeModel(GENERATION_MODEL)
-        prompt = GATE_PROMPT.format(question=question)
-        response = model.generate_content(prompt)
+        response = _get_gen_client().models.generate_content(
+            model=GENERATION_MODEL,
+            contents=GATE_PROMPT.format(question=question),
+        )
         verdict = response.text.strip().upper()
         is_work = "WORK" in verdict and "OFF_TOPIC" not in verdict
         logger.info("Gate classified: %r -> %s", question[:80], "WORK" if is_work else "OFF_TOPIC")
@@ -153,10 +162,10 @@ def _classify_query(question: str) -> bool:
 def _expand_query(question: str) -> str:
     """Rewrite colloquial officer language into policy search terms."""
     try:
-        vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
-        model = GenerativeModel(GENERATION_MODEL)
-        prompt = QUERY_EXPANSION_PROMPT.format(question=question)
-        response = model.generate_content(prompt)
+        response = _get_gen_client().models.generate_content(
+            model=GENERATION_MODEL,
+            contents=QUERY_EXPANSION_PROMPT.format(question=question),
+        )
         expanded = response.text.strip().strip('"')
         if expanded and expanded != question:
             logger.info("Query expanded: %r -> %r", question[:80], expanded[:120])
@@ -258,12 +267,11 @@ def answer_question(question: str) -> dict:
         f"If the officer used informal terms, map them to the formal policy language."
     )
 
-    vertexai.init(project=PROJECT_ID, location=MODEL_LOCATION)
-    model = GenerativeModel(
-        model_name=GENERATION_MODEL,
-        system_instruction=CHAT_SYSTEM_PROMPT,
+    response = _get_gen_client().models.generate_content(
+        model=GENERATION_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(system_instruction=CHAT_SYSTEM_PROMPT),
     )
-    response = model.generate_content(prompt)
 
     citations = [
         {"n": i + 1, "source": c["source"], "text": c["text"]}
