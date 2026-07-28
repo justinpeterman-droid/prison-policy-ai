@@ -8,6 +8,9 @@
     "F": {"label": "F Shift", "hours": "Field"}
   },
   "staff": [
+    {"rank": "Sgt", "first": "Justin", "last": "Peterman", "employee_number": "141432", "shift": "A"},
+    {"rank": "Sgt", "first": "Austin", "last": "Powell", "employee_number": "123456", "shift": "A"},
+    {"rank": "Sgt", "first": "Jack", "last": "Sohns", "employee_number": "868686", "shift": "A"},
     {"rank": "Sgt", "first": "Miguel", "last": "Delgado", "employee_number": "D4721", "shift": "A"},
     {"rank": "Cpl", "first": "Thomas", "last": "Brennan", "employee_number": "B3398", "shift": "A"},
     {"rank": "Cpl", "first": "Daniel", "last": "Ortiz", "employee_number": "O5521", "shift": "A"}
