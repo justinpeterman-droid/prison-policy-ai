@@ -443,6 +443,28 @@ def reports_generate():
         # Fold any first-name answers back into the inmate records.
         _apply_first_name_answers(slots, answers)
 
+        # ── Auto-persist new staff to roster ──
+        # When the officer fills in a staff_identity gap, learn it permanently
+        # so the same name never triggers the same gap again.
+        from backend.reports.roster import add_staff_from_gap_answer
+        for key, val in answers.items():
+            if key.startswith("officer_identity_") and val:
+                added = add_staff_from_gap_answer(
+                    key.replace("officer_identity_", ""), str(val))
+                if added:
+                    logger.info("Persisted new staff from gap answer: %s", key)
+            elif key.startswith("officer_fields_") and val:
+                # staff_missing_fields: the answer is just the missing value(s);
+                # patch the matching person dict if we can identify the officer
+                name_hint = key.replace("officer_fields_", "")
+                for p in slots.get("persons", []):
+                    if (p.get("role") == "security_staff"
+                            and (p.get("last", "").lower() == name_hint.lower()
+                                 or p.get("name", "").lower() == name_hint.lower())):
+                        p["first"] = _titlecase(str(val))
+                        logger.info("Filled missing field for %s from gap answer", name_hint)
+                        break
+
         # ── Deterministic BMU defaults (before auto_content resolves) ──
         # Date: if the notes never stated one, today's date is safe to use.
         if not slots.get("date"):
