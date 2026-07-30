@@ -7,20 +7,26 @@ rendered by code from slots — the model writes narrative prose ONLY.
 """
 
 STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
-- Inmate naming on FIRST reference (pick the most complete form you have):
-  * EVERY time an ADC# appears in the facts, it MUST be included in the inmate's
-    first reference: 'Inmate {{Last}} ADC#{{number}}' at minimum, 'Inmate {{Last}},
-    {{First}} ADC#{{number}}' when the first name is also available.
-  * If you have BOTH first and last name AND ADC#: 'Inmate {{Last}}, {{First}} ADC#{{number}}'
-  * If you have last name and ADC# but no first name: 'Inmate {{Last}} ADC#{{number}}'
-  * If you have only a last name (no ADC#): 'Inmate {{Last}}'
-  * On EVERY later reference: 'Inmate {{Last}}' (short form).
-- NEVER write 'Inmate Smith ADC#123456' on first reference without the first name
-  when the first name IS available in the facts — include it in 'Last, First' order.
-- Staff: '{{Rank}} {{First}} {{Last}}' on first reference (Cpl. / Sgt. / Lt. / Cpt.),
-  then '{{Rank}} {{Last}}'.
-- The FIRST time any person is named, give the full form above (never a bare last
-  name on first mention); every later mention uses the short form.
+- EVERY first mention of ANY person in the narrative MUST use the full introduction form.
+  There are NO exceptions — never start with a bare last name on first mention.
+  * INMATE first mention:  'Inmate {{Last}}, {{First}} ADC#{{number}}'  (Last, First + ADC#)
+    - If first name is unknown: 'Inmate {{Last}} ADC#{{number}}'
+    - If ADC# is unknown: 'Inmate {{Last}}, {{First}}'
+    - If both unknown: 'Inmate {{Last}}'  (only when both first and ADC# truly unavailable)
+  * STAFF first mention:   '{{Rank}} {{First}} {{Last}}'  (Cpl. / Sgt. / Lt. / Cpt.)
+    - Example: 'Sgt. Justin Peterman', 'Cpl. Austin Powell'
+  * ALL later references to the same person use SHORT FORM:
+    - Inmate: 'Inmate {{Last}}'
+    - Staff: '{{Rank}} {{Last}}'
+- NEVER write a bare last name for the first mention of any person. If the first name
+  is available in the facts, you MUST use it. Only omit the first name when the facts
+  genuinely contain only a last name with nothing else to identify the person.
+- Staff: '{{Rank}} {{First}} {{Last}}' on FIRST reference (Cpl. / Sgt. / Lt. / Cpt.),
+  then '{{Rank}} {{Last}}' on all later references. NEVER a bare last name for staff
+  on first mention — always include the rank and first name.
+- The FIRST time any person is named, ALWAYS give the full form: {{Last}}, {{First}} ADC#{{number}}
+  for inmates; {{Rank}} {{First}} {{Last}} for staff. Never use a bare last name on first
+  mention. Every later mention uses the short form ({{Last}} only for inmates; {{Rank}} {{Last}} for staff).
 - Times: 'approximately {{H:MM}}{{am/pm}}' (lowercase, no space). Use the exact time
   from the facts — if the notes say '~10pm', write 'approximately 10:00pm'.
 - Dates: write the date EXACTLY as provided in the header (do NOT reformat it).
@@ -85,7 +91,8 @@ REQUIRED SENTENCES (insert verbatim, chronologically placed):
 
 PER-INMATE DISPOSITION — after the narrative, add one line per inmate:
 'Inmate {{Last}}, {{First}} ADC#{{number}} was [placed in restrictive housing / released to barracks / transferred to medical / etc.].'
-Different inmates may have different outcomes — state each individually.
+Different inmates may have different outcomes — state each individually. ALWAYS use the full
+Last, First ADC# form in the disposition line since it is the final reference for the record.
 
 """ + STYLE_RULES + """
 
@@ -124,7 +131,8 @@ FIRST-PERSON REPORT (your factual source — do not add to it):
 
 CHARGES to bring: {charges}
 
-CLOSING — the report MUST end with this exact formula, one sentence per charged inmate:
+CLOSING — the report MUST end with this exact formula, one sentence per charged inmate
+(EVERY inmate MUST be named Last, First ADC# in full since this is their final reference):
 'Due to the above stated facts I, {rank} {officer_first} {officer_last}, am charging Inmate {{Last}}, {{First}} ADC#{{number}} with rule violation {{codes}}. Pending DCR.'
 
 """ + STYLE_RULES + """

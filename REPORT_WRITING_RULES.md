@@ -15,13 +15,15 @@ Each rule has an ID (`RW-###`) and a severity: `BLOCKING` (must fix before use),
 ### RW-001 — Inmate First Reference [BLOCKING]
 `Inmate {Last}, {First} ADC#{number}`
 - Example: "Inmate Smith, John ADC#123456"
+- FIRST mention: ALWAYS Last, First + ADC# (full form — no exceptions)
 - After first reference: "Inmate {Last}" is acceptable
-- Regex: `Inmate [A-Z][a-z]+, [A-Z][a-z]+ ADC#\d+`
+- Regex: `Inmate [A-Z][a-z]+, [A-Z][a-z]+ ADC#\\d+`
 
 ### RW-002 — Staff Naming [BLOCKING]
-`{Rank} {First} {Last}` — Cpl. / Sgt. / Lt. / Cpt.
-- Example: "Sgt. Justin Peterman"
-- Never: "Officer Joe" or bare last name alone
+`{Rank} {First} {Last}` on FIRST reference — Cpl. / Sgt. / Lt. / Cpt.
+- Example: "Sgt. Justin Peterman", "Cpl. Austin Powell"
+- After first reference: "{Rank} {Last}" is acceptable
+- Never: bare last name alone on first mention, or rank without first name on first mention
 
 ### RW-003 — Reporting Officer Self-Reference [BLOCKING]
 - FIRST reference: `I, {Rank} {First} {Last},`
