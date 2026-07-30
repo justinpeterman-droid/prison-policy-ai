@@ -1,188 +1,279 @@
 ---
-plan_id: report-quality-v1
+plan_id: prison-policy-ai-v2
 status: planning
 created: 2026-07-21
+updated: 2026-07-30
 mode: brownfield
 project: prison-policy-ai
+git_revision: a4eca1c
 source_evidence:
-  - colleague_field_test_screenshots (5 images, 2026-07-21)
-  - colleague_critique_notes (7 numbered items)
-  - codebase_fingerprint (2026-07-21, commit 8476fc4)
-git_revision: 8476fc4
+  - codebase_fingerprint (2026-07-30, commit a4eca1c)
+  - RELY.txt (GP-1..GP-8 applied)
+  - roster routes + templates present
+  - open_github_issues #10-#14
+  - VISION.md What's Next
 ---
 
-# Report Generator Quality Fixes
+# Prison Policy AI — Master Plan
 
-**Objective:** Fix 6 quality issues + 1 feature request identified during colleague field testing of the report generator, plus add query safeguards.
+**Objective:** Keep the ADC report + policy assistant production-ready, finish trust/UX polish that converts skeptical officers, then harden ops (auth, OCR corpus, history, rate limits).
 
-**Mode:** Brownfield — all changes extend the existing three-step pipeline
-(classify → extract+gaps → generate).
+**Mode:** Brownfield. Extend the live Flask + Vertex stack. Do not rewrite the three-step report pipeline.
 
-## Applicability Matrix
+**Live:** `https://prison-policy-ai-403037827694.us-central1.run.app`  
+**Repo:** `justinpeterman-droid/prison-policy-ai`  
+**GCP:** `gen-lang-client-0968389176` / `us-central1`  
+**Access code:** `slut` (case-insensitive cookie gate)
 
-| Domain | Applicable? |
+---
+
+## Current product snapshot
+
+| Surface | Status |
 |---|---|
-| Time validation | Yes — #1 |
-| Name ordering | Yes — #2 |
-| Location slang normalization | Yes — #3 (phase 1: slang → formal; phase 2: hierarchy) |
-| Injury sanitization + classification | Yes — #4 |
-| Charge suggestion breadth + per-inmate | Yes — #5 |
-| Per-inmate disposition | Yes — #6 |
-| Incident number year fix | Yes — #7 |
-| Profanity/content filter | Yes — #4 |
+| Policy Knowledge Expert (`/chat`) | ✅ Live — Vertex RAG over policy PDFs + citations |
+| Report Writing Assistant (`/reports`) | ✅ Live — classify → extract/gaps → generate → DOCX |
+| Unit Roster (`/roster`) | ✅ Live — 6 shifts A/B/C/D/U/F, CRUD API, nav link |
+| Static React forms (`frontend/forms/`) | ✅ Shipped (6 ADC forms) |
+| google-genai SDK migration | ✅ Done (`b74376b`) |
+| Report quality GP-1..GP-8 | ✅ Code landed (`ab46040`, `296791b`, `869ef00` + follow-ups) |
 
-## Tasks
-
-### Phase 1: Quick Wins (date bug + time fix)
-
-#### GP-1: Fix incident number year bug AND make editable
-**Files:** `backend/webapp/routes/reports.py`, `backend/webapp/templates/reports.html`
-**Depends on:** none
-**Reuses:** `_build_incident_number()` (line 115-118)
-**Change:**
-1. Replace `datetime.now()` with the incident date from slots:
-```python
-def _build_incident_number(last3, incident_date=None) -> str:
-    digits = "".join(ch for ch in str(last3 or "") if ch.isdigit())[-3:]
-    if not digits:
-        return ""
-    if incident_date:
-        # Extract year-month from incident date (MM-DD-YYYY or YYYY-MM-DD)
-        import re
-        m = re.match(r'(\d{4})-(\d{2})', str(incident_date))
-        if m:
-            return f"{m.group(1)}-{m.group(2)}-{digits.zfill(3)}"
-        m = re.match(r'.*-(\d{4})', str(incident_date))
-        if m:
-            return f"{m.group(1)}-{datetime.now():%m}-{digits.zfill(3)}"
-    return f"{datetime.now():%Y-%m}-{digits.zfill(3)}"
-```
-2. After auto-generating, show the full number as an editable text field in the gap UI — the officer can change any part of it.
-3. If the notes already contain a full incident number (e.g., "2027-07-120"), extraction should capture it and skip auto-generation.
-4. Update the gap question from just "last 3 digits" to also show the generated full number for editing.
-**Acceptance:** 
-- Notes with 2027 date → auto-generates `2027-07-120`. 
-- Officer can edit the full number before generating.
-- Notes with full number already stated → uses that number, never overwrites.
-**Verify:** Submit notes with 2027 date + "120" log number. Confirm generated number shows `2027-07-120` AND the field is editable. Change it to `2027-07-999`. Confirm the DOCX uses `2027-07-999`.
-
-#### GP-2: Time validation and correction
-**Files:** `backend/webapp/routes/reports.py`, `backend/reports/extraction.py`
-**Depends on:** none
-**Reuses:** `_to_12h()` (line 50-70)
-**Change:**
-1. Add `_validate_time()` function that detects invalid times:
-   - Double-AM/PM suffix: "7:22AAm" → "7:22am"
-   - Out-of-range minutes: "7:77am" → flag
-   - Random suffixes: "2:30sm" → guess "2:30pm" or flag
-2. Add time validation as a gap if the time is unparseable after cleanup.
-3. In extraction prompt, add: "Times must be in 'H:MMam' or 'H:MMpm' format. Fix obvious typos."
-**Acceptance:** "7:22AAm" → "7:22am". "7:77am" → gap question. "2:30sm" → gap question.
-**Verify:** Submit notes with each typo. Check extracted time and gap list.
-
-### Phase 2: Name handling + content filtering
-
-#### GP-3: Enforce "Last, First" name convention
-**Files:** `backend/reports/extraction.py`, `backend/reports/classifier.py`, `backend/reports/schema.py`
-**Depends on:** none
-**Reuses:** extraction system prompt (line 22-30), classifier prompt (prompts.py)
-**Change:**
-1. Extraction prompt: "Persons always as Last, First order. If officer wrote 'First Last', extract as Last, First."
-2. If a name is clearly in "First Last" order (first name is a common first name, last name is a common last name), auto-flip it.
-3. Report all inmate names as "Last, First" in generated reports.
-4. When only last name appears in reports, include first name if available.
-**Acceptance:** Officer types "Harry Vagina" → extracted as last="Vagina", first="Harry". Reports show "Inmate Vagina, Harry".
-**Verify:** Submit notes with "Inmate Vagina, Harry struck Inmate Itch, Gabe". Check extraction JSON — last names are "Vagina" and "Itch".
-
-#### GP-4: Profanity and slur filter for injury/quote fields
-**Files:** `backend/reports/extraction.py`, `backend/reports/validate.py`
-**Depends on:** none
-**Reuses:** extraction system prompt
-**Change:**
-1. Add `_sanitize_injuries()` function that maps offensive/raw descriptions to clinical terms:
-   - "fat nigger lip" → "swollen lip" / "facial swelling"
-   - "black eye" → "periorbital contusion"
-   - Any racial slur → stripped, replaced with clinical description
-2. Add extraction prompt rule: "NEVER reproduce racial slurs. Describe injuries clinically."
-3. For quotes field: keep verbatim but flag with a content warning for officer review.
-**Acceptance:** "Fat nigger lips and a black eye" → injury field: "Swollen lip; periorbital contusion." Quote field preserved but flagged.
-**Verify:** Submit notes with profanity/slurs. Check injury field is clinical. Check quote field has warning marker.
-
-#### GP-5: Injury classification (map raw → clinical categories)
-**Files:** `backend/reports/extraction.py`
-**Depends on:** GP-4
-**Reuses:** extraction schema
-**Change:** After sanitization, classify injuries into standard BMU categories:
-- Swollen lip / fat lip → "minor facial swelling"
-- Black eye → "periorbital contusion"
-- Cuts / scrapes → "minor lacerations"
-- Bruising → "contusions"
-- Any combination of minor → "minor injuries to the facial area"
-**Acceptance:** Raw injuries are normalized to standard clinical categories used in reports.
-**Verify:** Submit various injury descriptions. Confirm output uses standard categories.
-
-### Phase 3: Charges + Disposition
-
-#### GP-6: Broader charge suggestion + per-inmate charging
-**Files:** `backend/reports/classifier.py`, `backend/reports/prompts.py`
-**Depends on:** none
-**Reuses:** `build_classifier_prompt()`, `classify_incident()`
-**Change:**
-1. Update classifier prompt: "Suggest ALL potentially applicable charges, not just the most obvious two. Include related charges (e.g., misuse of state supplies, provoking/agitation, disorderly conduct). The officer will deselect any that don't apply — it's better to over-suggest than miss charges."
-2. Add per-inmate charge attribution: each charge should note which inmate it applies to.
-3. Don't charge a victim inmate unless the notes state they fought back or violated policy.
-4. Output format: `charges_applicable: [{"code": "04-18", "inmate": "Vagina", "description": "..."}, ...]`
-**Acceptance:** Same fight notes produce 4-6 charges, per-inmate attribution, victim not charged.
-**Verify:** Submit fight notes. Check charge list includes misuse of supplies, provoking. Check victim doesn't get charged unless notes say they fought back.
-
-#### GP-7: Per-inmate disposition and conclusions
-**Files:** `backend/reports/generator.py`, `backend/reports/prompts_v2.py`
-**Depends on:** GP-6
-**Reuses:** `generate_all_reports()`, `FIRST_PERSON_PROMPT`
-**Change:**
-1. Add per-inmate disposition section to first-person report prompt: "For EACH inmate involved, state their final disposition: released back to barracks, placed in restrictive housing, transferred to medical, etc."
-2. Add per-inmate conclusion to supervisor summary.
-3. Support different dispositions for different inmates (one rehoused, one in RH).
-**Acceptance:** Report ends with per-inmate disposition lines. Different inmates can have different outcomes.
-**Verify:** Submit notes with 2 inmates. Confirm each has individual disposition.
-
-### Phase 4: Location (future)
-
-#### GP-8: Location slang normalization
-**Files:** `backend/reports/extraction.py`, new `templates/location_map.json`
-**Depends on:** none (deferred)
-**Change:**
-1. Create `templates/location_map.json` with slang→formal mappings:
-   - "chow hall" → "Dining Hall"
-   - "yard" → "Recreation Yard"
-   - "sally port" → "Sally Port"
-   - "RH" → "Restrictive Housing"
-2. Apply normalization in extraction: replace recognized slang with formal names.
-3. Phase 2 (later): build hierarchical location picker with Zone→Barrack→Tier→Bed structure.
-**Acceptance (Phase 1):** "Chow hall" → "Dining Hall" in extracted location.
-**Acceptance (Phase 2):** Locations are selected from cascading dropdowns instead of free-text.
-**Verify (Phase 1):** Submit notes with "chow hall". Check location slot says "Dining Hall".
-
-## Execution Order
+### Report pipeline (do not break)
 
 ```
-GP-1 → GP-2 → GP-3 → GP-4 → GP-5 → GP-6 → GP-7 → GP-8
+Field notes
+  → POST /api/reports/classify   (7 BMU categories + per-inmate charges)
+  → POST /api/reports/extract    (temp=0 schema slots + find_gaps)
+  → officer fills Missing Information panel
+  → POST /api/reports/generate   (4 reports from structured facts only)
+  → POST /api/reports/download   (005/409 DOCX from metadata — no 2nd LLM pass)
 ```
 
-GP-1 and GP-2 are independent and can run first. GP-4 depends on GP-5. GP-7 depends on GP-6.
+Guardrails stay mandatory: nullable slots, `invented_facts()`, UNKNOWN markers, charge catalog validation, structured-facts-only generator.
 
-## Open Questions
+---
+
+## Completed work (do not reopen)
+
+### Report quality — colleague field test (2026-07-21)
+
+- [x] **GP-1** Incident number uses incident date + editable override + preserve full numbers from notes  
+  `backend/webapp/routes/reports.py`, `backend/webapp/templates/reports.html`
+- [x] **GP-2** Time validation/cleanup (`7:22AAm` → `7:22am`, military → 12h)  
+  `backend/webapp/routes/reports.py`
+- [x] **GP-3** Enforce Last, First name convention in extraction + reports  
+  `backend/reports/extraction.py`, style prompts
+- [x] **GP-4** Profanity/slur filter on injury fields; quotes preserved with warning  
+  `backend/reports/extraction.py`
+- [x] **GP-5** Injury clinical classification  
+  `backend/reports/extraction.py`
+- [x] **GP-6** Broader charge suggestions + per-inmate attribution + victim not auto-charged  
+  `backend/reports/prompts.py`, `classifier.py`, UI group-by-inmate
+- [x] **GP-7** Per-inmate disposition lines in first-person + supervisor reports  
+  `backend/reports/prompts_v2.py`
+- [x] **GP-8** Location slang normalization via `templates/location_map.json`  
+  `backend/webapp/routes/reports.py`
+
+Evidence: `RELY.txt`, commits `ab46040` / `296791b` / `869ef00` and later roster/UI fixes.
+
+### Unit Roster page
+
+- [x] **RS-001** Shifts A/B/C/D/U/F (no E) in `templates/staff_roster.json`
+- [x] **RS-002** Roster API blueprint — GET/POST/PUT/DELETE + lookup  
+  `backend/webapp/routes/roster.py`
+- [x] **RS-003** Blueprint + `/roster` route wired in `backend/webapp/app.py`
+- [x] **RS-004** `roster.html` UI (shift cards, add/edit/remove)
+- [x] **RS-005** First-name + partial employee# lookup in `backend/reports/roster.py`
+- [x] **RS-006** Nav/footer "Unit Roster" on home, chat, reports, roster
+- [x] **RS-007** Auto-persist new staff from gap answers (`a4eca1c`)
+
+### Platform / engine already shipped
+
+- [x] Cookie access gate + `/logout`
+- [x] Self-hosted Inter font (no Google Fonts dependency)
+- [x] Editable report preview + metadata DOCX download path
+- [x] Draft autosave (localStorage)
+- [x] Scrollable cite pane + expandable passage chunks (`4d991c6`)
+- [x] Domain guard / off-topic gate on chat (`ec17820`)
+- [x] Self-teaching loop artifacts: `REPORT_WRITING_RULES.md`, `report_validator.py`, test harness
+
+---
+
+## Remaining work
+
+### Phase A — Trust & conversion UX (open issues #10–#14)
+
+Highest leverage for reluctant officers. Frontend-first. Preserve all existing element IDs / API contracts.
+
+#### GP-10: Homepage animation shows AI refusing to invent facts
+**GitHub:** #10  
+**Files:** `backend/webapp/templates/home.html`, static CSS/JS for pipeline animation  
+**Depends on:** none  
+**Reuses:** existing homepage packet animation  
+**Change:** Packet STOPS at classify/extract when a field is missing. Show red `NOT IN NOTES` gap. Packet only reaches the form after the officer fills the gap.  
+**Acceptance:** Animation demonstrates a blocked gap state, not only a happy path.  
+**Verify:** Load `/` desktop + mobile; animation shows stop → gap → resume.
+
+#### GP-11: Verbatim trace on reports page
+**GitHub:** #11  
+**Files:** `backend/webapp/templates/reports.html`, `backend/webapp/routes/reports.py` (if need source spans)  
+**Depends on:** none  
+**Reuses:** extraction slots + original notes payload already in client state  
+**Change:** Below form preview, compact "Your notes → field" side-by-side for key slots (names, time, location, charges, disposition).  
+**Acceptance:** Officer can point at a filled field and see the exact note snippet that produced it. Missing source shows `NOT IN NOTES`.  
+**Verify:** Run sample fight notes end-to-end; every non-null slot has a visible source snippet or explicit missing marker.
+
+#### GP-12: "Try this example" zero-commitment demo
+**GitHub:** #12  
+**Files:** `backend/webapp/templates/home.html`, `backend/webapp/templates/reports.html`  
+**Depends on:** none  
+**Reuses:** existing reports page notes textarea + pipeline JS  
+**Change:** Hero button deep-links to `/reports` with canned field notes pre-filled (terse realistic style — ADC#, barracks, ~time). Optional auto-start classify.  
+**Acceptance:** One click from home → reports with notes filled; no typing required to see value.  
+**Verify:** Click CTA; URL/hash or query delivers notes; pipeline can run.
+
+#### GP-13: Reframe homepage H1 around officer work
+**GitHub:** #13  
+**Files:** `backend/webapp/templates/home.html`  
+**Depends on:** none  
+**Reuses:** nav/footer brand lockup stays "Standard Logistics & Unit Tools"  
+**Change:** Hero H1 sells the moment of pain, e.g. *"You already wrote the report. Let it finish the paperwork."* Brand name only in nav/footer.  
+**Acceptance:** H1 is work-centered, not org-name-centered.  
+**Verify:** Visual check home desktop + mobile.
+
+#### GP-14: Footer trust ledger
+**GitHub:** #14  
+**Files:** `backend/webapp/templates/home.html` (and shared footer fragments on chat/reports/roster if duplicated)  
+**Depends on:** none  
+**Reuses:** existing footer "System · operational" area  
+**Change:** Quiet 2–3 fact trust ledger, e.g. *Unit access only · Nothing auto-submits · Officer stays in control.* No marketing fluff.  
+**Acceptance:** Footer answers "where does what I paste go?" without a privacy essay.  
+**Verify:** Present on home; consistent tone on other pages if footer shared.
+
+**Phase A order:** GP-13 → GP-14 → GP-10 → GP-12 → GP-11  
+(copy first, animation + demo next, deepest reports work last)
+
+---
+
+### Phase B — Corpus & report quality ops
+
+#### GP-20: OCR remaining scanned Post Orders into RAG
+**Files:** `scripts/ocr_pipeline.py`, `scripts/ocr_policies.py`, `backend/pipeline/*`  
+**Depends on:** GCP ADC + source PDF location  
+**Reuses:** existing OCR scripts + chunk/embed/import path  
+**Change:** Batch OCR ~146 scanned Post Orders still missing text; chunk; import to Vertex RAG; update `rag_uploaded_pdfs.txt`.  
+**Acceptance:** Post Order questions return cited answers, not "not in corpus."  
+**Verify:** Chat queries against 3 known Post Order topics return citations from those docs.
+
+#### GP-21: Expand staff roster beyond seed unit
+**Files:** `templates/staff_roster.json` via `/roster` UI (preferred)  
+**Depends on:** none  
+**Reuses:** roster CRUD already live  
+**Change:** Load real unit roster (all shifts populated). Seed currently has 6 staff all on A.  
+**Acceptance:** A/B/C/D/U/F each reflect real assignments; lookup resolves common last names on shift.  
+**Verify:** `GET /api/roster` shows staff across shifts; lookup smoke test for 10 names.
+
+#### GP-22: End-to-end regression pack after quality fixes
+**Files:** `tests/test_pipeline.py`, `scripts/test_reports.py`, `tests/output/*`  
+**Depends on:** none (can run anytime)  
+**Reuses:** existing harness + sample fight notes  
+**Change:** Codify GP-1..GP-8 acceptance as automated or scripted checks (incident year, time cleanup, name order, clinical injuries, per-inmate charges/disposition, location map).  
+**Acceptance:** One command fails closed if any of the 8 regressions return.  
+**Verify:** `PYTHONPATH=. python tests/_run.py` (or documented equivalent) green on sample set.
+
+---
+
+### Phase C — Hardening (from VISION.md)
+
+#### GP-30: Report history store
+**Files:** new thin persistence layer (start local/SQLite or GCS JSON — decide before code), `routes/reports.py`, reports UI  
+**Depends on:** product decision on retention + PII  
+**Reuses:** generate response payload shape  
+**Change:** Optional save of generated report metadata (not raw free-text longer than needed) with officer-controlled clear.  
+**Open question:** SQLite on Cloud Run is ephemeral — prefer GCS or Firestore if history must survive revisions.  
+**Acceptance:** Officer can reopen last N reports from this browser/session or account.  
+**Verify:** Generate → navigate away → history list → reopen matches text.
+
+#### GP-31: Stronger auth than shared access code
+**Files:** `backend/webapp/app.py`, deploy config  
+**Depends on:** org decision (Cloud IAP vs Google SSO vs per-user codes)  
+**Reuses:** existing before_request gate  
+**Change:** Replace or wrap shared `ACCESS_CODE` with Cloud IAP or equivalent allowlist. Keep `/health` public.  
+**Acceptance:** Unauthenticated users cannot hit `/api/*` or tool pages.  
+**Verify:** curl without token → 302/401; with valid identity → 200.
+
+#### GP-32: Rate limiting
+**Files:** `backend/webapp/app.py` or middleware  
+**Depends on:** none  
+**Reuses:** Flask before_request  
+**Change:** Per-IP limits on `/api/chat`, `/api/reports/*` (stricter on generate).  
+**Acceptance:** Burst above threshold returns 429; normal officer use unaffected.  
+**Verify:** scripted burst test.
+
+#### GP-33: Cloud Monitoring dashboards
+**Files:** ops docs + Cloud Monitoring config (not app code required)  
+**Depends on:** GCP access  
+**Change:** Latency, 5xx rate, Vertex cost/traffic for `prison-policy-ai` service.  
+**Acceptance:** Dashboard URL documented in README/VISION.  
+**Verify:** Dashboard shows live revision traffic.
+
+---
+
+### Phase D — Deferred (explicit non-goals for now)
+
+| Item | Why deferred |
+|---|---|
+| Location hierarchy picker (Zone→Barrack→Tier→Bed) | GP-8 slang map is enough; hierarchy is a larger UX project |
+| Multi-unit / multi-facility tenancy | Single-unit tool today |
+| Native mobile app | HTTPS web is the firewall strategy |
+| Auto-file into OMS/eOMIS | Out of scope — nothing auto-submits |
+
+---
+
+## Execution order (remaining)
+
+```
+Phase A:  GP-13 → GP-14 → GP-10 → GP-12 → GP-11
+Phase B:  GP-22 (anytime) ∥ GP-21 (data) → GP-20 (OCR, longer)
+Phase C:  GP-32 → GP-33 → GP-31 → GP-30
+```
+
+Deploy to Cloud Run after each Phase A task or logical pair. Do not batch two weeks of UI without a live check.
+
+---
+
+## Open questions
 
 | Q | Recommendation | Status |
 |---|---|---|
-| Should quotes preserve verbatim profanity? | Yes — quotes are evidence. Flag with content warning for officer review. | Decided |
-| Should location hierarchy (GP-8 Phase 2) use a JSON file or a database? | JSON file — same pattern as checklist and roster. | Proposed |
-| Injury classification: how many categories? | Start with 5 (facial, laceration, contusion, fracture, other). Expand as needed. | Proposed |
+| Quotes preserve verbatim profanity? | Yes — evidence. Flag for officer review. | Decided (GP-4) |
+| Location hierarchy storage? | JSON file, same pattern as checklist/roster | Proposed / deferred |
+| Report history backend? | GCS JSON or Firestore — not local SQLite on Cloud Run | Open — default GCS |
+| Auth upgrade path? | Cloud IAP in front of Cloud Run if org Google Workspace | Open — default IAP |
+| Demo notes content for GP-12? | Terse realistic field note with two ADC#s, fight, RH escort | Proposed |
+
+---
 
 ## Rules for executing agents
 
-1. Complete each GP task in order. Run `git commit` after each one.
-2. After each task, verify with the exact Verify command specified.
-3. If a Verify fails, fix before proceeding.
-4. After all tasks complete, run a full end-to-end test: submit the original test notes and confirm all 7 issues are resolved.
-5. Deploy to Cloud Run after all tasks pass.
+1. Read `VISION.md`, `REPORT_ENGINE_SPEC.md`, and this file before coding.
+2. Never invent facts in reports; preserve anti-fabrication guardrails.
+3. Field notes copy stays terse and realistic (ADC#, barracks, ~time) — never polished narrative placeholders.
+4. Brand: Standard Logistics & Unit Tools (S-L-U-T), navy + gold. No ADC marks on public chrome.
+5. One GP task → verify → commit. Conventional commits (`feat:`, `fix:`, `docs:`).
+6. After UI changes, check home/chat/reports/roster nav parity.
+7. Deploy command (from a machine with gcloud ADC):  
+   `gcloud run deploy prison-policy-ai --source . --region us-central1 --project gen-lang-client-0968389176 --allow-unauthenticated`
+8. If plan drifts from reality, replan here — the document is source of truth, not chat.
+9. Do not renumber completed GP-1..GP-8 or RS-* IDs. New work uses GP-10+ / GP-20+ / GP-30+.
+
+---
+
+## Session log
+
+| Date | Change |
+|---|---|
+| 2026-07-21 | Created report-quality plan (GP-1..GP-8) from colleague field test |
+| 2026-07-21 | GP-1..GP-8 implemented; RELY.txt written |
+| 2026-07-2x | Unit Roster page + API shipped; shift labels A/B day, C/D night, U utility, F field |
+| 2026-07-30 | **Replan v2:** marked GP-1..8 + RS-* done; added Phase A trust UX (#10–#14), Phase B corpus/ops, Phase C hardening; fingerprint `a4eca1c` |

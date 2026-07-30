@@ -186,13 +186,15 @@ PDF → PyMuPDF extract → Human review → Chunk → GCS upload →
 
 ## What's Next
 
-See `.godplans/PLAN.mdx` for the full task list. Remaining priorities:
+See `.godplans/PLAN.mdx` (v2, 2026-07-30) for the full task list.
 
-1. **OCR 146 Post Orders** — batch process with Gemini vision
-2. **Report history** — SQLite DB for generated reports
-3. **Cloud IAP authentication** — restrict to authorized users
-4. **Cloud Monitoring** — latency, error rate, cost tracking
-5. **Rate limiting** — per-IP, per-endpoint
+**Shipped since last vision pass:** report quality GP-1..GP-8, Unit Roster page/API, google-genai SDK migration, cite pane upgrades, auto-persist staff from gaps.
+
+**Remaining priorities (ordered):**
+
+1. **Phase A — Trust/UX** (GitHub #10–#14): H1 reframe, footer trust ledger, animation that shows AI refusing to invent facts, "Try this example" demo, verbatim notes→field trace
+2. **Phase B — Corpus**: OCR remaining scanned Post Orders; expand real unit roster beyond seed; regression pack for GP-1..8
+3. **Phase C — Hardening**: rate limits → Cloud Monitoring → Cloud IAP (or stronger auth) → report history (GCS/Firestore, not ephemeral SQLite on Cloud Run)
 
 ---
 
