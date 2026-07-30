@@ -10,11 +10,10 @@ from backend.reports.filler import fill_template
 logger = logging.getLogger(__name__)
 reports_bp = Blueprint("reports", __name__)
 
-# Per BMU practice, medical detail is not written onto the 005 — the injury
-# and treatment lines reference the separate report. Inmate injuries point to
-# the Infirmary Report; officer injuries point to the officer's Medical Report.
-SEE_INFIRMARY = "See Infirmary Report"
-SEE_MEDICAL = "See Medical Report"
+# Per BMU practice, medical detail is not written onto the 005 — leave
+# injury/treatment lines blank rather than pointing to external reports.
+SEE_INFIRMARY = ""
+SEE_MEDICAL = ""
 # Present lines that aren't separately stated point back to the involved lists.
 SEE_ABOVE = "See Above"
 FIRST_NAME_NEEDED = "[FIRST NAME NEEDED]"
@@ -24,15 +23,15 @@ FIRST_NAME_NEEDED = "[FIRST NAME NEEDED]"
 MEDICAL_SEEN_CATEGORIES = {
     "inmate_fight", "staff_assault", "forced_cell_movement", "prea",
 }
-# Medical dispositions that mean an inmate actually went to/was offered medical
-# (so EXTENT OF INJURY TO INMATE reads "See Infirmary Report" rather than N/A).
+# Medical dispositions where the inmate was seen/offered medical.
+# Injury/treatment lines on 005 are left blank (no cross-reference text).
 MEDICAL_INJURY_DISPOSITIONS = {
     "Seen by Infirmary staff",
     "Refused medical (Refuse box checked)",
     "Sent by ambulance to outside facility",
 }
 # Categories/signals where the inmate used force on the officer, so the
-# officer injury/treatment lines reference the officer's Medical Report.
+# officer injury/treatment lines may need a value.
 OFFICER_FORCE_CATEGORIES = {"staff_assault"}
 # Fights/assaults: the inmate is always ultimately placed in Restrictive
 # Housing (after the infirmary if they were treated first).
@@ -569,11 +568,10 @@ def reports_generate():
         reports = generate_all_reports(slots, category, auto_content=auto_content)
 
         # ── 005 injury / present line logic (deterministic) ──
-        # Inmate injury/treatment can only read "See Infirmary Report" or "N/A".
+        # Injury/treatment lines are left blank — medical detail lives elsewhere.
         inmate_hurt = slots.get("medical_disposition") in MEDICAL_INJURY_DISPOSITIONS
         inmate_injury_line = SEE_INFIRMARY if inmate_hurt else "N/A"
-        # Officer injury/treatment reads "See Medical Report" only when the
-        # inmate used force on the officer; otherwise N/A.
+        # Officer injury/treatment: blank ("N/A" if no force involvement).
         officer_force = (category in OFFICER_FORCE_CATEGORIES
                          or bool(slots.get("officer_injuries"))
                          or str(slots.get("staff_injured", "")).lower()
