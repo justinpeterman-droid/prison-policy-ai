@@ -105,7 +105,10 @@ Evidence: `RELY.txt`, commits `ab46040` / `296791b` / `869ef00` and later roster
 
 Highest leverage for reluctant officers. Frontend-first. Preserve all existing element IDs / API contracts.
 
-#### GP-10: Homepage animation shows AI refusing to invent facts
+#### GP-10:
+**Status:** ✅ Done (2026-07-30) — gap phase + red NOT IN NOTES flag + packet hold
+
+ Homepage animation shows AI refusing to invent facts
 **GitHub:** #10  
 **Files:** `backend/webapp/templates/home.html`, static CSS/JS for pipeline animation  
 **Depends on:** none  
@@ -114,7 +117,10 @@ Highest leverage for reluctant officers. Frontend-first. Preserve all existing e
 **Acceptance:** Animation demonstrates a blocked gap state, not only a happy path.  
 **Verify:** Load `/` desktop + mobile; animation shows stop → gap → resume.
 
-#### GP-11: Verbatim trace on reports page
+#### GP-11:
+**Status:** ✅ Done (2026-07-30) — provenance auto-opens after extract/generate
+
+ Verbatim trace on reports page
 **GitHub:** #11  
 **Files:** `backend/webapp/templates/reports.html`, `backend/webapp/routes/reports.py` (if need source spans)  
 **Depends on:** none  
@@ -123,7 +129,10 @@ Highest leverage for reluctant officers. Frontend-first. Preserve all existing e
 **Acceptance:** Officer can point at a filled field and see the exact note snippet that produced it. Missing source shows `NOT IN NOTES`.  
 **Verify:** Run sample fight notes end-to-end; every non-null slot has a visible source snippet or explicit missing marker.
 
-#### GP-12: "Try this example" zero-commitment demo
+#### GP-12:
+**Status:** ✅ Done (2026-07-30) — homepage Try a demo → /reports?demo=1
+
+ "Try this example" zero-commitment demo
 **GitHub:** #12  
 **Files:** `backend/webapp/templates/home.html`, `backend/webapp/templates/reports.html`  
 **Depends on:** none  
@@ -132,7 +141,10 @@ Highest leverage for reluctant officers. Frontend-first. Preserve all existing e
 **Acceptance:** One click from home → reports with notes filled; no typing required to see value.  
 **Verify:** Click CTA; URL/hash or query delivers notes; pipeline can run.
 
-#### GP-13: Reframe homepage H1 around officer work
+#### GP-13:
+**Status:** ✅ Done (2026-07-30) — H1: You already wrote the report…
+
+ Reframe homepage H1 around officer work
 **GitHub:** #13  
 **Files:** `backend/webapp/templates/home.html`  
 **Depends on:** none  
@@ -141,7 +153,10 @@ Highest leverage for reluctant officers. Frontend-first. Preserve all existing e
 **Acceptance:** H1 is work-centered, not org-name-centered.  
 **Verify:** Visual check home desktop + mobile.
 
-#### GP-14: Footer trust ledger
+#### GP-14:
+**Status:** ✅ Done (2026-07-30) — footer trust ledger
+
+ Footer trust ledger
 **GitHub:** #14  
 **Files:** `backend/webapp/templates/home.html` (and shared footer fragments on chat/reports/roster if duplicated)  
 **Depends on:** none  
@@ -277,3 +292,4 @@ Deploy to Cloud Run after each Phase A task or logical pair. Do not batch two we
 | 2026-07-21 | GP-1..GP-8 implemented; RELY.txt written |
 | 2026-07-2x | Unit Roster page + API shipped; shift labels A/B day, C/D night, U utility, F field |
 | 2026-07-30 | **Replan v2:** marked GP-1..8 + RS-* done; added Phase A trust UX (#10–#14), Phase B corpus/ops, Phase C hardening; fingerprint `a4eca1c` |
+| 2026-07-30 | Phase A trust UX shipped on branch `docs/plan-v2-replan` @ 7c2684e (push blocked: PAT Contents write) |

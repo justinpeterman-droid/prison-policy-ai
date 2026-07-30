@@ -11,12 +11,12 @@
 
 ## In Progress
 <!-- Move ideas here when we start working on them -->
-- [ ] **Phase A trust UX** — GitHub #10–#14 (animation gap proof, try-example demo, H1 reframe, footer trust ledger, verbatim trace). See `.godplans/PLAN.mdx`.
 
 ---
 
 ## Done / Deferred
 <!-- Completed or decided against -->
+- [x] **Phase A trust UX** — #10–#14 (H1, trust ledger, gap animation, demo CTA, provenance auto-open). Branch `docs/plan-v2-replan`.
 - [x] **Unit Roster page** — `/roster` + API + nav. Shipped.
 - [x] **Report quality GP-1..GP-8** — colleague field-test fixes. See `RELY.txt`.
 - [x] **google-genai SDK migration** — vertexai generative_models deprecation.
