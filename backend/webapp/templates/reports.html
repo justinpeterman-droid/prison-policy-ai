@@ -932,7 +932,7 @@ function renderGapWidget(g,cls){
   }else{
     widget=`<input type="text" class="gap-input" data-slot="${esc(slot)}" placeholder="Enter..." oninput="updateProgress()" onkeydown="if(event.key==='Enter'){event.preventDefault();gapEnter(this)}">`;
   }
-  const unknownBtn=`<button class="unknown-btn" onclick="setUnknown('${esc(slot)}',this)">Unknown</button>`;
+  const unknownBtn=g.default?'<span class="filled-default">— auto-filled</span>':`<button class="unknown-btn" onclick="setUnknown('${esc(slot)}',this)">Unknown</button>`;
   return `<div class="gap-item ${cls}" data-gap-slot="${esc(slot)}">
     <div class="gap-q">${esc(g.question)}</div>
     <div class="gap-controls">${widget}${unknownBtn}</div>
