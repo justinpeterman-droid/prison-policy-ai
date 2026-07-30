@@ -740,6 +740,7 @@ async function runExtract(){
     _extractedData=d;
     _data=d; // store for checklist access
     renderMissingPanel(d);
+    renderProvenance(); // GP-11: show notes→field trace as soon as slots exist
   }catch(e){
     setPipeline('extract','idle');
     document.getElementById('error').innerHTML=`<div class="error">${esc(e.message)}</div>`;
@@ -819,16 +820,22 @@ function renderProvenance(){
     </div>`;
   });
   panel.innerHTML=html;
-  // Reset toggle state
-  panel.classList.remove('visible');
-  btn.classList.remove('open');
+  // Auto-open so the officer sees notes→field evidence without an extra click (GP-11)
+  setSourcesOpen(true);
+}
+function setSourcesOpen(open){
+  const panel=document.getElementById('tracePanel');
+  const btn=document.getElementById('sourcesToggle');
+  if(!panel||!btn) return;
+  panel.classList.toggle('visible', !!open);
+  btn.classList.toggle('open', !!open);
+  const cnt=document.getElementById('sourcesCnt');
+  const cntHtml=cnt?` <span class="sources-count" id="sourcesCnt">${cnt.textContent}</span>`:'';
+  btn.innerHTML=(open?'Hide sources <span class="chev">▾</span>':'Show sources <span class="chev">▸</span>')+cntHtml;
 }
 function toggleSources(){
   const panel=document.getElementById('tracePanel');
-  const btn=document.getElementById('sourcesToggle');
-  const open=!panel.classList.contains('visible');
-  panel.classList.toggle('visible',open);
-  btn.classList.toggle('open',open);
+  setSourcesOpen(!panel.classList.contains('visible'));
 }
 function reportBox(title,text){
   const idx=_reportTexts.push(text)-1;
