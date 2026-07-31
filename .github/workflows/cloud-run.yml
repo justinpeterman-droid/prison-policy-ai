@@ -14,17 +14,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
+      id-token: write   # required for Workload Identity Federation (OIDC)
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Keyless auth via Workload Identity Federation — no long-lived service
+      # account key. Set these two repo secrets after the one-time GCP setup
+      # (the exact gcloud commands are in this PR's description):
+      #   GCP_WIF_PROVIDER = projects/<NUMBER>/locations/global/workloadIdentityPools/<POOL>/providers/<PROVIDER>
+      #   GCP_DEPLOY_SA    = <name>@gen-lang-client-0968389176.iam.gserviceaccount.com
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: gen-lang-client-0968389176
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
 
       - name: Deploy to Cloud Run
         run: |
