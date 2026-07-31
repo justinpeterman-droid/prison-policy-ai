@@ -16,8 +16,22 @@ import google.auth.transport.requests
 from google import genai
 from google.genai import types
 from backend.pipeline.config import PROJECT_ID, GENERATION_MODEL
+from backend.pipeline.citations import build_grounded
 
 logger = logging.getLogger(__name__)
+
+# Retrieve broadly, but only feed the top passages to the generator (numbered +
+# citable) — keeps the prompt focused and avoids "lost in the middle".
+SEARCH_PAGE_SIZE = 25
+MAX_CONTEXT_PASSAGES = 12
+
+# Appended when the model answered without citing any retrieved passage — the
+# grounding signal. Not suppressed (a DOMAIN_RULES safety answer may be
+# passage-less), but clearly flagged so nobody treats it as document-backed.
+UNGROUNDED_NOTE = (
+    "\n\n⚠️ This answer could not be tied to a specific retrieved policy passage. "
+    "Verify against the source policy or your supervisor before relying on it."
+)
 
 LOCATION = os.getenv("AGENT_BUILDER_LOCATION", "global")
 DATA_STORE_ID = os.getenv("AGENT_BUILDER_DATA_STORE", "prison-policies-ds")
@@ -247,24 +261,35 @@ def answer_question(question: str) -> dict:
         }
 
     # ── Search ──
-    contexts = _search_data_store(_expand_query(question), page_size=25)
+    retrieved = _search_data_store(_expand_query(question), page_size=SEARCH_PAGE_SIZE)
+    retrieved_sources = [c["source"] for c in retrieved]
     logger.info("answer_question: %d contexts, first source=%s",
-                len(contexts),
-                contexts[0]["source"][:60] if contexts else "None")
+                len(retrieved),
+                retrieved[0]["source"][:60] if retrieved else "None")
 
-    if not contexts:
+    if not retrieved:
         return {
             "answer": "No relevant policy documents found for this question.",
             "citations": [],
             "sources": [],
+            "retrieved_sources": [],
         }
 
-    context_text = "\n\n---\n\n".join(c["text"] for c in contexts)
+    # Only the top passages go to the generator, numbered for inline citation.
+    contexts = retrieved[:MAX_CONTEXT_PASSAGES]
+    numbered = "\n\n".join(
+        f"[{i + 1}] (Source: {c['source']})\n{c['text']}"
+        for i, c in enumerate(contexts)
+    )
     prompt = (
-        f"POLICY DOCUMENTS:\n{context_text}\n\n"
+        f"POLICY PASSAGES (numbered):\n{numbered}\n\n"
         f"OFFICER'S QUESTION: {question}\n\n"
-        f"Answer using the policy documents above. "
-        f"If the officer used informal terms, map them to the formal policy language."
+        "Answer using ONLY the numbered passages above. Immediately after each "
+        "statement, cite the passage number(s) that support it in square brackets, "
+        "e.g. '... must be reported within 24 hours [3].' Cite only passages that "
+        "actually support the statement. If the officer used informal terms, map "
+        "them to the formal policy language. If the passages do not answer the "
+        "question, say so plainly."
     )
 
     response = _get_gen_client().models.generate_content(
@@ -273,14 +298,15 @@ def answer_question(question: str) -> dict:
         config=types.GenerateContentConfig(system_instruction=CHAT_SYSTEM_PROMPT),
     )
 
-    citations = [
-        {"n": i + 1, "source": c["source"], "text": c["text"]}
-        for i, c in enumerate(contexts)
-    ]
+    # Surface only the passages the model actually cited; flag ungrounded answers.
+    answer, citations, grounded = build_grounded(response.text, contexts)
+    if not grounded:
+        answer = (response.text or "").rstrip() + UNGROUNDED_NOTE
+    logger.info("answer_question: grounded=%s, %d citation(s)", grounded, len(citations))
+
     return {
-        "answer": response.text,
+        "answer": answer,
         "citations": citations,
-        "sources": [
-            (c["source"] or c["text"][:80] + "...") for c in contexts
-        ],
+        "sources": [c["source"] for c in citations],
+        "retrieved_sources": retrieved_sources,
     }

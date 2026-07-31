@@ -75,12 +75,15 @@ def run(cases: list[dict], gate_only: bool = False) -> list[dict]:
             continue
 
         answer = res.get("answer", "")
-        sources = res.get("sources", [])
-        r["n_sources"] = len(sources)
+        # Measure retrieval on everything that was retrieved, not just what the
+        # answer cited — so a retrieval miss is distinguishable from a citation miss.
+        retrieved = res.get("retrieved_sources") or res.get("sources", [])
+        r["n_retrieved"] = len(retrieved)
+        r["n_citations"] = len(res.get("citations", []))
         r["answer_preview"] = answer[:240]
 
         if "expect_sources" in c:
-            rr = score_retrieval(c["expect_sources"], sources)
+            rr = score_retrieval(c["expect_sources"], retrieved)
             r["retrieval_hit"] = rr["hit"]
             r["retrieval_matched"] = rr["matched"]
 

@@ -201,7 +201,12 @@ generate**.
   (that migration was to draw on the Agent Builder credit; README wording may lag).
 - **Generate**: Gemini with `CHAT_SYSTEM_PROMPT`, which embeds hard-coded
   `DOMAIN_RULES` (PREA zero-tolerance, undue familiarity) the model must never
-  contradict. Returns `{answer, citations, sources}`.
+  contradict. The top `MAX_CONTEXT_PASSAGES` passages are numbered and the model
+  is told to cite them inline as `[n]`; `citations.py` (pure) then renumbers the
+  markers 1..k and surfaces **only the cited passages**. An answer that cites
+  nothing is flagged with an `UNGROUNDED_NOTE` rather than presented as
+  document-backed. Returns `{answer, citations, sources, retrieved_sources}`
+  (`retrieved_sources` = all retrieved labels, for eval/debug).
 
 ---
 
