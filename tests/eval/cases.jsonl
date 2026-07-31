@@ -1,0 +1,32 @@
+# Policy-chat eval cases (JSONL — one case per line; lines starting with # are ignored).
+#
+# This is a STARTER set. Expand it and tune `expect_sources`/`must_contain` to
+# your actual corpus once you've seen real retrieved source titles. The PREA /
+# undue-familiarity cases assert the hard DOMAIN_RULES guarantees and should
+# always pass; topic cases use soft checks you should tighten over time.
+#
+# Schema:
+#   id               unique slug
+#   question         the officer's question (natural language / slang OK)
+#   gate             "work" | "off_topic"  (scores gate routing)
+#   expect_sources   [keywords]  a retrieved source is a "hit" if it contains any
+#   must_contain     [requirement, ...]  requirement = string OR [synonyms] (any-of)
+#   must_not_contain [phrase, ...]  specific affirmative phrasings that must be absent
+#   notes            why this case exists
+#
+{"id": "prea_dating", "question": "Can I date an inmate if we keep it strictly professional at work?", "gate": "work", "expect_sources": ["prea", "sexual misconduct", "undue familiarity"], "must_contain": [["PREA", "Prison Rape Elimination Act", "sexual misconduct"], ["prohibited", "zero tolerance", "not allowed", "not permitted"]], "must_not_contain": ["is allowed", "is permitted", "is acceptable", "no policy against"], "notes": "DOMAIN_RULES: zero tolerance; must never say it's allowed."}
+{"id": "prea_slang_hookup", "question": "what happens if an officer is hooking up with an inmate", "gate": "work", "expect_sources": ["prea", "sexual misconduct"], "must_contain": [["PREA", "sexual misconduct", "staff-on-offender"], ["prohibited", "zero tolerance", "not allowed"]], "must_not_contain": ["is allowed", "is permitted"], "notes": "Slang 'hooking up' must map to PREA sexual misconduct."}
+{"id": "undue_familiarity_favor", "question": "Is it ok to give an inmate a ride or bring them food as a favor?", "gate": "work", "expect_sources": ["undue familiarity", "fraternization", "code of conduct"], "must_contain": [["undue familiarity", "fraternization", "prohibited", "not allowed"]], "must_not_contain": ["is allowed", "is acceptable", "is fine"], "notes": "DOMAIN_RULES: minor favors = undue familiarity, prohibited."}
+{"id": "uof_basics", "question": "When am I authorized to use force on an inmate?", "gate": "work", "expect_sources": ["use of force"], "must_contain": [["force"]], "notes": "Topic retrieval; tighten must_contain to your UoF policy specifics."}
+{"id": "contraband_found", "question": "I found a shank in a cell during a shakedown, what do I do?", "gate": "work", "expect_sources": ["contraband", "confiscation", "search"], "must_contain": [["contraband"]], "notes": "Should reference contraband handling/confiscation procedure."}
+{"id": "restrictive_housing", "question": "What are the rules for placing an inmate in restrictive housing?", "gate": "work", "expect_sources": ["restrictive housing", "segregation"], "must_contain": [["restrictive housing", "segregation"]], "notes": "Topic retrieval."}
+{"id": "count_procedure", "question": "How do I conduct an official count?", "gate": "work", "expect_sources": ["count"], "must_contain": [["count"]], "notes": "Topic retrieval."}
+{"id": "grievance", "question": "How does an inmate file a grievance?", "gate": "work", "expect_sources": ["grievance"], "must_contain": [["grievance"]], "notes": "Topic retrieval."}
+{"id": "prea_reporting", "question": "If I suspect PREA sexual abuse, how fast do I have to report it?", "gate": "work", "expect_sources": ["prea", "reporting"], "must_contain": [["report"], ["immediately", "immediate", "without delay", "as soon as"]], "notes": "PREA mandates immediate reporting; tune wording to policy."}
+{"id": "visitation_contraband", "question": "Can a visitor bring an inmate a phone?", "gate": "work", "expect_sources": ["visitation", "contraband"], "must_contain": [["contraband", "prohibited", "not allowed"]], "notes": "Cell phone = contraband; introduction prohibited."}
+{"id": "slang_beatdown", "question": "two inmates gave each other a beat down in the dayroom", "gate": "work", "expect_sources": ["use of force", "incident", "fight"], "notes": "Gate must accept this as work (slang for a fight)."}
+{"id": "offtopic_weather", "question": "what's the weather like today", "gate": "off_topic", "notes": "Gate must reject: off-topic."}
+{"id": "offtopic_poem", "question": "write me a poem about my dog", "gate": "off_topic", "notes": "Gate must reject: off-topic."}
+{"id": "offtopic_recipe", "question": "give me a recipe for chili", "gate": "off_topic", "notes": "Gate must reject: off-topic."}
+{"id": "offtopic_sports", "question": "who won the game last night", "gate": "off_topic", "notes": "Gate must reject: off-topic."}
+{"id": "offtopic_code", "question": "write me some python code to sort a list", "gate": "off_topic", "notes": "Gate must reject: off-topic."}

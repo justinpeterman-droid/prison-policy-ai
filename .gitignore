@@ -14,7 +14,8 @@ chunks/
 /reports/
 field-notes/
 *.jsonl
-!tests/eval/*.jsonl   # eval cases are source data, not ignored corpus files
+# eval cases are source data, not ignored corpus files
+!tests/eval/*.jsonl
 *.csv
 
 # Python
