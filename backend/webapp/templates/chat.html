@@ -281,11 +281,23 @@ function showCites(convIdx,focusN){
 function togglePassage(el,event){
   if(event.target.closest('.p-copy'))return;
   const wasExpanded=el.classList.contains('expanded');
+  // Accordion: collapse all other passages first
+  document.querySelectorAll('.passage.expanded').forEach(p=>{
+    if(p!==el){p.classList.remove('expanded');const m=p.querySelector('.p-more');if(m)m.textContent='Show more ▼';}
+  });
   el.classList.toggle('expanded');
   const more=el.querySelector('.p-more');
-  if(more)more.textContent=wasExpanded?'Show more \u25bc':'Show less \u25b2';
+  if(more)more.textContent=wasExpanded?'Show more ▼':'Show less ▲';
   if(!wasExpanded)el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
+// Click away anywhere outside passages collapses all
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.passage')){
+    document.querySelectorAll('.passage.expanded').forEach(p=>{
+      p.classList.remove('expanded');const m=p.querySelector('.p-more');if(m)m.textContent='Show more ▼';
+    });
+  }
+});
 function copyPassage(convIdx,n,btn){
   const p=(convos[convIdx]?.citations||[]).find(x=>x.n===n);
   const text=p?p.text:'';
