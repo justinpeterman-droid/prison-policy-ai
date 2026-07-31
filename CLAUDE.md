@@ -207,12 +207,13 @@ generate**.
 
 ## Testing
 
-Two layers:
+Three layers:
 
 **1. Fast unit tests (`tests/unit/`, pytest — no GCP).** Cover the deterministic,
-credential-free logic: `validate.find_gaps` (gap/marker rules), `name_fixer`, and the
+credential-free logic: `validate.find_gaps` (gap/marker rules), `name_fixer`, the
 BMU-convention helpers in `routes/reports.py` (time normalization, incident numbers,
-name/rank parsing, shift labels). Run on every PR; run locally with:
+name/rank parsing, shift labels), the feedback rate limiter, and the policy-chat eval
+scorer (`tests/eval/scorer.py`). Run on every PR; run locally with:
 
 ```bash
 pip install -r requirements.txt   # pytest + deps
@@ -238,6 +239,19 @@ PYTHONPATH=. python3 tests/test_pipeline.py --all --compare
 Fixtures live in `tests/fixtures/*.txt` (real-style field notes). **Running the AI
 steps needs GCP ADC**; `--step classify`/`extract` still call Gemini. Snapshots are
 saved under `tests/output/<name>_snapshot/` on first `--compare`.
+
+**3. Policy-chat eval harness (`tests/eval/`, needs GCP ADC to run).** Measures the
+chat pipeline against a curated question set (`cases.jsonl`) on three signals: gate
+accuracy, retrieval hit-rate, and answer correctness (must-contain facts /
+must-not-contain forbidden claims — the PREA/undue-familiarity cases assert the hard
+`DOMAIN_RULES`). The scorer (`scorer.py`) is pure and unit-tested in layer 1; the
+runner drives the live pipeline. Expand/tune `cases.jsonl` against the real corpus.
+
+```bash
+PYTHONPATH=. python3 tests/eval/run_eval.py            # full scorecard → tests/eval/output/
+PYTHONPATH=. python3 tests/eval/run_eval.py --gate-only
+PYTHONPATH=. python3 tests/eval/run_eval.py --id prea_dating
+```
 
 ---
 
