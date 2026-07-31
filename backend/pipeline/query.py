@@ -125,7 +125,7 @@ def _classify_query(question: str) -> bool:
     ]
     for pat in off_topic_patterns:
         if pat in question_lower:
-            logger.info("Gate rejected (keyword): %r", question[:80])
+            logger.debug("Gate rejected (keyword): %r", question[:80])
             return False
 
     # Obvious work terms → accept immediately
@@ -152,7 +152,8 @@ def _classify_query(question: str) -> bool:
         )
         verdict = response.text.strip().upper()
         is_work = "WORK" in verdict and "OFF_TOPIC" not in verdict
-        logger.info("Gate classified: %r -> %s", question[:80], "WORK" if is_work else "OFF_TOPIC")
+        logger.debug("Gate classified: %r -> %s", question[:80], "WORK" if is_work else "OFF_TOPIC")
+        logger.info("Gate classified query as %s", "WORK" if is_work else "OFF_TOPIC")
         return is_work
     except Exception:
         logger.exception("Gate classification failed, allowing through")
@@ -168,7 +169,7 @@ def _expand_query(question: str) -> str:
         )
         expanded = response.text.strip().strip('"')
         if expanded and expanded != question:
-            logger.info("Query expanded: %r -> %r", question[:80], expanded[:120])
+            logger.debug("Query expanded: %r -> %r", question[:80], expanded[:120])
             return expanded
     except Exception:
         logger.exception("Query expansion failed, using original query")

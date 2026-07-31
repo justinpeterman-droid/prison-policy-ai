@@ -463,7 +463,7 @@ def reports_generate():
                 added = add_staff_from_gap_answer(
                     key.replace("officer_identity_", ""), str(val))
                 if added:
-                    logger.info("Persisted new staff from gap answer: %s", key)
+                    logger.info("Persisted new staff to roster from gap answer")
             elif key.startswith("officer_fields_") and val:
                 # staff_missing_fields: the answer is just the missing value(s);
                 # patch the matching person dict if we can identify the officer
@@ -473,7 +473,9 @@ def reports_generate():
                             and (p.get("last", "").lower() == name_hint.lower()
                                  or p.get("name", "").lower() == name_hint.lower())):
                         p["first"] = _titlecase(str(val))
-                        logger.info("Filled missing field for %s from gap answer", name_hint)
+                        # Name kept at debug so PII isn't emitted at INFO in prod.
+                        logger.debug("Filled missing field for %s from gap answer", name_hint)
+                        logger.info("Filled a missing staff field from gap answer")
                         break
 
         # ── Deterministic BMU defaults (before auto_content resolves) ──
@@ -544,8 +546,9 @@ def reports_generate():
                 slots["officer_first"] = first
             if rank_parsed:
                 slots["rank"] = rank_parsed
-            logger.info("Parsed officer_name %r -> rank=%r first=%r last=%r",
-                        officer_name, rank_parsed, first, last)
+            # Name detail at debug only — no PII in the default INFO logs.
+            logger.debug("Parsed officer_name %r -> rank=%r first=%r last=%r",
+                         officer_name, rank_parsed, first, last)
 
         elif reporters := [p for p in slots.get("persons", [])
                           if p.get("role") == "security_staff"]:

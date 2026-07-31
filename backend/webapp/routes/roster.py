@@ -76,7 +76,8 @@ def add_staff():
     entry = {"rank": rank, "first": first, "last": last, "employee_number": emp, "shift": shift}
     data.setdefault("staff", []).append(entry)
     _save(data)
-    logger.info("Added staff: %s %s (%s) → shift %s", rank, f"{first} {last}", emp, shift)
+    logger.debug("Added staff: %s %s (%s) → shift %s", rank, f"{first} {last}", emp, shift)
+    logger.info("Added a staff member to the roster (shift %s)", shift)
     return jsonify({"ok": True})
 
 

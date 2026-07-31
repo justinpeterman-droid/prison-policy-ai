@@ -81,8 +81,9 @@ def _add_to_roster_file(rank: str, first: str, last: str,
     # Bust cache so next lookup uses updated roster
     global _cache
     _cache = roster
-    logger.info("Added %s %s %s (%s) to staff roster",
-                rank, first, last, employee_number)
+    logger.debug("Added %s %s %s (%s) to staff roster",
+                 rank, first, last, employee_number)
+    logger.info("Added a new staff member to the roster (shift %s)", shift)
     return True
 
 

@@ -1,6 +1,11 @@
 # Data directories (large, not code)
 data/
 
+# Pipeline harness output — regenerable artifacts that contain realistic
+# names/ADC#s; keep PII out of the repo. Force-add a _snapshot dir if you
+# ever want to commit a golden baseline deliberately.
+tests/output/
+
 # Data directories at root (legacy, to be migrated to data/)
 pdfs/
 extracted/
