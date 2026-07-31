@@ -16,8 +16,23 @@ import google.auth.transport.requests
 from google import genai
 from google.genai import types
 from backend.pipeline.config import PROJECT_ID, GENERATION_MODEL
+from backend.pipeline.citations import build_grounded
+from backend.pipeline.retrieval import augment_query, select_passages
 
 logger = logging.getLogger(__name__)
+
+# Retrieve broadly, but only feed the top passages to the generator (numbered +
+# citable) — keeps the prompt focused and avoids "lost in the middle".
+SEARCH_PAGE_SIZE = 25
+MAX_CONTEXT_PASSAGES = 12
+
+# Appended when the model answered without citing any retrieved passage — the
+# grounding signal. Not suppressed (a DOMAIN_RULES safety answer may be
+# passage-less), but clearly flagged so nobody treats it as document-backed.
+UNGROUNDED_NOTE = (
+    "\n\n⚠️ This answer could not be tied to a specific retrieved policy passage. "
+    "Verify against the source policy or your supervisor before relying on it."
+)
 
 LOCATION = os.getenv("AGENT_BUILDER_LOCATION", "global")
 DATA_STORE_ID = os.getenv("AGENT_BUILDER_DATA_STORE", "prison-policies-ds")
@@ -62,20 +77,6 @@ CHAT_SYSTEM_PROMPT = (
     "using ONLY the policy documents provided. Cite document numbers "
     "and sections. If the documents don't address the question, say so.\n\n"
     + DOMAIN_RULES
-)
-
-QUERY_EXPANSION_PROMPT = (
-    "You are helping a prison officer search policy documents. "
-    "Rewrite their question into 3-5 search keywords. "
-    "Officers use informal language — map it to formal policy terms:\n"
-    "- 'romantic' / 'dating' / 'hooking up' / 'relationship' with inmate → PREA sexual misconduct staff inmate\n"
-    "- 'fight' / 'beat down' → use of force\n"
-    "- 'stuff' / 'things they shouldn't have' → contraband\n"
-    "- 'walked off' / 'left' → escape walkaway\n"
-    "- 'ride' / 'drive' / 'favor' for inmate → undue familiarity fraternization\n"
-    "Output ONLY the keywords, no explanation.\n\n"
-    "Question: {question}\n"
-    "Keywords:"
 )
 
 GATE_PROMPT = (
@@ -125,7 +126,7 @@ def _classify_query(question: str) -> bool:
     ]
     for pat in off_topic_patterns:
         if pat in question_lower:
-            logger.info("Gate rejected (keyword): %r", question[:80])
+            logger.debug("Gate rejected by keyword match")
             return False
 
     # Obvious work terms → accept immediately
@@ -152,27 +153,11 @@ def _classify_query(question: str) -> bool:
         )
         verdict = response.text.strip().upper()
         is_work = "WORK" in verdict and "OFF_TOPIC" not in verdict
-        logger.info("Gate classified: %r -> %s", question[:80], "WORK" if is_work else "OFF_TOPIC")
+        logger.info("Gate classified query as %s", "WORK" if is_work else "OFF_TOPIC")
         return is_work
     except Exception:
         logger.exception("Gate classification failed, allowing through")
         return True  # Fail open
-
-
-def _expand_query(question: str) -> str:
-    """Rewrite colloquial officer language into policy search terms."""
-    try:
-        response = _get_gen_client().models.generate_content(
-            model=GENERATION_MODEL,
-            contents=QUERY_EXPANSION_PROMPT.format(question=question),
-        )
-        expanded = response.text.strip().strip('"')
-        if expanded and expanded != question:
-            logger.info("Query expanded: %r -> %r", question[:80], expanded[:120])
-            return expanded
-    except Exception:
-        logger.exception("Query expansion failed, using original query")
-    return question
 
 
 def _search_data_store(query: str, page_size: int = 10) -> list[dict]:
@@ -247,24 +232,37 @@ def answer_question(question: str) -> dict:
         }
 
     # ── Search ──
-    contexts = _search_data_store(_expand_query(question), page_size=25)
+    # Augment (not replace) the question with formal terms for known slang; the
+    # natural question still drives Discovery Engine's semantic understanding.
+    retrieved = _search_data_store(augment_query(question), page_size=SEARCH_PAGE_SIZE)
+    retrieved_sources = [c["source"] for c in retrieved]
     logger.info("answer_question: %d contexts, first source=%s",
-                len(contexts),
-                contexts[0]["source"][:60] if contexts else "None")
+                len(retrieved),
+                retrieved[0]["source"][:60] if retrieved else "None")
 
-    if not contexts:
+    if not retrieved:
         return {
             "answer": "No relevant policy documents found for this question.",
             "citations": [],
             "sources": [],
+            "retrieved_sources": [],
         }
 
-    context_text = "\n\n---\n\n".join(c["text"] for c in contexts)
+    # Trim to the top passages (dedupe + per-source cap), numbered for citation.
+    contexts = select_passages(retrieved, MAX_CONTEXT_PASSAGES)
+    numbered = "\n\n".join(
+        f"[{i + 1}] (Source: {c['source']})\n{c['text']}"
+        for i, c in enumerate(contexts)
+    )
     prompt = (
-        f"POLICY DOCUMENTS:\n{context_text}\n\n"
+        f"POLICY PASSAGES (numbered):\n{numbered}\n\n"
         f"OFFICER'S QUESTION: {question}\n\n"
-        f"Answer using the policy documents above. "
-        f"If the officer used informal terms, map them to the formal policy language."
+        "Answer using ONLY the numbered passages above. Immediately after each "
+        "statement, cite the passage number(s) that support it in square brackets, "
+        "e.g. '... must be reported within 24 hours [3].' Cite only passages that "
+        "actually support the statement. If the officer used informal terms, map "
+        "them to the formal policy language. If the passages do not answer the "
+        "question, say so plainly."
     )
 
     response = _get_gen_client().models.generate_content(
@@ -273,14 +271,15 @@ def answer_question(question: str) -> dict:
         config=types.GenerateContentConfig(system_instruction=CHAT_SYSTEM_PROMPT),
     )
 
-    citations = [
-        {"n": i + 1, "source": c["source"], "text": c["text"]}
-        for i, c in enumerate(contexts)
-    ]
+    # Surface only the passages the model actually cited; flag ungrounded answers.
+    answer, citations, grounded = build_grounded(response.text, contexts)
+    if not grounded:
+        answer = (response.text or "").rstrip() + UNGROUNDED_NOTE
+    logger.info("answer_question: grounded=%s, %d citation(s)", grounded, len(citations))
+
     return {
-        "answer": response.text,
+        "answer": answer,
         "citations": citations,
-        "sources": [
-            (c["source"] or c["text"][:80] + "...") for c in contexts
-        ],
+        "sources": [c["source"] for c in citations],
+        "retrieved_sources": retrieved_sources,
     }

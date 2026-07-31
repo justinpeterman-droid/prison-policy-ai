@@ -10,6 +10,7 @@ Takes the extraction JSON + confirmed category, returns:
 """
 import json
 import re
+from functools import lru_cache
 from pathlib import Path
 
 TEMPLATES_DIR = Path(__file__).parent.parent.parent / "templates"
@@ -24,7 +25,10 @@ OTHER_OPTION = "Other (type your own)"
 COLLECTED_ELSEWHERE = {"charges"}
 
 
+@lru_cache(maxsize=1)
 def load_checklist() -> dict:
+    """Load the incident checklist. Cached — the file is static data read on
+    every extract/generate; callers only read it, never mutate the returned dict."""
     return json.loads(CHECKLIST_PATH.read_text())
 
 

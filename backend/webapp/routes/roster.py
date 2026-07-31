@@ -76,7 +76,8 @@ def add_staff():
     entry = {"rank": rank, "first": first, "last": last, "employee_number": emp, "shift": shift}
     data.setdefault("staff", []).append(entry)
     _save(data)
-    logger.info("Added staff: %s %s (%s) → shift %s", rank, f"{first} {last}", emp, shift)
+    # Do not log names/employee numbers (PII / CodeQL clear-text-logging).
+    logger.info("Added a staff member to the roster (shift %s)", shift)
     return jsonify({"ok": True})
 
 
@@ -102,7 +103,7 @@ def update_staff(emp_id):
                     return jsonify({"error": f"Invalid shift '{new_shift}'."}), 400
                 person["shift"] = new_shift
             _save(data)
-            logger.info("Updated staff %s", emp_id)
+            logger.info("Updated a staff member")
             return jsonify({"ok": True})
 
     return jsonify({"error": f"Staff member {emp_id} not found."}), 404
@@ -120,5 +121,5 @@ def delete_staff(emp_id):
         return jsonify({"error": f"Staff member {emp_id} not found."}), 404
 
     _save(data)
-    logger.info("Removed staff %s", emp_id)
+    logger.info("Removed a staff member")
     return jsonify({"ok": True})

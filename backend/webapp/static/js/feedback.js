@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (res.ok) {
-                status.textContent = 'Feedback submitted!';
+                status.textContent = 'Feedback submitted — thank you!';
                 setTimeout(() => {
                     formContainer.style.display = 'none';
                     textarea.value = '';
@@ -162,11 +162,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     status.style.display = 'none';
                 }, 2000);
             } else {
-                status.textContent = 'Failed to submit.';
+                // Distinguish failure types so a broken server config isn't
+                // invisible. Server sends { error } detail — log it for admins.
+                let detail = '';
+                try { detail = (await res.json()).error || ''; } catch (e) {}
+                if (detail) console.error('Feedback submit failed:', res.status, detail);
+
+                let msg;
+                if (res.status === 401) {
+                    msg = 'Your session expired — reload the page and try again.';
+                } else if (res.status === 429) {
+                    msg = 'Too many submissions — please wait a few minutes.';
+                } else if (res.status === 413) {
+                    msg = 'That message is too long — please shorten it.';
+                } else {
+                    msg = 'Feedback couldn’t be saved (server error). Please let an admin know.';
+                }
+                status.textContent = msg;
                 submitBtn.disabled = false;
             }
         } catch (err) {
-            status.textContent = 'Error submitting feedback.';
+            status.textContent = 'Network error — check your connection and try again.';
             submitBtn.disabled = false;
         }
     });
