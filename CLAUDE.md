@@ -194,14 +194,17 @@ generate**.
 
 - **Gate** (`_classify_query`): keyword fast-path then a Gemini fallback; off-topic
   queries get a canned "you're at work" reply. Fails **open**.
-- **Expand** (`_expand_query`): rewrites colloquial officer language into formal
-  policy terms (e.g. "hooking up with an inmate" → "PREA sexual misconduct").
+- **Augment** (`retrieval.augment_query`, deterministic — no LLM): appends formal
+  policy terms for known officer slang (e.g. "hooking up" → "PREA sexual misconduct")
+  to the question instead of replacing it. Replaced the old LLM `_expand_query`,
+  which cost a round-trip and discarded the question's semantics.
 - **Search**: Vertex AI **Agent Builder / Discovery Engine** data store
   (`prison-policies-engine`) via REST — *not* the older `vertexai.preview.rag` corpus
   (that migration was to draw on the Agent Builder credit; README wording may lag).
 - **Generate**: Gemini with `CHAT_SYSTEM_PROMPT`, which embeds hard-coded
   `DOMAIN_RULES` (PREA zero-tolerance, undue familiarity) the model must never
-  contradict. The top `MAX_CONTEXT_PASSAGES` passages are numbered and the model
+  contradict. The top `MAX_CONTEXT_PASSAGES` passages (deduped + per-source-capped
+  by `retrieval.select_passages`) are numbered and the model
   is told to cite them inline as `[n]`; `citations.py` (pure) then renumbers the
   markers 1..k and surfaces **only the cited passages**. An answer that cites
   nothing is flagged with an `UNGROUNDED_NOTE` rather than presented as

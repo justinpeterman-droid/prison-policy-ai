@@ -17,6 +17,7 @@ from google import genai
 from google.genai import types
 from backend.pipeline.config import PROJECT_ID, GENERATION_MODEL
 from backend.pipeline.citations import build_grounded
+from backend.pipeline.retrieval import augment_query, select_passages
 
 logger = logging.getLogger(__name__)
 
@@ -76,20 +77,6 @@ CHAT_SYSTEM_PROMPT = (
     "using ONLY the policy documents provided. Cite document numbers "
     "and sections. If the documents don't address the question, say so.\n\n"
     + DOMAIN_RULES
-)
-
-QUERY_EXPANSION_PROMPT = (
-    "You are helping a prison officer search policy documents. "
-    "Rewrite their question into 3-5 search keywords. "
-    "Officers use informal language — map it to formal policy terms:\n"
-    "- 'romantic' / 'dating' / 'hooking up' / 'relationship' with inmate → PREA sexual misconduct staff inmate\n"
-    "- 'fight' / 'beat down' → use of force\n"
-    "- 'stuff' / 'things they shouldn't have' → contraband\n"
-    "- 'walked off' / 'left' → escape walkaway\n"
-    "- 'ride' / 'drive' / 'favor' for inmate → undue familiarity fraternization\n"
-    "Output ONLY the keywords, no explanation.\n\n"
-    "Question: {question}\n"
-    "Keywords:"
 )
 
 GATE_PROMPT = (
@@ -173,22 +160,6 @@ def _classify_query(question: str) -> bool:
         return True  # Fail open
 
 
-def _expand_query(question: str) -> str:
-    """Rewrite colloquial officer language into policy search terms."""
-    try:
-        response = _get_gen_client().models.generate_content(
-            model=GENERATION_MODEL,
-            contents=QUERY_EXPANSION_PROMPT.format(question=question),
-        )
-        expanded = response.text.strip().strip('"')
-        if expanded and expanded != question:
-            logger.debug("Query expanded for search")
-            return expanded
-    except Exception:
-        logger.exception("Query expansion failed, using original query")
-    return question
-
-
 def _search_data_store(query: str, page_size: int = 10) -> list[dict]:
     """Search the Agent Builder data store. Returns [{text, source}, ...]."""
     token = _get_token()
@@ -261,7 +232,9 @@ def answer_question(question: str) -> dict:
         }
 
     # ── Search ──
-    retrieved = _search_data_store(_expand_query(question), page_size=SEARCH_PAGE_SIZE)
+    # Augment (not replace) the question with formal terms for known slang; the
+    # natural question still drives Discovery Engine's semantic understanding.
+    retrieved = _search_data_store(augment_query(question), page_size=SEARCH_PAGE_SIZE)
     retrieved_sources = [c["source"] for c in retrieved]
     logger.info("answer_question: %d contexts, first source=%s",
                 len(retrieved),
@@ -275,8 +248,8 @@ def answer_question(question: str) -> dict:
             "retrieved_sources": [],
         }
 
-    # Only the top passages go to the generator, numbered for inline citation.
-    contexts = retrieved[:MAX_CONTEXT_PASSAGES]
+    # Trim to the top passages (dedupe + per-source cap), numbered for citation.
+    contexts = select_passages(retrieved, MAX_CONTEXT_PASSAGES)
     numbered = "\n\n".join(
         f"[{i + 1}] (Source: {c['source']})\n{c['text']}"
         for i, c in enumerate(contexts)
