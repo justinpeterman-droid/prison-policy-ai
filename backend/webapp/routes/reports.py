@@ -473,8 +473,6 @@ def reports_generate():
                             and (p.get("last", "").lower() == name_hint.lower()
                                  or p.get("name", "").lower() == name_hint.lower())):
                         p["first"] = _titlecase(str(val))
-                        # Name kept at debug so PII isn't emitted at INFO in prod.
-                        logger.debug("Filled missing field for %s from gap answer", name_hint)
                         logger.info("Filled a missing staff field from gap answer")
                         break
 
@@ -546,9 +544,8 @@ def reports_generate():
                 slots["officer_first"] = first
             if rank_parsed:
                 slots["rank"] = rank_parsed
-            # Name detail at debug only — no PII in the default INFO logs.
-            logger.debug("Parsed officer_name %r -> rank=%r first=%r last=%r",
-                         officer_name, rank_parsed, first, last)
+            # Do not log the name itself (PII); just note parsing happened.
+            logger.debug("Parsed officer_name from gap answer into rank/first/last")
 
         elif reporters := [p for p in slots.get("persons", [])
                           if p.get("role") == "security_staff"]:

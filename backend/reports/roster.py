@@ -81,8 +81,7 @@ def _add_to_roster_file(rank: str, first: str, last: str,
     # Bust cache so next lookup uses updated roster
     global _cache
     _cache = roster
-    logger.debug("Added %s %s %s (%s) to staff roster",
-                 rank, first, last, employee_number)
+    # Do not log names/employee numbers (PII / CodeQL clear-text-logging).
     logger.info("Added a new staff member to the roster (shift %s)", shift)
     return True
 
@@ -144,7 +143,7 @@ def add_staff_from_gap_answer(name_hint: str, answer_text: str) -> bool:
         if match:
             return False  # Already in roster
         # Can't determine — need at least first + last
-        logger.warning("Cannot parse staff name from: %r", answer_text)
+        logger.warning("Could not parse a staff name from a gap answer")
         return False
     else:
         return False

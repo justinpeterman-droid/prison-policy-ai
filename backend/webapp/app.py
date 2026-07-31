@@ -16,6 +16,29 @@ def _code_ok(value: str) -> bool:
     return bool(ACCESS_CODE) and (value or "").strip().lower() == ACCESS_CODE.strip().lower()
 
 
+def _request_is_https() -> bool:
+    """True when the client reached us over HTTPS. Cloud Run terminates TLS and
+    forwards over HTTP, so trust X-Forwarded-Proto in addition to is_secure —
+    otherwise the Secure cookie flag would never be set in production."""
+    return request.is_secure or request.headers.get("X-Forwarded-Proto", "") == "https"
+
+
+def _set_auth_cookie(resp):
+    """Set the access-code cookie with hardening flags:
+      - HttpOnly: JavaScript can't read it (XSS can't steal the session).
+      - Secure:   only sent over HTTPS (in prod) — omitted on local http so dev login works.
+      - SameSite=Lax: not sent on cross-site POST/XHR → blocks CSRF against the API.
+    """
+    resp.set_cookie(
+        "access_code", ACCESS_CODE,
+        max_age=60 * 60 * 24,
+        httponly=True,
+        secure=_request_is_https(),
+        samesite="Lax",
+    )
+    return resp
+
+
 def create_app() -> Flask:
     app = Flask(
         __name__,
@@ -51,8 +74,7 @@ def create_app() -> Flask:
         # Bookmarkable links: ?code=... sets the cookie then redirects clean
         if _code_ok(request.args.get("code")):
             resp = make_response(redirect(request.path))
-            resp.set_cookie("access_code", ACCESS_CODE, max_age=60*60*24, httponly=True)
-            return resp
+            return _set_auth_cookie(resp)
         if request.path.startswith("/api/"):
             return jsonify({"error": "Authentication required — reload the page to log in."}), 401
         return redirect(f"/login?next={request.path}")
@@ -77,8 +99,7 @@ def create_app() -> Flask:
             if _code_ok(code):
                 next_url = request.args.get("next", "/")
                 resp = make_response(redirect(next_url))
-                resp.set_cookie("access_code", ACCESS_CODE, max_age=60*60*24, httponly=True)
-                return resp
+                return _set_auth_cookie(resp)
             error = "Invalid access code."
         return render_template("login.html", error=error, next=request.args.get("next", "/"))
 
