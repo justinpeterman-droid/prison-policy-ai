@@ -26,9 +26,9 @@ def feedback_api():
     repo = "justinpeterman-droid/prison-policy-ai"
     api_url = f"https://api.github.com/repos/{repo}/issues"
     
-    # Format the issue body
+    # Format the issue body (real newlines — GitHub renders Markdown)
     issue_title = f"User Feedback from {page_url}"
-    issue_body = f"**Page:** `{page_url}`\\n\\n**Feedback/Improvement:**\\n{feedback_text}"
+    issue_body = f"**Page:** `{page_url}`\n\n**Feedback/Improvement:**\n{feedback_text}"
     
     payload = json.dumps({
         "title": issue_title,
@@ -48,6 +48,6 @@ def feedback_api():
     except urllib.error.HTTPError as e:
         logger.error(f"GitHub API error: {e.code} {e.read().decode('utf-8')}")
         return jsonify({"error": "Failed to submit feedback to GitHub."}), 500
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error submitting feedback")
         return jsonify({"error": "An unexpected error occurred."}), 500

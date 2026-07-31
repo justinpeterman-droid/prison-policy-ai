@@ -207,9 +207,27 @@ generate**.
 
 ## Testing
 
-There is a **pipeline harness**, not a pytest suite. It runs fixtures through
-classify → extract → generate, writes every intermediate to `tests/output/<name>/`,
-and can diff against a saved snapshot.
+Two layers:
+
+**1. Fast unit tests (`tests/unit/`, pytest — no GCP).** Cover the deterministic,
+credential-free logic: `validate.find_gaps` (gap/marker rules), `name_fixer`, and the
+BMU-convention helpers in `routes/reports.py` (time normalization, incident numbers,
+name/rank parsing, shift labels). Run on every PR; run locally with:
+
+```bash
+pip install -r requirements.txt   # pytest + deps
+python3 -m pytest                 # scoped to tests/unit via pytest.ini
+```
+
+`pytest.ini` sets `testpaths = tests/unit`; the root `conftest.py` puts the repo root
+on `sys.path`. The `routes/reports.py` helper tests import the Vertex SDK at module
+load, so they **skip cleanly** if `google-genai` isn't installed locally and **run**
+in CI. Add a test here whenever you touch a pure helper or a checklist rule.
+
+**2. Pipeline harness (`tests/test_pipeline.py`, needs GCP ADC).** Runs fixtures
+through classify → extract → generate, writes every intermediate to
+`tests/output/<name>/`, and can diff against a saved snapshot. It is **not** collected
+by pytest (excluded via `testpaths`).
 
 ```bash
 PYTHONPATH=. python3 tests/test_pipeline.py fixtures/inmate_fight_01.txt

@@ -1,7 +1,10 @@
 """Report generation endpoints — v2 three-step pipeline."""
+import json
 import logging
 import re
 from datetime import datetime
+from functools import lru_cache
+from pathlib import Path
 from flask import Blueprint, render_template, request, jsonify, send_file
 from backend.reports.classifier import classify_incident
 from backend.reports.generator import generate_all_reports
@@ -9,6 +12,19 @@ from backend.reports.filler import fill_template
 
 logger = logging.getLogger(__name__)
 reports_bp = Blueprint("reports", __name__)
+
+_LOCATION_MAP_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "location_map.json"
+
+
+@lru_cache(maxsize=1)
+def _load_location_map() -> dict:
+    """Slang → formal BMU location names. Cached — static data read on every
+    extract call."""
+    try:
+        return json.loads(_LOCATION_MAP_PATH.read_text())
+    except Exception:
+        logger.warning("Could not load location_map.json; skipping normalization")
+        return {}
 
 # Per BMU practice, medical detail is not written onto the 005 — leave
 # injury/treatment lines blank rather than pointing to external reports.
@@ -43,12 +59,8 @@ def _normalize_location(value):
     """Map slang location names to formal BMU terms."""
     if not value:
         return value
-    import json
-    from pathlib import Path
-    map_path = Path(__file__).parent.parent.parent.parent / "templates" / "location_map.json"
-    try:
-        loc_map = json.loads(map_path.read_text())
-    except Exception:
+    loc_map = _load_location_map()
+    if not loc_map:
         return value
     val_lower = str(value).strip().lower()
     # Direct match
@@ -306,9 +318,9 @@ def reports_classify():
             "charges": classification.get("charges_applicable", []),
             "charge_descriptions": classification.get("charge_descriptions", {}),
         })
-    except Exception as e:
+    except Exception:
         logger.exception("Classification failed")
-        return jsonify({"error": "Classification failed", "detail": str(e)}), 500
+        return jsonify({"error": "Classification failed"}), 500
 
 
 @reports_bp.route("/api/reports/extract", methods=["POST"])
@@ -415,9 +427,9 @@ def reports_extract():
             "officers": officers,
             "provenance": provenance,
         })
-    except Exception as e:
+    except Exception:
         logger.exception("Extraction failed")
-        return jsonify({"error": "Extraction failed", "detail": str(e)}), 500
+        return jsonify({"error": "Extraction failed"}), 500
 
 
 @reports_bp.route("/api/reports/generate", methods=["POST"])
@@ -618,9 +630,9 @@ def reports_generate():
             "markers": markers,
             "officers": officers,
         })
-    except Exception as e:
+    except Exception:
         logger.exception("Report generation failed")
-        return jsonify({"error": "Report generation failed", "detail": str(e)}), 500
+        return jsonify({"error": "Report generation failed"}), 500
 
 
 @reports_bp.route("/api/reports", methods=["POST"])
@@ -673,9 +685,9 @@ def reports_api():
             },
             "reports": reports,
         })
-    except Exception as e:
+    except Exception:
         logger.exception("Report generation failed")
-        return jsonify({"error": "Report generation failed", "detail": str(e)}), 500
+        return jsonify({"error": "Report generation failed"}), 500
 
 
 def _send_filled(metadata: dict):
@@ -714,9 +726,9 @@ def reports_download():
         logger.info("Document download from reviewed metadata — %d fields", len(metadata))
         try:
             return _send_filled(metadata)
-        except Exception as e:
+        except Exception:
             logger.exception("Document fill failed")
-            return jsonify({"error": "Document generation failed", "detail": str(e)}), 500
+            return jsonify({"error": "Document generation failed"}), 500
 
     notes = data.get("notes", "").strip()
     if not notes:
@@ -754,6 +766,6 @@ def reports_download():
         }
 
         return _send_filled(metadata)
-    except Exception as e:
+    except Exception:
         logger.exception("Document download failed")
-        return jsonify({"error": "Document generation failed", "detail": str(e)}), 500
+        return jsonify({"error": "Document generation failed"}), 500

@@ -31,7 +31,7 @@ official `templates/005*.docx` form locally — no LLM pass), and the entire sta
 
 The AI features call **Google Vertex AI via Application Default Credentials (ADC)** — there
 is no API-key env var. Without ADC these return HTTP 500 "default credentials were not found":
-- `POST /api/chat` (Policy Expert) — also requires a pre-built Vertex RAG corpus `prison-policies`.
+- `POST /api/chat` (Policy Expert) — also requires a built Vertex AI **Agent Builder / Discovery Engine** data store (`prison-policies-ds`, engine `prison-policies-engine`). This replaced the older `vertexai.preview.rag` corpus.
 - `POST /api/reports/classify`, `/extract`, `/generate` (the report UI's Generate button).
 To enable them, provide ADC (e.g. `GOOGLE_APPLICATION_CREDENTIALS` service-account JSON or
 `gcloud auth application-default login`) for GCP project `gen-lang-client-0968389176`.

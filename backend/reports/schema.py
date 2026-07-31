@@ -11,13 +11,16 @@ Every field is nullable: the model returns null for anything the notes don't sta
 nulls are what drive the gap-question screen.
 """
 import json
+from functools import lru_cache
 from pathlib import Path
 
 TEMPLATES_DIR = Path(__file__).parent.parent.parent / "templates"
 CHECKLIST_PATH = TEMPLATES_DIR / "incident_checklist_v2.json"
 
 
+@lru_cache(maxsize=1)
 def load_checklist() -> dict:
+    """Load the incident checklist. Cached — static data; callers read only."""
     return json.loads(CHECKLIST_PATH.read_text())
 
 
