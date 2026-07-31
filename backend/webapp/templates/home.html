@@ -150,6 +150,17 @@
   }
   .joke-line:hover{opacity:1}
 
+  /* ── Claw mark divider — red triple slash ── */
+  .claw{
+    display:flex;gap:9px;justify-content:center;align-items:center;
+    padding:44px 0 8px;max-width:960px;margin:0 auto;
+  }
+  .claw i{width:4px;height:30px;background:#dc2626;transform:rotate(15deg);border-radius:1px}
+  .claw i:nth-child(2){height:38px;opacity:.85}
+  .claw i:nth-child(3){opacity:.6}
+  .claw.on-dark{padding:0 0 34px}
+  .claw.on-dark i{background:#ef4444}
+
   /* Statement strip — briefing header, not feature cards */
   .statement-strip{
     width:100%;margin:44px 0 0;background:var(--navy);
@@ -457,6 +468,8 @@
   </div>
 </div>
 
+<div class="claw" aria-hidden="true"><i></i><i></i><i></i></div>
+
 <div class="section">
   <div class="kicker">The Tools</div>
   <h2>Two tools. One workflow.</h2>
@@ -482,6 +495,7 @@
 </div>
 
 <aside class="statement-strip" aria-label="Key points">
+  <div class="claw on-dark" aria-hidden="true" style="padding-top:30px"><i></i><i></i><i></i></div>
   <div class="statement-inner">
     <div class="statement statement-primary">
       <div class="bt">You stay in control.</div>
@@ -493,6 +507,8 @@
     </div>
   </div>
 </aside>
+
+<div class="claw" aria-hidden="true"><i></i><i></i><i></i></div>
 
 <div class="section">
   <div class="how" id="how-it-works">
