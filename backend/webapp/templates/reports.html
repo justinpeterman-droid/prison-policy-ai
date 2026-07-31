@@ -1129,19 +1129,22 @@ function renderChecklist(checklist){
     `</div>`;
 }
 function edField(label,key,value){
-  return `<div class="field"><label>${label}</label><span class="ed" data-key="${key}" contenteditable="true">${esc(fmt(value))}</span></div>`;
+  return `<div class="field"><label>${label}</label><span class="ed" data-key="${key}" contenteditable="true" role="textbox" aria-label="${esc(label)}">${esc(fmt(value))}</span></div>`;
 }
 /* ---- 005/409 Form replicas ---- */
 function ln(id,val,hint){
   const v=val||'';
   const h=hint?`<span class="f5hint">(${hint})</span>`:'';
-  return `<div class="f5line"><span class="ed" data-key="${id}" contenteditable="true">${esc(v)}</span>${h}</div>`;
+  // Accessible name: prefer the hint, else humanize the id (strip trailing
+  // digits from continuation lines like 'inmates2').
+  const aria=(hint||id.replace(/[0-9]+$/,'').replace(/_/g,' ')).trim();
+  return `<div class="f5line"><span class="ed" data-key="${id}" contenteditable="true" role="textbox" aria-label="${esc(aria)}">${esc(v)}</span>${h}</div>`;
 }
 function f5head(label,val){
   // Clean key: 'SHIFT ASSIGNMENT:' -> 'shift_assignment' (no trailing _ from the
   // colon), so it matches the DOCX placeholders and collectMetadata/edVal.
   const key=label.toLowerCase().replace(/[^a-z]+/g,'_').replace(/^_|_$/g,'');
-  return `<span class="f5label">${label}</span><span class="ed f5val" data-key="${key}" contenteditable="true">${esc(val||'')}</span>`;
+  return `<span class="f5label">${label}</span><span class="ed f5val" data-key="${key}" contenteditable="true" role="textbox" aria-label="${esc(label.replace(/:$/,''))}">${esc(val||'')}</span>`;
 }
 function form005Front(o){
   return `
@@ -1157,10 +1160,10 @@ function form005Front(o){
       <div class="f5chk"><span class="f5num">409</span><input type="checkbox" class="f5cb"> <span class="f5chklbl">Use of<br>Force</span></div>
     </div>
   </div>
-  <div class="f5row"><span class="f5label">UNIT / DIVISION</span><span class="ed f5val" data-key="unit_division" contenteditable="true">${esc(o.unit)}</span></div>
+  <div class="f5row"><span class="f5label">UNIT / DIVISION</span><span class="ed f5val" data-key="unit_division" contenteditable="true" role="textbox" aria-label="Unit / Division">${esc(o.unit)}</span></div>
   <div class="f5row f5subj"><span class="f5label">SUBJECT:</span><span class="f5subjt">Reporting of Incidents-005; Use of Force-409</span></div>
   <div class="f5row"><span class="f5label">REPORTING EMPLOYEE:</span>
-    <div class="f5cols3"><div><label>LAST</label><span class="ed" data-key="officer_last" contenteditable="true">${esc(o.officerLast)}</span></div><div><label>FIRST</label><span class="ed" data-key="officer_first" contenteditable="true">${esc(o.officerFirst)}</span></div><div><label>MIDDLE</label><span class="ed" data-key="employee_number" contenteditable="true">${esc(o.emp)}</span></div></div>
+    <div class="f5cols3"><div><label>LAST</label><span class="ed" data-key="officer_last" contenteditable="true" role="textbox" aria-label="Reporting employee last name">${esc(o.officerLast)}</span></div><div><label>FIRST</label><span class="ed" data-key="officer_first" contenteditable="true" role="textbox" aria-label="Reporting employee first name">${esc(o.officerFirst)}</span></div><div><label>MIDDLE</label><span class="ed" data-key="employee_number" contenteditable="true" role="textbox" aria-label="Employee number">${esc(o.emp)}</span></div></div>
   </div>
   <div class="f5row f5inline">
     ${f5head('RANK:',o.rank)} ${f5head('SHIFT ASSIGNMENT:',o.shift)}
@@ -1184,9 +1187,9 @@ function form005Back(o){
   const n=o.narrative||'';
   return `
   <div class="f5section">STATEMENT OF FACTS (If force used, state type and explain):</div>
-  <div class="f5narrative ed" data-key="narrative" contenteditable="true">${n}</div>
+  <div class="f5narrative ed" data-key="narrative" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Statement of facts">${n}</div>
   <div class="f5section">RECOMMENDATION:</div>
-  <div class="f5rec ed" data-key="recommendation" contenteditable="true"></div>
+  <div class="f5rec ed" data-key="recommendation" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Recommendation"></div>
   <div class="f5sigrow">
     <div class="f5sig"><div class="f5sigline"></div><div>Signature of Reporting Employee</div></div>
     <div class="f5sig"><div class="f5sigline">${esc(o.sigName)}</div><div>Date: ${esc(o.date)}</div></div>
@@ -1196,7 +1199,7 @@ function form005Back(o){
     <div class="f5sig"><div class="f5sigline"></div><div>Date</div></div>
   </div>
   <div class="f5section">RECOMMENDATION:</div>
-  <div class="f5rec ed" data-key="recommendation2" contenteditable="true"></div>
+  <div class="f5rec ed" data-key="recommendation2" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Recommendation (continued)"></div>
   <div class="f5sigrow">
     <div class="f5sig"><div class="f5sigline"></div><div>Reviewed by (Signature) Warden/Center Supervisor/Administrator</div></div>
     <div class="f5sig"><div class="f5sigline"></div><div>Date</div></div>
