@@ -68,7 +68,7 @@ prison-policy-ai/
 ├── tests/                       # Pipeline harness + fixtures + golden output
 ├── scripts/                     # One-off OCR / corpus / deploy helpers
 ├── Dockerfile                   # Cloud Run image (root context, PYTHONPATH=/app)
-├── requirements.txt             # Root mirror of backend/requirements.txt
+├── requirements.txt             # Local/CI deps (backend/requirements.txt is what Docker installs; it adds google-cloud-aiplatform for corpus builds)
 └── .github/workflows/           # cloud-run.yml, pages.yml, codacy.yml
 ```
 
@@ -94,7 +94,7 @@ Absolute `backend.*` imports mean you **must run from the repo root with the roo
 `PYTHONPATH`** — never `cd backend/webapp` and run `app.py` bare.
 
 ```bash
-pip install -r requirements.txt            # or backend/requirements.txt (identical)
+pip install -r requirements.txt            # backend/requirements.txt is the deployed set (adds google-cloud-aiplatform)
 
 # Dev (debug reloader on):
 PYTHONPATH=. python3 backend/webapp/app.py            # → http://localhost:8080

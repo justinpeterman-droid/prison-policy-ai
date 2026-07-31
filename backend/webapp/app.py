@@ -23,6 +23,11 @@ def create_app() -> Flask:
         static_folder=str(STATIC_DIR),
     )
 
+    # Cap request bodies: field notes are text, so 1 MB is far more than any
+    # real report. Prevents an oversized paste (or abuse) from running up
+    # Vertex AI cost. Flask returns 413 automatically when exceeded.
+    app.config["MAX_CONTENT_LENGTH"] = 1_000_000
+
     # Routes
     from backend.webapp.routes.chat import chat_bp
     from backend.webapp.routes.reports import reports_bp
