@@ -15,6 +15,7 @@ from backend.reports.prompts_v2 import (
     DISCIPLINARY_PROMPT,
     COVER_LETTER_PROMPT,
 )
+from backend.reports.name_fixer import enforce_naming
 
 logger = logging.getLogger(__name__)
 
@@ -190,19 +191,22 @@ def generate_all_reports(slots: dict, category: str = "",
     reports = {}
 
     try:
-        reports["first_person"] = generate_first_person(slots, auto_content)
+        reports["first_person"] = enforce_naming(
+            generate_first_person(slots, auto_content), slots)
     except Exception:
         logger.error("First person report generation failed", exc_info=True)
         reports["first_person"] = "[Error generating first person report]"
 
     try:
-        reports["supervisor_summary"] = generate_supervisor_summary(slots, auto_content)
+        reports["supervisor_summary"] = enforce_naming(
+            generate_supervisor_summary(slots, auto_content), slots)
     except Exception:
         logger.error("Supervisor summary generation failed", exc_info=True)
         reports["supervisor_summary"] = "[Error generating supervisor summary]"
 
     try:
-        reports["cover_letter"] = generate_cover_letter(slots, auto_content)
+        reports["cover_letter"] = enforce_naming(
+            generate_cover_letter(slots, auto_content), slots)
     except Exception:
         logger.error("Cover letter generation failed", exc_info=True)
         reports["cover_letter"] = "[Error generating cover letter]"
@@ -210,9 +214,10 @@ def generate_all_reports(slots: dict, category: str = "",
     charges = slots.get("charges", "")
     if charges and charges not in ("None", ""):
         try:
-            reports["disciplinary"] = generate_disciplinary(
-                slots, reports.get("first_person", ""), auto_content
-            )
+            reports["disciplinary"] = enforce_naming(
+                generate_disciplinary(
+                    slots, reports.get("first_person", ""), auto_content
+                ), slots)
         except Exception:
             logger.error("Disciplinary supplement generation failed", exc_info=True)
             reports["disciplinary"] = "[Error generating disciplinary supplement]"
