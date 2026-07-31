@@ -144,14 +144,13 @@ Highest leverage for reluctant officers. Frontend-first. Preserve all existing e
 #### GP-13:
 **Status:** ✅ Done (2026-07-30) — H1: You already wrote the report…
 
- Reframe homepage H1 around officer work
-**GitHub:** #13  
-**Files:** `backend/webapp/templates/home.html`  
-**Depends on:** none  
-**Reuses:** nav/footer brand lockup stays "Standard Logistics & Unit Tools"  
-**Change:** Hero H1 sells the moment of pain, e.g. *"You already wrote the report. Let it finish the paperwork."* Brand name only in nav/footer.  
-**Acceptance:** H1 is work-centered, not org-name-centered.  
-**Verify:** Visual check home desktop + mobile.
+ #### GP-15: Persistent Feedback & Improvement Widget
+ **GitHub:** #21
+ **Files:** `backend/webapp/templates/*.html`, `backend/webapp/app.py`
+ **Depends on:** GitHub PAT in environment
+ **Change:** Add a subtle feedback widget to the footer of all pages. When submitted, it creates a new GitHub issue including the user's comment and the page URL they submitted it from.
+ **Acceptance:** Submitting feedback creates a real issue on `justinpeterman-droid/prison-policy-ai`.
+ **Verify:** Type feedback on `/chat`, submit, check GitHub issues for the new entry.
 
 #### GP-14:
 **Status:** ✅ Done (2026-07-30) — footer trust ledger

@@ -27,10 +27,12 @@ def create_app() -> Flask:
     from backend.webapp.routes.chat import chat_bp
     from backend.webapp.routes.reports import reports_bp
     from backend.webapp.routes.roster import roster_bp
+    from backend.webapp.routes.feedback import feedback_bp
 
     app.register_blueprint(chat_bp)
     app.register_blueprint(reports_bp)
     app.register_blueprint(roster_bp)
+    app.register_blueprint(feedback_bp)
 
     @app.before_request
     def auth_gate():
