@@ -9,6 +9,7 @@ from google import genai
 from google.genai import types
 from backend.pipeline.config import PROJECT_ID, PRO_MODEL, MODEL_LOCATION
 from backend.reports.prompts_v2 import (
+    REPORT_STYLE_SYSTEM,
     FIRST_PERSON_PROMPT,
     SUPERVISOR_SUMMARY_PROMPT,
     DISCIPLINARY_PROMPT,
@@ -17,6 +18,12 @@ from backend.reports.prompts_v2 import (
 from backend.reports.name_fixer import enforce_naming
 
 logger = logging.getLogger(__name__)
+
+# Report prose is a structured, rule-bound task — keep it low-temperature so the
+# required sentences and opening formulas are followed and output is stable
+# run-to-run (extraction is temp=0; generation just needs a little room to read
+# naturally).
+GENERATION_TEMPERATURE = 0.25
 
 _client = None
 
@@ -32,7 +39,10 @@ def _generate(system_prompt: str, user_prompt: str) -> str:
     response = _get_client().models.generate_content(
         model=PRO_MODEL,
         contents=user_prompt,
-        config=types.GenerateContentConfig(system_instruction=system_prompt),
+        config=types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=GENERATION_TEMPERATURE,
+        ),
     )
     return response.text
 
@@ -129,7 +139,7 @@ def generate_first_person(slots: dict, auto_content: list[dict] | None = None,
         quotes=_esc(_quotes_str(slots)),
         auto_content=_esc(_auto_for("first_person", auto_content)),
     )
-    return _clean_report(_generate(prompt, prompt))  # system=user for single-message flow
+    return _clean_report(_generate(REPORT_STYLE_SYSTEM, prompt))
 
 
 def generate_supervisor_summary(slots: dict, auto_content: list[dict] | None = None) -> str:
@@ -141,7 +151,7 @@ def generate_supervisor_summary(slots: dict, auto_content: list[dict] | None = N
         quotes=_esc(_quotes_str(slots)),
         auto_content=_esc(_auto_for("supervisor_summary", auto_content)),
     )
-    return _clean_report(_generate(prompt, prompt))
+    return _clean_report(_generate(REPORT_STYLE_SYSTEM, prompt))
 
 
 def generate_cover_letter(slots: dict, auto_content: list[dict] | None = None) -> str:
@@ -154,7 +164,7 @@ def generate_cover_letter(slots: dict, auto_content: list[dict] | None = None) -
         narrative_facts=_esc(_narrative_facts_str(slots)),
         auto_content=_esc(_auto_for("cover_letter", auto_content)),
     )
-    return _clean_report(_generate(prompt, prompt))
+    return _clean_report(_generate(REPORT_STYLE_SYSTEM, prompt))
 
 
 def generate_disciplinary(slots: dict, first_person_report: str,
@@ -167,7 +177,7 @@ def generate_disciplinary(slots: dict, first_person_report: str,
         first_person_report=_esc(first_person_report or ""),
         charges=charges or "None",
     )
-    return _generate(prompt, prompt)
+    return _generate(REPORT_STYLE_SYSTEM, prompt)
 
 
 def generate_all_reports(slots: dict, category: str = "",
