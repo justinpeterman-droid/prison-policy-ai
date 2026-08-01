@@ -6,7 +6,9 @@ as [TO BE SUPPLEMENTED] markers instead of gaps.
 """
 import pytest
 
-from backend.reports.validate import find_gaps, load_checklist, UNKNOWN
+from backend.reports.validate import (
+    find_gaps, load_checklist, invented_facts, UNKNOWN,
+)
 
 
 CATEGORIES = [
@@ -76,3 +78,59 @@ def test_choice_gaps_always_offer_other_option():
 def test_unknown_category_raises():
     with pytest.raises(KeyError):
         find_gaps("not_a_real_category", {})
+
+
+# ── invented_facts (RG-1) ────────────────────────────────────────────────────
+
+def test_invented_facts_flags_a_genuinely_invented_adc_number():
+    # An ADC# in the output that never appeared in the notes IS suspicious.
+    flags = invented_facts("Inmate Smith ADC#999888.", notes="Inmate Smith fought.",
+                           answers={})
+    assert any("999888" in f for f in flags)
+
+
+def test_invented_facts_does_not_flag_a_value_from_the_notes():
+    flags = invented_facts("...at approximately 10:00pm...",
+                           notes="fight at 10:00pm in 8 barracks", answers={})
+    assert flags == []
+
+
+def test_invented_facts_does_not_flag_values_from_gap_answers():
+    flags = invented_facts("Inmate Jones ADC#123456 was charged.",
+                           notes="Inmate Jones fought.",
+                           answers={"adc": "ADC#123456"})
+    assert flags == []
+
+
+def test_allow_list_suppresses_a_normalized_time():
+    # The officer wrote '10pm'; the pipeline normalized it to '10:00pm'. That
+    # normalized form is the system's own correct output — never "invented".
+    flags = invented_facts("On duty at approximately 10:00pm the fight began.",
+                           notes="fight ~10pm in 8 barracks", answers={},
+                           allow=["10:00pm"])
+    assert flags == []
+    # Without the allow-list, the normalized time WOULD be flagged (the bug).
+    assert invented_facts("...at approximately 10:00pm...",
+                          notes="fight ~10pm", answers={})
+
+
+def test_allow_list_suppresses_a_fallback_date():
+    # Notes stated no date; the pipeline supplied today's. Not invented.
+    flags = invented_facts("On 08-01-2026 the incident occurred.",
+                           notes="Inmate Smith fought in the dayroom.", answers={},
+                           allow=["08-01-2026"])
+    assert flags == []
+
+
+def test_allow_list_suppresses_a_built_incident_number():
+    flags = invented_facts("Incident 2026-08-141 refers.",
+                           notes="Inmate Smith fought.", answers={},
+                           allow=["2026-08-141"])
+    assert flags == []
+
+
+def test_allow_list_ignores_none_and_empty_entries():
+    # slots.get(...) may hand back None/'' for unfilled code-derived values.
+    flags = invented_facts("Inmate Smith ADC#777.", notes="Inmate Smith fought.",
+                           answers={}, allow=[None, "", "unrelated"])
+    assert any("777" in f for f in flags)
