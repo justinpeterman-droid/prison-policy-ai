@@ -19,10 +19,28 @@ BUCKET_NAME = os.getenv("GCS_BUCKET", f"{PROJECT_ID}-policy-ai")
 
 # Vertex AI
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-004")
-# Auto-tracking alias: always resolves to the current GA Gemini Flash, so we
-# don't chase version bumps. Pin to a fixed id (e.g. "gemini-3.6-flash") via the
-# GENERATION_MODEL env var if you want a frozen version.
-GENERATION_MODEL = os.getenv("GENERATION_MODEL", "gemini-flash-latest")
+
+# ── Gemini model tiers ──
+# Two tiers, routed per call site (see each pipeline module):
+#   FAST — cheap, structured, high-volume calls: the chat gate, incident
+#          classification, and slot extraction.
+#   PRO  — quality-critical prose: the chat answer synthesis and the report
+#          narrative generators, where citation-following and instruction
+#          adherence matter most.
+# Pin a specific version here (or via env) rather than an auto-tracking alias so
+# report/answer behavior doesn't shift under us on a silent model bump.
+FAST_MODEL = os.getenv("FAST_MODEL", "gemini-3.6-flash")
+PRO_MODEL = os.getenv("PRO_MODEL", "gemini-3.1-pro")
+# Back-compat alias — GENERATION_MODEL historically meant "the flash model".
+# Anything still importing it gets the FAST tier; override via its own env var.
+GENERATION_MODEL = os.getenv("GENERATION_MODEL", FAST_MODEL)
+
+# Location for Gemini model calls. The Gemini 3.x models are served from the
+# 'global' endpoint (not a region), so this defaults to 'global' even though the
+# Agent Builder data store / corpus live in us-central1. Override with
+# GCP_MODEL_LOCATION if you pin older regional models in the tiers above.
+MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", "global")
+
 CORPUS_NAME = os.getenv("RAG_CORPUS_NAME", "prison-policies")
 
 # Chunking

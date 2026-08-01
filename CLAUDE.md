@@ -278,8 +278,14 @@ PYTHONPATH=. python3 tests/eval/run_eval.py --id prea_dating
   `frontend/forms/`. Trust-first, corrections-professional tone (navy/gold, light-blue
   LIVE/CTA accents). Keep nav brand markup consistent across pages.
 - **Config is centralized** in `backend/pipeline/config.py` and read from env vars
-  (`GCP_PROJECT_ID`, `GCP_LOCATION`, `GENERATION_MODEL`, `RAG_CORPUS_NAME`,
-  `ACCESS_CODE`, `LOG_LEVEL`, …). Add new knobs there.
+  (`GCP_PROJECT_ID`, `GCP_LOCATION`, `FAST_MODEL`, `PRO_MODEL`, `GCP_MODEL_LOCATION`,
+  `RAG_CORPUS_NAME`, `ACCESS_CODE`, `LOG_LEVEL`, …). Add new knobs there.
+- **Two Gemini tiers** (config.py): `FAST_MODEL` (default `gemini-3.6-flash`) drives the
+  chat gate, incident classifier, and slot extraction; `PRO_MODEL` (default
+  `gemini-3.1-pro`) drives the chat answer synthesis and the report generators. Both are
+  served from `MODEL_LOCATION` (default `global` — Gemini 3.x is global-only, even though
+  the Agent Builder data store lives in us-central1). `GENERATION_MODEL` remains as a
+  back-compat alias for the FAST tier.
 - **Feedback widget** (`static/js/feedback.js` + `/api/feedback`) files GitHub issues
   into `justinpeterman-droid/prison-policy-ai`; requires `GITHUB_TOKEN`.
 

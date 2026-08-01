@@ -6,18 +6,13 @@ returns null for anything not stated. It never writes report prose here.
 """
 import json
 import logging
-import os
 import re
 from google import genai
 from google.genai import types
-from backend.pipeline.config import PROJECT_ID, LOCATION, GENERATION_MODEL
+from backend.pipeline.config import PROJECT_ID, FAST_MODEL, MODEL_LOCATION
 from backend.reports.schema import build_response_schema, load_checklist
 
 logger = logging.getLogger(__name__)
-
-# Model may need a different location than the app default (e.g. gemini-3.5-flash
-# is global-only while RAG/corpus lives in us-central1).
-MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", LOCATION)
 
 _client = None
 
@@ -73,7 +68,7 @@ def extract_slots(notes: str, category_name: str) -> dict:
     schema = build_response_schema(category, checklist)
 
     response = _get_client().models.generate_content(
-        model=GENERATION_MODEL,
+        model=FAST_MODEL,
         contents=notes,
         config=types.GenerateContentConfig(
             system_instruction=EXTRACTION_SYSTEM,
