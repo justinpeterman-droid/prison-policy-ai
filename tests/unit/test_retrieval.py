@@ -166,3 +166,87 @@ class TestExtractPassageText:
         assert extract_passage_text({"derivedStructData": {"title": "T"}}) == ""
         assert extract_passage_text({}) == ""
         assert extract_passage_text(None) == ""
+
+
+class TestRichPassagePreference:
+    """RC-5: prefer the real policy language over clipped snippet fragments."""
+
+    RICH_DOC = {
+        "derivedStructData": {
+            "title": "AD 14-15",
+            "snippets": [{"snippet": "…use of force must be …reported…"}],
+            "extractive_answers": [{"content": "Use of force must be reported to the shift supervisor."}],
+            "extractive_segments": [{"content": "Section 4. Any use of force, including "
+                                                "the display of a chemical agent, must be "
+                                                "reported to the shift supervisor within 24 hours."}],
+        }
+    }
+
+    def test_segments_win_over_answers_and_snippets(self):
+        text = extract_passage_text(self.RICH_DOC)
+        assert text.startswith("Section 4.")
+        assert "…" not in text
+
+    def test_answers_win_over_snippets(self):
+        doc = {"derivedStructData": {
+            "title": "T",
+            "snippets": [{"snippet": "…clipped…"}],
+            "extractive_answers": [{"content": "Full answer sentence."}],
+        }}
+        assert extract_passage_text(doc) == "Full answer sentence."
+
+    def test_snippets_still_used_when_nothing_richer(self):
+        doc = {"derivedStructData": {"title": "T",
+                                     "snippets": [{"snippet": "Only a snippet."}]}}
+        assert extract_passage_text(doc) == "Only a snippet."
+
+    def test_truncates_on_sentence_boundary(self):
+        doc = {"derivedStructData": {
+            "title": "T",
+            "extractive_segments": [{"content": "First sentence here. Second sentence here. "
+                                                "Third sentence runs past the limit."}],
+        }}
+        out = extract_passage_text(doc, max_chars=45)
+        assert out.endswith(".")
+        assert "Third sentence" not in out
+
+    def test_truncation_marks_a_hard_cut(self):
+        doc = {"derivedStructData": {
+            "title": "T",
+            "extractive_segments": [{"content": "x" * 500}],
+        }}
+        out = extract_passage_text(doc, max_chars=100)
+        assert len(out) <= 101 and out.endswith("…")
+
+    def test_no_truncation_by_default(self):
+        doc = {"derivedStructData": {
+            "title": "T", "extractive_segments": [{"content": "y" * 5000}]}}
+        assert len(extract_passage_text(doc)) == 5000
+
+    def test_parse_search_results_applies_the_cap(self):
+        payload = {"results": [{"document": {
+            "derivedStructData": {"title": "T",
+                                  "extractive_segments": [{"content": "z" * 900}]}}}]}
+        ctx = parse_search_results(payload, max_chars=200)
+        assert len(ctx[0]["text"]) <= 201
+
+
+class TestContextBudget:
+    def _p(self, source, text):
+        return {"source": source, "text": text}
+
+    def test_total_char_budget_stops_accumulation(self):
+        ctx = [self._p(f"S{i}", "w" * 400) for i in range(10)]
+        out = select_passages(ctx, 10, max_total_chars=1000)
+        assert sum(len(c["text"]) for c in out) <= 1000
+        assert len(out) < 10
+
+    def test_first_passage_always_survives_the_budget(self):
+        # Even one oversized passage beats sending the generator nothing.
+        ctx = [self._p("S1", "w" * 5000), self._p("S2", "w" * 5000)]
+        out = select_passages(ctx, 5, max_total_chars=100)
+        assert len(out) == 1
+
+    def test_budget_off_by_default(self):
+        ctx = [self._p(f"S{i}", "w" * 400) for i in range(5)]
+        assert len(select_passages(ctx, 10)) == 5
