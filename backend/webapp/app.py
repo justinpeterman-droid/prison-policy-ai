@@ -62,6 +62,15 @@ def create_app() -> Flask:
     app.register_blueprint(roster_bp)
     app.register_blueprint(feedback_bp)
 
+    # Record the resolved search/model config at startup so the values actually
+    # in use are visible in the logs — a config mismatch is the usual cause of a
+    # chat outage, and there's no shell on Cloud Run to go inspect env vars.
+    try:
+        from backend.pipeline.query import log_search_config
+        log_search_config()
+    except Exception:  # pragma: no cover - never block startup over a log line
+        logger.warning("Could not log search config", exc_info=True)
+
     @app.before_request
     def auth_gate():
         """Require the access code on every route except login/logout/health/static."""
