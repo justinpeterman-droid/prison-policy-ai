@@ -17,7 +17,9 @@ from google import genai
 from google.genai import types
 from backend.pipeline.config import PROJECT_ID, FAST_MODEL, PRO_MODEL, MODEL_LOCATION
 from backend.pipeline.citations import build_grounded
-from backend.pipeline.retrieval import augment_query, select_passages
+from backend.pipeline.retrieval import (
+    augment_query, parse_search_results, select_passages,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +164,16 @@ def _classify_query(question: str) -> bool:
 
 def _search_data_store(query: str, page_size: int = 10) -> list[dict]:
     """Search the Agent Builder data store. Returns [{text, source}, ...]."""
+    return _search_with_stats(query, page_size)[0]
+
+
+def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int]:
+    """Search, returning (passages, raw_hit_count).
+
+    The raw hit count lets the caller tell "nothing matched" apart from "hits
+    matched but none carried readable text" — two failures that look identical
+    from the passage list alone but mean very different things operationally.
+    """
     token = _get_token()
     url = f"https://discoveryengine.googleapis.com/v1beta/{SERVING_CONFIG}:search"
     body = {
@@ -169,7 +181,17 @@ def _search_data_store(query: str, page_size: int = 10) -> list[dict]:
         "pageSize": page_size,
         "queryExpansionSpec": {"condition": "AUTO"},
         "spellCorrectionSpec": {"mode": "AUTO"},
-        "contentSearchSpec": {"snippetSpec": {"maxSnippetCount": 5, "returnSnippet": True}},
+        # Ask for extractive content as well as snippets. Snippets alone are a
+        # single point of failure: when the data store can't build one the hit
+        # comes back with no text at all and used to be dropped, making a
+        # successful search look like an empty corpus.
+        "contentSearchSpec": {
+            "snippetSpec": {"maxSnippetCount": 5, "returnSnippet": True},
+            "extractiveContentSpec": {
+                "maxExtractiveAnswerCount": 3,
+                "maxExtractiveSegmentCount": 2,
+            },
+        },
     }
     data = json.dumps(body).encode()
     req = urllib.request.Request(url, data=data, method="POST")
@@ -194,18 +216,19 @@ def _search_data_store(query: str, page_size: int = 10) -> list[dict]:
         logger.error("Search failed: %s", e)
         raise
 
-    contexts = []
-    for r in result.get("results", []):
-        doc = r.get("document", {}).get("derivedStructData", {})
-        snippets = doc.get("snippets", [])
-        text = " ".join(s.get("snippet", "") for s in snippets)
-        if not text:
-            extractive = doc.get("extractiveAnswers", [{}])
-            text = extractive[0].get("content", "") if extractive else ""
-        title = doc.get("title", "") or doc.get("structData", {}).get("title", "")
-        if text:
-            contexts.append({"text": text, "source": title or "Policy Document"})
-    return contexts
+    raw_count = len(result.get("results", []) or [])
+    contexts = parse_search_results(result)
+    # Raw-hit count vs. usable-passage count: when these diverge the search
+    # worked but the text couldn't be read out of the response, which is a very
+    # different problem from "nothing matched".
+    if raw_count and not contexts:
+        logger.error("Search returned %d result(s) but no passage text could be "
+                     "extracted — check the data store's snippet/extractive "
+                     "configuration", raw_count)
+    elif raw_count != len(contexts):
+        logger.info("Search: %d raw result(s) → %d usable passage(s)",
+                    raw_count, len(contexts))
+    return contexts, raw_count
 
 
 def retrieve_context(question: str, top_k: int = 5) -> list[dict]:
@@ -234,15 +257,27 @@ def answer_question(question: str) -> dict:
     # ── Search ──
     # Augment (not replace) the question with formal terms for known slang; the
     # natural question still drives Discovery Engine's semantic understanding.
-    retrieved = _search_data_store(augment_query(question), page_size=SEARCH_PAGE_SIZE)
+    retrieved, raw_count = _search_with_stats(augment_query(question),
+                                              page_size=SEARCH_PAGE_SIZE)
     retrieved_sources = [c["source"] for c in retrieved]
     logger.info("answer_question: %d contexts, first source=%s",
                 len(retrieved),
                 retrieved[0]["source"][:60] if retrieved else "None")
 
     if not retrieved:
+        # Matching documents but no readable text is a configuration problem,
+        # not an empty corpus — don't tell the officer their question found
+        # nothing when the search actually matched.
+        answer = (
+            "The policy search matched documents, but their text could not be "
+            "read back. This is a system configuration issue, not a problem with "
+            "your question — please report it and verify against the source "
+            "policy in the meantime."
+            if raw_count else
+            "No relevant policy documents found for this question."
+        )
         return {
-            "answer": "No relevant policy documents found for this question.",
+            "answer": answer,
             "citations": [],
             "sources": [],
             "retrieved_sources": [],
