@@ -65,6 +65,14 @@ STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
 - The REQUIRED SENTENCES below must appear in the narrative, worded exactly as given,
   placed where they fit chronologically."""
 
+# The shared writing rules are sent ONCE as the model's system instruction (not
+# duplicated into every user prompt). Braces are single here because this text is
+# never run through str.format — the per-report templates below still are.
+REPORT_STYLE_SYSTEM = (
+    STYLE_RULES.replace("{{", "{").replace("}}", "}")
+    .replace("REQUIRED SENTENCES below", "REQUIRED SENTENCES provided")
+)
+
 FIRST_PERSON_PROMPT = """You are writing the STATEMENT OF FACTS narrative of an ADC 005
 incident report, in the first person, AS this officer:
 
@@ -94,7 +102,7 @@ PER-INMATE DISPOSITION — after the narrative, add one line per inmate:
 Different inmates may have different outcomes — state each individually. ALWAYS use the full
 Last, First ADC# form in the disposition line since it is the final reference for the record.
 
-""" + STYLE_RULES + """
+""" + """
 
 Output the narrative paragraph(s) only. No header, no signature block.
 Include the per-inmate disposition lines at the end."""
@@ -117,7 +125,7 @@ Opening formula: 'On {date} at approximately {time} {opening_actor} <was notifie
 state {opening_actor} personally witnessed the event — never write 'observed' for an
 event that was reported to him.
 
-""" + STYLE_RULES + """
+""" + """
 
 Output the summary paragraph(s) only.
 Include per-inmate disposition at the end."""
@@ -135,7 +143,7 @@ CLOSING — the report MUST end with this exact formula, one sentence per charge
 (EVERY inmate MUST be named Last, First ADC# in full since this is their final reference):
 'Due to the above stated facts I, {rank} {officer_first} {officer_last}, am charging Inmate {{Last}}, {{First}} ADC#{{number}} with rule violation {{codes}}. Pending DCR.'
 
-""" + STYLE_RULES + """
+""" + """
 
 Output the narrative only."""
 
@@ -153,6 +161,6 @@ ESTABLISHED FACTS:
 REQUIRED SENTENCES (insert verbatim where they fit):
 {auto_content}
 
-""" + STYLE_RULES + """
+""" + """
 
 Output one narrative paragraph only."""

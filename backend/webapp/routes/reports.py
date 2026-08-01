@@ -619,7 +619,13 @@ def reports_generate():
         }
 
         all_text = " ".join(v for v in reports.values() if isinstance(v, str))
-        flags = invented_facts(all_text, notes, answers)
+        # Values the pipeline generated deterministically — the normalized time,
+        # the fallback date (when the notes stated none), and the built incident
+        # number — are legitimate output, not invented facts. Allow-list them so
+        # the trust signal doesn't fire on the system's own correct work.
+        code_derived = [slots.get("time"), slots.get("date"),
+                        slots.get("incident_number")]
+        flags = invented_facts(all_text, notes, answers, allow=code_derived)
 
         logger.info("Generate → %d reports, %d invented-fact flags, %d markers",
                     len(reports), len(flags), len(markers))

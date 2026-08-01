@@ -19,6 +19,10 @@ CHECKLIST_PATH = TEMPLATES_DIR / "incident_checklist_v2.json"
 UNKNOWN = "UNKNOWN"
 OTHER_OPTION = "Other (type your own)"
 
+# Whitespace + non-separator punctuation, stripped before comparing a generated
+# date/time/ADC# token against the source in invented_facts().
+_PUNCT_WS = re.compile(r"[\s.,]")
+
 # Slots gathered elsewhere in the wizard, so they must NOT also appear as a
 # Missing-Information question. Charges are picked from the disciplinary
 # handbook and confirmed in the charges panel, then sent with /generate.
@@ -203,11 +207,30 @@ def _resolve_auto_content(category: dict, slots: dict,
     return resolved
 
 
-def invented_facts(output_text: str, notes: str, answers: dict) -> list[str]:
+def invented_facts(output_text: str, notes: str, answers: dict,
+                   allow=None) -> list[str]:
     """Hard check: every ADC#, time, and date in generated text must appear in
-    the officer's input (notes or gap answers). Returns suspicious tokens."""
-    source = (notes + " " + " ".join(str(v) for v in answers.values())).lower()
+    the officer's input (notes or gap answers). Returns suspicious tokens.
+
+    `allow` is an optional iterable of values the pipeline itself produced
+    deterministically — a normalized time ('10pm' -> '10:00pm'), a fallback date
+    (today's, when the notes stated none), or a built incident number. These are
+    legitimate output, not invented facts, so they count as source and are never
+    flagged. Without this, the trust signal fires on the system's OWN correct
+    normalizations (a report always shows a normalized time, and often a
+    code-supplied date), which reads as the AI inventing facts.
+    """
+    parts = [notes] + [str(v) for v in answers.values()]
+    if allow:
+        parts += [str(v) for v in allow if v]
+    source = " ".join(parts).lower()
+    # Normalize away whitespace AND punctuation that isn't a date/time separator
+    # (periods, commas) so 'at 10:00pm.' at a sentence end, or '10:00p.m.',
+    # matches a bare '10:00pm' in the source. Meaningful separators (- / :) are
+    # kept. Without this, the token regex greedily captures the trailing period
+    # and every end-of-sentence time reads as invented.
+    src_norm = _PUNCT_WS.sub("", source)
     tokens = set(re.findall(r"ADC#\s?\d+|\d{1,2}[:/-]\d{2}(?:[/-]\d{2,4})?(?:\s?[ap]\.?m\.?)?",
                             output_text, re.I))
     return [t for t in tokens
-            if re.sub(r"\s", "", t.lower()) not in re.sub(r"\s", "", source)]
+            if _PUNCT_WS.sub("", t.lower()) not in src_norm]
