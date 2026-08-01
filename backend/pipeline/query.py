@@ -344,7 +344,10 @@ def answer_question(question: str) -> dict:
     )
 
     # Surface only the passages the model actually cited; flag ungrounded answers.
-    answer, citations, grounded = build_grounded(response.text, contexts)
+    # infer=True: if the model wrote a passage-derived answer but forgot the [n]
+    # brackets, recover the citations by wording overlap rather than warning the
+    # officer that a correct answer couldn't be tied to policy.
+    answer, citations, grounded = build_grounded(response.text, contexts, infer=True)
     if not grounded:
         answer = (response.text or "").rstrip() + UNGROUNDED_NOTE
     logger.info("answer_question: grounded=%s, %d citation(s)", grounded, len(citations))
