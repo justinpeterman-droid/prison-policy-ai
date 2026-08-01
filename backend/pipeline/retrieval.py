@@ -108,6 +108,22 @@ def _contents_of(items, *keys: str) -> list[str]:
     return out
 
 
+def _truncate(text: str, max_chars: int) -> str:
+    """Trim to `max_chars`, preferring the last sentence boundary.
+
+    Cutting mid-sentence invites the model to complete a policy statement it
+    can't actually see, so prefer to end where the source did.
+    """
+    if max_chars <= 0 or len(text) <= max_chars:
+        return text
+    window = text[:max_chars]
+    cut = max(window.rfind(". "), window.rfind("! "), window.rfind("? "))
+    # Only honour a sentence break if it isn't discarding most of the passage.
+    if cut > max_chars // 2:
+        return window[:cut + 1]
+    return window.rstrip() + "…"
+
+
 def _snippet_texts(derived: dict) -> list[str]:
     """Snippet strings, skipping the NO_SNIPPET_AVAILABLE placeholders the API
     returns when it has a hit but could not build a snippet for it."""
@@ -126,45 +142,61 @@ def _snippet_texts(derived: dict) -> list[str]:
     return out
 
 
-def extract_passage_text(document: dict) -> str:
+def _segment_texts(derived: dict) -> list[str]:
+    return _contents_of(
+        _get_any(derived, "extractive_segments", "extractiveSegments"),
+        "content", "text")
+
+
+def _answer_texts(derived: dict) -> list[str]:
+    # ALL extractive answers, not just the first — each is a separate passage.
+    return _contents_of(
+        _get_any(derived, "extractive_answers", "extractiveAnswers"),
+        "content", "text")
+
+
+# Preference order for passage text, richest first.
+#
+#   segments — verbatim chunks of the document: the actual policy language.
+#   answers  — focused spans the retriever judged responsive.
+#   snippets — short keyword-in-context fragments, heavily elided with "…".
+#
+# Snippets used to win, which meant the generator usually reasoned over clipped
+# fragments even when the full passage was right there in the same response.
+# That produces hedged, thin answers and gives the citation pane little to show.
+_PASSAGE_SOURCES = (_segment_texts, _answer_texts, _snippet_texts)
+
+
+def extract_passage_text(document: dict, max_chars: int = 0) -> str:
     """Best-effort passage text for one search-result document.
 
-    Tries, in order: snippets → extractive answers → extractive segments → raw
-    document content/struct text. Returns '' only when the document genuinely
-    carries no usable text.
+    Prefers the richest available form (segments → extractive answers →
+    snippets), then falls back to raw document content. Returns '' only when the
+    document genuinely carries no usable text.
+
+    `max_chars` (when > 0) truncates on a sentence boundary where possible, so a
+    single very long segment can't crowd the prompt.
     """
     if not isinstance(document, dict):
         return ""
     derived = document.get("derivedStructData") or {}
     struct = document.get("structData") or {}
 
-    parts = _snippet_texts(derived)
-    if parts:
-        return " ".join(parts)
-
-    # ALL extractive answers, not just the first — each is a separate passage.
-    parts = _contents_of(
-        _get_any(derived, "extractive_answers", "extractiveAnswers"),
-        "content", "text")
-    if parts:
-        return " ".join(parts)
-
-    parts = _contents_of(
-        _get_any(derived, "extractive_segments", "extractiveSegments"),
-        "content", "text")
-    if parts:
-        return " ".join(parts)
+    for source in _PASSAGE_SOURCES:
+        parts = source(derived)
+        if parts:
+            return _truncate(" ".join(parts), max_chars)
 
     # Raw indexed content, then any plain text carried on the structs.
     content = document.get("content") or {}
     raw = _get_any(content, "raw_text", "rawText") if isinstance(content, dict) else None
     if isinstance(raw, str) and raw.strip():
-        return raw.strip()
+        return _truncate(raw.strip(), max_chars)
 
     for source in (derived, struct):
         v = _get_any(source, "content", "text", "raw_text", "rawText", "body")
         if isinstance(v, str) and v.strip():
-            return v.strip()
+            return _truncate(v.strip(), max_chars)
 
     return ""
 
@@ -191,31 +223,87 @@ def extract_source_label(document: dict) -> str:
     return DEFAULT_SOURCE_LABEL
 
 
-def parse_search_results(payload: dict) -> list[dict]:
+def parse_search_results(payload: dict, max_chars: int = 0) -> list[dict]:
     """Turn a Discovery Engine search payload into [{text, source}, ...].
 
-    Only documents with no usable text anywhere are dropped.
+    Only documents with no usable text anywhere are dropped. `max_chars` caps
+    each individual passage (0 = no cap).
     """
     contexts: list[dict] = []
     for r in (payload or {}).get("results", []) or []:
         document = (r or {}).get("document") or {}
-        text = extract_passage_text(document)
+        text = extract_passage_text(document, max_chars=max_chars)
         if not text:
             continue
         contexts.append({"text": text, "source": extract_source_label(document)})
     return contexts
 
 
-def select_passages(contexts: list[dict], k: int, max_per_source: int = 3) -> list[dict]:
+# ── Conversation history ────────────────────────────────────────────────────
+
+# Officers ask short follow-ups ("what about a female inmate?", "and if he
+# refuses?") that are meaningless standalone. Only a few turns are needed to
+# resolve them, and history is strictly context for reading the question — it is
+# never a source of policy (see the prompt in query.py).
+MAX_HISTORY_TURNS = 4
+MAX_HISTORY_CHARS = 1500
+MAX_HISTORY_ANSWER_CHARS = 400
+
+
+def format_history(history: list[dict] | None,
+                   max_turns: int = MAX_HISTORY_TURNS,
+                   max_chars: int = MAX_HISTORY_CHARS) -> str:
+    """Render recent turns as a compact transcript for the generation prompt.
+
+    Accepts [{"question": ..., "answer": ...}] (what the chat client keeps).
+    Keeps the most recent turns, oldest-first in the output, dropping the oldest
+    first when the character budget is hit — the nearest turn is the one a
+    pronoun usually refers to.
+    """
+    if not history:
+        return ""
+    turns: list[tuple[str, str]] = []
+    for item in list(history)[-max_turns:]:
+        if not isinstance(item, dict):
+            continue
+        question = str(item.get("question") or "").strip()
+        answer = str(item.get("answer") or "").strip()
+        if question:
+            turns.append((question, answer))
+    if not turns:
+        return ""
+
+    blocks: list[str] = []
+    total = 0
+    for question, answer in reversed(turns):  # budget from the newest backwards
+        answer = _truncate(answer, MAX_HISTORY_ANSWER_CHARS)
+        block = (f"Officer: {question}\nAssistant: {answer}" if answer
+                 else f"Officer: {question}")
+        if blocks and total + len(block) > max_chars:
+            break
+        blocks.append(block)
+        total += len(block)
+    return "\n\n".join(reversed(blocks))
+
+
+def select_passages(contexts: list[dict], k: int, max_per_source: int = 3,
+                    max_total_chars: int = 0) -> list[dict]:
     """Pick the top `k` passages to feed the generator.
 
     Drops empty and exact-duplicate (source, text) passages, and caps passages
     per source at `max_per_source` so one document can't dominate. Keeps the
     retriever's ordering (assumed already relevance-ranked).
+
+    `max_total_chars` (when > 0) also bounds the combined size of the selected
+    passages. Now that passages are full segments rather than clipped snippets,
+    passage *count* alone no longer bounds the prompt — the first passage always
+    survives, so a single oversized one still gets through rather than leaving
+    the generator with nothing.
     """
     seen: set[tuple[str, str]] = set()
     per_source: dict[str, int] = {}
     out: list[dict] = []
+    total = 0
     for c in contexts:
         text = (c.get("text") or "").strip()
         src = c.get("source") or ""
@@ -226,8 +314,11 @@ def select_passages(contexts: list[dict], k: int, max_per_source: int = 3) -> li
             continue
         if per_source.get(src, 0) >= max_per_source:
             continue
+        if max_total_chars > 0 and out and total + len(text) > max_total_chars:
+            continue
         seen.add(key)
         per_source[src] = per_source.get(src, 0) + 1
+        total += len(text)
         out.append(c)
         if len(out) >= k:
             break

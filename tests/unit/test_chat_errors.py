@@ -29,7 +29,7 @@ class TestChatErrors:
         """The success path and response shape are unchanged."""
         monkeypatch.setattr(
             "backend.webapp.routes.chat.answer_question",
-            lambda q: {"answer": "ok", "citations": [], "sources": []},
+            lambda q, **kw: {"answer": "ok", "citations": [], "sources": []},
         )
         resp = client.post("/api/chat", json={"question": "test"})
         assert resp.status_code == 200

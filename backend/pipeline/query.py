@@ -20,7 +20,7 @@ from backend.pipeline.config import (
 )
 from backend.pipeline.citations import build_grounded
 from backend.pipeline.retrieval import (
-    augment_query, parse_search_results, select_passages,
+    augment_query, format_history, parse_search_results, select_passages,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,11 @@ logger = logging.getLogger(__name__)
 # citable) — keeps the prompt focused and avoids "lost in the middle".
 SEARCH_PAGE_SIZE = 25
 MAX_CONTEXT_PASSAGES = 12
+# Passages are now full extractive segments rather than clipped snippets, so
+# count alone no longer bounds the prompt. Cap each passage, and the combined
+# context, to keep the generator focused and the cost predictable.
+MAX_PASSAGE_CHARS = 2000
+MAX_CONTEXT_CHARS = 16000
 
 # Appended when the model answered without citing any retrieved passage — the
 # grounding signal. Not suppressed (a DOMAIN_RULES safety answer may be
@@ -218,7 +223,13 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
             "snippetSpec": {"maxSnippetCount": 5, "returnSnippet": True},
             "extractiveContentSpec": {
                 "maxExtractiveAnswerCount": 3,
-                "maxExtractiveSegmentCount": 2,
+                "maxExtractiveSegmentCount": 3,
+                # Pull in the text either side of a matched segment: policy
+                # conditions and exceptions usually sit in the neighbouring
+                # sentences, and a segment cut to the match alone reads as a
+                # rule with no qualifiers.
+                "numPreviousSegments": 1,
+                "numNextSegments": 1,
             },
         },
     }
@@ -254,7 +265,7 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
         raise
 
     raw_count = len(result.get("results", []) or [])
-    contexts = parse_search_results(result)
+    contexts = parse_search_results(result, max_chars=MAX_PASSAGE_CHARS)
     # Raw-hit count vs. usable-passage count: when these diverge the search
     # worked but the text couldn't be read out of the response, which is a very
     # different problem from "nothing matched".
@@ -273,8 +284,14 @@ def retrieve_context(question: str, top_k: int = 5) -> list[dict]:
     return _search_data_store(question, top_k)
 
 
-def answer_question(question: str) -> dict:
+def answer_question(question: str, history: list[dict] | None = None) -> dict:
     """Full pipeline: gate → expand → search → generate.
+
+    `history` is recent [{question, answer}] turns, used ONLY so the model can
+    resolve follow-ups that are meaningless standalone ("and if he refuses?").
+    The gate and retrieval stay per-turn, and the prompt is explicit that only
+    the numbered passages are authoritative — a prior answer must never become
+    a source of policy, or one bad answer would compound across a session.
 
     Returns {answer, citations, sources}:
       - citations: [{n, source, text}] full retrieved passages
@@ -321,12 +338,24 @@ def answer_question(question: str) -> dict:
         }
 
     # Trim to the top passages (dedupe + per-source cap), numbered for citation.
-    contexts = select_passages(retrieved, MAX_CONTEXT_PASSAGES)
+    contexts = select_passages(retrieved, MAX_CONTEXT_PASSAGES,
+                               max_total_chars=MAX_CONTEXT_CHARS)
     numbered = "\n\n".join(
         f"[{i + 1}] (Source: {c['source']})\n{c['text']}"
         for i, c in enumerate(contexts)
     )
+    # History is context for READING the question, never evidence for answering
+    # it. Stated explicitly because prior answers can carry the ungrounded
+    # warning or an error, and treating them as fact compounds the mistake.
+    history_block = format_history(history)
+    preamble = (
+        f"EARLIER IN THIS CONVERSATION (context only — use it to understand what "
+        f"the officer is referring to. It is NOT policy and NOT evidence; never "
+        f"cite it):\n{history_block}\n\n"
+        if history_block else ""
+    )
     prompt = (
+        f"{preamble}"
         f"POLICY PASSAGES (numbered):\n{numbered}\n\n"
         f"OFFICER'S QUESTION: {question}\n\n"
         "Answer using ONLY the numbered passages above. Immediately after each "
