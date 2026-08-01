@@ -239,6 +239,53 @@ def parse_search_results(payload: dict, max_chars: int = 0) -> list[dict]:
     return contexts
 
 
+# ── Conversation history ────────────────────────────────────────────────────
+
+# Officers ask short follow-ups ("what about a female inmate?", "and if he
+# refuses?") that are meaningless standalone. Only a few turns are needed to
+# resolve them, and history is strictly context for reading the question — it is
+# never a source of policy (see the prompt in query.py).
+MAX_HISTORY_TURNS = 4
+MAX_HISTORY_CHARS = 1500
+MAX_HISTORY_ANSWER_CHARS = 400
+
+
+def format_history(history: list[dict] | None,
+                   max_turns: int = MAX_HISTORY_TURNS,
+                   max_chars: int = MAX_HISTORY_CHARS) -> str:
+    """Render recent turns as a compact transcript for the generation prompt.
+
+    Accepts [{"question": ..., "answer": ...}] (what the chat client keeps).
+    Keeps the most recent turns, oldest-first in the output, dropping the oldest
+    first when the character budget is hit — the nearest turn is the one a
+    pronoun usually refers to.
+    """
+    if not history:
+        return ""
+    turns: list[tuple[str, str]] = []
+    for item in list(history)[-max_turns:]:
+        if not isinstance(item, dict):
+            continue
+        question = str(item.get("question") or "").strip()
+        answer = str(item.get("answer") or "").strip()
+        if question:
+            turns.append((question, answer))
+    if not turns:
+        return ""
+
+    blocks: list[str] = []
+    total = 0
+    for question, answer in reversed(turns):  # budget from the newest backwards
+        answer = _truncate(answer, MAX_HISTORY_ANSWER_CHARS)
+        block = (f"Officer: {question}\nAssistant: {answer}" if answer
+                 else f"Officer: {question}")
+        if blocks and total + len(block) > max_chars:
+            break
+        blocks.append(block)
+        total += len(block)
+    return "\n\n".join(reversed(blocks))
+
+
 def select_passages(contexts: list[dict], k: int, max_per_source: int = 3,
                     max_total_chars: int = 0) -> list[dict]:
     """Pick the top `k` passages to feed the generator.

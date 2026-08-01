@@ -1,7 +1,7 @@
 """Unit tests for the pure retrieval helpers (no AI, no GCP)."""
 from backend.pipeline.retrieval import (
     augment_query, extract_passage_text, extract_source_label,
-    parse_search_results, select_passages,
+    format_history, parse_search_results, select_passages,
 )
 
 
@@ -250,3 +250,42 @@ class TestContextBudget:
     def test_budget_off_by_default(self):
         ctx = [self._p(f"S{i}", "w" * 400) for i in range(5)]
         assert len(select_passages(ctx, 10)) == 5
+
+
+class TestFormatHistory:
+    """RC-6: recent turns, compact, newest kept when the budget bites."""
+
+    def _h(self, n):
+        return [{"question": f"question {i}", "answer": f"answer {i}"}
+                for i in range(n)]
+
+    def test_empty_and_malformed(self):
+        assert format_history(None) == ""
+        assert format_history([]) == ""
+        assert format_history(["not a dict", 42]) == ""
+        assert format_history([{"answer": "no question"}]) == ""
+
+    def test_renders_oldest_first(self):
+        out = format_history(self._h(2))
+        assert out.index("question 0") < out.index("question 1")
+        assert "Officer:" in out and "Assistant:" in out
+
+    def test_keeps_only_the_most_recent_turns(self):
+        out = format_history(self._h(10), max_turns=3)
+        assert "question 9" in out and "question 8" in out
+        assert "question 5" not in out
+
+    def test_drops_oldest_first_under_char_budget(self):
+        # The nearest turn is the one a pronoun refers to, so it must survive.
+        out = format_history(self._h(4), max_chars=60)
+        assert "question 3" in out
+        assert "question 0" not in out
+
+    def test_question_without_answer_still_included(self):
+        out = format_history([{"question": "did it fail?", "answer": ""}])
+        assert "did it fail?" in out
+        assert "Assistant:" not in out
+
+    def test_long_answers_are_truncated(self):
+        out = format_history([{"question": "q", "answer": "z" * 5000}])
+        assert len(out) < 1000

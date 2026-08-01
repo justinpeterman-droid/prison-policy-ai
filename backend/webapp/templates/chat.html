@@ -248,12 +248,13 @@ function send(){
   i.value='';b.disabled=true;
   chat.insertAdjacentHTML('beforeend',`<div class="msg ai typing" id="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`);
   chat.scrollTop=chat.scrollHeight;
-  fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})})
+  const history=convos.slice(-4).map(c=>({question:c.question,answer:c.answer||''}));
+  fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,history})})
   .then(r=>r.json()).then(d=>{
     document.getElementById('typing')?.remove();
     if(d.error){chat.insertAdjacentHTML('beforeend',`<div class="msg ai err">${esc(d.error)}</div>`);return}
     const citations=d.citations||[];
-    const idx=convos.push({question:q,citations})-1;
+    const idx=convos.push({question:q,answer:d.answer||'',citations})-1;
     let chips='';
     if(citations.length){
       chips=`<div class="cite-chips">`+citations.map(c=>{
