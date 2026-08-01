@@ -53,3 +53,74 @@ def test_never_raises_returns_original_on_bad_person():
     slots = {"persons": [{"role": "inmate"}]}  # no last name
     text = "Inmate did a thing."
     assert enforce_naming(text, slots) == text
+
+
+# ── RG-5 regressions ────────────────────────────────────────────────────────
+# Both of these produced corrupted narratives before the rewrite.
+
+def test_shared_surname_does_not_cross_contaminate():
+    """An inmate and an officer with the same last name must stay distinct.
+    Previously produced 'Inmate Sgt Robert Smith, John ADC#123456'."""
+    slots = {"persons": [_inmate("Smith", "John", "123456"),
+                         _staff("Sgt", "Robert", "Smith")],
+             "officer_last": "Smith"}
+    out = enforce_naming(
+        "I observed Inmate Smith fighting. Sgt Smith responded.", slots)
+    assert "Inmate Smith, John ADC#123456" in out
+    assert "Sgt Robert Smith" in out
+    assert "Inmate Sgt" not in out
+    assert "Sgt Robert Smith, John" not in out
+
+
+def test_replacement_never_destroys_surrounding_text():
+    """Stale match offsets used to shred the text, turning
+    'applied restraints. Inmate Jones' into 'applied restraintCpl Jonesmate Jones'."""
+    slots = {"persons": [_inmate("Jones", "Marcus", "998877"),
+                         _staff("Cpl", "Alice", "Jones")],
+             "officer_last": "Jones"}
+    text = ("Inmate Jones refused orders. Cpl Jones applied restraints. "
+            "Inmate Jones complied.")
+    out = enforce_naming(text, slots)
+    # Every word of the original narrative survives.
+    for fragment in ("refused orders", "applied restraints", "complied"):
+        assert fragment in out
+    assert "restraintCpl" not in out
+
+
+def test_reporter_self_reference_is_left_intact():
+    slots = {"persons": [_staff("Sgt", "Justin", "Peterman")],
+             "officer_last": "Peterman"}
+    text = "I, Sgt Justin Peterman, was assigned to 8 Barracks. I applied restraints."
+    assert enforce_naming(text, slots) == text
+
+
+def test_already_full_form_is_not_re_expanded():
+    slots = {"persons": [_inmate("Garcia", "Luis", "448291")]}
+    text = "Inmate Garcia, Luis ADC#448291 was restrained."
+    out = enforce_naming(text, slots)
+    assert out.count("ADC#448291") == 1
+    assert "Inmate Inmate" not in out
+
+
+def test_rank_period_mismatch_still_matches():
+    # Roster says 'Sgt.'; the model wrote 'Sgt'.
+    slots = {"persons": [_staff("Sgt.", "Miguel", "Delgado")]}
+    out = enforce_naming("Sgt Delgado applied hand restraints.", slots)
+    assert "Miguel" in out
+
+
+def test_shared_surname_leaves_bare_mentions_alone():
+    """With two people named Smith, a bare 'Smith' is genuinely ambiguous —
+    guessing would attribute an action to the wrong person."""
+    slots = {"persons": [_inmate("Smith", "John", "123456"),
+                         _staff("Sgt", "Robert", "Smith")]}
+    out = enforce_naming("Smith was uncooperative.", slots)
+    assert out == "Smith was uncooperative."
+
+
+def test_multiple_inmates_each_get_their_own_first_mention():
+    slots = {"persons": [_inmate("Garcia", "Luis", "448291"),
+                         _inmate("Boyd", "Trevor", "551002")]}
+    out = enforce_naming("Inmate Garcia and Inmate Boyd were separated.", slots)
+    assert "Inmate Garcia, Luis ADC#448291" in out
+    assert "Inmate Boyd, Trevor ADC#551002" in out

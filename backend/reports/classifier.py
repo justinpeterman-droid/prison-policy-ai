@@ -15,6 +15,56 @@ VALID_CATEGORIES = {
     "prea", "incident_no_disciplinary", "other_rule_violation",
 }
 
+# Grammar-constrain the classifier the same way extraction is constrained.
+# Without this the model returned free-form text that had to be regex-scraped
+# for JSON, and any parse failure silently became `other_rule_violation` —
+# the wrong category then drives the wrong checklist, the wrong gap questions,
+# and the wrong report. The enum makes an invalid category unrepresentable.
+CLASSIFIER_RESPONSE_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "incident_type": {"type": "STRING", "enum": sorted(VALID_CATEGORIES)},
+        "persons_involved": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "role": {"type": "STRING",
+                             "enum": ["reporting_officer", "inmate",
+                                      "security_staff", "witness"]},
+                    "name": {"type": "STRING", "nullable": True,
+                             "description": "Last, First"},
+                    "rank": {"type": "STRING", "nullable": True,
+                             "description": "Cpl. / Sgt. / Lt. / Cpt. — staff only"},
+                    "adc_number": {"type": "STRING", "nullable": True,
+                                   "description": "inmates only, digits"},
+                },
+                "required": ["role"],
+            },
+        },
+        "charges_applicable": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "code": {"type": "STRING",
+                             "description": "rule number from the charge catalog"},
+                    "inmate": {"type": "STRING", "nullable": True,
+                               "description": "last name of the inmate charged"},
+                    "description": {"type": "STRING", "nullable": True},
+                },
+                "required": ["code"],
+            },
+        },
+        "facility": {"type": "STRING", "nullable": True},
+        "shift": {"type": "STRING", "nullable": True},
+        "location": {"type": "STRING", "nullable": True},
+        "date": {"type": "STRING", "nullable": True},
+        "time": {"type": "STRING", "nullable": True},
+    },
+    "required": ["incident_type", "persons_involved", "charges_applicable"],
+}
+
 
 def _category_label(incident_type: str) -> str:
     try:
@@ -63,7 +113,14 @@ def classify_incident(notes: str) -> dict:
     response = _get_client().models.generate_content(
         model=FAST_MODEL,
         contents=prompt,
-        config=types.GenerateContentConfig(system_instruction=system_prompt),
+        config=types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            response_mime_type="application/json",
+            response_schema=CLASSIFIER_RESPONSE_SCHEMA,
+            # Classification is a decision, not prose — the same category every
+            # time for the same notes.
+            temperature=0.0,
+        ),
     )
 
     # Robust JSON extraction from model response
@@ -106,7 +163,12 @@ def classify_incident(notes: str) -> dict:
         }
         return result
     except (json.JSONDecodeError, KeyError) as e:
-        logger.warning("Classification JSON parse failed: %s — raw: %.300s", e, text)
+        # With response_schema this should be unreachable. If it ever fires,
+        # the officer is about to get the wrong checklist and the wrong gap
+        # questions, so make it loud and mark the result as degraded rather
+        # than passing off a guess as a real classification.
+        logger.error("Classification JSON parse failed despite response_schema: "
+                     "%s — falling back to other_rule_violation", e)
         return {
             "incident_type": "other_rule_violation",
             "label": _category_label("other_rule_violation"),
@@ -115,5 +177,8 @@ def classify_incident(notes: str) -> dict:
             "charge_descriptions": {},
             "facility": "Benny Magness Unit",
             "shift": "Unknown",
+            # Signals "this is a fallback, not a real classification" — the
+            # officer should double-check the incident type before continuing.
+            "classification_degraded": True,
             "raw_classification": text,
         }
