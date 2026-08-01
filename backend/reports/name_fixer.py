@@ -54,167 +54,152 @@ def _rank_last(person: dict) -> str:
 
 
 # ── Finding and replacing ──────────────────────────────────────────────────
+#
+# Matching happens ONCE against the original text, and the output is rebuilt
+# from the selected spans. The previous implementation recomputed matches, then
+# spliced into a mutating buffer using those now-stale offsets, which shredded
+# text ("applied restraints. Inmate Jones" -> "applied restraintCpl Jonesmate
+# Jones"). It also let one person's bare-surname pattern match inside another
+# person's name, so an officer and an inmate sharing a last name produced
+# "Inmate Sgt Robert Smith, John ADC#123456".
 
-def _re_replace_first(text: str, pattern: str, replacement: str) -> str:
-    """Replace the first match of *pattern* with *replacement* in *text*."""
-    m = re.search(pattern, text)
-    if not m:
-        return text
-    return text[:m.start()] + replacement + text[m.end():]
+
+def _rank_pattern(rank: str) -> str:
+    """Match a rank whether or not the text abbreviates it with a period."""
+    return re.escape(rank.strip().rstrip(".")) + r"\.?"
 
 
-def _find_inmate_short_matches(person: dict) -> list[str]:
-    """Build regex patterns to find any short-form mention of an inmate."""
+def _inmate_patterns(person: dict, allow_bare: bool) -> list[str]:
+    """Ways an inmate may be written, longest/most-specific first."""
     last = re.escape((person.get("last") or "").strip())
     first = re.escape((person.get("first") or "").strip())
-    adc = (person.get("adc_number") or person.get("employee_number") or "").strip()
-    adc_esc = re.escape(adc) if adc else None
+    adc = re.escape((person.get("adc_number")
+                     or person.get("employee_number") or "").strip())
+    if not last:
+        return []
+    pats = []
+    if first and adc:
+        pats.append(rf"Inmate\s+{last},\s*{first}\s*ADC#\s*{adc}")
+    if adc:
+        pats.append(rf"Inmate\s+{last}\s*ADC#\s*{adc}")
+    if first:
+        pats.append(rf"Inmate\s+{last},\s*{first}")
+        pats.append(rf"Inmate\s+{first}\s+{last}")
+    pats.append(rf"Inmate\s+{last}")
+    if allow_bare:
+        pats.append(rf"(?<!\w){last}(?!\w)")
+    return pats
 
-    patterns = []
-    if last:
-        # "Inmate Last"  (most common short form from LLM)
-        patterns.append(rf'\bInmate\s+{last}\b')
-        if first:
-            # "Inmate First Last" (LLM occasionally outputs this order)
-            patterns.append(rf'\bInmate\s+{first}\s+{last}\b')
-            # "Last, First"  (if model outputs the correct order but without ADC#)
-            patterns.append(rf'\b{last},\s+{first}\b')
-    if adc_esc:
-        # "ADC#number" — any inmate mention anchored to their number
-        patterns.append(rf'\b{adc_esc}\b')
-    return patterns
 
-
-def _find_staff_short_matches(person: dict) -> list[str]:
-    """Build regex patterns to find any short-form mention of a staff member."""
+def _staff_patterns(person: dict, allow_bare: bool) -> list[str]:
+    """Ways a staff member may be written, longest/most-specific first."""
     last = re.escape((person.get("last") or "").strip())
     first = re.escape((person.get("first") or "").strip())
     rank = (person.get("rank") or "").strip()
-    rank_esc = re.escape(rank) if rank else None
+    if not last:
+        return []
+    rank_pat = _rank_pattern(rank) if rank else ""
+    pats = []
+    if rank_pat and first:
+        pats.append(rf"{rank_pat}\s+{first}\s+{last}")
+    if first:
+        pats.append(rf"{first}\s+{last}")
+    if rank_pat:
+        pats.append(rf"{rank_pat}\s+{last}")
+    if allow_bare:
+        pats.append(rf"(?<!\w){last}(?!\w)")
+    return pats
 
-    patterns = []
-    if rank_esc and last:
-        # "Rank Last" — what the LLM outputs most
-        patterns.append(rf'\b{rank_esc}\s+{last}\b')
-    if last:
-        # bare last name
-        patterns.append(rf'(?<!\w){last}(?!\w)')
-    if first and last:
-        # "First Last" (LLM might drop rank)
-        patterns.append(rf'\b{first}\s+{last}\b')
-    return patterns
 
+def _ambiguous_last_names(persons: list[dict]) -> set[str]:
+    """Last names shared by more than one person.
 
-def _build_replacements(slots: dict) -> list[tuple[str, str, str]]:
-    """Build a list of (search_pattern, full_form, short_form) for every person.
-
-    Each entry maps the regex that matches a person's short/partial mention
-    to the replacements: first match → full form, subsequent matches → short.
+    A bare surname is then genuinely ambiguous — 'Smith' could be the inmate or
+    the officer — so it is left untouched rather than guessed at. Only the
+    qualified forms ('Inmate Smith', 'Sgt Smith') get rewritten.
     """
-    replacements = []
-    persons = slots.get("persons", [])
-    if not persons:
-        return replacements
+    counts: dict[str, int] = {}
+    for p in persons:
+        last = (p.get("last") or "").strip().lower()
+        if last:
+            counts[last] = counts.get(last, 0) + 1
+    return {last for last, n in counts.items() if n > 1}
 
-    for person in persons:
-        role = person.get("role", "")
+
+def _collect_spans(text: str, persons: list[dict]) -> list[tuple[int, int, int]]:
+    """Every place any person is named, as (start, end, person_index).
+
+    All matching is done against the untouched original text, so no offset can
+    go stale.
+    """
+    ambiguous = _ambiguous_last_names(persons)
+    spans: list[tuple[int, int, int]] = []
+    for idx, person in enumerate(persons):
         last = (person.get("last") or "").strip()
         if not last:
-            continue  # can't match without a last name
-
+            continue  # can't match anyone without a last name
+        allow_bare = last.lower() not in ambiguous
+        role = person.get("role", "")
         if role == "inmate":
-            full = _inmate_full(person)
-            short = _inmate_short(person)
-            if not full:
-                continue
-            # Build a regex that finds any short-form mention
-            parts = [re.escape(last)]
-            first = (person.get("first") or "").strip()
-            adc = (person.get("adc_number") or "").strip()
-            if first:
-                parts.append(re.escape(first))
-            if adc:
-                parts.append(re.escape(adc))
-
-            # Match "Inmate Last" or "Inmate First Last" or bare "Last"
-            alt_pats = []
-            if last:
-                alt_pats.append(rf'Inmate\s+{re.escape(last)}\b')
-            if first and last:
-                alt_pats.append(rf'Inmate\s+{re.escape(first)}\s+{re.escape(last)}\b')
-            pattern = '|'.join(alt_pats) if alt_pats else rf'\b{re.escape(last)}\b'
-            replacements.append((pattern, full, short))
-
+            patterns = _inmate_patterns(person, allow_bare)
         elif role == "security_staff":
-            full = _staff_full(person)
-            short = _staff_short(person)
-            rank = (person.get("rank") or "").strip()
-            if not full or not rank:
+            patterns = _staff_patterns(person, allow_bare)
+        else:
+            continue
+        for pattern in patterns:
+            try:
+                for m in re.finditer(pattern, text):
+                    spans.append((m.start(), m.end(), idx))
+            except re.error:  # pragma: no cover - defensive
                 continue
-            # Match "Rank Last" or bare "Last" for staff
-            alt_pats = []
-            if rank and last:
-                alt_pats.append(rf'\b{re.escape(rank)}\s+{re.escape(last)}\b')
-            if last:
-                # Only match bare last name for staff when it appears without rank
-                alt_pats.append(rf'(?<!\w){re.escape(last)}(?!\w)')
-            pattern = '|'.join(alt_pats) if alt_pats else rf'\b{re.escape(last)}\b'
-            replacements.append((pattern, full, short))
-
-    return replacements
+    return spans
 
 
-def _fix_inmates_staff(text: str, replacements: list[tuple[str, str, str]],
-                       reporter_last: str = "") -> str:
-    """Apply deterministic naming corrections.
+def _select_spans(spans: list[tuple[int, int, int]]) -> list[tuple[int, int, int]]:
+    """Greedily keep non-overlapping spans, preferring the longest match.
 
-    For each person:
-      1st match → full form (Inmate Last, First ADC### / Rank First Last)
-      subsequent → short form (Inmate Last / Rank Last)
-
-    Processing order: by person priority (we process each person's matches
-    sequentially, left-to-right within that person). This prevents overlapping
-    replacements across different persons from colliding.
+    Longest-first is what stops a bare surname from being rewritten inside a
+    longer name that contains it — 'Smith' inside 'Inmate Smith' loses to the
+    full 'Inmate Smith' match.
     """
-    import re
+    chosen: list[tuple[int, int, int]] = []
+    for span in sorted(spans, key=lambda s: (s[0], -(s[1] - s[0]))):
+        if chosen and span[0] < chosen[-1][1]:
+            continue  # overlaps a span we already committed to
+        chosen.append(span)
+    return chosen
 
-    # We'll process one person at a time. For each person:
-    #   - Find all matches
-    #   - Skip if already full form
-    #   - Replace first remaining match with full, rest with short
-    offset = 0
-    result = list(text)
 
-    for pattern, full, short in replacements:
-        # Find all current matches for this pattern in the (possibly modified) text
-        current_text = ''.join(result)
-        matches = list(re.finditer(pattern, current_text))
+def _full_form(person: dict) -> str:
+    return (_inmate_full(person) if person.get("role") == "inmate"
+            else _staff_full(person))
 
-        applied_full = False
-        for m in matches:
-            match_text = m.group()
 
-            # Skip if already in full form
-            if match_text == full:
-                applied_full = True
-                continue
+def _short_form(person: dict) -> str:
+    return (_inmate_short(person) if person.get("role") == "inmate"
+            else _staff_short(person))
 
-            # Skip if this match overlaps with any full form in current text
-            # (prevents corrupting "I, Sgt Miguel Delgado," → "I, Sgt Miguel Sgt Miguel Delgado,")
-            if full in current_text and match_text in full:
-                applied_full = True
-                continue
 
-            replacement = full if not applied_full else short
-            if replacement == match_text:
-                continue
+def _rewrite(text: str, persons: list[dict]) -> str:
+    """First mention of each person becomes the full form, later ones short."""
+    selected = _select_spans(_collect_spans(text, persons))
+    if not selected:
+        return text
 
-            start = m.start()
-            end = m.end()
-            result[start:end] = list(replacement)
-            applied_full = True
-
-    return ''.join(result)
+    out: list[str] = []
+    cursor = 0
+    seen: set[int] = set()
+    for start, end, idx in selected:
+        person = persons[idx]
+        replacement = _full_form(person) if idx not in seen else _short_form(person)
+        if not replacement:
+            continue  # nothing sensible to write — leave the original text alone
+        out.append(text[cursor:start])
+        out.append(replacement)
+        seen.add(idx)
+        cursor = end
+    out.append(text[cursor:])
+    return "".join(out)
 
 
 # ── Public API ──────────────────────────────────────────────────────────────
@@ -232,13 +217,13 @@ def enforce_naming(text: str, slots: dict) -> str:
     if not text or not slots:
         return text
 
-    replacements = _build_replacements(slots)
-    if not replacements:
+    persons = [p for p in (slots.get("persons") or [])
+               if isinstance(p, dict) and (p.get("last") or "").strip()]
+    if not persons:
         return text
 
-    reporter_last = slots.get("officer_last", "").strip()
     try:
-        return _fix_inmates_staff(text, replacements, reporter_last)
+        return _rewrite(text, persons)
     except Exception:
         logger.warning("Name enforcement failed", exc_info=True)
         return text  # never break the report over name fixes
