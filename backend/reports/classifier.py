@@ -1,11 +1,10 @@
 """Incident classifier — determines type, forms needed, persons, charges."""
 import json
-import os
 import re
 import logging
 from google import genai
 from google.genai import types
-from backend.pipeline.config import PROJECT_ID, LOCATION, GENERATION_MODEL
+from backend.pipeline.config import PROJECT_ID, FAST_MODEL, MODEL_LOCATION
 from backend.reports.prompts import build_classifier_prompt
 from backend.reports.schema import load_checklist
 
@@ -26,10 +25,6 @@ def _category_label(incident_type: str) -> str:
     except Exception:
         pass
     return incident_type.replace("_", " ").title()
-
-# Model may need a different location than the app default (e.g. gemini-3.5-flash
-# is global-only while RAG/corpus lives in us-central1).
-MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", LOCATION)
 
 _client = None
 
@@ -66,7 +61,7 @@ def classify_incident(notes: str) -> dict:
     )
 
     response = _get_client().models.generate_content(
-        model=GENERATION_MODEL,
+        model=FAST_MODEL,
         contents=prompt,
         config=types.GenerateContentConfig(system_instruction=system_prompt),
     )

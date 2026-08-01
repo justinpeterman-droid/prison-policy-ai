@@ -4,11 +4,10 @@ Uses prompts_v2.py which receives extraction slots (narrative_facts, quotes,
 per-officer actions) + auto_content sentences. Every header field is rendered
 by code from slots — the model writes narrative prose ONLY.
 """
-import os
 import logging
 from google import genai
 from google.genai import types
-from backend.pipeline.config import PROJECT_ID, LOCATION, GENERATION_MODEL
+from backend.pipeline.config import PROJECT_ID, PRO_MODEL, MODEL_LOCATION
 from backend.reports.prompts_v2 import (
     FIRST_PERSON_PROMPT,
     SUPERVISOR_SUMMARY_PROMPT,
@@ -18,8 +17,6 @@ from backend.reports.prompts_v2 import (
 from backend.reports.name_fixer import enforce_naming
 
 logger = logging.getLogger(__name__)
-
-MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", LOCATION)
 
 _client = None
 
@@ -33,7 +30,7 @@ def _get_client() -> genai.Client:
 
 def _generate(system_prompt: str, user_prompt: str) -> str:
     response = _get_client().models.generate_content(
-        model=GENERATION_MODEL,
+        model=PRO_MODEL,
         contents=user_prompt,
         config=types.GenerateContentConfig(system_instruction=system_prompt),
     )

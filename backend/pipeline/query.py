@@ -15,7 +15,7 @@ import google.auth
 import google.auth.transport.requests
 from google import genai
 from google.genai import types
-from backend.pipeline.config import PROJECT_ID, GENERATION_MODEL
+from backend.pipeline.config import PROJECT_ID, FAST_MODEL, PRO_MODEL, MODEL_LOCATION
 from backend.pipeline.citations import build_grounded
 from backend.pipeline.retrieval import augment_query, select_passages
 
@@ -36,7 +36,7 @@ UNGROUNDED_NOTE = (
 
 LOCATION = os.getenv("AGENT_BUILDER_LOCATION", "global")
 DATA_STORE_ID = os.getenv("AGENT_BUILDER_DATA_STORE", "prison-policies-ds")
-MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", "global")
+# MODEL_LOCATION is centralized in config (Gemini 3.x is served from 'global').
 
 _gen_client = None
 
@@ -148,7 +148,7 @@ def _classify_query(question: str) -> bool:
     # Ambiguous — use Gemini classifier
     try:
         response = _get_gen_client().models.generate_content(
-            model=GENERATION_MODEL,
+            model=FAST_MODEL,
             contents=GATE_PROMPT.format(question=question),
         )
         verdict = response.text.strip().upper()
@@ -266,7 +266,7 @@ def answer_question(question: str) -> dict:
     )
 
     response = _get_gen_client().models.generate_content(
-        model=GENERATION_MODEL,
+        model=PRO_MODEL,
         contents=prompt,
         config=types.GenerateContentConfig(system_instruction=CHAT_SYSTEM_PROMPT),
     )
