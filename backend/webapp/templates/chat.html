@@ -89,13 +89,16 @@
   .typing .dot:nth-child(3){width:3px;height:12px;transform:rotate(14deg);animation-delay:.4s;animation-duration:1.3s}
 
   @keyframes scratch-flicker{0%,100%{opacity:.45;filter:none}12%{opacity:1;filter:drop-shadow(0 0 4px rgba(239,68,68,0.9)) brightness(1.3)}24%{opacity:.5;filter:none}}
-  /* ── Realistic claw divider ── */
-  .claw{display:flex;gap:7px;align-items:center;padding:10px 0 2px}
-  .claw b{display:block;position:relative;border-radius:1px}
-  .claw b::before{content:'';position:absolute;inset:0;background:inherit;filter:blur(1.5px);opacity:.25;transform:translate(.5px,0)}
-  .claw b:nth-child(1){width:1.3px;height:18px;background:#b91c1c;transform:rotate(9deg);box-shadow:0 0 4px rgba(185,28,28,0.4)}
-  .claw b:nth-child(2){width:2.5px;height:24px;background:#c12929;transform:rotate(15deg);box-shadow:0 0 6px rgba(201,41,41,0.35)}
-  .claw b:nth-child(3){width:1px;height:15px;background:#a11;transform:rotate(11deg);opacity:.7;box-shadow:0 0 3px rgba(170,17,17,0.3)}
+  /* ── Claw divider — blood-red slash (scratch-in + idle pulse) ── */
+  .claw{display:flex;justify-content:center;align-items:center;padding:10px 0 2px}
+  .claw-svg{height:56px;width:auto;transform:rotate(-10deg);overflow:visible}
+  .claw-path{fill:#d10000;clip-path:inset(0 0 100% 0);opacity:0;filter:drop-shadow(0 0 4px rgba(209,0,0,0.5))}
+  .claw-path.c1{animation:claw-slash .28s ease-out forwards, claw-pulse 2.4s .35s ease-in-out infinite}
+  .claw-path.c2{animation:claw-slash .28s ease-out .1s forwards, claw-pulse 2.4s .45s ease-in-out infinite}
+  .claw-path.c3{animation:claw-slash .28s ease-out .2s forwards, claw-pulse 2.4s .55s ease-in-out infinite}
+  @keyframes claw-slash{0%{clip-path:inset(0 0 100% 0);opacity:0}12%{opacity:1}100%{clip-path:inset(0 0 0 0);opacity:1}}
+  @keyframes claw-pulse{0%,100%{opacity:1;filter:brightness(1) drop-shadow(0 0 5px rgba(209,0,0,0.75))}50%{opacity:.72;filter:brightness(1.3) drop-shadow(0 0 12px rgba(255,50,50,0.9))}}
+  @media (prefers-reduced-motion: reduce){.claw-path{animation:none;opacity:1;clip-path:none}}
 
   .input-row{flex:0 0 auto;display:flex;gap:8px;padding:14px 24px 18px;border-top:1px solid var(--border-sub);background:var(--bg)}
   .input-shell{flex:1;display:flex;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:5px 5px 5px 16px;box-shadow:0 1px 2px rgba(16,24,40,0.05);transition:border-color .15s,box-shadow .15s}
@@ -168,7 +171,13 @@
     <div class="pane-head">
       <h1>Reference Search</h1>
       <p class="sub">Search administrative policies, directives, and unit procedures.</p>
-      <div class="claw" aria-hidden="true"><b></b><b></b><b></b></div>
+      <div class="claw" aria-hidden="true">
+        <svg viewBox="0 0 200 250" class="claw-svg">
+          <path class="claw-path c1" d="M 50,40 C 65,100 40,170 20,220 C 50,170 75,100 65,40 Z"/>
+          <path class="claw-path c2" d="M 100,20 C 115,90 90,190 70,250 C 100,190 125,90 115,20 Z"/>
+          <path class="claw-path c3" d="M 150,50 C 165,100 140,160 120,200 C 150,160 175,100 165,50 Z"/>
+        </svg>
+      </div>
     </div>
     <div id="chat"></div>
     <div class="input-row">

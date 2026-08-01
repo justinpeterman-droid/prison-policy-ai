@@ -150,19 +150,18 @@
   }
   .joke-line:hover{opacity:1}
 
-  /* ── Claw mark — organic scratch ── */
+  /* ── Claw mark — blood-red slash (scratch-in + idle pulse) ── */
   .claw{
-    display:flex;gap:9px;justify-content:center;align-items:center;
+    display:flex;justify-content:center;align-items:center;
     padding:44px 0 8px;max-width:960px;margin:0 auto;
   }
-  .claw b{display:block;position:relative;transform-origin:center;border-radius:1px}
-  .claw b::before,.claw b::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:inherit;border-radius:inherit}
-  .claw b::before{filter:blur(2px);opacity:.35;transform:translate(1px,0)}
-  .claw b::after{width:40%;left:30%;opacity:.25;filter:blur(1px)}
-  /* Natural scratch variation */
-  .claw b:nth-child(1){width:1.8px;height:30px;background:#b91c1c;transform:rotate(10deg);box-shadow:0 0 6px rgba(185,28,28,0.5)}
-  .claw b:nth-child(2){width:3.2px;height:40px;background:#c12929;transform:rotate(17deg);box-shadow:0 0 8px rgba(201,41,41,0.45)}
-  .claw b:nth-child(3){width:1.4px;height:26px;background:#a11;transform:rotate(13deg);opacity:.75;box-shadow:0 0 4px rgba(170,17,17,0.4)}
+  .claw-svg{height:80px;width:auto;transform:rotate(-10deg);overflow:visible}
+  .claw-path{fill:#d10000;clip-path:inset(0 0 100% 0);opacity:0;filter:drop-shadow(0 0 4px rgba(209,0,0,0.5))}
+  .claw-path.c1{animation:claw-slash .28s ease-out forwards, claw-pulse 2.4s .35s ease-in-out infinite}
+  .claw-path.c2{animation:claw-slash .28s ease-out .1s forwards, claw-pulse 2.4s .45s ease-in-out infinite}
+  .claw-path.c3{animation:claw-slash .28s ease-out .2s forwards, claw-pulse 2.4s .55s ease-in-out infinite}
+  @keyframes claw-slash{0%{clip-path:inset(0 0 100% 0);opacity:0}12%{opacity:1}100%{clip-path:inset(0 0 0 0);opacity:1}}
+  @keyframes claw-pulse{0%,100%{opacity:1;filter:brightness(1) drop-shadow(0 0 5px rgba(209,0,0,0.75))}50%{opacity:.72;filter:brightness(1.3) drop-shadow(0 0 12px rgba(255,50,50,0.9))}}
   /* ── Animated scratch-in (for loading states) ── */
   @keyframes scratch-in{
     0%{clip-path:inset(0 100% 0 0);opacity:0}
@@ -176,11 +175,9 @@
   .claw-scratch b:nth-child(1){width:1.2px;transform:rotate(8deg);animation-duration:2.1s}
   .claw-scratch b:nth-child(2){width:2.5px;transform:rotate(15deg);animation-duration:1.8s}
   .claw-scratch b:nth-child(3){width:1px;transform:rotate(11deg);opacity:.75;animation-duration:2.4s}
+  @media (prefers-reduced-motion: reduce){.claw-path{animation:none;opacity:1;clip-path:none}}
   .claw.on-dark{padding:0 0 34px}
-  .claw.on-dark b{background:#ef4444;box-shadow:none}
-  .claw.on-dark b:nth-child(1){box-shadow:0 0 10px rgba(239,68,68,0.6)}
-  .claw.on-dark b:nth-child(2){box-shadow:0 0 12px rgba(239,68,68,0.5)}
-  .claw.on-dark b:nth-child(3){box-shadow:0 0 6px rgba(239,68,68,0.45)}
+  .claw.on-dark .claw-path{fill:#ef4444;filter:drop-shadow(0 0 6px rgba(239,68,68,0.6))}
 
   /* Statement strip — briefing header, not feature cards */
   .statement-strip{
@@ -489,7 +486,13 @@
   </div>
 </div>
 
-<div class="claw" aria-hidden="true"><b></b><b></b><b></b></div>
+<div class="claw" aria-hidden="true">
+  <svg viewBox="0 0 200 250" class="claw-svg">
+    <path class="claw-path c1" d="M 50,40 C 65,100 40,170 20,220 C 50,170 75,100 65,40 Z"/>
+    <path class="claw-path c2" d="M 100,20 C 115,90 90,190 70,250 C 100,190 125,90 115,20 Z"/>
+    <path class="claw-path c3" d="M 150,50 C 165,100 140,160 120,200 C 150,160 175,100 165,50 Z"/>
+  </svg>
+</div>
 
 <div class="section">
   <div class="kicker">The Tools</div>
@@ -516,7 +519,13 @@
 </div>
 
 <aside class="statement-strip" aria-label="Key points">
-  <div class="claw on-dark" aria-hidden="true" style="padding-top:30px"><b></b><b></b><b></b></div>
+  <div class="claw on-dark" aria-hidden="true" style="padding-top:30px">
+    <svg viewBox="0 0 200 250" class="claw-svg">
+      <path class="claw-path c1" d="M 50,40 C 65,100 40,170 20,220 C 50,170 75,100 65,40 Z"/>
+      <path class="claw-path c2" d="M 100,20 C 115,90 90,190 70,250 C 100,190 125,90 115,20 Z"/>
+      <path class="claw-path c3" d="M 150,50 C 165,100 140,160 120,200 C 150,160 175,100 165,50 Z"/>
+    </svg>
+  </div>
   <div class="statement-inner">
     <div class="statement statement-primary">
       <div class="bt">You stay in control.</div>
@@ -529,7 +538,13 @@
   </div>
 </aside>
 
-<div class="claw" aria-hidden="true"><b></b><b></b><b></b></div>
+<div class="claw" aria-hidden="true">
+  <svg viewBox="0 0 200 250" class="claw-svg">
+    <path class="claw-path c1" d="M 50,40 C 65,100 40,170 20,220 C 50,170 75,100 65,40 Z"/>
+    <path class="claw-path c2" d="M 100,20 C 115,90 90,190 70,250 C 100,190 125,90 115,20 Z"/>
+    <path class="claw-path c3" d="M 150,50 C 165,100 140,160 120,200 C 150,160 175,100 165,50 Z"/>
+  </svg>
+</div>
 
 <div class="section">
   <div class="how" id="how-it-works">
