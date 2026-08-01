@@ -286,6 +286,20 @@ PYTHONPATH=. python3 tests/eval/run_eval.py --id prea_dating
   served from `MODEL_LOCATION` (default `global` — Gemini 3.x is global-only, even though
   the Agent Builder data store lives in us-central1). `GENERATION_MODEL` remains as a
   back-compat alias for the FAST tier.
+- **Search config knobs** (config.py): the chat's Discovery Engine serving config is
+  assembled by `serving_config_path()` from `AGENT_BUILDER_LOCATION`,
+  `AGENT_BUILDER_COLLECTION`, `AGENT_BUILDER_ENGINE_ID`, and
+  `AGENT_BUILDER_SERVING_CONFIG` — a mismatch in any one 404s every search. The
+  resolved values are logged at startup (`log_search_config()`) and printed by
+  `scripts/check_search.py`. **Ingestion and search target different resources:**
+  `import_to_agent_builder.py` writes into the *data store*
+  (`AGENT_BUILDER_DATA_STORE`), while the chat searches the *engine* built on it — if
+  the engine is attached to a different store, imports succeed and search still finds
+  nothing.
+- **Diagnosing a broken chat:** `PYTHONPATH=. python3 scripts/check_search.py "use of
+  force"` prints the resolved config and runs one query, reporting latency, raw hit
+  count, and usable passages. It distinguishes config/auth failure from an empty
+  corpus from hits-with-no-readable-text. Exits non-zero on failure (needs ADC).
 - **Feedback widget** (`static/js/feedback.js` + `/api/feedback`) files GitHub issues
   into `justinpeterman-droid/prison-policy-ai`; requires `GITHUB_TOKEN`.
 

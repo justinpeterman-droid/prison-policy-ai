@@ -5,7 +5,6 @@ $1,000 Vertex AI Agent Builder credit.
 
 API contract unchanged: answer_question(question) -> {answer, citations, sources}
 """
-import os
 import json
 import logging
 import urllib.request
@@ -15,7 +14,10 @@ import google.auth
 import google.auth.transport.requests
 from google import genai
 from google.genai import types
-from backend.pipeline.config import PROJECT_ID, FAST_MODEL, PRO_MODEL, MODEL_LOCATION
+from backend.pipeline.config import (
+    PROJECT_ID, FAST_MODEL, PRO_MODEL, MODEL_LOCATION,
+    AGENT_BUILDER_LOCATION, search_config_summary, serving_config_path,
+)
 from backend.pipeline.citations import build_grounded
 from backend.pipeline.retrieval import (
     augment_query, parse_search_results, select_passages,
@@ -36,9 +38,17 @@ UNGROUNDED_NOTE = (
     "Verify against the source policy or your supervisor before relying on it."
 )
 
-LOCATION = os.getenv("AGENT_BUILDER_LOCATION", "global")
-DATA_STORE_ID = os.getenv("AGENT_BUILDER_DATA_STORE", "prison-policies-ds")
-# MODEL_LOCATION is centralized in config (Gemini 3.x is served from 'global').
+# Search + model config live in config.py.
+#
+# Note the two halves of the corpus setup: documents are INGESTED into the data
+# store (AGENT_BUILDER_DATA_STORE, used by import_to_agent_builder.py), while
+# SEARCH targets the ENGINE built on top of that store. This module declared a
+# data-store id it never used in a request, which invited the assumption that
+# search reads the store directly — it doesn't. If the engine is attached to a
+# different data store than the one being imported into, ingestion succeeds and
+# search still finds nothing.
+LOCATION = AGENT_BUILDER_LOCATION
+SERVING_CONFIG = serving_config_path()
 
 _gen_client = None
 
@@ -48,12 +58,6 @@ def _get_gen_client() -> genai.Client:
     if _gen_client is None:
         _gen_client = genai.Client(vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION)
     return _gen_client
-
-SERVING_CONFIG = (
-    f"projects/{PROJECT_ID}/locations/{LOCATION}"
-    f"/collections/default_collection/engines/prison-policies-engine"
-    f"/servingConfigs/default_search"
-)
 
 # ── Domain Guard: hard-coded facts the AI must never contradict ──
 
@@ -94,6 +98,31 @@ GATE_PROMPT = (
     "Query: {question}\n"
     "Classification:"
 )
+
+def _http_error_hint(code: int) -> str:
+    """Plain-language cause for the search failures that actually happen.
+
+    These are all configuration problems that otherwise surface as an opaque
+    5xx with no indication of which knob is wrong.
+    """
+    return {
+        404: (f"the engine or serving config does not exist at this path — check "
+              f"AGENT_BUILDER_ENGINE_ID (currently "
+              f"{search_config_summary()['engine_id']!r}) and "
+              f"AGENT_BUILDER_LOCATION (currently {LOCATION!r}); an engine "
+              f"created in 'us' or 'eu' is not reachable at 'global'"),
+        403: ("the service account lacks Discovery Engine permission on this "
+              "project, or the Discovery Engine API is not enabled"),
+        400: "the request body was rejected — likely an unsupported search spec field",
+        401: "credentials were rejected — check Application Default Credentials",
+    }.get(code, "")
+
+
+def log_search_config() -> None:
+    """Log the resolved search config once, so the active values are visible in
+    logs without shell access to the container."""
+    logger.info("Policy search config: %s", search_config_summary())
+
 
 _token_cache = {"token": None, "expiry": 0}
 
@@ -210,10 +239,18 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
                         result.get("totalSize", "?"))
     except urllib.error.HTTPError as e:
         err_body = e.read().decode()[:1000]
-        logger.error("Search API error %s: %s", e.code, err_body)
+        # Log the resolved config alongside the error: almost every failure here
+        # is a config mismatch, and the serving-config path is the thing you need
+        # to see to spot it.
+        logger.error("Search API error %s for serving config %s: %s",
+                     e.code, SERVING_CONFIG, err_body)
+        hint = _http_error_hint(e.code)
+        if hint:
+            logger.error("Likely cause: %s", hint)
         raise RuntimeError(f"Search API error {e.code}")
     except Exception as e:
-        logger.error("Search failed: %s", e)
+        logger.error("Search failed against serving config %s: %s",
+                     SERVING_CONFIG, e)
         raise
 
     raw_count = len(result.get("results", []) or [])

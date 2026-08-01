@@ -41,6 +41,40 @@ GENERATION_MODEL = os.getenv("GENERATION_MODEL", FAST_MODEL)
 # GCP_MODEL_LOCATION if you pin older regional models in the tiers above.
 MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", "global")
 
+# ── Agent Builder / Discovery Engine (policy chat retrieval) ──
+# The policy search targets an *engine* serving config. Every part of that
+# resource path is an env knob: a mismatch in any one of them makes the search
+# 404 and takes the whole chat down, so they must be inspectable and
+# overridable without a code change.
+AGENT_BUILDER_LOCATION = os.getenv("AGENT_BUILDER_LOCATION", "global")
+AGENT_BUILDER_COLLECTION = os.getenv("AGENT_BUILDER_COLLECTION", "default_collection")
+AGENT_BUILDER_ENGINE_ID = os.getenv("AGENT_BUILDER_ENGINE_ID", "prison-policies-engine")
+AGENT_BUILDER_SERVING_CONFIG = os.getenv("AGENT_BUILDER_SERVING_CONFIG", "default_search")
+
+
+def serving_config_path() -> str:
+    """Fully-qualified Discovery Engine serving config for the policy search."""
+    return (f"projects/{PROJECT_ID}/locations/{AGENT_BUILDER_LOCATION}"
+            f"/collections/{AGENT_BUILDER_COLLECTION}"
+            f"/engines/{AGENT_BUILDER_ENGINE_ID}"
+            f"/servingConfigs/{AGENT_BUILDER_SERVING_CONFIG}")
+
+
+def search_config_summary() -> dict:
+    """Resolved search config, for logs and the diagnostic script.
+    Contains no secrets — safe to log."""
+    return {
+        "project": PROJECT_ID,
+        "agent_builder_location": AGENT_BUILDER_LOCATION,
+        "collection": AGENT_BUILDER_COLLECTION,
+        "engine_id": AGENT_BUILDER_ENGINE_ID,
+        "serving_config": AGENT_BUILDER_SERVING_CONFIG,
+        "serving_config_path": serving_config_path(),
+        "model_location": MODEL_LOCATION,
+        "fast_model": FAST_MODEL,
+        "pro_model": PRO_MODEL,
+    }
+
 CORPUS_NAME = os.getenv("RAG_CORPUS_NAME", "prison-policies")
 
 # Chunking
