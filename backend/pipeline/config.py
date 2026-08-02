@@ -30,7 +30,14 @@ EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-004")
 # Pin a specific version here (or via env) rather than an auto-tracking alias so
 # report/answer behavior doesn't shift under us on a silent model bump.
 FAST_MODEL = os.getenv("FAST_MODEL", "gemini-3.6-flash")
-PRO_MODEL = os.getenv("PRO_MODEL", "gemini-3.1-pro")
+# Gemini 3.1 Pro is still in preview (launched 2026-02-19) — Vertex only serves
+# it under the literal "-preview" suffix. The bare "gemini-3.1-pro" id does not
+# exist and 404s every call, which is why every PRO_MODEL call site (report
+# generation, chat answers) failed while FAST_MODEL kept working: confirmed
+# against the actual us-central1 Model Garden listing, which has
+# gemini-3.1-pro-preview but no gemini-3.1-pro. Drop the suffix once Google
+# promotes this model to GA and publishes a non-preview id.
+PRO_MODEL = os.getenv("PRO_MODEL", "gemini-3.1-pro-preview")
 # Back-compat alias — GENERATION_MODEL historically meant "the flash model".
 # Anything still importing it gets the FAST tier; override via its own env var.
 GENERATION_MODEL = os.getenv("GENERATION_MODEL", FAST_MODEL)

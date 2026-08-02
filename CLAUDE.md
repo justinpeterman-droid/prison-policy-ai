@@ -282,7 +282,9 @@ PYTHONPATH=. python3 tests/eval/run_eval.py --id prea_dating
   `RAG_CORPUS_NAME`, `ACCESS_CODE`, `LOG_LEVEL`, …). Add new knobs there.
 - **Two Gemini tiers** (config.py): `FAST_MODEL` (default `gemini-3.6-flash`) drives the
   chat gate, incident classifier, and slot extraction; `PRO_MODEL` (default
-  `gemini-3.1-pro`) drives the chat answer synthesis and the report generators. Both are
+  `gemini-3.1-pro-preview` — Vertex only serves this model under the "-preview" suffix
+  while it's in preview status) drives the chat answer synthesis and the report
+  generators. Both are
   served from `MODEL_LOCATION` (default `global` — Gemini 3.x is global-only, even though
   the Agent Builder data store lives in us-central1). `GENERATION_MODEL` remains as a
   back-compat alias for the FAST tier.
