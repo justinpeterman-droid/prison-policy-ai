@@ -5,9 +5,12 @@ per-officer actions) + auto_content sentences. Every header field is rendered
 by code from slots — the model writes narrative prose ONLY.
 """
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor
 from google import genai
 from google.genai import types
 from backend.pipeline.config import PROJECT_ID, PRO_MODEL, MODEL_LOCATION
+from backend.pipeline.retry import with_retries
 from backend.reports.prompts_v2 import (
     REPORT_STYLE_SYSTEM,
     FIRST_PERSON_PROMPT,
@@ -25,6 +28,10 @@ logger = logging.getLogger(__name__)
 # naturally).
 GENERATION_TEMPERATURE = 0.25
 
+# A report generation that hangs is worse than one that fails: the officer sits
+# on a spinner with no idea whether to wait or start over.
+GENERATION_TIMEOUT_MS = 120_000
+
 _client = None
 
 
@@ -35,16 +42,20 @@ def _get_client() -> genai.Client:
     return _client
 
 
-def _generate(system_prompt: str, user_prompt: str) -> str:
-    response = _get_client().models.generate_content(
-        model=PRO_MODEL,
-        contents=user_prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            temperature=GENERATION_TEMPERATURE,
-        ),
-    )
-    return response.text
+def _generate(system_prompt: str, user_prompt: str, describe: str = "report generation") -> str:
+    def _call():
+        response = _get_client().models.generate_content(
+            model=PRO_MODEL,
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=GENERATION_TEMPERATURE,
+                http_options=types.HttpOptions(timeout=GENERATION_TIMEOUT_MS),
+            ),
+        )
+        return response.text
+
+    return with_retries(_call, describe=describe)
 
 
 def _clean_time(s: str) -> str:
@@ -193,40 +204,55 @@ def generate_all_reports(slots: dict, category: str = "",
 
     Returns:
         dict with keys: cover_letter, first_person, supervisor_summary,
-                        disciplinary (if charges present)
+                        disciplinary (if charges present), plus `_errors` —
+                        the report keys that failed, so the caller can surface
+                        the failure instead of letting an error placeholder
+                        pass for a finished report.
     """
-    reports = {}
+    reports: dict = {}
+    errors: list[str] = []
 
-    try:
-        reports["first_person"] = enforce_naming(
-            generate_first_person(slots, auto_content), slots)
-    except Exception:
-        logger.error("First person report generation failed", exc_info=True)
-        reports["first_person"] = "[Error generating first person report]"
+    def _run(key: str, label: str, fn):
+        """Generate one report, recording failure rather than raising."""
+        try:
+            return key, enforce_naming(fn(), slots), None
+        except Exception:
+            logger.error("%s generation failed", label, exc_info=True)
+            return key, f"[Error generating {label.lower()}]", key
 
-    try:
-        reports["supervisor_summary"] = enforce_naming(
-            generate_supervisor_summary(slots, auto_content), slots)
-    except Exception:
-        logger.error("Supervisor summary generation failed", exc_info=True)
-        reports["supervisor_summary"] = "[Error generating supervisor summary]"
+    # first_person, supervisor_summary and cover_letter are independent of one
+    # another, so run them concurrently — previously this was four sequential
+    # round-trips on the Pro tier, which reads as a hung page. disciplinary is
+    # sequenced afterwards because it takes the finished first-person report as
+    # its factual source.
+    jobs = [
+        ("first_person", "First person report",
+         lambda: generate_first_person(slots, auto_content)),
+        ("supervisor_summary", "Supervisor summary",
+         lambda: generate_supervisor_summary(slots, auto_content)),
+        ("cover_letter", "Cover letter",
+         lambda: generate_cover_letter(slots, auto_content)),
+    ]
 
-    try:
-        reports["cover_letter"] = enforce_naming(
-            generate_cover_letter(slots, auto_content), slots)
-    except Exception:
-        logger.error("Cover letter generation failed", exc_info=True)
-        reports["cover_letter"] = "[Error generating cover letter]"
+    started = time.monotonic()
+    with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+        for key, text, failed in pool.map(lambda j: _run(*j), jobs):
+            reports[key] = text
+            if failed:
+                errors.append(failed)
 
     charges = slots.get("charges", "")
     if charges and charges not in ("None", ""):
-        try:
-            reports["disciplinary"] = enforce_naming(
-                generate_disciplinary(
-                    slots, reports.get("first_person", ""), auto_content
-                ), slots)
-        except Exception:
-            logger.error("Disciplinary supplement generation failed", exc_info=True)
-            reports["disciplinary"] = "[Error generating disciplinary supplement]"
+        key, text, failed = _run(
+            "disciplinary", "Disciplinary supplement",
+            lambda: generate_disciplinary(
+                slots, reports.get("first_person", ""), auto_content))
+        reports[key] = text
+        if failed:
+            errors.append(failed)
 
+    logger.info("Generated %d report(s) in %.1fs (%d failed)",
+                len(reports), time.monotonic() - started, len(errors))
+    if errors:
+        reports["_errors"] = errors
     return reports

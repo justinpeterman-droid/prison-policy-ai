@@ -10,9 +10,12 @@ import re
 from google import genai
 from google.genai import types
 from backend.pipeline.config import PROJECT_ID, FAST_MODEL, MODEL_LOCATION
+from backend.pipeline.retry import with_retries
 from backend.reports.schema import build_response_schema, load_checklist
 
 logger = logging.getLogger(__name__)
+
+EXTRACT_TIMEOUT_MS = 90_000
 
 _client = None
 
@@ -67,16 +70,20 @@ def extract_slots(notes: str, category_name: str) -> dict:
                     if c["name"] == category_name)
     schema = build_response_schema(category, checklist)
 
-    response = _get_client().models.generate_content(
-        model=FAST_MODEL,
-        contents=notes,
-        config=types.GenerateContentConfig(
-            system_instruction=EXTRACTION_SYSTEM,
-            response_mime_type="application/json",
-            response_schema=schema,
-            temperature=0.0,
-        ),
-    )
+    def _call():
+        return _get_client().models.generate_content(
+            model=FAST_MODEL,
+            contents=notes,
+            config=types.GenerateContentConfig(
+                system_instruction=EXTRACTION_SYSTEM,
+                response_mime_type="application/json",
+                response_schema=schema,
+                temperature=0.0,
+                http_options=types.HttpOptions(timeout=EXTRACT_TIMEOUT_MS),
+            ),
+        )
+
+    response = with_retries(_call, describe="slot extraction")
     slots = json.loads(response.text)
     logger.info("Extraction: %d persons, %d facts, nulls: %d",
                 len(slots.get("persons", [])),

@@ -5,6 +5,7 @@ import logging
 from google import genai
 from google.genai import types
 from backend.pipeline.config import PROJECT_ID, FAST_MODEL, MODEL_LOCATION
+from backend.pipeline.retry import with_retries
 from backend.reports.prompts import build_classifier_prompt
 from backend.reports.schema import load_checklist
 
@@ -76,6 +77,9 @@ def _category_label(incident_type: str) -> str:
         pass
     return incident_type.replace("_", " ").title()
 
+# Classification is a short call; fail fast rather than stalling the wizard.
+CLASSIFY_TIMEOUT_MS = 60_000
+
 _client = None
 
 
@@ -110,18 +114,22 @@ def classify_incident(notes: str) -> dict:
         f"Return ONLY valid JSON."
     )
 
-    response = _get_client().models.generate_content(
-        model=FAST_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            response_mime_type="application/json",
-            response_schema=CLASSIFIER_RESPONSE_SCHEMA,
-            # Classification is a decision, not prose — the same category every
-            # time for the same notes.
-            temperature=0.0,
-        ),
-    )
+    def _call():
+        return _get_client().models.generate_content(
+            model=FAST_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+                response_schema=CLASSIFIER_RESPONSE_SCHEMA,
+                # Classification is a decision, not prose — the same category
+                # every time for the same notes.
+                temperature=0.0,
+                http_options=types.HttpOptions(timeout=CLASSIFY_TIMEOUT_MS),
+            ),
+        )
+
+    response = with_retries(_call, describe="incident classification")
 
     # Robust JSON extraction from model response
     text = _extract_json_from_response(response.text)
