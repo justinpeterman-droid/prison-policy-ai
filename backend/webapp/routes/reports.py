@@ -627,9 +627,16 @@ def reports_generate():
                         slots.get("incident_number")]
         flags = invented_facts(all_text, notes, answers, allow=code_derived)
 
+        # Any report that failed after retries is reported as a failure rather
+        # than left to pass for a finished document with an error line in it.
+        generation_errors = reports.pop("_errors", [])
+        if generation_errors:
+            logger.error("Generation failed for: %s", ", ".join(generation_errors))
+
         logger.info("Generate → %d reports, %d invented-fact flags, %d markers",
                     len(reports), len(flags), len(markers))
         return jsonify({
+            "generation_errors": generation_errors,
             "reports": reports,
             "form005": form005,
             "flags": flags,

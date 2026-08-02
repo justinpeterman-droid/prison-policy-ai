@@ -19,6 +19,7 @@ from backend.pipeline.config import (
     AGENT_BUILDER_LOCATION, search_config_summary, serving_config_path,
 )
 from backend.pipeline.citations import build_grounded
+from backend.pipeline.retry import with_retries
 from backend.pipeline.retrieval import (
     augment_query, format_history, parse_search_results, select_passages,
 )
@@ -34,6 +35,8 @@ MAX_CONTEXT_PASSAGES = 12
 # context, to keep the generator focused and the cost predictable.
 MAX_PASSAGE_CHARS = 2000
 MAX_CONTEXT_CHARS = 16000
+# An officer waiting on a policy answer needs it to fail rather than hang.
+ANSWER_TIMEOUT_MS = 90_000
 
 # Appended when the model answered without citing any retrieved passage — the
 # grounding signal. Not suppressed (a DOMAIN_RULES safety answer may be
@@ -366,11 +369,17 @@ def answer_question(question: str, history: list[dict] | None = None) -> dict:
         "question, say so plainly."
     )
 
-    response = _get_gen_client().models.generate_content(
-        model=PRO_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(system_instruction=CHAT_SYSTEM_PROMPT),
-    )
+    def _call():
+        return _get_gen_client().models.generate_content(
+            model=PRO_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=CHAT_SYSTEM_PROMPT,
+                http_options=types.HttpOptions(timeout=ANSWER_TIMEOUT_MS),
+            ),
+        )
+
+    response = with_retries(_call, describe="chat answer generation")
 
     # Surface only the passages the model actually cited; flag ungrounded answers.
     # infer=True: if the model wrote a passage-derived answer but forgot the [n]
