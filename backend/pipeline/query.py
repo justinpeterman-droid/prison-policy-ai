@@ -199,6 +199,68 @@ def _classify_query(question: str) -> bool:
         return True  # Fail open
 
 
+def _search_body(query: str, page_size: int, rich: bool) -> dict:
+    """Build the Discovery Engine search request.
+
+    `rich` asks for extractive answers and segments in addition to snippets.
+    Not every data store is provisioned for those, and asking for them where
+    they aren't supported gets the whole request rejected — hence the ability
+    to build the plain version.
+    """
+    content_spec: dict = {
+        "snippetSpec": {"maxSnippetCount": 5, "returnSnippet": True},
+    }
+    if rich:
+        content_spec["extractiveContentSpec"] = {
+            "maxExtractiveAnswerCount": 3,
+            "maxExtractiveSegmentCount": 3,
+            # Pull in the text either side of a matched segment: policy
+            # conditions and exceptions usually sit in the neighbouring
+            # sentences, and a segment cut to the match alone reads as a rule
+            # with no qualifiers.
+            "numPreviousSegments": 1,
+            "numNextSegments": 1,
+        }
+    return {
+        "query": query,
+        "pageSize": page_size,
+        "queryExpansionSpec": {"condition": "AUTO"},
+        "spellCorrectionSpec": {"mode": "AUTO"},
+        "contentSearchSpec": content_spec,
+    }
+
+
+def _search_snippets_only(url: str, token: str, query: str, page_size: int,
+                          original_error: str) -> dict:
+    """Re-run the search without the extractive-content spec.
+
+    If this also fails the data store is genuinely unreachable or
+    misconfigured, so the original 400 is reported rather than this one — it
+    describes the real problem.
+    """
+    data = json.dumps(_search_body(query, page_size, rich=False)).encode()
+    req = urllib.request.Request(url, data=data, method="POST")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("X-Goog-User-Project", PROJECT_ID)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read())
+        logger.info("Snippets-only search returned %d results",
+                    len(result.get("results", [])))
+        return result
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()[:1000]
+        logger.error("Search API error %s for serving config %s: %s",
+                     e.code, SERVING_CONFIG, body)
+        hint = _http_error_hint(e.code)
+        if hint:
+            logger.error("Likely cause: %s", hint)
+        logger.error("The original request was also rejected (400): %s",
+                     original_error[:300])
+        raise RuntimeError(f"Search API error {e.code}")
+
+
 def _search_data_store(query: str, page_size: int = 10) -> list[dict]:
     """Search the Agent Builder data store. Returns [{text, source}, ...]."""
     return _search_with_stats(query, page_size)[0]
@@ -213,30 +275,7 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
     """
     token = _get_token()
     url = f"https://discoveryengine.googleapis.com/v1beta/{SERVING_CONFIG}:search"
-    body = {
-        "query": query,
-        "pageSize": page_size,
-        "queryExpansionSpec": {"condition": "AUTO"},
-        "spellCorrectionSpec": {"mode": "AUTO"},
-        # Ask for extractive content as well as snippets. Snippets alone are a
-        # single point of failure: when the data store can't build one the hit
-        # comes back with no text at all and used to be dropped, making a
-        # successful search look like an empty corpus.
-        "contentSearchSpec": {
-            "snippetSpec": {"maxSnippetCount": 5, "returnSnippet": True},
-            "extractiveContentSpec": {
-                "maxExtractiveAnswerCount": 3,
-                "maxExtractiveSegmentCount": 3,
-                # Pull in the text either side of a matched segment: policy
-                # conditions and exceptions usually sit in the neighbouring
-                # sentences, and a segment cut to the match alone reads as a
-                # rule with no qualifiers.
-                "numPreviousSegments": 1,
-                "numNextSegments": 1,
-            },
-        },
-    }
-    data = json.dumps(body).encode()
+    data = json.dumps(_search_body(query, page_size, rich=True)).encode()
     req = urllib.request.Request(url, data=data, method="POST")
     req.add_header("Authorization", f"Bearer {token}")
     req.add_header("Content-Type", "application/json")
@@ -253,9 +292,20 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
                         result.get("totalSize", "?"))
     except urllib.error.HTTPError as e:
         err_body = e.read().decode()[:1000]
-        # Log the resolved config alongside the error: almost every failure here
-        # is a config mismatch, and the serving-config path is the thing you need
-        # to see to spot it.
+        # A 400 means the request shape was rejected, and the only optional part
+        # of it is the extractive-content spec — not every data store is
+        # provisioned for extractive answers/segments. Falling back to snippets
+        # keeps the chat working on those stores instead of failing every
+        # search, which is exactly the single-point-of-failure this spec was
+        # added to remove.
+        if e.code == 400:
+            logger.warning("Search rejected the extractive-content spec (400); "
+                           "retrying with snippets only. Answers will be built "
+                           "from shorter passages on this data store.")
+            return _search_snippets_only(url, token, query, page_size, err_body)
+        # Log the resolved config alongside the error: almost every other
+        # failure here is a config mismatch, and the serving-config path is the
+        # thing you need to see to spot it.
         logger.error("Search API error %s for serving config %s: %s",
                      e.code, SERVING_CONFIG, err_body)
         hint = _http_error_hint(e.code)

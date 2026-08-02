@@ -9,6 +9,7 @@ from flask import Blueprint, render_template, request, jsonify, send_file
 from backend.reports.classifier import classify_incident
 from backend.reports.generator import generate_all_reports
 from backend.reports.filler import fill_template
+from backend.webapp.errors import classify_error, ERROR_MESSAGES
 
 logger = logging.getLogger(__name__)
 reports_bp = Blueprint("reports", __name__)
@@ -318,9 +319,10 @@ def reports_classify():
             "charges": classification.get("charges_applicable", []),
             "charge_descriptions": classification.get("charge_descriptions", {}),
         })
-    except Exception:
-        logger.exception("Classification failed")
-        return jsonify({"error": "Classification failed"}), 500
+    except Exception as exc:
+        category, status = classify_error(exc)
+        logger.exception("Classification failed [category=%s]", category)
+        return jsonify({"error": ERROR_MESSAGES[category]}), status
 
 
 @reports_bp.route("/api/reports/extract", methods=["POST"])
@@ -427,9 +429,10 @@ def reports_extract():
             "officers": officers,
             "provenance": provenance,
         })
-    except Exception:
-        logger.exception("Extraction failed")
-        return jsonify({"error": "Extraction failed"}), 500
+    except Exception as exc:
+        category, status = classify_error(exc)
+        logger.exception("Extraction failed [category=%s]", category)
+        return jsonify({"error": ERROR_MESSAGES[category]}), status
 
 
 @reports_bp.route("/api/reports/generate", methods=["POST"])
@@ -643,9 +646,10 @@ def reports_generate():
             "markers": markers,
             "officers": officers,
         })
-    except Exception:
-        logger.exception("Report generation failed")
-        return jsonify({"error": "Report generation failed"}), 500
+    except Exception as exc:
+        category, status = classify_error(exc)
+        logger.exception("Report generation failed [category=%s]", category)
+        return jsonify({"error": ERROR_MESSAGES[category]}), status
 
 
 @reports_bp.route("/api/reports", methods=["POST"])
