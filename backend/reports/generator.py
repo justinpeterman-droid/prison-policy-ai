@@ -5,6 +5,7 @@ per-officer actions) + auto_content sentences. Every header field is rendered
 by code from slots — the model writes narrative prose ONLY.
 """
 import logging
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from google import genai
@@ -32,14 +33,16 @@ GENERATION_TEMPERATURE = 0.25
 # on a spinner with no idea whether to wait or start over.
 GENERATION_TIMEOUT_MS = 120_000
 
-_client = None
+_thread_local = threading.local()
 
 
 def _get_client() -> genai.Client:
-    global _client
-    if _client is None:
-        _client = genai.Client(vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION)
-    return _client
+    """Return a per-thread genai.Client — httpx clients are not thread-safe."""
+    client = getattr(_thread_local, 'client', None)
+    if client is None:
+        client = genai.Client(vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION)
+        _thread_local.client = client
+    return client
 
 
 def _generate(system_prompt: str, user_prompt: str, describe: str = "report generation") -> str:
