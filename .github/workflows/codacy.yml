@@ -41,6 +41,21 @@ jobs:
       # Execute Codacy Analysis CLI and generate a SARIF output with the security issues identified during the analysis
       - name: Run Codacy Analysis CLI
         uses: codacy/codacy-analysis-cli-action@d840f886c4bd4edc059706d09c6a1586111c540b
+        env:
+          # The CLI's SARIF formatter re-reads each file with a finding to quote
+          # the offending line, using the JVM default charset. The runner has no
+          # locale set, so that default is ASCII and any non-ASCII character in
+          # an analysed file blows the whole run up:
+          #
+          #   java.nio.charset.MalformedInputException: Input length = 1
+          #     at java.nio.file.Files.readAllLines
+          #     at com.codacy.analysis.cli.formatter.Sarif.createResults
+          #
+          # Every text file in this repo is valid UTF-8, so pinning the JVM and
+          # the locale to UTF-8 is the fix rather than stripping characters.
+          JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
+          LANG: C.UTF-8
+          LC_ALL: C.UTF-8
         with:
           # Check https://github.com/codacy/codacy-analysis-cli#project-token to get your project token from your Codacy repository
           # You can also omit the token and run the tools that support default configurations

@@ -1,9 +1,9 @@
 """Policy chat endpoint."""
 import logging
-import socket
 import uuid
 from flask import Blueprint, render_template, request, jsonify
 from backend.pipeline.query import answer_question
+from backend.webapp.errors import classify_error as _classify_error, ERROR_MESSAGES as _ERROR_MESSAGES
 
 logger = logging.getLogger(__name__)
 chat_bp = Blueprint("chat", __name__)
@@ -12,42 +12,6 @@ chat_bp = Blueprint("chat", __name__)
 @chat_bp.route("/chat")
 def chat_page():
     return render_template("chat.html")
-
-
-def _classify_error(exc: Exception) -> tuple[str, int]:
-    """Classify an exception from answer_question() into (category, http_status)."""
-    msg = str(exc).lower()
-
-    # ── Credentials / ADC missing ──
-    try:
-        from google.auth.exceptions import DefaultCredentialsError
-        if isinstance(exc, DefaultCredentialsError):
-            return "credentials", 503
-    except ImportError:
-        pass
-    if "default credentials were not found" in msg:
-        return "credentials", 503
-
-    # ── Search / upstream API error ──
-    if isinstance(exc, RuntimeError) and "search api error" in msg:
-        return "upstream", 500
-
-    # ── Timeout ──
-    if isinstance(exc, (socket.timeout, TimeoutError)):
-        return "timeout", 500
-    if "timed out" in msg:
-        return "timeout", 500
-
-    # ── Fallback ──
-    return "internal", 500
-
-
-_ERROR_MESSAGES = {
-    "credentials": "Application is not properly configured. Please contact the administrator.",
-    "upstream": "The policy search service is temporarily unavailable. Please try again in a moment.",
-    "timeout": "The request took too long. Please try again with a shorter or more specific question.",
-    "internal": "An unexpected error occurred. Please try again. If the problem persists, contact the administrator.",
-}
 
 
 # Bounds on client-supplied history. The browser is not trusted to be honest
@@ -73,6 +37,8 @@ def _clean_history(raw) -> list[dict]:
         if question.strip():
             out.append({"question": question, "answer": answer})
     return out
+
+
 @chat_bp.route("/api/chat", methods=["POST"])
 def chat_api():
     data = request.get_json(silent=True) or {}
