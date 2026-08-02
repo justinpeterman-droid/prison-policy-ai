@@ -73,8 +73,6 @@ def _clean_history(raw) -> list[dict]:
         if question.strip():
             out.append({"question": question, "answer": answer})
     return out
-
-
 @chat_bp.route("/api/chat", methods=["POST"])
 def chat_api():
     data = request.get_json(silent=True) or {}
