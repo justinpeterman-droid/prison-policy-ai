@@ -15,6 +15,9 @@ No style change ships without a ruling recorded here first.
 | 5 | Charging closer | **`Due to the above stated facts...`** | matches | keep |
 | 6 | `inmate` before a name | **lowercase mid-sentence** (`inmate Smith`) | capitalizes | change |
 | 7 | Voice | **one house style for all officers** | matches | keep |
+| 8 | Investigation reports | **yes — 5th generated type**, only when an investigation actually happened | 4 types | build |
+| 9 | `use_of_force` category | **yes — add it**; ticks **both** 005 and 409 boxes | not a category | build |
+| 10 | `medical_emergency` category | **yes — add it**; takes precedence over `incident_no_disciplinary` | not a category | build |
 
 ## Detail
 
@@ -57,6 +60,69 @@ Every officer's report is generated in the same format. Personal quirks
 (`End of Statement.` vs `End of report.`) are **not** reproduced per-officer.
 Officers can still edit before filing.
 
+### 8. Investigation report — new 5th generated type
+
+Generated **only when the field notes show an investigation actually took place**
+(statements collected, camera footage reviewed, findings reached). A simple
+incident must not produce an empty investigation report.
+
+Structure observed in the archive:
+
+```
+I started an investigation at {start_time} and concluded it at {end_time}
+on {date} with the following findings: {findings, chronological}
+{disposition — rehousing, separation alert, medical, evidence}
+{charging closer, if charges are brought}
+```
+
+Needs new slots: `investigation_start_time`, `investigation_end_time`,
+`investigation_findings`. Detection should be a deterministic signal from
+extraction, not a guess by the generator.
+
+### 9. `use_of_force` — new category, ticks BOTH form boxes
+
+The 005 header carries two checkboxes: **Incident Report** (005) and **Use of
+Force** (409). When the category is `use_of_force`, **both are ticked** — the
+incident is filed as a 005 that additionally carries the 409 designation.
+
+> Note: on the paper NCU checklist, use of force is a *form designation* rather
+> than one of the seven categories. Adding it as a category is a deliberate
+> divergence, so the generator can ask force-specific questions (chemical agent
+> type, lot/serial numbers, taser deployment, decontamination, authorizing
+> officer) that no existing category covers.
+
+### 10. `medical_emergency` — new category, takes precedence
+
+Seizures, injuries and medical events classify as `medical_emergency`.
+`incident_no_disciplinary` keeps the remaining non-disciplinary incidents
+(fires, accidents, property).
+
+Where both could apply, **medical wins** — it has its own gap questions
+(evaluation, observation orders, gurney/escort, ward placement) that the generic
+category does not ask.
+
+---
+
+## Implementation checklist — NOT STARTED, awaiting approval per change
+
+Rulings 1–7 are formatting and are low risk. Rulings 8–10 are structural:
+
+| Ruling | Touches |
+|---|---|
+| 1 `MSF 205` | `SEE_INFIRMARY` / `SEE_MEDICAL` in `routes/reports.py` |
+| 2 `Sgt.` period | `_clean_report()` in `generator.py`; `prompts_v2.py` rule |
+| 3 `Same as above` | `SEE_ABOVE` in `routes/reports.py` |
+| 4 `ADC# 123456` | `name_fixer.py`, `prompts_v2.py`, `report_style_guide.md` |
+| 6 lowercase `inmate` | `name_fixer.py`, `prompts_v2.py` |
+| 8 investigation type | `prompts_v2.py`, `generator.py`, `schema.py`, `validate.py`, reports UI |
+| 9 `use_of_force` | `incident_checklist_v2.json`, `classifier.py` (`VALID_CATEGORIES` + response schema enum), `filler.py` (409 checkbox) |
+| 10 `medical_emergency` | `incident_checklist_v2.json`, `classifier.py`, classifier prompt precedence |
+
+⚠️ Rulings 9 and 10 take the category count from **7 → 9**. Every place that
+hardcodes the seven categories must change together, or classification breaks:
+`VALID_CATEGORIES`, `CLASSIFIER_RESPONSE_SCHEMA` enum, the classifier prompt,
+`incident_checklist_v2.json`, and the unit test asserting schema/checklist parity.
+
 ---
 
 ## Still open — do not implement without a ruling
@@ -66,6 +132,4 @@ Officers can still edit before filing.
 | Narrative time format | `7:15pm` / `9:12 pm` / `11:45AM` | code does `7:15pm`; unconfirmed |
 | 005 form time format | `APX. 9:50 PM` (differs from narrative) | unconfirmed |
 | Statement closer | `End of report.` / `End of Statement.` / `Disciplinary action taken.` | unconfirmed |
-| Investigation reports as a 5th generated type | `I started an investigation at X and concluded it at Y with the following findings:` | unconfirmed |
 | 005 continuation page for long narratives | form exists, filler has no support | unconfirmed |
-| New categories: use of force, medical emergency | both common; checklist has neither | unconfirmed |
