@@ -143,3 +143,72 @@ worth confirming it survives review, since it will look jarring in a demo.
 Plus two clusters the config has no category for: **use of force** (3) and
 **medical emergency** (6). Use of force in particular is high-stakes and
 well-represented in the archive — worth its own category.
+
+---
+
+# Addendum — findings from the scanned incident packets
+
+Read: the full 18-page packet `2022-02-041`, plus the first pages of the
+49-page use-of-force packet. Both are complete filings, not loose narratives.
+
+## 10. 🔴 The 005 field values in code don't match the real form
+
+From three real 005s in one packet:
+
+| 005 field | Real value | Code currently writes |
+|---|---|---|
+| INMATE(S) PRESENT | `Same as above` | `See Above` ❌ |
+| EMPLOYEE(S) PRESENT | `Same as above` | `See Above` ❌ |
+| OTHERS PRESENT/INVOLVED | `N/A` | `See Above` ❌ |
+| EXTENT OF INJURY TO INMATE(S) | `MSF 205` | *(blank)* ❌ |
+| TREATMENT AFFORDED INMATE(S) | `MSF 205` | *(blank)* ❌ |
+| EXTENT OF INJURY TO OFFICER(S) | `N/A` | `N/A` or blank ✅ |
+| TIME | `APX. 9:50 PM` | `9:50pm` ❌ |
+
+`MSF 205` appears to be the medical form reference. The code deliberately leaves
+injury lines blank (`SEE_INFIRMARY = ""`), on the stated basis that "medical
+detail is not written onto the 005" — but the real forms *do* carry a value
+there, just a form pointer rather than a description. **Needs a ruling.**
+
+Time on the form is `APX. 9:50 PM` — the `APX.` prefix, a space before `PM`, and
+caps. That is the *form* convention; the *narrative* convention is
+`approximately 9:50pm`. They are different and both appear in the same document.
+
+## 11. ✅ One 005 per officer — confirmed
+
+The packet contains three 005s for one incident (Cpl. Burton, Cpl. Pendergrass,
+Sgt. Delgado). Each lists itself as REPORTING EMPLOYEE and the others under
+EMPLOYEE(S) INVOLVED, and each carries that officer's own first-person
+STATEMENT OF FACTS. Times differ per officer (9:50 PM vs 9:56 PM) because the
+supervisor arrived later. This validates the existing `bind_reporter()` design.
+
+## 12. There is a 005 continuation form the filler doesn't handle
+
+When a narrative overruns the STATEMENT OF FACTS box, it continues onto
+`REPORT OF INCIDENTS- 005 USE OF FORCE –409 (CONTINUED)` — a different layout
+(DATE / TIME / LOCATION header, OFFICER(S) INVOLVED, INMATE(S) INVOLVED, then
+STATEMENT OF OFFICER). Long narratives currently have nowhere to go.
+
+## 13. Another charging-formula variant
+
+> "**Therefore, due to** the above stated facts I, Cpl. Charene Burton am charging inmate Pierce, Joshua ADC #128870 with **major rule violations** 2-21, 4-4, 5-3, 5-5, 11-1, and 12-3. **Pending DCR.**"
+
+Note `Therefore, due to`, no comma after the officer's name, `ADC #` with a
+space, and `Pending DCR.` as its own sentence. That is now a **third** variant.
+
+## 14. Cover letter `RE:` is just the incident number
+
+> `To: Jason Davis CSO` / `From: Sgt. Katie Delgado` / `RE: 2022-02-041` / `Date: February 16, 2022`
+
+Not a description — the bare incident number. The other packet uses
+`Re: Use of Force Incident #2023-07-126`. The cover letter body is **third
+person** about the reporting officer's actions, and is signed with the author's
+name on its own line at the end.
+
+## 15. 📋 The checklist page is the source of truth for `incident_checklist_v2.json`
+
+Page 1 of each packet is the **North Central Unit Incident Checklist** — the
+same 7 categories the config uses, each with its authoritative `forms_required`
+list, and three signature lines (Shift Lieutenant, Shift Captain, Chief of
+Security). This should be diffed against `templates/incident_checklist_v2.json`
+to confirm the configured form lists are complete and correctly named.
