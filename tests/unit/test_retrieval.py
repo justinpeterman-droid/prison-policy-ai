@@ -1,4 +1,6 @@
 """Unit tests for the pure retrieval helpers (no AI, no GCP)."""
+import pytest
+
 from backend.pipeline.retrieval import (
     augment_query, extract_passage_text, extract_source_label,
     format_history, parse_search_results, select_passages,
@@ -289,3 +291,59 @@ class TestFormatHistory:
     def test_long_answers_are_truncated(self):
         out = format_history([{"question": "q", "answer": "z" * 5000}])
         assert len(out) < 1000
+
+
+# ── Slang matching on word boundaries (RC follow-up) ────────────────────────
+#
+# augment_query used bare substring matching, so triggers fired on sentences
+# with nothing to do with policy — and injecting the WRONG policy vocabulary is
+# worse than injecting none, because it steers the retriever off the answer.
+
+class TestSlangWordBoundaries:
+    @pytest.mark.parametrize("question", [
+        "I shouldn't have to work a double shift",
+        "the inmate jumped down from the top bunk",
+        "he took off his jacket before the search",
+        "is a gateway drug a real thing",
+    ])
+    def test_ordinary_speech_is_not_augmented(self, question):
+        assert augment_query(question) == question
+
+    @pytest.mark.parametrize("question,expect", [
+        ("what happens if an officer is hooking up with an inmate", "PREA"),
+        ("two inmates gave each other a beat down", "use of force"),
+        ("he jumped him in the dayroom", "assault"),
+        ("inmate cheeked his meds", "medication diversion"),
+        ("found a shank during the shakedown", "contraband"),
+        ("we gassed him after he refused", "chemical agent"),
+    ])
+    def test_real_slang_still_maps(self, question, expect):
+        assert expect in augment_query(question)
+
+    def test_a_trigger_still_matches_mid_sentence(self):
+        # Word boundaries must not require the phrase to start the question.
+        out = augment_query("is it ok to date an inmate if we are discreet")
+        assert "PREA" in out
+
+    def test_augmentation_is_additive(self):
+        q = "what happens if an officer is hooking up with an inmate"
+        assert augment_query(q).startswith(q)
+
+
+class TestSelectPassagesBudget:
+    """Hitting the character budget must STOP selection, not skip past the
+    oversized passage to smaller ones further down the ranking."""
+
+    def test_budget_does_not_invert_relevance(self):
+        ctxs = [
+            {"source": "rank1", "text": "A" * 50},
+            {"source": "rank2-long-answer", "text": "B" * 900},
+            {"source": "rank3", "text": "C" * 50},
+        ]
+        picked = [c["source"] for c in select_passages(ctxs, 5, max_total_chars=900)]
+        # rank3 must not be promoted over the rank2 passage that didn't fit.
+        assert picked == ["rank1"]
+
+    def test_the_first_passage_always_survives_the_budget(self):
+        ctxs = [{"source": "only", "text": "X" * 5000}]
+        assert len(select_passages(ctxs, 5, max_total_chars=100)) == 1
