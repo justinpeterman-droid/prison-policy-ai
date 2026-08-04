@@ -7,6 +7,7 @@ API contract unchanged: answer_question(question) -> {answer, citations, sources
 """
 import json
 import logging
+import re
 import urllib.request
 import urllib.error
 
@@ -37,6 +38,12 @@ MAX_PASSAGE_CHARS = 2000
 MAX_CONTEXT_CHARS = 16000
 # An officer waiting on a policy answer needs it to fail rather than hang.
 ANSWER_TIMEOUT_MS = 90_000
+# The gate is a one-word classification in front of every turn — it should fail
+# fast and fall open rather than hold the request.
+GATE_TIMEOUT_MS = 15_000
+# A follow-up this short inside an existing conversation is taken as on-topic
+# rather than judged standalone (see _classify_query).
+FOLLOWUP_MAX_WORDS = 12
 
 # Appended when the model answered without citing any retrieved passage — the
 # grounding signal. Not suppressed (a DOMAIN_RULES safety answer may be
@@ -107,6 +114,79 @@ GATE_PROMPT = (
     "Classification:"
 )
 
+# ── Gate keyword lists ──
+#
+# Split into strong and weak because the original single list matched bare
+# substrings and accepted almost anything: "gate" fired inside "gateway",
+# "report" accepted "write me a report about my dog", "count" accepted "how do
+# I count cards at blackjack", "cell" accepted "my cell phone is broken". Every
+# pattern is now word-bounded, and the generic words need corroboration.
+
+STRONG_WORK_TERMS = [
+    # Corrections-specific: these words essentially don't occur off-topic.
+    "prea", "use of force", "contraband", "inmate", "inmates", "offender",
+    "post order", "disciplinary", "incident report", "005", "409",
+    "barracks", "restraint", "restraints", "pat down", "shakedown",
+    "visitation", "grievance", "restrictive housing", "segregation",
+    "lockdown", "escape", "correctional", "prison", "warden",
+    "department of correction", "adc", "bmc", "bmu", "ncu",
+    "chain of command", "sally port", "commissary", "cell search",
+    "strip search", "count time", "custody", "parole", "infirmary",
+    "use-of-force", "shank", "cuff up", "dayroom",
+]
+
+# Generic on their own; a work signal when two or more appear together.
+WEAK_WORK_TERMS = [
+    "policy", "procedure", "report", "form", "training", "cell", "search",
+    "medical", "emergency", "security", "officer", "staff", "shift",
+    "classification", "count", "gate", "tower", "rover", "supervisor",
+    "sergeant", "lieutenant", "captain", "unit", "facility", "log",
+]
+
+_STRONG_WORK = [re.compile(rf"\b{re.escape(t)}\b") for t in STRONG_WORK_TERMS]
+_WEAK_WORK = [re.compile(rf"\b{re.escape(t)}\b") for t in WEAK_WORK_TERMS]
+
+OFF_TOPIC_TERMS = [
+    "write a poem", "tell me a joke", "recipe for", "how to cook",
+    "weather today", "who won the", "sports score", "movie review",
+    "stock price", "crypto", "bitcoin", "python code", "javascript",
+    "write code", "debug this", "explain quantum", "who is the president",
+    "what's your name", "how are you", "sing a song", "make me a",
+    "generate a", "draw a", "translate to",
+]
+
+
+def classify_by_keyword(question: str) -> bool | None:
+    """The gate's deterministic path. True = work, False = off-topic,
+    None = undecided (the caller should ask the model).
+
+    Public and side-effect-free so it can be tested directly. It used to be
+    inline in `_classify_query`, which meant a test could only re-implement the
+    rules — and a re-implementation passes happily while the real gate drifts
+    away from it.
+    """
+    q = (question or "").lower().strip()
+    if not q:
+        return None
+    if any(term in q for term in OFF_TOPIC_TERMS):
+        return False
+    if any(p.search(q) for p in _STRONG_WORK):
+        return True
+    # Generic words mean nothing alone ("write me a report about my dog");
+    # two or more together are a real signal ("report a medical emergency").
+    if sum(1 for p in _WEAK_WORK if p.search(q)) >= 2:
+        return True
+    return None
+
+
+def is_short_followup(question: str, history: list | None) -> bool:
+    """A brief question inside an existing conversation is on-topic by
+    construction — the gate already passed the turn it refers to."""
+    if not history:
+        return False
+    return 0 < len((question or "").split()) <= FOLLOWUP_MAX_WORDS
+
+
 def _http_error_hint(code: int) -> str:
     """Plain-language cause for the search failures that actually happen.
 
@@ -150,45 +230,36 @@ def _get_token() -> str:
     return creds.token
 
 
-def _classify_query(question: str) -> bool:
-    """Return True if this is a work-related query, False if off-topic."""
-    question_lower = question.lower().strip()
+def _classify_query(question: str, history: list[dict] | None = None) -> bool:
+    """Return True if this is a work-related query, False if off-topic.
 
-    # Fast keyword pre-check: obviously off-topic → reject immediately
-    off_topic_patterns = [
-        "write a poem", "tell me a joke", "recipe for", "how to cook",
-        "weather today", "who won the", "sports score", "movie review",
-        "stock price", "crypto", "bitcoin", "python code", "javascript",
-        "write code", "debug this", "explain quantum", "who is the president",
-        "what's your name", "how are you", "sing a song", "make me a",
-        "generate a", "draw a", "translate to",
-    ]
-    for pat in off_topic_patterns:
-        if pat in question_lower:
-            logger.debug("Gate rejected by keyword match")
-            return False
+    `history` matters: officers ask short follow-ups ("and if he refuses?",
+    "how long do I have?") that carry no work vocabulary at all. Judged
+    standalone those look like small talk, and the officer gets told they're
+    at work in the middle of a policy conversation they are already having.
+    A follow-up to an on-topic exchange is on-topic.
+    """
+    if is_short_followup(question, history):
+        logger.debug("Gate: short follow-up within an active conversation")
+        return True
 
-    # Obvious work terms → accept immediately
-    work_patterns = [
-        "prea", "use of force", "contraband", "inmate", "offender",
-        "policy", "procedure", "post order", "shift", "disciplinary",
-        "report", "form", "005", "training", "barracks", "cell",
-        "restraint", "search", "pat down", "visitation", "grievance",
-        "classification", "count", "lockdown", "segregation",
-        "restrictive housing", "medical", "emergency", "escape",
-        "security", "officer", "staff", "correctional", "prison",
-        "doc ", "department of correction", "bmc", "bmu", "ncu",
-        "chain of command", "gate", "tower", "rover", "sally port",
-    ]
-    for pat in work_patterns:
-        if pat in question_lower:
-            return True
+    verdict = classify_by_keyword(question)
+    if verdict is not None:
+        logger.debug("Gate decided by keyword: %s",
+                     "WORK" if verdict else "OFF_TOPIC")
+        return verdict
 
     # Ambiguous — use Gemini classifier
     try:
         response = _get_gen_client().models.generate_content(
             model=FAST_MODEL,
             contents=GATE_PROMPT.format(question=question),
+            # The gate sits in front of every chat turn. Without a timeout a
+            # hung call hangs the whole request with no bound — every other
+            # Gemini call in this codebase sets one.
+            config=types.GenerateContentConfig(
+                http_options=types.HttpOptions(timeout=GATE_TIMEOUT_MS),
+            ),
         )
         verdict = response.text.strip().upper()
         is_work = "WORK" in verdict and "OFF_TOPIC" not in verdict
@@ -351,7 +422,7 @@ def answer_question(question: str, history: list[dict] | None = None) -> dict:
       - sources: short labels for backward compat
     """
     # ── Gate check ──
-    if not _classify_query(question):
+    if not _classify_query(question, history):
         return {
             "answer": (
                 "Good try — you're at work. If you believe this is wrong, "

@@ -23,12 +23,20 @@ Three jobs, all deterministic and unit-tested:
 from __future__ import annotations
 
 import posixpath
+import re
 from urllib.parse import urlparse
 
 # Known officer slang → formal policy terms to add to the search query.
-# Keys are lowercase substrings; values are appended (additive, so a stray
-# match only broadens search slightly). Curated toward the high-value,
-# safety-critical mappings (PREA / use of force / contraband / escape).
+# Keys are lowercase phrases matched on WORD BOUNDARIES; values are appended.
+# Curated toward the high-value, safety-critical mappings (PREA / use of force
+# / contraband / escape).
+#
+# Every trigger must be unambiguous in ordinary speech. Bare "jumped", "took
+# off" and "shouldn't have" used to live here and fired on sentences with
+# nothing to do with policy — "the inmate jumped down from the top bunk" was
+# searched as an assault, "he took off his jacket" as an escape. Injecting the
+# wrong policy vocabulary is worse than injecting none: it pulls the retriever
+# toward documents that don't answer the question.
 SLANG_GLOSSARY: dict[str, str] = {
     "hooking up": "PREA sexual misconduct staff inmate",
     "hook up": "PREA sexual misconduct staff inmate",
@@ -42,25 +50,38 @@ SLANG_GLOSSARY: dict[str, str] = {
     "bring them food": "undue familiarity fraternization",
     "beat down": "use of force inmate altercation",
     "beatdown": "use of force inmate altercation",
-    "jumped": "use of force assault",
+    "jumped him": "use of force assault",
+    "jumped on": "use of force assault",
     "shank": "contraband weapon confiscation",
-    "shouldn't have": "contraband",
     "walked off": "escape walkaway",
-    "took off": "escape walkaway",
+    "took off running": "escape walkaway",
+    "cheeked": "contraband medication diversion",
+    "keistered": "contraband concealment search",
+    "hooch": "contraband intoxicant manufacture",
+    "cuff up": "restraint application inmate compliance",
+    "gassed": "use of force chemical agent",
+    "shakedown": "search contraband cell shakedown",
 }
+
+# Built once. \b on both ends so "date an inmate" still matches inside a
+# sentence, but "gate" never matches inside "gateway".
+_SLANG_PATTERNS = [
+    (re.compile(rf"\b{re.escape(trigger)}\b"), formal)
+    for trigger, formal in SLANG_GLOSSARY.items()
+]
 
 
 def augment_query(question: str) -> str:
     """Append formal policy terms for any known slang found in the question.
 
     Additive and deduped; returns the question unchanged when nothing matches.
+    Matching is on word boundaries — a substring match fires on unrelated
+    sentences and steers retrieval toward the wrong policy.
     """
     q = (question or "")
     q_lower = q.lower()
-    extra: list[str] = []
-    for trigger, formal in SLANG_GLOSSARY.items():
-        if trigger in q_lower:
-            extra.append(formal)
+    extra: list[str] = [formal for pattern, formal in _SLANG_PATTERNS
+                        if pattern.search(q_lower)]
     if not extra:
         return q
     # Dedupe individual terms while preserving order.
@@ -299,6 +320,13 @@ def select_passages(contexts: list[dict], k: int, max_per_source: int = 3,
     passage *count* alone no longer bounds the prompt — the first passage always
     survives, so a single oversized one still gets through rather than leaving
     the generator with nothing.
+
+    Hitting the character budget STOPS selection rather than skipping past the
+    oversized passage to smaller ones further down. Skipping quietly inverted
+    relevance: a long, highly-ranked passage — which in policy is usually the
+    actual rule with its conditions and exceptions — was dropped so that two
+    lower-ranked one-liners could fit. Truncation to `MAX_PASSAGE_CHARS` already
+    happens upstream, so a passage that still doesn't fit is genuinely large.
     """
     seen: set[tuple[str, str]] = set()
     per_source: dict[str, int] = {}
@@ -315,7 +343,7 @@ def select_passages(contexts: list[dict], k: int, max_per_source: int = 3,
         if per_source.get(src, 0) >= max_per_source:
             continue
         if max_total_chars > 0 and out and total + len(text) > max_total_chars:
-            continue
+            break
         seen.add(key)
         per_source[src] = per_source.get(src, 0) + 1
         total += len(text)

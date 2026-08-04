@@ -10,9 +10,27 @@
 # (the codacy.yml workflow's UTF-8 locale pin fixes non-ASCII *text*, but
 # can't help with genuinely binary content.) Exclude the binary assets in
 # this repo from analysis so they can't trigger that crash.
+# Keep this list to genuinely binary content. An earlier version of this file
+# excluded far more and, because exclude_paths REPLACES Codacy's defaults
+# rather than adding to them, it pulled binary assets *into* scope and crashed
+# the formatter it was meant to protect.
 exclude_paths:
   - "templates/*.docx"
   - "officer-training/*.docx"
   - "backend/webapp/static/fonts/*"
   - "backend/webapp/static/*.pdf"
   - "backend/webapp/static/*.mp4"
+
+# Bandit B101 ("use of assert detected") warns that asserts vanish under
+# `python -O`. That is a real concern in shipped code and meaningless in a test
+# suite, where `assert` IS the assertion mechanism and pytest rewrites it.
+# Left on, every single test line is reported as a security finding, which
+# buries anything real. Bandit itself excludes B101 for test paths by default;
+# this restores that.
+engines:
+  bandit:
+    exclude_paths:
+      - "tests/**"
+    settings:
+      skips:
+        - "B101"
