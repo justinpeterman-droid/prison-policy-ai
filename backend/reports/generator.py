@@ -128,8 +128,10 @@ def _esc(s: str) -> str:
 def _clean_report(text: str) -> str:
     """Post-process AI-generated report to fix common mistakes."""
     import re
-    # "Sgt." → "Sgt", "Cpl." → "Cpl", etc. (only when followed by space/name)
-    text = re.sub(r'\b(Sgt|Cpl|Lt|Cpt)\.(\s)', r'\1\2', text)
+    # Rank abbreviations KEEP their period ("Sgt.", "Cpl.") — they are
+    # abbreviations, and every real report writes them that way. This used to
+    # strip the period, rewriting correct output into something the officers
+    # don't write. See templates/gold_reports/STYLE_RULINGS.md ruling 2.
     # Ampersands between names → "and"
     text = re.sub(r'(\w)\s*&\s*(\w)', r'\1 and \2', text)
     # "placed hand restraints onto" → "applied hand restraints to"

@@ -27,12 +27,13 @@ def _load_location_map() -> dict:
         logger.warning("Could not load location_map.json; skipping normalization")
         return {}
 
-# Per BMU practice, medical detail is not written onto the 005 — leave
-# injury/treatment lines blank rather than pointing to external reports.
-SEE_INFIRMARY = ""
-SEE_MEDICAL = ""
+# 005 field values, taken from real filed forms (see
+# templates/gold_reports/STYLE_RULINGS.md, rulings 1 and 3). The injury and
+# treatment lines carry the medical form reference rather than being left blank
+# or describing the injury — medical detail itself lives in the medical report.
+MSF_REFERENCE = "MSF 205"
 # Present lines that aren't separately stated point back to the involved lists.
-SEE_ABOVE = "See Above"
+SEE_ABOVE = "Same as above"
 FIRST_NAME_NEEDED = "[FIRST NAME NEEDED]"
 
 # Incidents that, by their nature, involve an inmate going to medical — the
@@ -84,7 +85,7 @@ def _titlecase(value):
     return " ".join(w[:1].upper() + w[1:] if w else w for w in str(value).split())
 
 def _to_12h(value):
-    """Normalize a time to 12-hour 'H:MMam/pm' (BMU convention).
+    """Normalize a time to 12-hour 'H:MM am/pm' (see STYLE_RULINGS.md ruling 12).
 
     Accepts 24-hour ('2200', '22:00'), 12-hour ('10:00pm', '10:00 PM'), and a
     leading 'approximately'/'~'. Returns the bare 12-hour time (no
@@ -97,13 +98,13 @@ def _to_12h(value):
                   flags=re.I).strip()
     m = re.match(r'^(\d{1,2}):?(\d{2})\s*([ap])\.?\s*m\.?$', core, re.I)
     if m:  # already 12-hour, just canonicalize
-        return f"{int(m.group(1))}:{m.group(2)}{m.group(3).lower()}m"
+        return f"{int(m.group(1))}:{m.group(2)} {m.group(3).lower()}m"
     m = re.match(r'^(\d{1,2}):?(\d{2})$', core)
     if m:  # 24-hour
         h, mm = int(m.group(1)), m.group(2)
         if 0 <= h <= 23:
             ap = 'am' if h < 12 else 'pm'
-            return f"{h % 12 or 12}:{mm}{ap}"
+            return f"{h % 12 or 12}:{mm} {ap}"
     return value
 
 
@@ -147,6 +148,22 @@ def _validate_and_clean_time(value):
         if valid:
             return inner, True
     return raw, False
+
+
+def _to_form_time(value):
+    """Render a time the way the 005 form's TIME field does: 'APX. 9:50 PM'.
+
+    Deliberately different from the narrative convention ('9:50 pm') — the real
+    filed forms use the APX. prefix and uppercase meridiem in that box, while the
+    narrative body spells out 'approximately'. See STYLE_RULINGS.md ruling 13.
+    """
+    if not value:
+        return value
+    normalized = _to_12h(value)
+    m = re.match(r'^(\d{1,2}):(\d{2})\s*([ap])m$', str(normalized).strip(), re.I)
+    if not m:
+        return value
+    return f"APX. {int(m.group(1))}:{m.group(2)} {m.group(3).upper()}M"
 
 
 def _format_shift(value):
@@ -585,13 +602,13 @@ def reports_generate():
         # ── 005 injury / present line logic (deterministic) ──
         # Injury/treatment lines are left blank — medical detail lives elsewhere.
         inmate_hurt = slots.get("medical_disposition") in MEDICAL_INJURY_DISPOSITIONS
-        inmate_injury_line = SEE_INFIRMARY if inmate_hurt else "N/A"
+        inmate_injury_line = MSF_REFERENCE if inmate_hurt else "N/A"
         # Officer injury/treatment: blank ("N/A" if no force involvement).
         officer_force = (category in OFFICER_FORCE_CATEGORIES
                          or bool(slots.get("officer_injuries"))
                          or str(slots.get("staff_injured", "")).lower()
                          in ("yes", "true"))
-        officer_injury_line = SEE_MEDICAL if officer_force else "N/A"
+        officer_injury_line = MSF_REFERENCE if officer_force else "N/A"
 
         form005 = {
             "unit_division": "BMU",
@@ -601,7 +618,7 @@ def reports_generate():
             "rank": slots.get("rank") or "",
             "shift_assignment": slots.get("shift_assignment") or "",
             "date": slots.get("date") or "",
-            "time": slots.get("time") or "",
+            "time": _to_form_time(slots.get("time")) or "",
             "location": slots.get("location") or "",
             "inmates_involved": _format_inmates(slots),
             "employees_involved": _format_employees(slots),
@@ -609,7 +626,7 @@ def reports_generate():
             # the notes named separate people who were present.
             "inmates_present": slots.get("inmates_present") or SEE_ABOVE,
             "employees_present": slots.get("employees_present") or SEE_ABOVE,
-            "others_present": slots.get("others_present") or SEE_ABOVE,
+            "others_present": slots.get("others_present") or "N/A",
             # Medical detail lives in the infirmary/medical report, not the 005.
             "inmate_injuries": inmate_injury_line,
             "inmate_treatment": inmate_injury_line,
