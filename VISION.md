@@ -37,7 +37,7 @@ Extraction (Gemini, temp=0, response_schema) → structured slots
     │ find_gaps() → deterministic validation, no AI
     │ Missing Information panel → officer answers gaps
     ▼ POST /api/reports/generate
-Generator → 4 report types from structured facts + auto_content
+Generator → up to 5 report types from structured facts + auto_content
     │ invented_facts() scan → fabricated ADC#s/dates flagged
     ▼ POST /api/reports/download
 Template Filler → filled 005/409 DOCX

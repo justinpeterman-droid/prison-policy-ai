@@ -70,6 +70,22 @@ def build_response_schema(category: dict, checklist: dict) -> dict:
             "description": "chronological list of factual events from the notes, one per entry, no embellishment"},
         "quotes": {"type": "ARRAY", "items": {"type": "STRING"},
             "description": "verbatim statements/profanity to quote as evidence"},
+        # Ruling 8: the investigation report is generated ONLY when the notes
+        # show an investigation actually happened. Findings is the deterministic
+        # signal — an empty list means no investigation, so no report. The model
+        # must never populate it to "look thorough".
+        "investigation_findings": {"type": "ARRAY", "items": {"type": "STRING"},
+            "description": "EMPTY unless the notes describe an investigation this "
+                           "officer conducted (statements taken, camera footage "
+                           "reviewed, conclusions reached). Then: what was found, "
+                           "chronological, one plain factual sentence each."},
+        "investigation_start_time": {"type": "STRING", "nullable": True,
+            "description": "when the investigation began, only if the notes state it"},
+        "investigation_end_time": {"type": "STRING", "nullable": True,
+            "description": "when the investigation concluded, only if the notes state it"},
+        "investigation_disposition": {"type": "STRING", "nullable": True,
+            "description": "what the investigation resulted in — rehousing, "
+                           "separation alert, medical referral, evidence secured"},
     }
 
     extra = set(category.get("required_slots", []))

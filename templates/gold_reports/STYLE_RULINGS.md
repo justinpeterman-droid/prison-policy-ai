@@ -103,25 +103,44 @@ category does not ask.
 
 ---
 
-## Implementation checklist — NOT STARTED, awaiting approval per change
+## Implementation checklist — ALL SHIPPED
 
-Rulings 1–7 are formatting and are low risk. Rulings 8–10 are structural:
+Rulings 1–7 are formatting and were low risk. Rulings 8–10 are structural:
 
 | Ruling | Touches |
 |---|---|
-| 1 `MSF 205` | `SEE_INFIRMARY` / `SEE_MEDICAL` in `routes/reports.py` |
-| 2 `Sgt.` period | `_clean_report()` in `generator.py`; `prompts_v2.py` rule |
-| 3 `Same as above` | `SEE_ABOVE` in `routes/reports.py` |
-| 4 `ADC# 123456` | `name_fixer.py`, `prompts_v2.py`, `report_style_guide.md` |
-| 6 lowercase `inmate` | `name_fixer.py`, `prompts_v2.py` |
-| 8 investigation type | `prompts_v2.py`, `generator.py`, `schema.py`, `validate.py`, reports UI |
-| 9 `use_of_force` | `incident_checklist_v2.json`, `classifier.py` (`VALID_CATEGORIES` + response schema enum), `filler.py` (409 checkbox) |
-| 10 `medical_emergency` | `incident_checklist_v2.json`, `classifier.py`, classifier prompt precedence |
+| ✅ 1 `MSF 205` | `SEE_INFIRMARY` / `SEE_MEDICAL` in `routes/reports.py` |
+| ✅ 2 `Sgt.` period | `_clean_report()` in `generator.py`; `prompts_v2.py` rule |
+| ✅ 3 `Same as above` | `SEE_ABOVE` in `routes/reports.py` |
+| ✅ 4 `ADC# 123456` | `name_fixer.py`, `prompts_v2.py`, `report_style_guide.md` |
+| ✅ 6 lowercase `inmate` | `name_fixer.py`, `prompts_v2.py` |
+| ✅ 8 investigation type | `prompts_v2.py`, `generator.py`, `schema.py`, `validate.py`, reports UI |
+| ✅ 9 `use_of_force` | `incident_checklist_v2.json`, `classifier.py` (`VALID_CATEGORIES` + response schema enum), `filler.py` (409 checkbox) |
+| ✅ 10 `medical_emergency` | `incident_checklist_v2.json`, `classifier.py`, classifier prompt precedence |
 
-⚠️ Rulings 9 and 10 take the category count from **7 → 9**. Every place that
-hardcodes the seven categories must change together, or classification breaks:
-`VALID_CATEGORIES`, `CLASSIFIER_RESPONSE_SCHEMA` enum, the classifier prompt,
-`incident_checklist_v2.json`, and the unit test asserting schema/checklist parity.
+✅ Rulings 9 and 10 took the category count from **7 → 9**, changed atomically
+across `VALID_CATEGORIES`, the `CLASSIFIER_RESPONSE_SCHEMA` enum, the classifier
+prompt, `incident_checklist_v2.json`, `routes/reports.py`, `reports.html`, and the
+parity tests. `tests/unit/test_classifier_schema.py` fails on any partial change.
+
+### How ruling 8 is gated
+
+The investigation report is generated only when `investigation_findings` comes
+back non-empty from extraction. That is a **deterministic check**
+(`validate.investigation_occurred()`), not a judgement the generator makes — the
+same contract as every other slot: the officer's notes decide. An ordinary
+incident yields no findings, so no investigation report is written. The
+follow-up gap questions (start time, end time, disposition) are gated the same
+way, so a routine incident is never interrogated about an investigation it never
+had.
+
+### Not yet done
+
+Ruling 9 says the 005 header ticks **both** the 005 and 409 boxes. The category
+and its gap questions ship, but `filler.py` does not tick either box — the two
+checkbox cells in `005_template_v3.docx` carry no `{{placeholder}}`, so the
+template itself needs editing first. Neither box is ticked on any generated 005
+today, which predates this work.
 
 ---
 

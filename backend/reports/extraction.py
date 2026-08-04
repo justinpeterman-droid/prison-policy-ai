@@ -47,7 +47,12 @@ Rules:
 - quotes: verbatim inmate statements. If they contain slurs/profanity,
   keep the quote but prefix with [QUOTE CONTAINS OFFENSIVE LANGUAGE].
 - Times: format as 'H:MMam' or 'H:MMpm'. Fix obvious typos (e.g.
-  '7:22AAm' → '7:22am'). If unparseable, leave as-is."""
+  '7:22AAm' → '7:22am'). If unparseable, leave as-is.
+- investigation_findings: leave EMPTY unless the notes describe an
+  investigation the officer conducted — statements taken from inmates or
+  staff, camera/video footage reviewed, or a conclusion reached about what
+  happened. Responding to an incident is NOT an investigation. When in doubt,
+  leave it empty: an investigation report is only written when there was one."""
 
 # ── Field labels for the trace UI ──
 FIELD_LABELS = {

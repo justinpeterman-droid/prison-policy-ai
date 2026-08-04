@@ -18,8 +18,10 @@ from backend.reports.prompts_v2 import (
     SUPERVISOR_SUMMARY_PROMPT,
     DISCIPLINARY_PROMPT,
     COVER_LETTER_PROMPT,
+    INVESTIGATION_PROMPT,
 )
 from backend.reports.name_fixer import enforce_naming
+from backend.reports.validate import investigation_occurred
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +198,36 @@ def generate_disciplinary(slots: dict, first_person_report: str,
     return _generate(REPORT_STYLE_SYSTEM, prompt)
 
 
+def _findings_str(slots: dict) -> str:
+    findings = slots.get("investigation_findings") or []
+    if isinstance(findings, str):
+        findings = [findings]
+    clean = [f for f in findings if isinstance(f, str) and f.strip()]
+    return "\n".join(f"- {f}" for f in clean) if clean else "(none)"
+
+
+def generate_investigation(slots: dict, auto_content: list[dict] | None = None) -> str:
+    """The 5th report type (STYLE_RULINGS.md ruling 8).
+
+    Callers must gate on validate.investigation_occurred() — this writes what it
+    is given, and given nothing it would write an empty investigation report,
+    which is exactly what the ruling forbids.
+    """
+    prompt = INVESTIGATION_PROMPT.format(
+        rank=_fmt(slots.get("rank")),
+        officer_first=_fmt(slots.get("officer_first")),
+        officer_last=_fmt(slots.get("officer_last")),
+        date=_fmt(slots.get("date")),
+        start_time=_clean_time(_fmt(slots.get("investigation_start_time"), "")),
+        end_time=_clean_time(_fmt(slots.get("investigation_end_time"), "")),
+        findings=_esc(_findings_str(slots)),
+        disposition=_esc(_fmt(slots.get("investigation_disposition"), "(none stated)")),
+        quotes=_esc(_quotes_str(slots)),
+    )
+    return _clean_report(_generate(REPORT_STYLE_SYSTEM, prompt,
+                                   describe="investigation report"))
+
+
 def generate_all_reports(slots: dict, category: str = "",
                          auto_content: list[dict] | None = None,
                          reporter_actions: str = "") -> dict:
@@ -238,6 +270,15 @@ def generate_all_reports(slots: dict, category: str = "",
         ("cover_letter", "Cover letter",
          lambda: generate_cover_letter(slots, auto_content)),
     ]
+
+    # Ruling 8: the investigation report is generated only when the notes show
+    # an investigation actually happened. No findings -> no report, rather than
+    # an empty one padded out by the model.
+    if investigation_occurred(slots):
+        jobs.append(("investigation", "Investigation report",
+                     lambda: generate_investigation(slots, auto_content)))
+    else:
+        logger.debug("No investigation findings in slots — skipping report")
 
     started = time.monotonic()
     with ThreadPoolExecutor(max_workers=len(jobs)) as pool:

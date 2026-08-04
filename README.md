@@ -20,7 +20,7 @@ prison-policy-ai/
 │   │   ├── extraction.py      # Slot extraction (Gemini, temp=0, schema-constrained)
 │   │   ├── schema.py          # Slot schema, response_schema builder, reporter binding
 │   │   ├── validate.py        # Gap detection, auto_content, invented_facts (NO AI)
-│   │   ├── generator.py       # 4 report generators (structured facts only)
+│   │   ├── generator.py       # 5 report generators (structured facts only)
 │   │   ├── prompts.py         # Classifier prompt + charge catalog loader
 │   │   ├── prompts_v2.py      # v2 generation prompts (never see raw notes)
 │   │   ├── filler.py          # DOCX template filling (python-docx)
@@ -56,7 +56,7 @@ Field Notes
     ▼ Extraction (Gemini, temp=0) → structured slots → find_gaps()
     │ officer fills Missing Information panel
     │ POST /api/reports/generate
-    ▼ Generator → 4 reports from structured facts + auto_content
+    ▼ Generator → up to 5 reports from structured facts + auto_content
     │ POST /api/reports/download
     ▼ Template Filler → filled 005/409 DOCX
 ```
@@ -97,7 +97,7 @@ gcloud run deploy prison-policy-ai \
 | `backend/reports/classifier.py` | Incident type detection (7 categories, charge validation) |
 | `backend/reports/extraction.py` | Slot extraction from notes (temp=0, response_schema) |
 | `backend/reports/validate.py` | Gap detection, auto_content, invented_facts (deterministic) |
-| `backend/reports/generator.py` | 4 report generators (structured facts only) |
+| `backend/reports/generator.py` | 5 report generators (structured facts only) |
 | `backend/reports/prompts_v2.py` | Generation prompts (receive facts, never raw notes) |
 | `backend/reports/filler.py` | DOCX template filling (python-docx) |
 | `backend/reports/schema.py` | Slot schema, reporter binding, staff extraction |

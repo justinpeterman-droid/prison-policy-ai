@@ -26,8 +26,9 @@ SLOTS = {"persons": [], "charges": ""}
 
 @pytest.fixture
 def stub(monkeypatch):
-    """Replace the four generators with controllable stand-ins."""
-    def _apply(first=None, supervisor=None, cover=None, disciplinary=None):
+    """Replace the five generators with controllable stand-ins."""
+    def _apply(first=None, supervisor=None, cover=None, disciplinary=None,
+               investigation=None):
         monkeypatch.setattr(generator, "generate_first_person",
                             first or (lambda *a, **k: "FIRST"))
         monkeypatch.setattr(generator, "generate_supervisor_summary",
@@ -36,7 +37,12 @@ def stub(monkeypatch):
                             cover or (lambda *a, **k: "COVER"))
         monkeypatch.setattr(generator, "generate_disciplinary",
                             disciplinary or (lambda *a, **k: "DISCIPLINARY"))
+        monkeypatch.setattr(generator, "generate_investigation",
+                            investigation or (lambda *a, **k: "INVESTIGATION"))
     return _apply
+
+
+INVESTIGATED = dict(SLOTS, investigation_findings=["Reviewed camera footage."])
 
 
 class TestSuccessPath:
@@ -118,3 +124,46 @@ class TestFailureHandling:
         stub(disciplinary=boom)
         reports = generator.generate_all_reports(dict(SLOTS, charges="12-1"))
         assert reports["_errors"] == ["disciplinary"]
+
+
+class TestInvestigationReport:
+    """STYLE_RULINGS.md ruling 8 — the 5th type is generated ONLY when the notes
+    show an investigation actually took place."""
+
+    def test_ordinary_incident_produces_no_investigation_report(self, stub):
+        stub()
+        assert "investigation" not in generator.generate_all_reports(SLOTS)
+
+    def test_findings_produce_the_report(self, stub):
+        stub()
+        reports = generator.generate_all_reports(INVESTIGATED)
+        assert reports["investigation"] == "INVESTIGATION"
+
+    def test_empty_findings_produce_no_report(self, stub):
+        stub()
+        for empty in ([], None, ["", "   "]):
+            slots = dict(SLOTS, investigation_findings=empty)
+            assert "investigation" not in generator.generate_all_reports(slots), empty
+
+    def test_it_runs_alongside_the_base_reports_not_after(self, stub):
+        """It has no dependency on the other reports, so it must not add a
+        fourth sequential round-trip on the Pro tier."""
+        def slow(*a, **k):
+            time.sleep(0.3)
+            return "SLOW"
+
+        stub(first=slow, supervisor=slow, cover=slow, investigation=slow)
+        started = time.monotonic()
+        generator.generate_all_reports(INVESTIGATED)
+        # Sequential would be ~1.2s; parallel ~0.3s.
+        assert time.monotonic() - started < 0.75
+
+    def test_its_failure_is_reported_not_swallowed(self, stub):
+        def boom(*a, **k):
+            raise RuntimeError("upstream exploded")
+
+        stub(investigation=boom)
+        reports = generator.generate_all_reports(INVESTIGATED)
+        assert reports["_errors"] == ["investigation"]
+        # The other reports still came through.
+        assert reports["first_person"] == "FIRST"
