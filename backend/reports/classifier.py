@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 
 VALID_CATEGORIES = {
     "contraband", "inmate_fight", "staff_assault", "forced_cell_movement",
-    "prea", "incident_no_disciplinary", "other_rule_violation",
+    "prea", "incident_no_disciplinary", "use_of_force", "medical_emergency",
+    "other_rule_violation",
 }
 
 # Grammar-constrain the classifier the same way extraction is constrained.
@@ -136,7 +137,8 @@ def classify_incident(notes: str) -> dict:
 
     try:
         result = json.loads(text)
-        # Constrain to the 7 valid categories
+        # Constrain to the valid categories (belt and braces — the response
+        # schema enum should already make an invalid one impossible)
         if result.get("incident_type") not in VALID_CATEGORIES:
             logger.warning("Classifier returned invalid category %r — defaulting to other_rule_violation",
                            result.get("incident_type"))

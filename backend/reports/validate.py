@@ -154,8 +154,9 @@ def _inmate_phrases(slots: dict) -> dict:
 
     One inmate -> use the name ('Inmate Smith', 'was'); two or more -> plural
     generic ('The inmates', 'were') so the sentence still reads correctly.
-    `inmate_subject` is sentence-start capitalized; `inmate_object` is the
-    mid-sentence object form.
+    `inmate_subject` and `inmate_list` open a sentence, so they are capitalized;
+    `inmate_object` is the mid-sentence object form and stays lowercase per
+    STYLE_RULINGS.md ruling 6.
     """
     inmates = [p for p in slots.get("persons", [])
                if p.get("role") == "inmate" and p.get("last")]
@@ -170,7 +171,8 @@ def _inmate_phrases(slots: dict) -> dict:
         inmate_list = "the inmate"
     if len(inmates) == 1:
         name = names[0]
-        return {"inmate_subject": name, "inmate_be": "was", "inmate_object": name,
+        return {"inmate_subject": name, "inmate_be": "was",
+                "inmate_object": f"inmate {inmates[0]['last']}",
                 "inmate_list": inmate_list, "inmate_them": "him"}
     if len(inmates) >= 2:
         return {"inmate_subject": "The inmates", "inmate_be": "were",

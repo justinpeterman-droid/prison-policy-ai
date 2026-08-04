@@ -68,7 +68,17 @@ Incident categories — use EXACTLY one of these 7 names:
   forced_cell_movement     — Forced cell movement (extracting non-compliant inmate)
   prea                     — PREA (Prison Rape Elimination Act)
   incident_no_disciplinary — Incident that does not require disciplinary action
+  use_of_force             — Staff used force: chemical agent, taser, or forced restraint
+  medical_emergency        — Medical event (seizure, injury, unresponsive) with no rule violation
   other_rule_violation     — Any other rule violation not covered above
+
+CATEGORY PRECEDENCE (apply in this order):
+- If staff used force (chemical agent, taser, forced restraint) to gain control,
+  classify as use_of_force even when a fight or assault preceded it.
+- A medical event with no rule violation is medical_emergency, NOT
+  incident_no_disciplinary. Medical takes precedence.
+- forced_cell_movement stays its own category even though force is used — it is
+  a planned cell extraction, not a reactive use of force.
 
 AVAILABLE CHARGE CATALOG (only use rule numbers from this list):
 {charge_ref}
