@@ -40,6 +40,7 @@ jobs:
 
       # Execute Codacy Analysis CLI and generate a SARIF output with the security issues identified during the analysis
       - name: Run Codacy Analysis CLI
+        id: codacy_scan
         uses: codacy/codacy-analysis-cli-action@d840f886c4bd4edc059706d09c6a1586111c540b
         # The pinned action's SARIF formatter crashes the whole CLI process
         # (java.nio.charset.MalformedInputException) when a finding lands in
@@ -49,7 +50,10 @@ jobs:
         # exclude_paths doesn't reach when a project-token pulls in remote
         # config. That's an upstream CLI bug, not a repo security finding, so
         # don't let it block CI; results still upload whenever the run
-        # succeeds.
+        # succeeds. Note the crash leaves a truncated, invalid results.sarif
+        # behind — the upload step below gates on this step's *outcome*, not
+        # on the file merely existing, so it doesn't trade one failure for
+        # another ("Invalid SARIF. JSON syntax error").
         continue-on-error: true
         env:
           # The CLI's SARIF formatter re-reads each file with a finding to quote
@@ -80,10 +84,11 @@ jobs:
           max-allowed-issues: 2147483647
 
       # Upload the SARIF file generated in the previous step. Skipped (not
-      # failed) when the analysis step above crashed before writing
-      # results.sarif — see the continue-on-error note there.
+      # failed) when the analysis step above crashed — its outcome is the
+      # signal, since a crash can still leave a truncated results.sarif on
+      # disk that would fail SARIF upload validation if we tried it anyway.
       - name: Upload SARIF results file
-        if: hashFiles('results.sarif') != ''
+        if: steps.codacy_scan.outcome == 'success'
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
