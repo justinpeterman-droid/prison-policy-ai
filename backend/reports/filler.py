@@ -10,6 +10,24 @@ from datetime import datetime
 
 TEMPLATE_PATH = Path(__file__).parent.parent.parent / "templates" / "005_template_v3.docx"
 
+# What marks a ticked box on the 005 header, per the unit supervisor's ruling.
+TICK = "X"
+
+# Categories that additionally carry the 409 (Use of Force) designation.
+# Kept here rather than in routes so the filler is correct on its own — a
+# caller that forgets to pass box_409 still produces a correct form.
+FORCE_CATEGORIES = {"use_of_force"}
+
+
+def designation_boxes(category: str) -> dict:
+    """Which form-designation boxes to tick (STYLE_RULINGS.md ruling 9).
+
+    Every incident report is a 005. A use of force is filed as a 005 that ALSO
+    carries the 409, so both boxes are ticked — not the 409 alone.
+    """
+    return {"box_005": TICK,
+            "box_409": TICK if category in FORCE_CATEGORIES else ""}
+
 
 def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
     """
@@ -41,6 +59,15 @@ def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
     # Decision §3: the 005 "middle" spot is the employee #, not middle name.
     # Map employee_number → officer_middle so the template placeholder is filled.
     metadata.setdefault("officer_middle", metadata.get("employee_number", ""))
+
+    # Form designation boxes (STYLE_RULINGS.md ruling 9). These are handled
+    # ahead of the generic defaults because "" is a MEANINGFUL value here —
+    # an unticked box — and the defaults loop below treats empty as "unset"
+    # and would silently re-tick it. The download fills from the reviewed
+    # on-screen form, so an officer who unticks a box must get it unticked.
+    # A caller that omits the keys entirely gets a plain 005.
+    metadata.setdefault("box_005", TICK)
+    metadata.setdefault("box_409", "")
 
     # Fill defaults
     defaults = {

@@ -1193,8 +1193,8 @@ function form005Front(o){
       <div class="f5ar">DEPARTMENT OF CORRECTION</div>
     </div>
     <div class="f5right">
-      <div class="f5chk"><span class="f5num">005</span><input type="checkbox" class="f5cb" checked> <span class="f5chklbl">Incident<br>Report<br>and</span></div>
-      <div class="f5chk"><span class="f5num">409</span><input type="checkbox" class="f5cb"> <span class="f5chklbl">Use of<br>Force</span></div>
+      <div class="f5chk"><span class="f5num">005</span><input type="checkbox" class="f5cb" id="box005" ${o.box005?'checked':''}> <span class="f5chklbl">Incident<br>Report<br>and</span></div>
+      <div class="f5chk"><span class="f5num">409</span><input type="checkbox" class="f5cb" id="box409" ${o.box409?'checked':''}> <span class="f5chklbl">Use of<br>Force</span></div>
     </div>
   </div>
   <div class="f5row"><span class="f5label">UNIT / DIVISION</span><span class="ed f5val" data-key="unit_division" contenteditable="true" role="textbox" aria-label="Unit / Division">${esc(o.unit)}</span></div>
@@ -1281,12 +1281,17 @@ function render005(d){
   const othersPresent=m.others_present||'';
   const officerInjuries=m.officer_injuries||'';
   const officerTreatment=m.officer_treatment||'';
+  // Form designation boxes (ruling 9). Every incident report is a 005; a use
+  // of force ticks the 409 as well. Default the 005 on so an older payload
+  // without these keys still renders a correct form.
+  const box005=m.box_005===undefined?true:!!m.box_005;
+  const box409=!!m.box_409;
   const narrative=highlightFlags(fp||'No narrative generated.',flags);
   const sigName=officerFirst&&officerLast?officerFirst+' '+officerLast:'';
   document.getElementById('preview').innerHTML=`
     ${markersBanner(markers)}
     <div class="form005-page" id="page1">
-      ${form005Front({officerLast,officerFirst,emp,rank,shift,unit,date,time,loc,inmates,employees,inmateInjuries,inmateTreatment,inmatesPresent,employeesPresent,othersPresent,officerInjuries,officerTreatment})}
+      ${form005Front({officerLast,officerFirst,emp,rank,shift,unit,date,time,loc,inmates,employees,inmateInjuries,inmateTreatment,inmatesPresent,employeesPresent,othersPresent,officerInjuries,officerTreatment,box005,box409})}
     </div>
     <div class="form005-page" id="page2">
       ${form005Back({narrative,sigName,date})}
@@ -1358,6 +1363,10 @@ function edVal(key){
   if(t==='—'||t==='N/A')t='';
   return t;
 }
+function chk(id){
+  const el=document.getElementById(id);
+  return el&&el.checked?'X':'';
+}
 function collectMetadata(){
   // Send every field the DOCX template expects, read from the reviewed/edited
   // on-screen 005 so the download matches the preview exactly.
@@ -1382,6 +1391,10 @@ function collectMetadata(){
     narrative:edVal('narrative'),
     date_filed:date,
     officer_signature:((edVal('officer_first')||'')+' '+(edVal('officer_last')||'')).trim(),
+    // Read the boxes as the officer left them — they can tick or untick either
+    // one before downloading, and the DOCX must match the reviewed form.
+    box_005:chk('box005'),
+    box_409:chk('box409'),
   };
 }
 function collectAnswers(){

@@ -67,6 +67,9 @@ STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
   given; never restate a time in 24-hour form.
 - Never output a bracketed placeholder such as [incident number] or [name]. If a value
   is genuinely missing, omit that clause entirely rather than inventing a placeholder.
+- NEVER add a closing line such as 'End of report.', 'End of Statement.' or
+  'Disciplinary action taken.' The narrative ends on its last factual sentence.
+  Individual officers write different closers; the house style has none.
 - The REQUIRED SENTENCES below must appear in the narrative, worded exactly as given,
   placed where they fit chronologically."""
 

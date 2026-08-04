@@ -8,7 +8,7 @@ from pathlib import Path
 from flask import Blueprint, render_template, request, jsonify, send_file
 from backend.reports.classifier import classify_incident
 from backend.reports.generator import generate_all_reports
-from backend.reports.filler import fill_template
+from backend.reports.filler import fill_template, designation_boxes
 from backend.webapp.errors import classify_error, ERROR_MESSAGES
 
 logger = logging.getLogger(__name__)
@@ -614,6 +614,9 @@ def reports_generate():
         officer_injury_line = MSF_REFERENCE if officer_force else "N/A"
 
         form005 = {
+            # Ruling 9: every incident report ticks the 005 box; a use of force
+            # ticks the 409 as well.
+            **designation_boxes(category),
             "unit_division": "BMU",
             "officer_last": slots.get("officer_last") or "",
             "officer_first": slots.get("officer_first") or "",
