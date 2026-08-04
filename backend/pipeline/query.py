@@ -320,16 +320,16 @@ def _search_snippets_only(url: str, token: str, query: str, page_size: int,
         logger.info("Snippets-only search returned %d results",
                     len(result.get("results", [])))
         return result
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode()[:1000]
+    except urllib.error.HTTPError as http_exc:
+        body = http_exc.read().decode()[:1000]
         logger.error("Search API error %s for serving config %s: %s",
-                     exc.code, SERVING_CONFIG, body)
-        hint = _http_error_hint(exc.code)
+                     http_exc.code, SERVING_CONFIG, body)
+        hint = _http_error_hint(http_exc.code)
         if hint:
             logger.error("Likely cause: %s", hint)
         logger.error("The original request was also rejected (400): %s",
                      original_error[:300])
-        raise RuntimeError(f"Search API error {exc.code}")
+        raise RuntimeError(f"Search API error {http_exc.code}") from http_exc
 
 
 def _search_data_store(query: str, page_size: int = 10) -> list[dict]:
@@ -371,15 +371,15 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
             logger.info("Search returned %d results (totalSize=%s)",
                         len(result.get("results", [])),
                         result.get("totalSize", "?"))
-    except urllib.error.HTTPError as exc:
-        err_body = exc.read().decode()[:1000]
+    except urllib.error.HTTPError as http_exc:
+        err_body = http_exc.read().decode()[:1000]
         # A 400 means the request shape was rejected, and the only optional part
         # of it is the extractive-content spec — not every data store is
         # provisioned for extractive answers/segments. Falling back to snippets
         # keeps the chat working on those stores instead of failing every
         # search, which is exactly the single-point-of-failure this spec was
         # added to remove.
-        if exc.code == 400:
+        if http_exc.code == 400:
             logger.warning("Search rejected the extractive-content spec (400); "
                            "retrying with snippets only. Answers will be built "
                            "from shorter passages on this data store.")
@@ -388,11 +388,11 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
         # failure here is a config mismatch, and the serving-config path is the
         # thing you need to see to spot it.
         logger.error("Search API error %s for serving config %s: %s",
-                     exc.code, SERVING_CONFIG, err_body)
-        hint = _http_error_hint(exc.code)
+                     http_exc.code, SERVING_CONFIG, err_body)
+        hint = _http_error_hint(http_exc.code)
         if hint:
             logger.error("Likely cause: %s", hint)
-        raise RuntimeError(f"Search API error {exc.code}")
+        raise RuntimeError(f"Search API error {http_exc.code}") from http_exc
     except Exception as exc:
         # Anything that isn't an HTTPError — a connection reset, DNS failure,
         # TLS problem, a non-JSON body. This used to re-raise bare, which meant
