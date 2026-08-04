@@ -149,7 +149,11 @@ CHARGES to bring: {charges}
 
 CLOSING — the report MUST end with this exact formula, one sentence per charged inmate
 (EVERY inmate MUST be named Last, First ADC# in full since this is their final reference):
-'Due to the above stated facts I, {rank} {officer_first} {officer_last}, am charging Inmate {{Last}}, {{First}} ADC# {{number}} with rule violation {{codes}}. Pending DCR.'
+'Due to the above stated facts I, {rank} {officer_first} {officer_last}, am charging inmate {{Last}}, {{First}} ADC# {{number}} with major rule violation {{code}} pending DCR.'
+When an inmate is charged with more than one code, make it plural and list them:
+'...with major rule violations {{a}}, {{b}}, and {{c}} pending DCR.'
+Note 'inmate' is lowercase here (it is mid-sentence) and 'pending DCR' is part of
+the same sentence — not a separate 'Pending DCR.' line.
 
 """ + """
 

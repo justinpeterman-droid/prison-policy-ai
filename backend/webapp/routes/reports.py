@@ -9,6 +9,9 @@ from flask import Blueprint, render_template, request, jsonify, send_file
 from backend.reports.classifier import classify_incident
 from backend.reports.generator import generate_all_reports
 from backend.reports.filler import fill_template, designation_boxes
+from backend.reports.report_validator import (
+    repair_all, summarize, validate_all,
+)
 from backend.webapp.errors import classify_error, ERROR_MESSAGES
 
 logger = logging.getLogger(__name__)
@@ -602,6 +605,16 @@ def reports_generate():
 
         reports = generate_all_reports(slots, category, auto_content=auto_content)
 
+        # ── Style validation + deterministic repair (no AI) ──
+        # repair() runs first so the validator judges the text the officer will
+        # actually see. It only reformats what is already there — it can never
+        # add, remove or change a fact.
+        generation_errors_pending = reports.pop("_errors", [])
+        reports, repaired = repair_all(reports)
+        if repaired:
+            logger.info("Auto-repaired: %s",
+                        "; ".join(f"{k}={','.join(v)}" for k, v in repaired.items()))
+
         # ── 005 injury / present line logic (deterministic) ──
         # Injury/treatment lines are left blank — medical detail lives elsewhere.
         inmate_hurt = slots.get("medical_disposition") in MEDICAL_INJURY_DISPOSITIONS
@@ -653,14 +666,27 @@ def reports_generate():
                         slots.get("incident_number")]
         flags = invented_facts(all_text, notes, answers, allow=code_derived)
 
+        # Score every report against the style rulings, using the SAME inputs
+        # as the fabrication check above so the two can never disagree.
+        style = summarize(validate_all(
+            reports,
+            officer={"rank": slots.get("rank"), "first": slots.get("officer_first"),
+                     "last": slots.get("officer_last")},
+            notes=notes,
+            auto_content=auto_content,   # routed per report type by insert_into
+            allow=code_derived,
+            answers=answers,
+        ))
+
         # Any report that failed after retries is reported as a failure rather
         # than left to pass for a finished document with an error line in it.
-        generation_errors = reports.pop("_errors", [])
+        generation_errors = generation_errors_pending
         if generation_errors:
             logger.error("Generation failed for: %s", ", ".join(generation_errors))
 
-        logger.info("Generate → %d reports, %d invented-fact flags, %d markers",
-                    len(reports), len(flags), len(markers))
+        logger.info("Generate → %d reports, %d invented-fact flags, %d markers, "
+                    "style %.2f (%d blocking)", len(reports), len(flags),
+                    len(markers), style["score"], style["blocking_count"])
         return jsonify({
             "generation_errors": generation_errors,
             "reports": reports,
@@ -668,6 +694,8 @@ def reports_generate():
             "flags": flags,
             "markers": markers,
             "officers": officers,
+            "style": style,
+            "repaired": repaired,
         })
     except Exception as exc:
         category, status = classify_error(exc)

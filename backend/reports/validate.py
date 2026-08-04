@@ -255,6 +255,11 @@ def invented_facts(output_text: str, notes: str, answers: dict,
     flagged. Without this, the trust signal fires on the system's OWN correct
     normalizations (a report always shows a normalized time, and often a
     code-supplied date), which reads as the AI inventing facts.
+
+    An ADC# is compared on its DIGITS, not the whole token. Officers write the
+    number bare in their notes ('Roe 111111') while the report renders it
+    'ADC# 111111', and a literal comparison read every correctly-cited ADC
+    number as invented — the single most common false positive there was.
     """
     parts = [notes] + [str(v) for v in answers.values()]
     if allow:
@@ -268,5 +273,16 @@ def invented_facts(output_text: str, notes: str, answers: dict,
     src_norm = _PUNCT_WS.sub("", source)
     tokens = set(re.findall(r"ADC#\s?\d+|\d{1,2}[:/-]\d{2}(?:[/-]\d{2,4})?(?:\s?[ap]\.?m\.?)?",
                             output_text, re.I))
-    return [t for t in tokens
-            if _PUNCT_WS.sub("", t.lower()) not in src_norm]
+    return [t for t in tokens if _comparable(t) not in src_norm]
+
+
+def _comparable(token: str) -> str:
+    """Normalize a token to the form compared against the source.
+
+    ADC numbers compare on their digits alone — the 'ADC#' prefix is how the
+    report renders them, not how the officer wrote them down.
+    """
+    m = re.match(r"ADC#\s?(\d+)$", token, re.I)
+    if m:
+        return m.group(1)
+    return _PUNCT_WS.sub("", token.lower())

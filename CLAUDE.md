@@ -51,7 +51,7 @@ prison-policy-ai/
 │   │   ├── prompts.py           # Classifier prompt + charge-catalog loader
 │   │   ├── prompts_v2.py        # v2 generation prompts (never see raw notes)
 │   │   ├── name_fixer.py        # Deterministic first-mention/full-name enforcement
-│   │   ├── report_validator.py  # Extra report checks
+│   │   ├── report_validator.py  # Style scoring + deterministic auto-repair — NO AI
 │   │   ├── filler.py            # DOCX template filling (python-docx)
 │   │   └── roster.py            # Staff roster load + fuzzy resolution + auto-persist
 │   └── webapp/                  # Flask + Gunicorn
@@ -79,7 +79,7 @@ runtime** — not HTML. (Jinja HTML lives in `backend/webapp/templates/`.) Key f
 
 | File | Role |
 |------|------|
-| `incident_checklist_v2.json` | **Authoritative** — 7 categories, required slots, conditional rules, gap questions, `auto_content` sentences, shared option sets. Change report behavior *here*, not in prompts. |
+| `incident_checklist_v2.json` | **Authoritative** — 9 categories, required slots, conditional rules, gap questions, `auto_content` sentences, shared option sets. Change report behavior *here*, not in prompts. |
 | `disciplinary_charges.json` | Extracted disciplinary handbook charges; classifier validates suggestions against these. |
 | `staff_roster.json` | The live unit roster (`{shifts, staff}`). Read+written by `/api/roster` and auto-persisted from gap answers. |
 | `location_map.json` | Slang → formal BMU location names. |
@@ -143,7 +143,7 @@ This is the core design. The UI drives three sequential POSTs; nothing files its
 ```
 Field notes
   │ POST /api/reports/classify   → classifier.py (Gemini)
-  ▼   incident_type (1 of 7) + suggested charges (officer confirms)
+  ▼   incident_type (1 of 9) + suggested charges (officer confirms)
   │ POST /api/reports/extract    → extraction.py (Gemini, temp=0, schema)
   ▼   structured slots → roster resolution → validate.find_gaps()
   │   officer answers the "Missing Information" gap panel
@@ -181,7 +181,19 @@ guardrails in any change:
 - **Generators receive structured facts only** (`prompts_v2.py`) — never the raw
   notes. They write prose; **code renders every header field** from slots.
 - **`invented_facts()`** scans generated text for ADC#s/dates not present in the
-  source and flags them (yellow highlight in the UI).
+  source and flags them (yellow highlight in the UI). ADC numbers compare on
+  their **digits** — officers write `Roe 111111` in notes while the report
+  renders `ADC# 111111`, and a literal comparison read every correct citation as
+  invented.
+- **`report_validator.py`** scores every generated report against
+  `STYLE_RULINGS.md` (no AI). `repair_all()` runs first and applies only
+  *mechanical* fixes — ADC# spacing, a missing rank period, a stray statement
+  closer — then `validate_all()` + `summarize()` produce the `style` block in
+  the `/generate` response. **A repair can never add, remove or change a fact**;
+  it reformats text that is already there. Its first duty is not to cry wolf: a
+  rule that flags correct output trains officers to ignore the panel, so
+  `tests/unit/test_report_validator.py` opens by asserting a ruling-perfect
+  report scores 1.0 with zero violations.
 - **`name_fixer.enforce_naming()`** deterministically guarantees first mention =
   full form (`Inmate Last, First ADC#…` / `Rank First Last`), later mentions short.
 - **Per-officer reports**: each staff member's 005 shows only *their* actions;
