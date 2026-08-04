@@ -152,6 +152,7 @@
   .verify .v-chip{display:inline-flex;align-items:center;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;font-weight:700;color:#8a5a00;background:#fff3b0;border:1px solid rgba(201,151,28,0.5);border-radius:5px;padding:2px 8px;cursor:pointer;transition:filter .15s}
   .verify .v-chip:hover{filter:brightness(0.96)}
   .verify .v-marker{display:block;color:var(--gold-text);font-size:12px;font-weight:600;padding:2px 0}
+  .verify .v-ctx{font-weight:400;color:var(--text4);font-style:italic}
 
   /* AI charge confirmation */
   .charges-panel{margin:14px 0;background:var(--surface);border:1px solid var(--border-sub);border-radius:10px;padding:12px 14px;box-shadow:0 1px 2px rgba(16,24,40,0.05)}
@@ -1116,12 +1117,22 @@ function renderVerify(d){
   const el=document.getElementById('verify');
   const flags=d.flags||[];
   const markers=d.markers||[];
-  if(!flags.length && !markers.length){
+  const style=d.style||{};
+  const styleIssues=style.blocking||[];
+  const repaired=d.repaired||{};
+  if(!flags.length && !markers.length && !styleIssues.length){
     el.className='verify clean';
-    el.innerHTML=`<div class="v-head"><svg class="ico v-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Verified — every date, time, and ADC# in the draft traces to your notes.</div>`;
+    const fixed=Object.keys(repaired).length
+      ? ` ${styleFixedNote(repaired)}` : '';
+    el.innerHTML=`<div class="v-head"><svg class="ico v-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Verified — every date, time, and ADC# in the draft traces to your notes, and the draft matches unit style.${fixed}</div>`;
     return;
   }
   let body='';
+  if(styleIssues.length){
+    body+=`<div class="v-sub">Style issues to fix (${styleIssues.length})</div>`+
+      `<div class="v-hint">These do not match how this unit writes reports. Correct them in the draft before filing.</div>`+
+      styleIssues.map(s=>`<div class="v-marker">${esc(reportLabel(s.report_type))}: ${esc(s.message)}${s.context?` <span class="v-ctx">…${esc(s.context)}…</span>`:''}</div>`).join('');
+  }
   if(flags.length){
     body+=`<div class="v-sub">Not found in your notes (${flags.length})</div>`+
       `<div class="v-hint">These values appear in the draft but not in your input — confirm or correct each one before filing.</div>`+
@@ -1134,6 +1145,17 @@ function renderVerify(d){
   }
   el.className='verify warn';
   el.innerHTML=`<div class="v-head"><svg class="ico v-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h16.9a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>Review before filing</div><div class="v-body">${body}</div>`;
+}
+function styleFixedNote(repaired){
+  // Deterministic repairs already applied — say so rather than staying silent,
+  // so the officer knows the draft was adjusted after generation.
+  const n=Object.values(repaired).reduce((a,v)=>a+v.length,0);
+  return `(${n} formatting ${n===1?'fix':'fixes'} applied automatically.)`;
+}
+function reportLabel(t){
+  return ({first_person:'First Person Report',supervisor_summary:'Supervisor Summary',
+           cover_letter:'Cover Letter',disciplinary:'Disciplinary Supplement',
+           investigation:'Investigation Report'})[t]||t.replace(/_/g,' ');
 }
 function jumpToFlag(){
   showForm('form005');
