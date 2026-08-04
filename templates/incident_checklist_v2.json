@@ -55,7 +55,7 @@
       "id": "incident_number",
       "if": "always",
       "require": "incident_number_last3",
-      "question": "Incident log number — last 3 digits only (the year and month are added automatically)",
+      "question": "Incident log number \u2014 last 3 digits only (the year and month are added automatically)",
       "answer_type": "text",
       "blocking": true
     },
@@ -700,6 +700,257 @@
         }
       ],
       "auto_content": []
+    },
+    {
+      "name": "use_of_force",
+      "label": "Use of Force",
+      "form_designation": [
+        "005",
+        "409"
+      ],
+      "forms_required": [
+        "cover_letter",
+        "005_409",
+        "major_disciplinary_form",
+        "photo_video",
+        "chain_of_custody",
+        "use_of_force_report_409",
+        "medical_report",
+        "inmate_drug_test",
+        "emergency_gate_pass_if_treated_outside"
+      ],
+      "reports": [
+        "cover_letter",
+        "first_person",
+        "supervisor_summary",
+        "disciplinary"
+      ],
+      "required_slots": [
+        "date",
+        "time",
+        "location",
+        "inmates_involved",
+        "force_type",
+        "orders_given",
+        "authorization",
+        "decontamination",
+        "charges"
+      ],
+      "rules": [
+        {
+          "if": "always",
+          "require": "force_type",
+          "question": "What type of force was used?",
+          "answer_type": "choice",
+          "options": [
+            "Chemical agent (OC/MK-3)",
+            "Taser (displayed, not deployed)",
+            "Taser (deployed)",
+            "Physical/empty hand control",
+            "Forced restraint application",
+            "Baton"
+          ],
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "orders_given",
+          "question": "What direct orders were given before force was used, and how many times?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "force_type == 'Chemical agent (OC/MK-3)'",
+          "require": "chemical_agent",
+          "question": "Chemical agent details \u2014 type, MFG year, lot number, PMF/serial?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "force_type == 'Chemical agent (OC/MK-3)'",
+          "require": "decontamination",
+          "question": "Was the inmate afforded decontamination? Where?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "authorization",
+          "question": "Who authorized or was notified of the use of force?",
+          "answer_type": "choice",
+          "options": [
+            "Shift Lieutenant",
+            "Shift Captain",
+            "Chief of Security",
+            "Duty Warden",
+            "Warden / Deputy Warden"
+          ],
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "behavior_control",
+          "question": "Was behavior control status authorized? By whom, and for how long?",
+          "answer_type": "text",
+          "blocking": false
+        },
+        {
+          "if": "always",
+          "require": "photo_video_obtained",
+          "question": "Photograph/video footage obtained?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box + insert attachment line",
+          "on_no": "leave checklist box unchecked"
+        }
+      ],
+      "auto_content": [
+        {
+          "id": "force_used_line",
+          "insert_into": [
+            "first_person",
+            "supervisor_summary"
+          ],
+          "condition": "always",
+          "template": "Force was used to regain control: {force_type}. Direct orders given: {orders_given}."
+        },
+        {
+          "id": "chemical_agent_line",
+          "insert_into": [
+            "first_person",
+            "supervisor_summary"
+          ],
+          "condition": "force_type == 'Chemical agent (OC/MK-3)'",
+          "template": "A short burst of chemical agent was deployed ({chemical_agent})."
+        },
+        {
+          "id": "decontamination_line",
+          "insert_into": [
+            "first_person",
+            "supervisor_summary"
+          ],
+          "condition": "force_type == 'Chemical agent (OC/MK-3)'",
+          "template": "{inmate_subject} {inmate_be} afforded the opportunity to decontaminate at {decontamination}."
+        },
+        {
+          "id": "force_authorization_line",
+          "insert_into": [
+            "supervisor_summary",
+            "cover_letter"
+          ],
+          "condition": "always",
+          "template": "The use of force was authorized by {authorization}."
+        }
+      ]
+    },
+    {
+      "name": "medical_emergency",
+      "label": "Medical Emergency",
+      "forms_required": [
+        "cover_letter",
+        "005_409",
+        "photo_video",
+        "witness_statements",
+        "medical_report",
+        "inmate_drug_test",
+        "emergency_gate_pass_if_treated_outside"
+      ],
+      "reports": [
+        "cover_letter",
+        "first_person",
+        "supervisor_summary"
+      ],
+      "required_slots": [
+        "date",
+        "time",
+        "location",
+        "inmates_involved",
+        "medical_condition",
+        "medical_response"
+      ],
+      "rules": [
+        {
+          "if": "always",
+          "require": "medical_condition",
+          "question": "What was observed? (e.g. appeared to have a seizure, unresponsive, fall)",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "medical_response",
+          "question": "What did staff do before medical arrived?",
+          "answer_type": "text",
+          "blocking": true
+        },
+        {
+          "if": "always",
+          "require": "observation_ordered",
+          "question": "Did medical order an observation period? How long?",
+          "answer_type": "text",
+          "blocking": false
+        },
+        {
+          "if": "always",
+          "require": "escort_destination",
+          "question": "Where was the inmate escorted after evaluation?",
+          "answer_type": "choice",
+          "options": [
+            "Infirmary",
+            "Infirmary ward for observation",
+            "Returned to barracks",
+            "Sent by ambulance to outside facility"
+          ],
+          "blocking": false
+        },
+        {
+          "if": "always",
+          "require": "photo_video_obtained",
+          "question": "Photograph/video footage obtained?",
+          "answer_type": "yes_no",
+          "blocking": false,
+          "on_yes": "check checklist box + insert attachment line",
+          "on_no": "leave checklist box unchecked"
+        }
+      ],
+      "auto_content": [
+        {
+          "id": "medical_event_line",
+          "insert_into": [
+            "first_person",
+            "supervisor_summary"
+          ],
+          "condition": "always",
+          "template": "{inmate_subject} {inmate_be} observed to be {medical_condition}. {medical_response}"
+        },
+        {
+          "id": "medical_evaluation_line",
+          "insert_into": [
+            "first_person",
+            "supervisor_summary"
+          ],
+          "condition": "always",
+          "template": "Medical staff evaluated {inmate_object}."
+        },
+        {
+          "id": "medical_escort_line",
+          "insert_into": [
+            "first_person",
+            "supervisor_summary"
+          ],
+          "condition": "escort_destination != null",
+          "template": "{inmate_subject} {inmate_be} then escorted to {escort_destination}."
+        },
+        {
+          "id": "observation_line",
+          "insert_into": [
+            "first_person",
+            "supervisor_summary"
+          ],
+          "condition": "observation_ordered != null",
+          "template": "Medical ordered {observation_ordered}."
+        }
+      ]
     },
     {
       "name": "other_rule_violation",

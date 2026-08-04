@@ -13,7 +13,8 @@ from backend.reports.validate import (
 
 CATEGORIES = [
     "contraband", "inmate_fight", "staff_assault", "forced_cell_movement",
-    "prea", "incident_no_disciplinary", "other_rule_violation",
+    "prea", "incident_no_disciplinary", "use_of_force", "medical_emergency",
+    "other_rule_violation",
 ]
 
 
@@ -22,7 +23,7 @@ def test_load_checklist_is_cached():
     assert load_checklist() is load_checklist()
 
 
-def test_checklist_has_seven_categories():
+def test_checklist_covers_every_known_category():
     names = {c["name"] for c in load_checklist()["categories"]}
     assert set(CATEGORIES) <= names
 
@@ -134,3 +135,78 @@ def test_allow_list_ignores_none_and_empty_entries():
     flags = invented_facts("Inmate Smith ADC#777.", notes="Inmate Smith fought.",
                            answers={}, allow=[None, "", "unrelated"])
     assert any("777" in f for f in flags)
+
+
+# ── use_of_force / medical_emergency (STYLE_RULINGS.md rulings 9 & 10) ───────
+
+def _one_inmate():
+    return [{"role": "inmate", "last": "Roe", "first": "Richard",
+             "adc_number": "111111"}]
+
+
+@pytest.mark.parametrize("category", ["use_of_force", "medical_emergency"])
+def test_new_category_never_asks_the_same_slot_twice(category):
+    """A slot listed in required_slots AND covered by a universal rule used to
+    render the same question twice on the Missing Information screen."""
+    slots = [g["slot"] for g in find_gaps(category, {"persons": _one_inmate()})["gaps"]]
+    assert len(slots) == len(set(slots)), f"duplicate gap questions: {slots}"
+
+
+def test_use_of_force_carries_the_409_designation():
+    """Ruling 9: a use of force files as a 005 that also carries the 409."""
+    cat = next(c for c in load_checklist()["categories"]
+               if c["name"] == "use_of_force")
+    assert cat["form_designation"] == ["005", "409"]
+    assert "use_of_force_report_409" in cat["forms_required"]
+
+
+def test_use_of_force_asks_for_agent_detail_only_when_chemical():
+    base = {"persons": _one_inmate()}
+    assert not any(g["slot"] == "chemical_agent"
+                   for g in find_gaps("use_of_force", base)["gaps"])
+    chem = {**base, "force_type": "Chemical agent (OC/MK-3)"}
+    slots = {g["slot"] for g in find_gaps("use_of_force", chem)["gaps"]}
+    assert {"chemical_agent", "decontamination"} <= slots
+
+
+def test_medical_emergency_generates_no_disciplinary_report():
+    """A medical emergency is not a rule violation — there is nothing to charge."""
+    cat = next(c for c in load_checklist()["categories"]
+               if c["name"] == "medical_emergency")
+    assert "disciplinary" not in cat["reports"]
+
+
+def test_medical_emergency_auto_content_reads_as_grammatical_prose():
+    answered = {
+        "persons": _one_inmate(),
+        "medical_condition": "having a seizure",
+        "medical_response": "I called a Code Blue and cleared the area.",
+        "escort_destination": "Infirmary ward for observation",
+    }
+    lines = {a["id"]: a["text"]
+             for a in find_gaps("medical_emergency", answered)["auto_content"]}
+    # The evaluation clause used to run on without a subject:
+    # "Medical staff evaluated Inmate Roe and was escorted to ..."
+    assert lines["medical_evaluation_line"] == "Medical staff evaluated inmate Roe."
+    assert lines["medical_escort_line"].startswith("Inmate Roe was then escorted")
+
+
+def test_escort_line_is_dropped_when_the_optional_slot_is_unanswered():
+    """escort_destination is non-blocking, so an unanswered one must not inject
+    a [NEEDED: ...] marker into the narrative."""
+    ids = {a["id"] for a in find_gaps(
+        "medical_emergency", {"persons": _one_inmate()})["auto_content"]}
+    assert "medical_escort_line" not in ids
+
+
+def test_inmate_object_is_lowercase_mid_sentence():
+    """Ruling 6: 'inmate' is lowercase when it isn't opening a sentence."""
+    lines = {a["id"]: a["text"] for a in find_gaps("use_of_force", {
+        "persons": _one_inmate(),
+        "force_type": "Chemical agent (OC/MK-3)",
+        "decontamination": "the 8 Barracks shower",
+        "charges": ["12-1"],
+    })["auto_content"]}
+    disciplinary = lines["disciplinary_action_line"]
+    assert "against inmate Roe" in disciplinary
+    assert "against Inmate Roe" not in disciplinary

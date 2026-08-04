@@ -31,7 +31,7 @@ class TestCategoryEnum:
     def test_enum_matches_valid_categories(self):
         enum = classifier.CLASSIFIER_RESPONSE_SCHEMA["properties"]["incident_type"]["enum"]
         assert set(enum) == classifier.VALID_CATEGORIES
-        assert len(enum) == 7
+        assert len(enum) == 9
 
     def test_enum_matches_the_checklist_file(self):
         """The real invariant: the schema, the validator, and the checklist data

@@ -40,6 +40,7 @@ FIRST_NAME_NEEDED = "[FIRST NAME NEEDED]"
 # medical disposition pre-selects "Seen by Infirmary staff" (still changeable).
 MEDICAL_SEEN_CATEGORIES = {
     "inmate_fight", "staff_assault", "forced_cell_movement", "prea",
+    "use_of_force", "medical_emergency",
 }
 # Medical dispositions where the inmate was seen/offered medical.
 # Injury/treatment lines on 005 are left blank (no cross-reference text).
@@ -50,10 +51,12 @@ MEDICAL_INJURY_DISPOSITIONS = {
 }
 # Categories/signals where the inmate used force on the officer, so the
 # officer injury/treatment lines may need a value.
-OFFICER_FORCE_CATEGORIES = {"staff_assault"}
+OFFICER_FORCE_CATEGORIES = {"staff_assault", "use_of_force"}
 # Fights/assaults: the inmate is always ultimately placed in Restrictive
 # Housing (after the infirmary if they were treated first).
-FIGHT_RH_CATEGORIES = {"inmate_fight", "staff_assault"}
+# Fights, assaults and uses of force end in Restrictive Housing. A medical
+# emergency does NOT — the inmate goes to the infirmary, not RH.
+FIGHT_RH_CATEGORIES = {"inmate_fight", "staff_assault", "use_of_force"}
 RESTRICTIVE_HOUSING = "Restrictive Housing"
 
 
