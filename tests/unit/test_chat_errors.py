@@ -2,6 +2,7 @@
 import socket
 import pytest
 from backend.webapp.app import create_app
+from backend.webapp.errors import classify_error, ERROR_MESSAGES
 
 
 def _raise(exc):
@@ -150,3 +151,43 @@ class TestChatErrors:
             resp = client.post("/api/chat", json={"question": "test"})
             ids.add(resp.get_json()["request_id"])
         assert len(ids) == 5
+
+
+# ── Search failures must classify as search failures ────────────────────────
+#
+# Found while smoke-testing production: the chat 500'd with "An unexpected
+# error occurred" on every work question. That message is the `internal`
+# catch-all — so the one thing the officer and the person debugging both
+# needed to know (policy SEARCH is what failed) was the one thing neither was
+# told. A non-HTTPError in the search path re-raised bare and matched none of
+# classify_error's patterns.
+
+class TestSearchFailureClassification:
+    def test_a_transport_failure_is_reported_as_a_search_outage(self):
+        exc = RuntimeError(
+            "Search API error (transport) URLError: <urlopen error [Errno -2]>")
+        category, status = classify_error(exc)
+        assert category == "upstream"
+        assert "policy search" in ERROR_MESSAGES[category].lower()
+        assert status == 500
+
+    def test_an_http_search_error_still_classifies_the_same_way(self):
+        assert classify_error(RuntimeError("Search API error 404"))[0] == "upstream"
+
+    def test_a_bare_transport_error_would_have_been_miscategorised(self):
+        """The regression this guards: unwrapped, it reads as 'internal'."""
+        import urllib.error
+        assert classify_error(urllib.error.URLError("connection reset"))[0] == "internal"
+
+    def test_credential_errors_keep_their_more_specific_category(self):
+        """Token acquisition re-raises unwrapped precisely so this stays true —
+        'not configured' is more actionable than 'search is down'."""
+        assert classify_error(
+            Exception("default credentials were not found"))[0] == "credentials"
+
+    def test_the_wrapper_names_the_exception_class(self):
+        """`%s` of a URLError is just '<urlopen error ...>'; the class is what
+        identifies the fault."""
+        exc = RuntimeError("Search API error (transport) SSLCertVerificationError: bad cert")
+        assert "SSLCertVerificationError" in str(exc)
+        assert classify_error(exc)[0] == "upstream"

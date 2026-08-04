@@ -344,7 +344,17 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
     matched but none carried readable text" — two failures that look identical
     from the passage list alone but mean very different things operationally.
     """
-    token = _get_token()
+    # Token acquisition used to sit outside the try below, so a failure here
+    # bypassed every search error handler, reached the route unclassified, and
+    # told the officer "An unexpected error occurred" — with a log line that
+    # never mentioned search. Name the step that failed.
+    try:
+        token = _get_token()
+    except Exception as e:
+        logger.error("Could not obtain a credential for Discovery Engine "
+                     "search: %s: %s", type(e).__name__, e)
+        raise  # re-raised unwrapped so credential errors keep their own class
+
     url = f"https://discoveryengine.googleapis.com/v1beta/{SERVING_CONFIG}:search"
     data = json.dumps(_search_body(query, page_size, rich=True)).encode()
     req = urllib.request.Request(url, data=data, method="POST")
@@ -384,9 +394,17 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
             logger.error("Likely cause: %s", hint)
         raise RuntimeError(f"Search API error {e.code}")
     except Exception as e:
-        logger.error("Search failed against serving config %s: %s",
-                     SERVING_CONFIG, e)
-        raise
+        # Anything that isn't an HTTPError — a connection reset, DNS failure,
+        # TLS problem, a non-JSON body. This used to re-raise bare, which meant
+        # classify_error() saw an exception matching none of its patterns and
+        # fell through to "internal": the officer was told something unexpected
+        # happened when what actually happened is that policy search failed.
+        # Wrapping it keeps the category honest, and the exception CLASS is what
+        # identifies the fault — `%s` of a URLError is just "<urlopen error ...>".
+        logger.error("Search transport failure against serving config %s: %s: %s",
+                     SERVING_CONFIG, type(e).__name__, e)
+        raise RuntimeError(
+            f"Search API error (transport) {type(e).__name__}: {e}") from e
 
     raw_count = len(result.get("results", []) or [])
     contexts = parse_search_results(result, max_chars=MAX_PASSAGE_CHARS)
