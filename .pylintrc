@@ -1,0 +1,17 @@
+# Minimal Pylint configuration — deliberately narrow.
+#
+# Only rules that are actively wrong for this codebase are disabled. Everything
+# else stays on, because a linter whose output you've learned to scroll past is
+# worth less than no linter at all.
+
+[MESSAGES CONTROL]
+# no-self-use ("Method could be a function") fires on every test method in a
+# class-based pytest suite — 247 of them across 14 files here. Grouping tests
+# into classes is how pytest expresses "these cases belong together", and the
+# methods take `self` because that is the shape pytest collects, not because
+# anyone intended to use instance state. The rule is about class design and has
+# nothing to say about a test suite.
+#
+# Upstream agrees: pylint moved no-self-use out of the default checkers in
+# 2.14. Codacy runs an older build where it is still on.
+disable=no-self-use

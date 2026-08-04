@@ -1,5 +1,7 @@
 """Unit tests for /api/chat error classification (no GCP calls)."""
 import socket
+import urllib.error
+
 import pytest
 from backend.webapp.app import create_app
 from backend.webapp.errors import classify_error, ERROR_MESSAGES
@@ -154,16 +156,18 @@ class TestChatErrors:
 
 
 # ── Search failures must classify as search failures ────────────────────────
-#
-# Found while smoke-testing production: the chat 500'd with "An unexpected
-# error occurred" on every work question. That message is the `internal`
-# catch-all — so the one thing the officer and the person debugging both
-# needed to know (policy SEARCH is what failed) was the one thing neither was
-# told. A non-HTTPError in the search path re-raised bare and matched none of
-# classify_error's patterns.
 
 class TestSearchFailureClassification:
+    """Found while smoke-testing production: the chat 500'd with "An unexpected
+    error occurred" on every work question. That message is the `internal`
+    catch-all — so the one thing the officer and the person debugging both
+    needed to know (policy SEARCH is what failed) was the one thing neither was
+    told. A non-HTTPError in the search path re-raised bare and matched none of
+    classify_error's patterns."""
+
     def test_a_transport_failure_is_reported_as_a_search_outage(self):
+        """A connection/DNS/TLS failure is a search outage, and the officer
+        should be told that rather than 'something unexpected happened'."""
         exc = RuntimeError(
             "Search API error (transport) URLError: <urlopen error [Errno -2]>")
         category, status = classify_error(exc)
@@ -172,11 +176,11 @@ class TestSearchFailureClassification:
         assert status == 500
 
     def test_an_http_search_error_still_classifies_the_same_way(self):
+        """The existing HTTPError path must be unaffected by the new wrapper."""
         assert classify_error(RuntimeError("Search API error 404"))[0] == "upstream"
 
     def test_a_bare_transport_error_would_have_been_miscategorised(self):
         """The regression this guards: unwrapped, it reads as 'internal'."""
-        import urllib.error
         assert classify_error(urllib.error.URLError("connection reset"))[0] == "internal"
 
     def test_credential_errors_keep_their_more_specific_category(self):
