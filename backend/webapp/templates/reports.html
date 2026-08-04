@@ -808,6 +808,7 @@ async function runGenerate(reporterIndex){
     if(rp.cover_letter)html+=reportBox('Cover Letter',rp.cover_letter);
     if(rp.first_person)html+=reportBox('First Person Report',rp.first_person);
     if(rp.supervisor_summary)html+=reportBox('Supervisor Summary',rp.supervisor_summary);
+    if(rp.investigation)html+=reportBox('Investigation Report',rp.investigation);
     if(rp.disciplinary)html+=reportBox('Disciplinary Supplement',rp.disciplinary);
     document.getElementById('reports').innerHTML=html;
 
@@ -1057,6 +1058,7 @@ function availableForms(d){
   const forms=[{id:'form005',label:'Incident Report 005'}];
   if(rp.cover_letter)forms.push({id:'cover',label:'Cover Letter'});
   if(rp.supervisor_summary)forms.push({id:'summary',label:'Supervisor Summary'});
+  if(rp.investigation)forms.push({id:'investigation',label:'Investigation'});
   if(rp.disciplinary)forms.push({id:'disciplinary',label:'Disciplinary'});
   return forms;
 }
@@ -1076,6 +1078,7 @@ function showForm(id){
   if(id==='form005')render005(_data);
   else if(id==='cover')renderTextPage('Cover Letter',(_data.reports||{}).cover_letter||'');
   else if(id==='summary')renderSummary(_data);
+  else if(id==='investigation')renderInvestigation(_data);
   else renderDisciplinary(_data);
 }
 
@@ -1308,6 +1311,25 @@ function renderSummary(d){
     <div class="section-title">Summary of Incident</div>
     <div class="narrative">${highlightFlags((d.reports||{}).supervisor_summary||'',flags)}</div>
     <div class="sig"><div>Prepared by ${esc(officer)}</div><div>Received — Supervisor</div></div>
+  `;
+}
+function renderInvestigation(d){
+  const m=d.form005||d.metadata||{};
+  const flags=d.flags||[];
+  const officer=m.officer_last?(m.rank?m.rank+' ':'')+m.officer_first+' '+m.officer_last:'Reporting Officer';
+  document.getElementById('preview').innerHTML=`
+    <div class="header"><div class="agency">Arkansas Department of Correction</div><h3>Investigation Report</h3></div>
+    <div class="field-row">
+      <div class="field"><label>Investigating Officer</label>${esc(officer)}</div>
+      <div class="field"><label>Date</label>${esc(fmt(m.date))}</div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Inmate(s)</label>${esc(fmt(m.inmates_involved))}</div>
+      <div class="field"><label>Location</label>${esc(fmt(m.location))}</div>
+    </div>
+    <div class="section-title">Findings</div>
+    <div class="narrative">${highlightFlags((d.reports||{}).investigation||'',flags)}</div>
+    <div class="sig"><div>Investigating Officer</div><div>Reviewed — Supervisor</div></div>
   `;
 }
 function renderDisciplinary(d){

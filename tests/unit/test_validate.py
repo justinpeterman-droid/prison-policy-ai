@@ -7,7 +7,7 @@ as [TO BE SUPPLEMENTED] markers instead of gaps.
 import pytest
 
 from backend.reports.validate import (
-    find_gaps, load_checklist, invented_facts, UNKNOWN,
+    find_gaps, load_checklist, invented_facts, investigation_occurred, UNKNOWN,
 )
 
 
@@ -210,3 +210,63 @@ def test_inmate_object_is_lowercase_mid_sentence():
     disciplinary = lines["disciplinary_action_line"]
     assert "against inmate Roe" in disciplinary
     assert "against Inmate Roe" not in disciplinary
+
+
+# ── investigation report gate (STYLE_RULINGS.md ruling 8) ───────────────────
+#
+# The 5th report type exists only when an investigation actually happened.
+# "A simple incident must not produce an empty investigation report."
+
+def test_no_investigation_signal_means_no_report():
+    for slots in ({}, {"investigation_findings": None},
+                  {"investigation_findings": []}):
+        assert investigation_occurred(slots) is False
+
+
+def test_blank_and_unknown_findings_do_not_count_as_an_investigation():
+    # UNKNOWN is the officer answering "I don't know" — not a finding.
+    assert investigation_occurred({"investigation_findings": ["  ", ""]}) is False
+    assert investigation_occurred({"investigation_findings": [UNKNOWN]}) is False
+
+
+def test_real_findings_trigger_the_report():
+    assert investigation_occurred(
+        {"investigation_findings": ["Reviewed camera footage."]}) is True
+
+
+def test_a_single_string_finding_is_accepted():
+    # Defensive: the schema asks for an array, but a model that returns one
+    # string must not silently suppress the report.
+    assert investigation_occurred(
+        {"investigation_findings": "Reviewed camera footage."}) is True
+
+
+def test_find_gaps_exposes_the_investigation_flag():
+    base = {"persons": _one_inmate()}
+    assert find_gaps("inmate_fight", base)["investigation"] is False
+    assert find_gaps("inmate_fight",
+                     {**base, "investigation_findings": ["Took a statement."]}
+                     )["investigation"] is True
+
+
+def test_ordinary_incident_is_never_asked_investigation_questions():
+    slots = {g["slot"] for g in find_gaps("inmate_fight", {"persons": _one_inmate()})["gaps"]}
+    assert not [s for s in slots if s.startswith("investigation")]
+
+
+def test_investigation_questions_appear_once_findings_exist():
+    """An empty findings list is not null, so the rules must gate on the derived
+    flag — testing `investigation_findings != null` would fire on every incident."""
+    slots = {g["slot"] for g in find_gaps(
+        "inmate_fight",
+        {"persons": _one_inmate(),
+         "investigation_findings": ["Reviewed camera footage."]})["gaps"]}
+    assert {"investigation_start_time", "investigation_end_time",
+            "investigation_disposition"} <= slots
+
+
+def test_empty_findings_list_does_not_open_the_investigation_questions():
+    slots = {g["slot"] for g in find_gaps(
+        "inmate_fight",
+        {"persons": _one_inmate(), "investigation_findings": []})["gaps"]}
+    assert not [s for s in slots if s.startswith("investigation")]

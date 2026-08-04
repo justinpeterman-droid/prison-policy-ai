@@ -47,7 +47,7 @@ prison-policy-ai/
 │   │   ├── extraction.py        # Slot extraction (Gemini, temp=0, response_schema)
 │   │   ├── schema.py            # Slot schema, response_schema builder, reporter binding
 │   │   ├── validate.py          # Gap detection, auto_content, invented_facts — NO AI
-│   │   ├── generator.py         # 4 report generators (structured facts only)
+│   │   ├── generator.py         # 5 report generators (structured facts only)
 │   │   ├── prompts.py           # Classifier prompt + charge-catalog loader
 │   │   ├── prompts_v2.py        # v2 generation prompts (never see raw notes)
 │   │   ├── name_fixer.py        # Deterministic first-mention/full-name enforcement
@@ -147,18 +147,25 @@ Field notes
   │ POST /api/reports/extract    → extraction.py (Gemini, temp=0, schema)
   ▼   structured slots → roster resolution → validate.find_gaps()
   │   officer answers the "Missing Information" gap panel
-  │ POST /api/reports/generate   → generator.py (4 reports from facts only)
+  │ POST /api/reports/generate   → generator.py (reports from facts only)
   ▼   + deterministic BMU defaults + name_fixer + invented_facts scan
   │ POST /api/reports/download   → filler.py fills 005 DOCX from reviewed metadata
   ▼   .docx download (no second LLM pass)
 ```
 
-The 7 incident categories (from `incident_checklist_v2.json`):
+The 9 incident categories (from `incident_checklist_v2.json`):
 `contraband`, `inmate_fight`, `staff_assault`, `forced_cell_movement`, `prea`,
-`incident_no_disciplinary`, `other_rule_violation`.
+`incident_no_disciplinary`, `use_of_force`, `medical_emergency`,
+`other_rule_violation`. **Nine places hardcode this list** — `VALID_CATEGORIES`,
+the classifier response-schema enum, the classifier prompt, the checklist JSON,
+the BMU-convention sets in `routes/reports.py`, the `reports.html` dropdown and
+label map, and two parity tests. They move together or classification breaks;
+`tests/unit/test_classifier_schema.py` fails on a partial change.
 
-The four generated report types: `first_person` (the 005 narrative),
-`supervisor_summary`, `cover_letter`, and `disciplinary` (only when charges exist).
+The generated report types: `first_person` (the 005 narrative),
+`supervisor_summary`, `cover_letter`, `disciplinary` (only when charges exist),
+and `investigation` (only when the notes show an investigation actually happened
+— gated by `validate.investigation_occurred()`, never by the model's judgement).
 
 ### Anti-fabrication is the whole point — do not weaken it
 

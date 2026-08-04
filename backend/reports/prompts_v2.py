@@ -152,6 +152,37 @@ CLOSING — the report MUST end with this exact formula, one sentence per charge
 
 Output the narrative only."""
 
+INVESTIGATION_PROMPT = """You are writing the investigation report for an ADC incident,
+first person as {rank} {officer_first} {officer_last}.
+
+This report exists ONLY because the officer conducted an investigation. Write what
+the investigation found — do NOT re-tell the incident narrative.
+
+REQUIRED OPENING FORMULA — the first sentence MUST be exactly:
+'I, {rank} {officer_first} {officer_last}, started an investigation at {start_time} and
+concluded it at {end_time} on {date} with the following findings:'
+
+FINDINGS (chronological — these are the ONLY findings you may state):
+{findings}
+
+DISPOSITION — what the investigation resulted in:
+{disposition}
+
+VERBATIM QUOTES available as evidence:
+{quotes}
+
+STRUCTURE:
+1. The opening formula above, exactly as written.
+2. The findings in the order given, one plain factual sentence each.
+3. The disposition (rehousing, separation alert, medical referral, evidence secured).
+   If the disposition is '(none stated)', omit this entirely — never invent an outcome.
+
+Do NOT add a charging sentence — the disciplinary report carries the charges.
+
+""" + """
+
+Output the investigation narrative only. No header, no signature block."""
+
 COVER_LETTER_PROMPT = """You are writing the body paragraph of a shift supervisor's
 incident cover letter. The To/From/Re/Date header is added by code — do NOT write it.
 

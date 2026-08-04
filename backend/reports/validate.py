@@ -75,9 +75,21 @@ def _options_for(rule: dict, checklist: dict) -> list[str] | None:
     return list(opts) + [OTHER_OPTION]
 
 
+def _derived_flags(slots: dict) -> dict:
+    """Facts the rule conditions need that aren't slots the officer fills in.
+
+    The condition language compares a slot against null/true/a literal, so a
+    list-valued slot can't be tested directly — an empty `investigation_findings`
+    list is not null, and `str([])` is not "true". Deriving a plain marker here
+    keeps the condition language small instead of teaching it about lists.
+    """
+    return {"investigation_occurred": "yes" if investigation_occurred(slots) else None}
+
+
 def _active_rules(category: dict, checklist: dict, slots: dict) -> list[dict]:
     rules = checklist.get("universal_rules", []) + category.get("rules", [])
-    return [r for r in rules if _condition_met(r.get("if", "always"), slots)]
+    scope = {**slots, **_derived_flags(slots)}
+    return [r for r in rules if _condition_met(r.get("if", "always"), scope)]
 
 
 def find_gaps(category_name: str, slots: dict) -> dict:
@@ -122,8 +134,30 @@ def find_gaps(category_name: str, slots: dict) -> dict:
                     for m in markers],
         "checklist": _checklist_state(category, slots),
         "auto_content": _resolve_auto_content(
-            category, {**slots, **_inmate_phrases(slots)}, checklist),
+            category,
+            {**slots, **_inmate_phrases(slots), **_derived_flags(slots)},
+            checklist),
+        "investigation": investigation_occurred(slots),
     }
+
+
+def investigation_occurred(slots: dict) -> bool:
+    """Did the notes describe an actual investigation? (STYLE_RULINGS.md ruling 8)
+
+    The 5th report type is generated only when there is something to put in it.
+    Findings are the signal: extraction returns them only when the notes show
+    statements taken, footage reviewed, or conclusions reached — so an ordinary
+    incident produces no findings and therefore no empty investigation report.
+
+    Deliberately NOT a judgement call by the generator. This is the same
+    contract as every other slot: the officer's notes decide, not the model.
+    """
+    findings = slots.get("investigation_findings")
+    if isinstance(findings, str):
+        findings = [findings]
+    return bool([f for f in (findings or [])
+                 if isinstance(f, str) and f.strip()
+                 and f.strip().upper() != UNKNOWN])
 
 
 def _checklist_state(category: dict, slots: dict) -> list[dict]:

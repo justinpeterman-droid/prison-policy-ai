@@ -76,6 +76,30 @@
       "answer_type": "choice",
       "options_ref": "drug_test_disposition",
       "blocking": false
+    },
+    {
+      "id": "investigation_start_time",
+      "if": "investigation_occurred != null",
+      "require": "investigation_start_time",
+      "question": "What time did you start the investigation?",
+      "answer_type": "text",
+      "blocking": true
+    },
+    {
+      "id": "investigation_end_time",
+      "if": "investigation_occurred != null",
+      "require": "investigation_end_time",
+      "question": "What time did you conclude the investigation?",
+      "answer_type": "text",
+      "blocking": true
+    },
+    {
+      "id": "investigation_disposition",
+      "if": "investigation_occurred != null",
+      "require": "investigation_disposition",
+      "question": "What did the investigation result in? (rehousing, separation alert, medical referral, evidence secured)",
+      "answer_type": "text",
+      "blocking": false
     }
   ],
   "universal_auto_content": [
