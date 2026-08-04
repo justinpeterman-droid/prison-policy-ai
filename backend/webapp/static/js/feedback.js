@@ -44,20 +44,24 @@ document.addEventListener('DOMContentLoaded', () => {
             font-size: 14px;
             color: #fff;
         }
-        #feedback-textarea {
+        #feedback-textarea,
+        #feedback-name {
             width: 100%;
-            height: 80px;
             background: rgba(0,0,0,0.2);
             border: 1px solid rgba(255, 255, 255, 0.2);
             color: #fff;
             padding: 8px;
             border-radius: 4px;
             font-size: 13px;
-            resize: none;
             box-sizing: border-box;
             margin-bottom: 10px;
         }
-        #feedback-textarea:focus {
+        #feedback-textarea {
+            height: 80px;
+            resize: none;
+        }
+        #feedback-textarea:focus,
+        #feedback-name:focus {
             outline: none;
             border-color: rgba(255, 255, 255, 0.4);
         }
@@ -102,8 +106,9 @@ document.addEventListener('DOMContentLoaded', () => {
     widget.innerHTML = `
         <div id="feedback-toggle">💬 Feedback</div>
         <div id="feedback-form-container">
-            <h4>Suggest an Improvement</h4>
-            <textarea id="feedback-textarea" placeholder="What could be better on this page?"></textarea>
+            <h4>Report a bug or suggest an improvement</h4>
+            <textarea id="feedback-textarea" placeholder="What went wrong, or what could be better on this page?"></textarea>
+            <input id="feedback-name" type="text" maxlength="120" placeholder="Your name (optional)" autocomplete="name" />
             <div class="feedback-buttons">
                 <button id="feedback-cancel">Cancel</button>
                 <button id="feedback-submit">Submit</button>
@@ -119,7 +124,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelBtn = document.getElementById('feedback-cancel');
     const submitBtn = document.getElementById('feedback-submit');
     const textarea = document.getElementById('feedback-textarea');
+    const nameInput = document.getElementById('feedback-name');
     const status = document.getElementById('feedback-status');
+
+    // Auto-collected environment context to make bug reports reproducible.
+    function collectContext() {
+        return {
+            pageTitle: document.title || '',
+            userAgent: navigator.userAgent || '',
+            viewport: `${window.innerWidth}×${window.innerHeight}`,
+            screen: `${window.screen.width}×${window.screen.height}`,
+            referrer: document.referrer || '',
+            language: navigator.language || ''
+        };
+    }
 
     toggle.addEventListener('click', () => {
         const isVisible = formContainer.style.display === 'block';
@@ -135,6 +153,18 @@ document.addEventListener('DOMContentLoaded', () => {
         textarea.value = '';
     });
 
+    // Strip the shared access code from a bookmarked URL before it leaves the
+    // browser (the server strips it too — belt and suspenders).
+    function currentUrl() {
+        try {
+            const u = new URL(window.location.href);
+            ['code', 'access_code', 'token'].forEach(k => u.searchParams.delete(k));
+            return u.toString();
+        } catch (e) {
+            return window.location.href;
+        }
+    }
+
     submitBtn.addEventListener('click', async () => {
         const text = textarea.value.trim();
         if (!text) return;
@@ -149,7 +179,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     comment: text,
-                    url: window.location.href
+                    name: nameInput.value.trim(),
+                    url: currentUrl(),
+                    context: collectContext()
                 })
             });
 
@@ -158,6 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => {
                     formContainer.style.display = 'none';
                     textarea.value = '';
+                    nameInput.value = '';
                     submitBtn.disabled = false;
                     status.style.display = 'none';
                 }, 2000);

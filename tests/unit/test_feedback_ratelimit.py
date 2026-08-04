@@ -49,3 +49,72 @@ def test_keys_are_independent():
         feedback._rate_limited("1.1.1.1", now=1000 + i, max_hits=5, window=600)
     # A different client is unaffected by the first client's quota.
     assert feedback._rate_limited("2.2.2.2", now=1005, max_hits=5, window=600) is False
+
+
+# ── URL sanitization ──────────────────────────────────────────────
+
+def test_sanitize_url_strips_access_code():
+    out = feedback._sanitize_url("https://x.app/reports?code=slut&tab=1")
+    assert "code=slut" not in out
+    assert "code" not in out
+    assert "tab=1" in out
+
+
+def test_sanitize_url_strips_case_insensitively():
+    out = feedback._sanitize_url("https://x.app/chat?CODE=slut&Token=abc")
+    assert "slut" not in out
+    assert "abc" not in out
+
+
+def test_sanitize_url_keeps_clean_url_untouched():
+    assert feedback._sanitize_url("https://x.app/reports") == "https://x.app/reports"
+
+
+def test_sanitize_url_handles_blank():
+    assert feedback._sanitize_url("") == "unknown page"
+    assert feedback._sanitize_url("   ") == "unknown page"
+
+
+# ── Field cleaning ────────────────────────────────────────────────
+
+def test_clean_field_flattens_and_escapes():
+    out = feedback._clean_field("line1\nline2 | col", 500)
+    assert "\n" not in out
+    assert "\\|" in out
+
+
+def test_clean_field_truncates():
+    out = feedback._clean_field("a" * 100, 10)
+    assert out == "a" * 10 + "…"
+
+
+def test_clean_field_rejects_non_strings():
+    assert feedback._clean_field(None, 10) == ""
+    assert feedback._clean_field({"x": 1}, 10) == ""
+
+
+# ── Issue body ────────────────────────────────────────────────────
+
+def test_build_issue_body_includes_reporter_and_context():
+    body = feedback._build_issue_body(
+        "It broke", "https://x.app/reports", "Sgt Smith",
+        {"userAgent": "Firefox", "viewport": "800×600"},
+    )
+    assert "Sgt Smith" in body
+    assert "It broke" in body
+    assert "Browser context" in body
+    assert "Firefox" in body
+
+
+def test_build_issue_body_anonymous_without_name():
+    body = feedback._build_issue_body("hi", "https://x.app", "", {})
+    assert "anonymous" in body
+    # No context table when nothing usable was supplied.
+    assert "Browser context" not in body
+
+
+def test_build_issue_body_ignores_unknown_context_keys():
+    body = feedback._build_issue_body(
+        "hi", "https://x.app", "", {"evil": "injected"},
+    )
+    assert "injected" not in body
