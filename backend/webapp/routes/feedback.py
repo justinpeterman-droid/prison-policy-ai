@@ -5,6 +5,7 @@ import logging
 import time
 import urllib.request
 import urllib.error
+import urllib.parse
 from collections import defaultdict
 from threading import Lock
 
@@ -22,6 +23,30 @@ RATE_LIMIT_MAX = 5           # submissions...
 RATE_LIMIT_WINDOW = 600      # ...per 10 minutes, per client
 _hits: dict[str, list[float]] = defaultdict(list)
 _hits_lock = Lock()
+
+# ── Payload limits ────────────────────────────────────────────────
+# Bound what we accept so a huge or malformed payload can't create an
+# unwieldy issue (the front-end maps 413 to a "shorten it" message).
+MAX_COMMENT_LEN = 5000       # feedback body
+MAX_NAME_LEN = 120           # optional reporter name
+MAX_URL_LEN = 2000           # page URL
+MAX_CONTEXT_VALUE_LEN = 500  # per browser-context field
+
+# Query params stripped from the reported URL before it ever leaves the
+# server — the shared access code rides along in `?code=…` bookmarks and
+# must not be written into a GitHub issue.
+_SENSITIVE_QUERY_KEYS = {"code", "access_code", "token"}
+
+# Browser-context fields the client may send. Whitelisted so the issue body
+# only ever renders known keys, never arbitrary attacker-supplied labels.
+_CONTEXT_FIELDS = {
+    "pageTitle": "Page title",
+    "userAgent": "User agent",
+    "viewport": "Viewport",
+    "screen": "Screen",
+    "referrer": "Referrer",
+    "language": "Language",
+}
 
 
 def _rate_limited(key: str, now: float | None = None,
@@ -52,14 +77,87 @@ def _client_key() -> str:
     return request.remote_addr or "unknown"
 
 
+def _sanitize_url(url: str) -> str:
+    """Strip the shared access code (and other secrets) from a page URL.
+
+    A URL bookmarked as `…/reports?code=slut` would otherwise leak the access
+    code into a GitHub issue. Pure/deterministic — unit tested without Flask.
+    """
+    url = (url or "").strip()
+    if not url:
+        return "unknown page"
+    try:
+        parts = urllib.parse.urlsplit(url)
+    except ValueError:
+        return "unknown page"
+    if not parts.query:
+        return url
+    kept = [(k, v) for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+            if k.lower() not in _SENSITIVE_QUERY_KEYS]
+    cleaned = urllib.parse.urlencode(kept)
+    return urllib.parse.urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, cleaned, parts.fragment)
+    )
+
+
+def _clean_field(value, max_len: int) -> str:
+    """Coerce a client-supplied value to a bounded, single-line string.
+
+    Collapses newlines and trims length so context values can't break out of
+    the Markdown table or blow up the issue body.
+    """
+    if not isinstance(value, str):
+        return ""
+    value = value.replace("\r", " ").replace("\n", " ").replace("|", "\\|").strip()
+    if len(value) > max_len:
+        value = value[:max_len] + "…"
+    return value
+
+
+def _build_issue_body(feedback_text: str, page_url: str,
+                      name: str, context: dict) -> str:
+    """Assemble the Markdown issue body. Pure — unit tested without network."""
+    reporter = f" from **{name}**" if name else ""
+    lines = [
+        f"**Page:** `{page_url}`",
+        f"**Reported by:**{reporter or ' (anonymous)'}",
+        "",
+        "**Feedback / bug report:**",
+        feedback_text,
+    ]
+
+    rows = []
+    for key, label in _CONTEXT_FIELDS.items():
+        val = _clean_field((context or {}).get(key, ""), MAX_CONTEXT_VALUE_LEN)
+        if val:
+            rows.append(f"| {label} | {val} |")
+    if rows:
+        lines += [
+            "",
+            "<details><summary>Browser context</summary>",
+            "",
+            "| Field | Value |",
+            "| --- | --- |",
+            *rows,
+            "",
+            "</details>",
+        ]
+    return "\n".join(lines)
+
+
 @feedback_bp.route("/api/feedback", methods=["POST"])
 def feedback_api():
     data = request.get_json(silent=True) or {}
     feedback_text = data.get("comment", "").strip()
-    page_url = data.get("url", "unknown page")
+    page_url = _sanitize_url(data.get("url", ""))
+    name = _clean_field(data.get("name", ""), MAX_NAME_LEN)
+    context = data.get("context") if isinstance(data.get("context"), dict) else {}
 
     if not feedback_text:
         return jsonify({"error": "No feedback provided"}), 400
+
+    if len(feedback_text) > MAX_COMMENT_LEN or len(page_url) > MAX_URL_LEN:
+        return jsonify({"error": "Feedback is too long. Please shorten it."}), 413
 
     if _rate_limited(_client_key()):
         logger.warning("Feedback rate limit hit")
@@ -74,22 +172,21 @@ def feedback_api():
 
     repo = "justinpeterman-droid/prison-policy-ai"
     api_url = f"https://api.github.com/repos/{repo}/issues"
-    
-    # Format the issue body (real newlines — GitHub renders Markdown)
+
     issue_title = f"User Feedback from {page_url}"
-    issue_body = f"**Page:** `{page_url}`\n\n**Feedback/Improvement:**\n{feedback_text}"
-    
+    issue_body = _build_issue_body(feedback_text, page_url, name, context)
+
     payload = json.dumps({
         "title": issue_title,
         "body": issue_body,
         "labels": ["feedback"]
     }).encode("utf-8")
-    
+
     req = urllib.request.Request(api_url, data=payload, method="POST")
     req.add_header("Authorization", f"Bearer {github_token}")
     req.add_header("Accept", "application/vnd.github+json")
     req.add_header("Content-Type", "application/json")
-    
+
     try:
         with urllib.request.urlopen(req) as response:
             res_data = json.loads(response.read().decode("utf-8"))
