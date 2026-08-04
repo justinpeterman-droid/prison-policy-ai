@@ -18,6 +18,10 @@ No style change ships without a ruling recorded here first.
 | 8 | Investigation reports | **yes — 5th generated type**, only when an investigation actually happened | 4 types | build |
 | 9 | `use_of_force` category | **yes — add it**; ticks **both** 005 and 409 boxes | not a category | build |
 | 10 | `medical_emergency` category | **yes — add it**; takes precedence over `incident_no_disciplinary` | not a category | build |
+| ✅ 11 | Narrative time format | **`9:50 pm`** — space before am/pm, lowercase | matches | keep |
+| ✅ 12 | 005 form time field | **`APX. 9:50 PM`** — the form keeps its own style, deliberately unlike the narrative | matches | keep |
+| ✅ 13 | Statement closer | **none** — the narrative ends on its last factual sentence | added none | keep |
+| ✅ 14 | Ticked-box mark | **`X`** | no boxes ticked | build |
 
 ## Detail
 
@@ -134,13 +138,38 @@ follow-up gap questions (start time, end time, disposition) are gated the same
 way, so a routine incident is never interrogated about an investigation it never
 had.
 
-### Not yet done
+### The 005/409 designation boxes
 
-Ruling 9 says the 005 header ticks **both** the 005 and 409 boxes. The category
-and its gap questions ship, but `filler.py` does not tick either box — the two
-checkbox cells in `005_template_v3.docx` carry no `{{placeholder}}`, so the
-template itself needs editing first. Neither box is ticked on any generated 005
-today, which predates this work.
+Ruling 9 says the 005 header ticks **both** the 005 and 409 boxes for a use of
+force. `filler.designation_boxes(category)` decides; `scripts/add_form_designation_boxes.py`
+added the two `{{box_*}}` placeholders to `005_template_v3.docx` (one-shot, already
+run and committed).
+
+Every incident report ticks the 005 box — it *is* a 005. Only `use_of_force`
+additionally ticks the 409. The officer can toggle either box on the reviewed
+form before downloading, and an explicitly unticked box stays unticked: the
+download fills from what was on screen, so `""` means "unticked", not "unset".
+
+---
+
+## Rulings 11–14 — detail
+
+### 11. Narrative time: `9:50 pm`
+Space before `am`/`pm`, lowercase. `_to_12h()` in `routes/reports.py` normalizes
+every time to this, and `prompts_v2.py` tells the model to use it verbatim.
+
+### 12. 005 form time: `APX. 9:50 PM`
+The form field keeps a style of its own, deliberately unlike the narrative —
+uppercase, with the `APX.` prefix. Rendered by `_to_form_time()`.
+
+### 13. No statement closer
+`End of report.` / `End of Statement.` / `Disciplinary action taken.` all appear
+in the archive, each an individual officer's habit. Per ruling 7 (one house
+style) the generated reports carry **none** — the narrative ends on its last
+factual sentence. `prompts_v2.py` forbids adding one.
+
+### 14. A ticked box is `X`
+Applies to the 005/409 designation boxes in the header. `filler.TICK`.
 
 ---
 
@@ -148,7 +177,4 @@ today, which predates this work.
 
 | Question | Options seen | Status |
 |---|---|---|
-| Narrative time format | `7:15pm` / `9:12 pm` / `11:45AM` | code does `7:15pm`; unconfirmed |
-| 005 form time format | `APX. 9:50 PM` (differs from narrative) | unconfirmed |
-| Statement closer | `End of report.` / `End of Statement.` / `Disciplinary action taken.` | unconfirmed |
 | 005 continuation page for long narratives | form exists, filler has no support | unconfirmed |
