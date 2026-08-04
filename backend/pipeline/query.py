@@ -146,6 +146,46 @@ _WEAK_WORK_TERMS = [
 _STRONG_WORK = [re.compile(rf"\b{re.escape(t)}\b") for t in _STRONG_WORK_TERMS]
 _WEAK_WORK = [re.compile(rf"\b{re.escape(t)}\b") for t in _WEAK_WORK_TERMS]
 
+_OFF_TOPIC_TERMS = [
+    "write a poem", "tell me a joke", "recipe for", "how to cook",
+    "weather today", "who won the", "sports score", "movie review",
+    "stock price", "crypto", "bitcoin", "python code", "javascript",
+    "write code", "debug this", "explain quantum", "who is the president",
+    "what's your name", "how are you", "sing a song", "make me a",
+    "generate a", "draw a", "translate to",
+]
+
+
+def classify_by_keyword(question: str) -> bool | None:
+    """The gate's deterministic path. True = work, False = off-topic,
+    None = undecided (the caller should ask the model).
+
+    Public and side-effect-free so it can be tested directly. It used to be
+    inline in `_classify_query`, which meant a test could only re-implement the
+    rules — and a re-implementation passes happily while the real gate drifts
+    away from it.
+    """
+    q = (question or "").lower().strip()
+    if not q:
+        return None
+    if any(term in q for term in _OFF_TOPIC_TERMS):
+        return False
+    if any(p.search(q) for p in _STRONG_WORK):
+        return True
+    # Generic words mean nothing alone ("write me a report about my dog");
+    # two or more together are a real signal ("report a medical emergency").
+    if sum(1 for p in _WEAK_WORK if p.search(q)) >= 2:
+        return True
+    return None
+
+
+def is_short_followup(question: str, history: list | None) -> bool:
+    """A brief question inside an existing conversation is on-topic by
+    construction — the gate already passed the turn it refers to."""
+    if not history:
+        return False
+    return 0 < len((question or "").split()) <= FOLLOWUP_MAX_WORDS
+
 
 def _http_error_hint(code: int) -> str:
     """Plain-language cause for the search failures that actually happen.
@@ -199,37 +239,15 @@ def _classify_query(question: str, history: list[dict] | None = None) -> bool:
     at work in the middle of a policy conversation they are already having.
     A follow-up to an on-topic exchange is on-topic.
     """
-    question_lower = question.lower().strip()
-
-    # A short follow-up inside an existing policy conversation is on-topic by
-    # construction — the gate already passed the turn it refers to.
-    if history and len(question_lower.split()) <= FOLLOWUP_MAX_WORDS:
+    if is_short_followup(question, history):
         logger.debug("Gate: short follow-up within an active conversation")
         return True
 
-    # Fast keyword pre-check: obviously off-topic → reject immediately
-    off_topic_patterns = [
-        "write a poem", "tell me a joke", "recipe for", "how to cook",
-        "weather today", "who won the", "sports score", "movie review",
-        "stock price", "crypto", "bitcoin", "python code", "javascript",
-        "write code", "debug this", "explain quantum", "who is the president",
-        "what's your name", "how are you", "sing a song", "make me a",
-        "generate a", "draw a", "translate to",
-    ]
-    for pat in off_topic_patterns:
-        if pat in question_lower:
-            logger.debug("Gate rejected by keyword match")
-            return False
-
-    # Unambiguous corrections vocabulary → accept immediately.
-    if any(p.search(question_lower) for p in _STRONG_WORK):
-        return True
-
-    # Generic words that are only a work signal in context. One on its own means
-    # nothing ("write me a report about my dog", "how do I count cards"); two or
-    # more together is a real signal ("how do I report a medical emergency").
-    if sum(1 for p in _WEAK_WORK if p.search(question_lower)) >= 2:
-        return True
+    verdict = classify_by_keyword(question)
+    if verdict is not None:
+        logger.debug("Gate decided by keyword: %s",
+                     "WORK" if verdict else "OFF_TOPIC")
+        return verdict
 
     # Ambiguous — use Gemini classifier
     try:

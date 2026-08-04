@@ -26,18 +26,12 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+# The real function, not a re-implementation of it. An earlier version of this
+# file replayed the gate's rules inline — which passes happily while the gate
+# itself drifts away from the copy.
 def _keyword_verdict(question: str) -> str | None:
-    """Replay the gate's deterministic path.
-
-    Returns "work", "off_topic", or None when the question would fall through
-    to the LLM classifier.
-    """
-    ql = question.lower().strip()
-    if any(p.search(ql) for p in query._STRONG_WORK):
-        return "work"
-    if sum(1 for p in query._WEAK_WORK if p.search(ql)) >= 2:
-        return "work"
-    return None
+    verdict = query.classify_by_keyword(question)
+    return None if verdict is None else ("work" if verdict else "off_topic")
 
 
 class TestOverAcceptance:
@@ -112,6 +106,37 @@ class TestFollowUps:
 
     def test_no_history_means_no_shortcut(self):
         assert _keyword_verdict("and if he refuses?") is None
+
+
+class TestOffTopicKeywords:
+    @pytest.mark.parametrize("question", [
+        "write a poem about my dog", "tell me a joke", "give me a recipe for chili",
+        "who won the game last night", "write code to sort a list",
+    ])
+    def test_obvious_off_topic_is_rejected_outright(self, question):
+        assert query.classify_by_keyword(question) is False
+
+    def test_an_empty_question_is_undecided(self):
+        assert query.classify_by_keyword("") is None
+        assert query.classify_by_keyword(None) is None
+
+
+class TestShortFollowup:
+    HISTORY = [{"question": "When am I authorized to use force?", "answer": "..."}]
+
+    def test_no_history_is_never_a_followup(self):
+        assert query.is_short_followup("and if he refuses?", None) is False
+        assert query.is_short_followup("and if he refuses?", []) is False
+
+    def test_short_question_with_history_is_a_followup(self):
+        assert query.is_short_followup("and if he refuses?", self.HISTORY) is True
+
+    def test_a_long_question_is_not(self):
+        long_q = " ".join(["tell me about the history of pizza in italy"] * 3)
+        assert query.is_short_followup(long_q, self.HISTORY) is False
+
+    def test_an_empty_question_is_not_a_followup(self):
+        assert query.is_short_followup("", self.HISTORY) is False
 
 
 class TestConfig:
