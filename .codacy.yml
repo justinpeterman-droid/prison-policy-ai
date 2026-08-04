@@ -1,0 +1,17 @@
+# Codacy Analysis CLI project configuration.
+#
+# The CLI's SARIF formatter re-reads every file with a finding as UTF-8 text
+# to quote the offending line. Binary files aren't valid UTF-8 at all, so any
+# finding that lands inside one crashes the whole scan with:
+#
+#   java.nio.charset.MalformedInputException: Input length = 1
+#     at com.codacy.analysis.cli.formatter.Sarif.createResults
+#
+# (the codacy.yml workflow's UTF-8 locale pin fixes non-ASCII *text*, but
+# can't help with genuinely binary content.) Exclude the binary assets in
+# this repo from analysis so they can't trigger that crash.
+exclude_paths:
+  - "templates/*.docx"
+  - "officer-training/*.docx"
+  - "backend/webapp/static/fonts/*"
+  - "backend/webapp/static/*.pdf"
