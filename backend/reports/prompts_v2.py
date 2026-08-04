@@ -7,10 +7,14 @@ rendered by code from slots — the model writes narrative prose ONLY.
 """
 
 STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
+- ADC numbers are written with a space after the hash: 'ADC# 123456'
+  (never 'ADC#123456').
+- The word 'inmate' is LOWERCASE mid-sentence ('...escorted inmate Smith
+  to the infirmary.'), and capitalized only when it starts a sentence.
 - EVERY first mention of ANY person in the narrative MUST use the full introduction form.
   There are NO exceptions — never start with a bare last name on first mention.
-  * INMATE first mention:  'Inmate {{Last}}, {{First}} ADC#{{number}}'  (Last, First + ADC#)
-    - If first name is unknown: 'Inmate {{Last}} ADC#{{number}}'
+  * INMATE first mention:  'Inmate {{Last}}, {{First}} ADC# {{number}}'  (Last, First + ADC#)
+    - If first name is unknown: 'Inmate {{Last}} ADC# {{number}}'
     - If ADC# is unknown: 'Inmate {{Last}}, {{First}}'
     - If both unknown: 'Inmate {{Last}}'  (only when both first and ADC# truly unavailable)
   * STAFF first mention:   '{{Rank}} {{First}} {{Last}}'  (Cpl. / Sgt. / Lt. / Cpt.)
@@ -24,16 +28,17 @@ STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
 - Staff: '{{Rank}} {{First}} {{Last}}' on FIRST reference (Cpl. / Sgt. / Lt. / Cpt.),
   then '{{Rank}} {{Last}}' on all later references. NEVER a bare last name for staff
   on first mention — always include the rank and first name.
-- The FIRST time any person is named, ALWAYS give the full form: {{Last}}, {{First}} ADC#{{number}}
+- The FIRST time any person is named, ALWAYS give the full form: {{Last}}, {{First}} ADC# {{number}}
   for inmates; {{Rank}} {{First}} {{Last}} for staff. Never use a bare last name on first
   mention. Every later mention uses the short form ({{Last}} only for inmates; {{Rank}} {{Last}} for staff).
-- Times: 'approximately {{H:MM}}{{am/pm}}' (lowercase, no space). Use the exact time
-  from the facts — if the notes say '~10pm', write 'approximately 10:00pm'.
+- Times: 'approximately {{H:MM}} {{am/pm}}' (lowercase, WITH a space before am/pm). Use the exact time
+  from the facts — if the notes say '~10pm', write 'approximately 10:00 pm'.
 - Dates: write the date EXACTLY as provided in the header (do NOT reformat it).
   If the header date is 'July 21, 2026', use 'July 21, 2026'. Follow the format
   the officer provided.
 - Chronological order. Past tense. One action per sentence. Objective and factual.
-- Rank abbreviations: Sgt, Cpl, Lt, Cpt. NEVER use a period after a rank (not \"Sgt.\", \"Cpl.\", etc.).
+- Rank abbreviations ALWAYS keep the period: Sgt. / Cpl. / Lt. / Cpt.
+- Spell the rank out in full on a person's FIRST mention ('Sergeant John Smith'), then abbreviate on every later mention ('Sgt. Smith').
 - NEVER use ampersands (&) in formal reports — always write \"and\" between names.
 - \"applied hand restraints to\" (not \"placed hand restraints onto\").
 - The reporting officer identifies himself ONCE ('I, {{Rank}} {{First}} {{Last}},')
@@ -58,7 +63,7 @@ STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
   report.
 - If an inmate's first name is unknown, refer to him as 'Inmate {{Last}}' only. NEVER
   write 'None', 'Unknown', or a placeholder in place of a name.
-- Times are already provided in 12-hour form (e.g. '10:00pm') — use them exactly as
+- Times are already provided in 12-hour form (e.g. '10:00 pm') — use them exactly as
   given; never restate a time in 24-hour form.
 - Never output a bracketed placeholder such as [incident number] or [name]. If a value
   is genuinely missing, omit that clause entirely rather than inventing a placeholder.
@@ -98,7 +103,7 @@ REQUIRED SENTENCES (insert verbatim, chronologically placed):
 {auto_content}
 
 PER-INMATE DISPOSITION — after the narrative, add one line per inmate:
-'Inmate {{Last}}, {{First}} ADC#{{number}} was [placed in restrictive housing / released to barracks / transferred to medical / etc.].'
+'Inmate {{Last}}, {{First}} ADC# {{number}} was [placed in restrictive housing / released to barracks / transferred to medical / etc.].'
 Different inmates may have different outcomes — state each individually. ALWAYS use the full
 Last, First ADC# form in the disposition line since it is the final reference for the record.
 
@@ -141,7 +146,7 @@ CHARGES to bring: {charges}
 
 CLOSING — the report MUST end with this exact formula, one sentence per charged inmate
 (EVERY inmate MUST be named Last, First ADC# in full since this is their final reference):
-'Due to the above stated facts I, {rank} {officer_first} {officer_last}, am charging Inmate {{Last}}, {{First}} ADC#{{number}} with rule violation {{codes}}. Pending DCR.'
+'Due to the above stated facts I, {rank} {officer_first} {officer_last}, am charging Inmate {{Last}}, {{First}} ADC# {{number}} with rule violation {{codes}}. Pending DCR.'
 
 """ + """
 

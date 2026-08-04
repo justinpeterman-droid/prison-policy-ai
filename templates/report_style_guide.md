@@ -1,15 +1,21 @@
 # BMU (Benny Magness Unit) Report Writing Style Guide
+
+> ⚠️ `templates/gold_reports/STYLE_RULINGS.md` is AUTHORITATIVE over this file.
+> Where they disagree, the rulings win.
 Extracted from Sgt. Peterman's actual reports (2023–2024). These formulas are injected
 into generation prompts and enforced by post-generation checks. All names/ADC numbers
 below are placeholders — no real identities in this file.
 
 ## Naming conventions (ALWAYS, no exceptions)
-- Inmates: `Inmate {Last}, {First} ADC#{number}` — e.g., "Inmate Doe, John ADC#123456"
-  - After first full reference, may shorten to `Inmate {Last}`
-- Staff: `{Rank abbrev.} {First} {Last}` — Cpl. / Sgt. / Lt. / Cpt.
+- Inmates: `inmate {Last}, {First} ADC# {number}` — e.g., "inmate Doe, John ADC# 123456"
+  - Lowercase `inmate` mid-sentence; capitalized only at the start of a sentence
+  - After first full reference, shorten to `inmate {Last}`
+- Staff: rank spelled out in full on FIRST mention (`Sergeant John Smith`),
+  abbreviated WITH its period afterwards (`Sgt. Smith`) — Cpl. / Sgt. / Lt. / Cpt.
   - Reporting officer refers to self as `I, {Rank} {First} {Last},` on first reference,
     then "I" afterward
-- Times: `approximately {H:MM}{am/pm}` (lowercase am/pm, no space)
+- Times: `approximately {H:MM} {am/pm}` (lowercase am/pm, WITH a space)
+  - The 005 form's TIME box uses its own convention: `APX. 9:50 PM`
 - Dates: as written by officer (M/D/YYYY or M-D-YY both appear; do not reformat)
 
 ## First-person report structure

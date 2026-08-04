@@ -29,12 +29,12 @@ pytestmark = pytest.mark.skipif(
 
 class TestTo12h:
     @pytest.mark.parametrize("raw,expected", [
-        ("2200", "10:00pm"),
-        ("0930", "9:30am"),
-        ("13:00", "1:00pm"),
-        ("22:00", "10:00pm"),
-        ("10:00 PM", "10:00pm"),
-        ("approximately 10:42pm", "10:42pm"),
+        ("2200", "10:00 pm"),
+        ("0930", "9:30 am"),
+        ("13:00", "1:00 pm"),
+        ("22:00", "10:00 pm"),
+        ("10:00 PM", "10:00 pm"),
+        ("approximately 10:42pm", "10:42 pm"),
     ])
     def test_normalizes_to_12_hour(self, raw, expected):
         assert reports._to_12h(raw) == expected
@@ -48,9 +48,9 @@ class TestTo12h:
 
 class TestValidateAndCleanTime:
     @pytest.mark.parametrize("raw,expected", [
-        ("2200", ("10:00pm", True)),
-        ("1422", ("2:22pm", True)),
-        ("7:22AAm", ("7:22am", True)),   # double-suffix typo, recovered
+        ("2200", ("10:00 pm", True)),
+        ("1422", ("2:22 pm", True)),
+        ("7:22AAm", ("7:22 am", True)),   # double-suffix typo, recovered
     ])
     def test_recoverable_inputs_are_cleaned(self, raw, expected):
         assert reports._validate_and_clean_time(raw) == expected
@@ -131,3 +131,24 @@ class TestNormalizeLocation:
 
     def test_returns_string_for_arbitrary_input(self):
         assert isinstance(reports._normalize_location("somewhere unmapped"), str)
+
+
+class TestStyleRulings:
+    """Conformance with templates/gold_reports/STYLE_RULINGS.md."""
+
+    def test_ruling_12_narrative_time_has_a_space(self):
+        assert reports._to_12h("2200") == "10:00 pm"
+        assert reports._to_12h("0930") == "9:30 am"
+
+    def test_ruling_13_form_time_uses_the_form_convention(self):
+        # The 005 TIME box differs from the narrative on purpose.
+        assert reports._to_form_time("2150") == "APX. 9:50 PM"
+        assert reports._to_form_time("9:50pm") == "APX. 9:50 PM"
+
+    def test_ruling_13_unparseable_form_time_passes_through(self):
+        assert reports._to_form_time("noon") == "noon"
+        assert reports._to_form_time("") == ""
+
+    def test_ruling_1_and_3_form_constants(self):
+        assert reports.MSF_REFERENCE == "MSF 205"
+        assert reports.SEE_ABOVE == "Same as above"

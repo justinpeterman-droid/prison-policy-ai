@@ -17,18 +17,18 @@ def _inmate_full(person: dict) -> str:
     first = (person.get("first") or "").strip()
     adc = (person.get("adc_number") or person.get("employee_number") or "").strip()
     if last and first and adc:
-        return f"Inmate {last}, {first} ADC#{adc}"
+        return f"inmate {last}, {first} ADC# {adc}"
     if last and adc:
-        return f"Inmate {last} ADC#{adc}"
+        return f"inmate {last} ADC# {adc}"
     if last and first:
-        return f"Inmate {last}, {first}"
-    return f"Inmate {last}" if last else ""
+        return f"inmate {last}, {first}"
+    return f"inmate {last}" if last else ""
 
 
 def _inmate_short(person: dict) -> str:
     """Short form for an inmate after first mention."""
     last = (person.get("last") or "").strip()
-    return f"Inmate {last}" if last else ""
+    return f"inmate {last}" if last else ""
 
 
 def _staff_full(person: dict) -> str:
@@ -79,13 +79,13 @@ def _inmate_patterns(person: dict, allow_bare: bool) -> list[str]:
         return []
     pats = []
     if first and adc:
-        pats.append(rf"Inmate\s+{last},\s*{first}\s*ADC#\s*{adc}")
+        pats.append(rf"[Ii]nmate\s+{last},\s*{first}\s*ADC#\s*{adc}")
     if adc:
-        pats.append(rf"Inmate\s+{last}\s*ADC#\s*{adc}")
+        pats.append(rf"[Ii]nmate\s+{last}\s*ADC#\s*{adc}")
     if first:
-        pats.append(rf"Inmate\s+{last},\s*{first}")
-        pats.append(rf"Inmate\s+{first}\s+{last}")
-    pats.append(rf"Inmate\s+{last}")
+        pats.append(rf"[Ii]nmate\s+{last},\s*{first}")
+        pats.append(rf"[Ii]nmate\s+{first}\s+{last}")
+    pats.append(rf"[Ii]nmate\s+{last}")
     if allow_bare:
         pats.append(rf"(?<!\w){last}(?!\w)")
     return pats
@@ -180,6 +180,21 @@ def _short_form(person: dict) -> str:
             else _staff_short(person))
 
 
+def _match_sentence_case(replacement: str, text: str, start: int) -> str:
+    """Capitalize a replacement that lands at the start of a sentence.
+
+    'inmate' is lowercase mid-sentence (STYLE_RULINGS.md ruling 6), but still
+    has to be capitalized when it opens one, so the form depends on where the
+    match sits rather than being fixed.
+    """
+    if not replacement or replacement[0].isupper():
+        return replacement
+    preceding = text[:start].rstrip()
+    if not preceding or preceding[-1] in ".!?:" or preceding.endswith("\n"):
+        return replacement[0].upper() + replacement[1:]
+    return replacement
+
+
 def _rewrite(text: str, persons: list[dict]) -> str:
     """First mention of each person becomes the full form, later ones short."""
     selected = _select_spans(_collect_spans(text, persons))
@@ -195,7 +210,7 @@ def _rewrite(text: str, persons: list[dict]) -> str:
         if not replacement:
             continue  # nothing sensible to write — leave the original text alone
         out.append(text[cursor:start])
-        out.append(replacement)
+        out.append(_match_sentence_case(replacement, text, start))
         seen.add(idx)
         cursor = end
     out.append(text[cursor:])

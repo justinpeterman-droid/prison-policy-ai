@@ -23,16 +23,17 @@ def test_empty_inputs_are_safe():
 def test_inmate_first_mention_expands_to_full_form():
     slots = {"persons": [_inmate("Garcia", "Luis", "448291")]}
     out = enforce_naming("Inmate Garcia was placed in restraints.", slots)
-    assert "Inmate Garcia, Luis ADC#448291" in out
+    assert "Inmate Garcia, Luis ADC# 448291" in out  # sentence start -> capitalized
 
 
 def test_inmate_subsequent_mentions_stay_short():
     slots = {"persons": [_inmate("Garcia", "Luis", "448291")]}
     text = "Inmate Garcia swung first. Inmate Garcia was then restrained."
     out = enforce_naming(text, slots)
-    # First mention full, second mention short.
-    assert out.index("ADC#448291") < out.index("Inmate Garcia was then")
-    assert out.count("ADC#448291") == 1
+    # First mention full, second mention short. Both start a sentence here, so
+    # both are capitalized (ruling 6 lowercases only mid-sentence).
+    assert out.index("ADC# 448291") < out.index("Inmate Garcia was then")
+    assert out.count("ADC# 448291") == 1
 
 
 def test_staff_first_mention_uses_rank_first_last():
@@ -66,7 +67,7 @@ def test_shared_surname_does_not_cross_contaminate():
              "officer_last": "Smith"}
     out = enforce_naming(
         "I observed Inmate Smith fighting. Sgt Smith responded.", slots)
-    assert "Inmate Smith, John ADC#123456" in out
+    assert "inmate Smith, John ADC# 123456" in out  # mid-sentence -> lowercase
     assert "Sgt Robert Smith" in out
     assert "Inmate Sgt" not in out
     assert "Sgt Robert Smith, John" not in out
@@ -96,9 +97,9 @@ def test_reporter_self_reference_is_left_intact():
 
 def test_already_full_form_is_not_re_expanded():
     slots = {"persons": [_inmate("Garcia", "Luis", "448291")]}
-    text = "Inmate Garcia, Luis ADC#448291 was restrained."
+    text = "Inmate Garcia, Luis ADC# 448291 was restrained."
     out = enforce_naming(text, slots)
-    assert out.count("ADC#448291") == 1
+    assert out.count("ADC# 448291") == 1
     assert "Inmate Inmate" not in out
 
 
@@ -122,5 +123,40 @@ def test_multiple_inmates_each_get_their_own_first_mention():
     slots = {"persons": [_inmate("Garcia", "Luis", "448291"),
                          _inmate("Boyd", "Trevor", "551002")]}
     out = enforce_naming("Inmate Garcia and Inmate Boyd were separated.", slots)
-    assert "Inmate Garcia, Luis ADC#448291" in out
-    assert "Inmate Boyd, Trevor ADC#551002" in out
+    assert "Inmate Garcia, Luis ADC# 448291" in out  # sentence start -> capitalized
+    assert "inmate Boyd, Trevor ADC# 551002" in out   # mid-sentence -> lowercase
+
+
+# ── STYLE_RULINGS.md conformance ────────────────────────────────────────────
+
+def test_ruling_4_adc_number_has_a_space_after_the_hash():
+    slots = {"persons": [_inmate("Garcia", "Luis", "448291")]}
+    out = enforce_naming("Inmate Garcia was restrained.", slots)
+    assert "ADC# 448291" in out
+    assert "ADC#448291" not in out
+
+
+def test_ruling_6_inmate_is_lowercase_mid_sentence():
+    slots = {"persons": [_inmate("Garcia", "Luis", "448291")]}
+    out = enforce_naming("I escorted Inmate Garcia to the infirmary.", slots)
+    assert "escorted inmate Garcia" in out
+
+
+def test_ruling_6_inmate_is_capitalized_at_sentence_start():
+    slots = {"persons": [_inmate("Garcia", "Luis", "448291")]}
+    out = enforce_naming("Inmate Garcia refused. I escorted Inmate Garcia out.", slots)
+    assert out.startswith("Inmate Garcia")
+    assert "escorted inmate Garcia" in out
+
+
+def test_ruling_6_matches_either_capitalization_in_the_source():
+    # The model may write either; both must be normalized.
+    slots = {"persons": [_inmate("Garcia", "Luis", "448291")]}
+    out = enforce_naming("I saw inmate Garcia there.", slots)
+    assert "saw inmate Garcia, Luis ADC# 448291" in out
+
+
+def test_ruling_2_staff_rank_period_survives():
+    slots = {"persons": [_staff("Sgt.", "John", "Miller")]}
+    out = enforce_naming("Sgt. Miller responded.", slots)
+    assert "Sgt. John Miller" in out
