@@ -122,7 +122,7 @@ GATE_PROMPT = (
 # I count cards at blackjack", "cell" accepted "my cell phone is broken". Every
 # pattern is now word-bounded, and the generic words need corroboration.
 
-_STRONG_WORK_TERMS = [
+STRONG_WORK_TERMS = [
     # Corrections-specific: these words essentially don't occur off-topic.
     "prea", "use of force", "contraband", "inmate", "inmates", "offender",
     "post order", "disciplinary", "incident report", "005", "409",
@@ -136,17 +136,17 @@ _STRONG_WORK_TERMS = [
 ]
 
 # Generic on their own; a work signal when two or more appear together.
-_WEAK_WORK_TERMS = [
+WEAK_WORK_TERMS = [
     "policy", "procedure", "report", "form", "training", "cell", "search",
     "medical", "emergency", "security", "officer", "staff", "shift",
     "classification", "count", "gate", "tower", "rover", "supervisor",
     "sergeant", "lieutenant", "captain", "unit", "facility", "log",
 ]
 
-_STRONG_WORK = [re.compile(rf"\b{re.escape(t)}\b") for t in _STRONG_WORK_TERMS]
-_WEAK_WORK = [re.compile(rf"\b{re.escape(t)}\b") for t in _WEAK_WORK_TERMS]
+_STRONG_WORK = [re.compile(rf"\b{re.escape(t)}\b") for t in STRONG_WORK_TERMS]
+_WEAK_WORK = [re.compile(rf"\b{re.escape(t)}\b") for t in WEAK_WORK_TERMS]
 
-_OFF_TOPIC_TERMS = [
+OFF_TOPIC_TERMS = [
     "write a poem", "tell me a joke", "recipe for", "how to cook",
     "weather today", "who won the", "sports score", "movie review",
     "stock price", "crypto", "bitcoin", "python code", "javascript",
@@ -168,7 +168,7 @@ def classify_by_keyword(question: str) -> bool | None:
     q = (question or "").lower().strip()
     if not q:
         return None
-    if any(term in q for term in _OFF_TOPIC_TERMS):
+    if any(term in q for term in OFF_TOPIC_TERMS):
         return False
     if any(p.search(q) for p in _STRONG_WORK):
         return True

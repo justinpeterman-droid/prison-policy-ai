@@ -95,6 +95,10 @@ class TestFollowUps:
 
     @pytest.mark.parametrize("question", FOLLOWUPS)
     def test_followup_is_accepted_when_a_conversation_is_open(self, question):
+        # Deliberately the private entry point: this asserts the COMPOSITION —
+        # that the gate consults is_short_followup before anything else.
+        # Testing the parts separately would not prove they are wired together.
+        # pylint: disable=protected-access
         assert query._classify_query(question, self.HISTORY) is True
 
     def test_a_long_question_is_still_judged_on_its_merits(self):
@@ -146,10 +150,10 @@ class TestConfig:
         assert 0 < query.GATE_TIMEOUT_MS <= query.ANSWER_TIMEOUT_MS
 
     def test_keyword_lists_are_lowercase_and_deduped(self):
-        for terms in (query._STRONG_WORK_TERMS, query._WEAK_WORK_TERMS):
+        for terms in (query.STRONG_WORK_TERMS, query.WEAK_WORK_TERMS):
             assert terms == [t.lower() for t in terms]
             assert len(terms) == len(set(terms))
 
     def test_strong_and_weak_lists_do_not_overlap(self):
         # A term in both would make the weak-pair rule unreachable for it.
-        assert not set(query._STRONG_WORK_TERMS) & set(query._WEAK_WORK_TERMS)
+        assert not set(query.STRONG_WORK_TERMS) & set(query.WEAK_WORK_TERMS)
