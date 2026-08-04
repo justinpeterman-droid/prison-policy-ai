@@ -15,3 +15,4 @@ exclude_paths:
   - "officer-training/*.docx"
   - "backend/webapp/static/fonts/*"
   - "backend/webapp/static/*.pdf"
+  - "backend/webapp/static/*.mp4"
