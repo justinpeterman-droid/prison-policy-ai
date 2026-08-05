@@ -1,7 +1,10 @@
 """Unit tests for /api/chat error classification (no GCP calls)."""
 import socket
+import urllib.error
+
 import pytest
 from backend.webapp.app import create_app
+from backend.webapp.errors import classify_error, ERROR_MESSAGES
 
 
 def _raise(exc):
@@ -150,3 +153,96 @@ class TestChatErrors:
             resp = client.post("/api/chat", json={"question": "test"})
             ids.add(resp.get_json()["request_id"])
         assert len(ids) == 5
+
+
+# ── Search failures must classify as search failures ────────────────────────
+
+class TestSearchFailureClassification:
+    """Found while smoke-testing production: the chat 500'd with "An unexpected
+    error occurred" on every work question. That message is the `internal`
+    catch-all — so the one thing the officer and the person debugging both
+    needed to know (policy SEARCH is what failed) was the one thing neither was
+    told. A non-HTTPError in the search path re-raised bare and matched none of
+    classify_error's patterns."""
+
+    def test_a_transport_failure_is_reported_as_a_search_outage(self):
+        """A connection/DNS/TLS failure is a search outage, and the officer
+        should be told that rather than 'something unexpected happened'."""
+        exc = RuntimeError(
+            "Search API error (transport) URLError: <urlopen error [Errno -2]>")
+        category, status = classify_error(exc)
+        assert category == "upstream"
+        assert "policy search" in ERROR_MESSAGES[category].lower()
+        assert status == 500
+
+    def test_an_http_search_error_still_classifies_the_same_way(self):
+        """The existing HTTPError path must be unaffected by the new wrapper."""
+        assert classify_error(RuntimeError("Search API error 404"))[0] == "upstream"
+
+    def test_a_bare_transport_error_would_have_been_miscategorised(self):
+        """The regression this guards: unwrapped, it reads as 'internal'."""
+        assert classify_error(urllib.error.URLError("connection reset"))[0] == "internal"
+
+    def test_credential_errors_keep_their_more_specific_category(self):
+        """Token acquisition re-raises unwrapped precisely so this stays true —
+        'not configured' is more actionable than 'search is down'."""
+        assert classify_error(
+            Exception("default credentials were not found"))[0] == "credentials"
+
+    def test_the_wrapper_names_the_exception_class(self):
+        """`%s` of a URLError is just '<urlopen error ...>'; the class is what
+        identifies the fault."""
+        exc = RuntimeError("Search API error (transport) SSLCertVerificationError: bad cert")
+        assert "SSLCertVerificationError" in str(exc)
+        assert classify_error(exc)[0] == "upstream"
+
+
+class TestSnippetsFallbackClassification:
+    """The snippets-only fallback needs the same wrapper as the primary path.
+
+    It runs whenever the data store rejects the extractive-content spec with a
+    400 (see the fix that introduced it), so it is a live path rather than a
+    corner. It handled HTTPError but re-raised everything else bare, which put
+    a transport failure there straight back into the `internal` catch-all this
+    change exists to eliminate.
+    """
+
+    def test_the_fallback_wraps_transport_failures_too(self, monkeypatch):
+        """A connection failure in the fallback classifies as a search outage."""
+        from backend.pipeline import query
+
+        def boom(*_a, **_k):
+            raise urllib.error.URLError("connection reset by peer")
+
+        monkeypatch.setattr(query.urllib.request, "urlopen", boom)
+        with pytest.raises(RuntimeError) as caught:
+            query._search_snippets_only("https://example.invalid", "tok",
+                                        "use of force", 10, "original 400")
+        assert classify_error(caught.value)[0] == "upstream"
+
+    def test_the_fallback_names_the_exception_class(self, monkeypatch):
+        from backend.pipeline import query
+
+        def boom(*_a, **_k):
+            raise OSError("network is unreachable")
+
+        monkeypatch.setattr(query.urllib.request, "urlopen", boom)
+        with pytest.raises(RuntimeError) as caught:
+            query._search_snippets_only("https://example.invalid", "tok",
+                                        "use of force", 10, "original 400")
+        assert "OSError" in str(caught.value)
+
+    def test_the_fallback_preserves_the_cause(self, monkeypatch):
+        """Chained so the original traceback survives into the logs."""
+        from backend.pipeline import query
+
+        original = urllib.error.URLError("dns failure")
+
+        def boom(*_a, **_k):
+            raise original
+
+        monkeypatch.setattr(query.urllib.request, "urlopen", boom)
+        with pytest.raises(RuntimeError) as caught:
+            query._search_snippets_only("https://example.invalid", "tok",
+                                        "use of force", 10, "original 400")
+        assert caught.value.__cause__ is original
