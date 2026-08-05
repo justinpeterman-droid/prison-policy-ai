@@ -460,7 +460,6 @@ def reports_extract():
         return jsonify({"error": ERROR_MESSAGES[category]}), status
 
 
-
 # Report keys a client may hand back for the deferred second pass. Anything
 # else is dropped: the phase-2 request re-validates the whole set, and letting
 # unknown keys through would put unvalidated text into that set.
