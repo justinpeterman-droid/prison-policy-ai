@@ -394,16 +394,17 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
             logger.warning("Search rejected the extractive-content spec (400); "
                            "retrying with snippets only. Answers will be built "
                            "from shorter passages on this data store.")
-            return _search_snippets_only(url, token, query, page_size, err_body)
-        # Log the resolved config alongside the error: almost every other
-        # failure here is a config mismatch, and the serving-config path is the
-        # thing you need to see to spot it.
-        logger.error("Search API error %s for serving config %s: %s",
-                     http_exc.code, SERVING_CONFIG, err_body)
-        hint = _http_error_hint(http_exc.code)
-        if hint:
-            logger.error("Likely cause: %s", hint)
-        raise RuntimeError(f"Search API error {http_exc.code}") from http_exc
+            result = _search_snippets_only(url, token, query, page_size, err_body)
+        else:
+            # Log the resolved config alongside the error: almost every other
+            # failure here is a config mismatch, and the serving-config path is the
+            # thing you need to see to spot it.
+            logger.error("Search API error %s for serving config %s: %s",
+                         http_exc.code, SERVING_CONFIG, err_body)
+            hint = _http_error_hint(http_exc.code)
+            if hint:
+                logger.error("Likely cause: %s", hint)
+            raise RuntimeError(f"Search API error {http_exc.code}") from http_exc
     except Exception as exc:
         # Anything that isn't an HTTPError — a connection reset, DNS failure,
         # TLS problem, a non-JSON body. This used to re-raise bare, which meant

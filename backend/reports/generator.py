@@ -228,21 +228,9 @@ def generate_investigation(slots: dict, auto_content: list[dict] | None = None) 
                                    describe="investigation report"))
 
 
-def has_charges(slots: dict) -> bool:
-    """Whether confirmed charges exist, so a disciplinary supplement is owed.
-
-    Kept in one place because two entry points now ask the same question, and
-    they must never disagree — a mismatch would either silently drop the
-    supplement or promise one that never arrives.
-    """
-    charges = slots.get("charges", "")
-    return bool(charges) and charges not in ("None", "")
-
-
 def generate_all_reports(slots: dict, category: str = "",
                          auto_content: list[dict] | None = None,
-                         reporter_actions: str = "",
-                         include_disciplinary: bool = True) -> dict:
+                         reporter_actions: str = "") -> dict:
     """Generate all report types from structured slots.
 
     Args:
@@ -250,13 +238,6 @@ def generate_all_reports(slots: dict, category: str = "",
         category: Incident category name
         auto_content: Resolved auto_content sentences from validate.py
         reporter_actions: Pre-formatted reporter actions (if already built)
-        include_disciplinary: When False, stop after the concurrent batch and
-            leave the disciplinary supplement ungenerated. It is the only
-            report that cannot run in the batch — it consumes the finished
-            first-person report — so it doubles wall-clock time, which is long
-            enough that phones drop the connection mid-request. The caller can
-            defer it to a second request and generate it with
-            `generate_disciplinary_only()`.
 
     Returns:
         dict with keys: cover_letter, first_person, supervisor_summary,
@@ -306,7 +287,8 @@ def generate_all_reports(slots: dict, category: str = "",
             if failed:
                 errors.append(failed)
 
-    if include_disciplinary and has_charges(slots):
+    charges = slots.get("charges", "")
+    if charges and charges not in ("None", ""):
         key, text, failed = _run(
             "disciplinary", "Disciplinary supplement",
             lambda: generate_disciplinary(
@@ -320,32 +302,3 @@ def generate_all_reports(slots: dict, category: str = "",
     if errors:
         reports["_errors"] = errors
     return reports
-
-
-def generate_disciplinary_only(slots: dict, first_person: str,
-                               auto_content: list[dict] | None = None) -> dict:
-    """Generate just the disciplinary supplement, for the deferred second pass.
-
-    Returns the same `{key: text}` shape as `generate_all_reports` — including
-    `_errors` on failure — so the caller can treat both passes identically and
-    run one shared validation path over the combined set.
-
-    Returns an empty dict when no charges are confirmed, matching what the
-    batch pass would have produced, so a client that asks for the supplement
-    it isn't owed gets nothing rather than an error.
-    """
-    if not has_charges(slots):
-        logger.debug("Deferred disciplinary requested with no charges — skipping")
-        return {}
-
-    started = time.monotonic()
-    try:
-        text = enforce_naming(
-            generate_disciplinary(slots, first_person, auto_content), slots)
-        logger.info("Generated disciplinary supplement in %.1fs",
-                    time.monotonic() - started)
-        return {"disciplinary": text}
-    except Exception:
-        logger.error("Disciplinary supplement generation failed", exc_info=True)
-        return {"disciplinary": "[Error generating disciplinary supplement]",
-                "_errors": ["disciplinary"]}
