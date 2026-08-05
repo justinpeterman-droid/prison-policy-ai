@@ -330,6 +330,17 @@ def _search_snippets_only(url: str, token: str, query: str, page_size: int,
         logger.error("The original request was also rejected (400): %s",
                      original_error[:300])
         raise RuntimeError(f"Search API error {http_exc.code}") from http_exc
+    except Exception as exc:
+        # Same reasoning as the primary path: a connection reset, DNS or TLS
+        # failure here is still a search outage, and unwrapped it matches none
+        # of classify_error's patterns and reads as "internal". This fallback
+        # runs whenever the data store rejects the extractive-content spec, so
+        # it is a live path, not a corner — leaving it bare would reintroduce
+        # the exact miscategorisation this change removes.
+        logger.error("Snippets-only search transport failure against serving "
+                     "config %s: %s: %s", SERVING_CONFIG, type(exc).__name__, exc)
+        raise RuntimeError(
+            f"Search API error (transport) {type(exc).__name__}: {exc}") from exc
 
 
 def _search_data_store(query: str, page_size: int = 10) -> list[dict]:

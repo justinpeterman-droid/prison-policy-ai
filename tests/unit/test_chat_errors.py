@@ -195,3 +195,54 @@ class TestSearchFailureClassification:
         exc = RuntimeError("Search API error (transport) SSLCertVerificationError: bad cert")
         assert "SSLCertVerificationError" in str(exc)
         assert classify_error(exc)[0] == "upstream"
+
+
+class TestSnippetsFallbackClassification:
+    """The snippets-only fallback needs the same wrapper as the primary path.
+
+    It runs whenever the data store rejects the extractive-content spec with a
+    400 (see the fix that introduced it), so it is a live path rather than a
+    corner. It handled HTTPError but re-raised everything else bare, which put
+    a transport failure there straight back into the `internal` catch-all this
+    change exists to eliminate.
+    """
+
+    def test_the_fallback_wraps_transport_failures_too(self, monkeypatch):
+        """A connection failure in the fallback classifies as a search outage."""
+        from backend.pipeline import query
+
+        def boom(*_a, **_k):
+            raise urllib.error.URLError("connection reset by peer")
+
+        monkeypatch.setattr(query.urllib.request, "urlopen", boom)
+        with pytest.raises(RuntimeError) as caught:
+            query._search_snippets_only("https://example.invalid", "tok",
+                                        "use of force", 10, "original 400")
+        assert classify_error(caught.value)[0] == "upstream"
+
+    def test_the_fallback_names_the_exception_class(self, monkeypatch):
+        from backend.pipeline import query
+
+        def boom(*_a, **_k):
+            raise OSError("network is unreachable")
+
+        monkeypatch.setattr(query.urllib.request, "urlopen", boom)
+        with pytest.raises(RuntimeError) as caught:
+            query._search_snippets_only("https://example.invalid", "tok",
+                                        "use of force", 10, "original 400")
+        assert "OSError" in str(caught.value)
+
+    def test_the_fallback_preserves_the_cause(self, monkeypatch):
+        """Chained so the original traceback survives into the logs."""
+        from backend.pipeline import query
+
+        original = urllib.error.URLError("dns failure")
+
+        def boom(*_a, **_k):
+            raise original
+
+        monkeypatch.setattr(query.urllib.request, "urlopen", boom)
+        with pytest.raises(RuntimeError) as caught:
+            query._search_snippets_only("https://example.invalid", "tok",
+                                        "use of force", 10, "original 400")
+        assert caught.value.__cause__ is original
