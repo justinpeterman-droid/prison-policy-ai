@@ -320,16 +320,27 @@ def _search_snippets_only(url: str, token: str, query: str, page_size: int,
         logger.info("Snippets-only search returned %d results",
                     len(result.get("results", [])))
         return result
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()[:1000]
+    except urllib.error.HTTPError as http_exc:
+        body = http_exc.read().decode()[:1000]
         logger.error("Search API error %s for serving config %s: %s",
-                     e.code, SERVING_CONFIG, body)
-        hint = _http_error_hint(e.code)
+                     http_exc.code, SERVING_CONFIG, body)
+        hint = _http_error_hint(http_exc.code)
         if hint:
             logger.error("Likely cause: %s", hint)
         logger.error("The original request was also rejected (400): %s",
                      original_error[:300])
-        raise RuntimeError(f"Search API error {e.code}")
+        raise RuntimeError(f"Search API error {http_exc.code}") from http_exc
+    except Exception as exc:
+        # Same reasoning as the primary path: a connection reset, DNS or TLS
+        # failure here is still a search outage, and unwrapped it matches none
+        # of classify_error's patterns and reads as "internal". This fallback
+        # runs whenever the data store rejects the extractive-content spec, so
+        # it is a live path, not a corner — leaving it bare would reintroduce
+        # the exact miscategorisation this change removes.
+        logger.error("Snippets-only search transport failure against serving "
+                     "config %s: %s: %s", SERVING_CONFIG, type(exc).__name__, exc)
+        raise RuntimeError(
+            f"Search API error (transport) {type(exc).__name__}: {exc}") from exc
 
 
 def _search_data_store(query: str, page_size: int = 10) -> list[dict]:
@@ -344,7 +355,17 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
     matched but none carried readable text" — two failures that look identical
     from the passage list alone but mean very different things operationally.
     """
-    token = _get_token()
+    # Token acquisition used to sit outside the try below, so a failure here
+    # bypassed every search error handler, reached the route unclassified, and
+    # told the officer "An unexpected error occurred" — with a log line that
+    # never mentioned search. Name the step that failed.
+    try:
+        token = _get_token()
+    except Exception as exc:
+        logger.error("Could not obtain a credential for Discovery Engine "
+                     "search: %s: %s", type(exc).__name__, exc)
+        raise  # re-raised unwrapped so credential errors keep their own class
+
     url = f"https://discoveryengine.googleapis.com/v1beta/{SERVING_CONFIG}:search"
     data = json.dumps(_search_body(query, page_size, rich=True)).encode()
     req = urllib.request.Request(url, data=data, method="POST")
@@ -361,32 +382,41 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
             logger.info("Search returned %d results (totalSize=%s)",
                         len(result.get("results", [])),
                         result.get("totalSize", "?"))
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode()[:1000]
+    except urllib.error.HTTPError as http_exc:
+        err_body = http_exc.read().decode()[:1000]
         # A 400 means the request shape was rejected, and the only optional part
         # of it is the extractive-content spec — not every data store is
         # provisioned for extractive answers/segments. Falling back to snippets
         # keeps the chat working on those stores instead of failing every
         # search, which is exactly the single-point-of-failure this spec was
         # added to remove.
-        if e.code == 400:
+        if http_exc.code == 400:
             logger.warning("Search rejected the extractive-content spec (400); "
                            "retrying with snippets only. Answers will be built "
                            "from shorter passages on this data store.")
-            return _search_snippets_only(url, token, query, page_size, err_body)
-        # Log the resolved config alongside the error: almost every other
-        # failure here is a config mismatch, and the serving-config path is the
-        # thing you need to see to spot it.
-        logger.error("Search API error %s for serving config %s: %s",
-                     e.code, SERVING_CONFIG, err_body)
-        hint = _http_error_hint(e.code)
-        if hint:
-            logger.error("Likely cause: %s", hint)
-        raise RuntimeError(f"Search API error {e.code}")
-    except Exception as e:
-        logger.error("Search failed against serving config %s: %s",
-                     SERVING_CONFIG, e)
-        raise
+            result = _search_snippets_only(url, token, query, page_size, err_body)
+        else:
+            # Log the resolved config alongside the error: almost every other
+            # failure here is a config mismatch, and the serving-config path is the
+            # thing you need to see to spot it.
+            logger.error("Search API error %s for serving config %s: %s",
+                         http_exc.code, SERVING_CONFIG, err_body)
+            hint = _http_error_hint(http_exc.code)
+            if hint:
+                logger.error("Likely cause: %s", hint)
+            raise RuntimeError(f"Search API error {http_exc.code}") from http_exc
+    except Exception as exc:
+        # Anything that isn't an HTTPError — a connection reset, DNS failure,
+        # TLS problem, a non-JSON body. This used to re-raise bare, which meant
+        # classify_error() saw an exception matching none of its patterns and
+        # fell through to "internal": the officer was told something unexpected
+        # happened when what actually happened is that policy search failed.
+        # Wrapping it keeps the category honest, and the exception CLASS is what
+        # identifies the fault — `%s` of a URLError is just "<urlopen error ...>".
+        logger.error("Search transport failure against serving config %s: %s: %s",
+                     SERVING_CONFIG, type(exc).__name__, exc)
+        raise RuntimeError(
+            f"Search API error (transport) {type(exc).__name__}: {exc}") from exc
 
     raw_count = len(result.get("results", []) or [])
     contexts = parse_search_results(result, max_chars=MAX_PASSAGE_CHARS)
