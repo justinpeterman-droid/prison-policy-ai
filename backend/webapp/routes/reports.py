@@ -7,7 +7,9 @@ from functools import lru_cache
 from pathlib import Path
 from flask import Blueprint, render_template, request, jsonify, send_file
 from backend.reports.classifier import classify_incident
-from backend.reports.generator import generate_all_reports
+from backend.reports.generator import (
+    has_charges, generate_all_reports, generate_disciplinary_only,
+)
 from backend.reports.filler import fill_template, designation_boxes
 from backend.reports.report_validator import (
     repair_all, summarize, validate_all,
@@ -458,12 +460,25 @@ def reports_extract():
         return jsonify({"error": ERROR_MESSAGES[category]}), status
 
 
-@reports_bp.route("/api/reports/generate", methods=["POST"])
-def reports_generate():
-    from backend.reports.schema import bind_reporter, security_staff
-    from backend.reports.validate import find_gaps, invented_facts
 
-    data = request.get_json(silent=True) or {}
+# Report keys a client may hand back for the deferred second pass. Anything
+# else is dropped: the phase-2 request re-validates the whole set, and letting
+# unknown keys through would put unvalidated text into that set.
+RESUMABLE_REPORT_KEYS = ("first_person", "supervisor_summary", "cover_letter",
+                         "investigation")
+
+
+def _prepare_generation(data: dict) -> dict:
+    """Resolve request data into the generation context.
+
+    Shared by /generate and /disciplinary so the two passes derive identical
+    slots, auto_content and markers. If they ever diverged, the deferred
+    supplement would be written against different facts than the reports it
+    accompanies.
+    """
+    from backend.reports.schema import bind_reporter, security_staff
+    from backend.reports.validate import find_gaps
+
     notes = data.get("notes", "").strip()
     category = data.get("category", "").strip()
     slots = data.get("slots", {})
@@ -471,237 +486,305 @@ def reports_generate():
     charges = data.get("charges")  # officer-confirmed charge codes (list)
     reporter_index = int(data.get("reporter_index", 0))
 
-    if not notes or not category:
+    # Merge gap answers into slots
+    slots = dict(slots)
+    slots.update(answers)
+    # Fold any first-name answers back into the inmate records.
+    _apply_first_name_answers(slots, answers)
+
+    # ── Auto-persist new staff to roster ──
+    # When the officer fills in a staff_identity gap, learn it permanently
+    # so the same name never triggers the same gap again.
+    from backend.reports.roster import add_staff_from_gap_answer
+    for key, val in answers.items():
+        if key.startswith("officer_identity_") and val:
+            added = add_staff_from_gap_answer(
+                key.replace("officer_identity_", ""), str(val))
+            if added:
+                logger.info("Persisted new staff to roster from gap answer")
+        elif key.startswith("officer_fields_") and val:
+            # staff_missing_fields: the answer is just the missing value(s);
+            # patch the matching person dict if we can identify the officer
+            name_hint = key.replace("officer_fields_", "")
+            for p in slots.get("persons", []):
+                if (p.get("role") == "security_staff"
+                        and (p.get("last", "").lower() == name_hint.lower()
+                             or p.get("name", "").lower() == name_hint.lower())):
+                    p["first"] = _titlecase(str(val))
+                    logger.info("Filled a missing staff field from gap answer")
+                    break
+
+    # ── Deterministic BMU defaults (before auto_content resolves) ──
+    # Date: if the notes never stated one, today's date is safe to use.
+    if not slots.get("date"):
+        slots["date"] = _today()
+    # All reports use 12-hour time.
+    if slots.get("time"):
+        slots["time"] = _to_12h(slots["time"])
+    # Incident number: officer supplies only the last 3 digits; the
+    # year and month are prefixed automatically.
+    last3 = slots.get("incident_number_last3") or answers.get("incident_number_last3")
+    if last3 and not slots.get("incident_number"):
+        slots["incident_number"] = _build_incident_number(
+            last3, incident_date=slots.get("date"))
+    # Inmate drug test defaults to N/A unless the officer chose otherwise.
+    if not slots.get("drug_test_disposition"):
+        slots["drug_test_disposition"] = "N/A"
+    # Officer-confirmed charges win over anything extracted.
+    if isinstance(charges, list) and charges:
+        slots["charges"] = ", ".join(charges)
+
+    # Fights/assaults always end in Restrictive Housing — after the
+    # infirmary if the inmate was treated first.
+    if category in FIGHT_RH_CATEGORIES:
+        dest = (slots.get("escort_destination") or "").strip()
+        if not dest:
+            slots["escort_destination"] = RESTRICTIVE_HOUSING
+        elif "restrictive" not in dest.lower():
+            slots["escort_destination"] = (
+                f"Infirmary, then {RESTRICTIVE_HOUSING}"
+                if "infirmary" in dest.lower() else RESTRICTIVE_HOUSING)
+
+    # Re-resolve auto_content with answered slots
+    gap_result = find_gaps(category, slots)
+    auto_content = gap_result.get("auto_content", [])
+    markers = list(gap_result.get("markers", []))
+    # Any inmate still missing a first name at generation is flagged so the
+    # officer's attention is drawn to it on the "Review before filing" card.
+    for last in _inmates_missing_first(slots):
+        markers.append(f"[TO BE SUPPLEMENTED: first name for Inmate {last}]")
+
+    # Bind reporter
+    officers = security_staff(slots)
+    reporter = None
+    if officers and reporter_index < len(officers):
+        reporter = officers[reporter_index]
+        slots = bind_reporter(slots, reporter)
+    # If the officer_name gap was answered, parse into component fields
+    # (must run AFTER bind_reporter so person-dict nulls don't overwrite)
+    officer_name = answers.get("officer_name", "")
+    if officer_name:
+        name = str(officer_name).strip()
+        rank_parsed = _parse_rank(name)
+        if rank_parsed:
+            name = name[len(rank_parsed):].strip()
+        if "," in name:
+            last, first, middle = _parse_name(name)
+        else:
+            parts = name.split()
+            if len(parts) == 1:
+                last, first = parts[0], ""
+            else:
+                first, last = parts[0], parts[-1]
+        if last:
+            slots["officer_last"] = last
+        if first:
+            slots["officer_first"] = first
+        if rank_parsed:
+            slots["rank"] = rank_parsed
+        # Do not log the name itself (PII); just note parsing happened.
+        logger.debug("Parsed officer_name from gap answer into rank/first/last")
+
+    elif reporters := [p for p in slots.get("persons", [])
+                      if p.get("role") == "security_staff"]:
+        reporter = reporters[0]
+        slots = bind_reporter(slots, reporter)
+
+    # Sanitize null/None officer names — only when ALL fields are null.
+    # Don't touch slots that already have real data or partial data.
+    officer_last = slots.get("officer_last")
+    officer_first = slots.get("officer_first")
+    null_last = not officer_last or str(officer_last).lower() in ("none", "[not in notes]")
+    null_first = not officer_first or str(officer_first).lower() in ("none", "[not in notes]")
+    if null_last or null_first:
+        if not null_last:
+            # Have last name but no first — leave as-is, gap asks for first
+            pass
+        elif not null_first:
+            # Have first name but no last — odd case, leave as-is
+            pass
+        else:
+            # Both null — leave as-is. The gap question asks for the name.
+            # Reports won't generate with [NOT IN NOTES] officer names.
+            pass
+
+    # Shift assignment: use the bound officer's roster shift (a letter like
+    # 'B') rendered as 'B Shift', else normalize whatever was answered.
+    if reporter and reporter.get("shift"):
+        slots["shift_assignment"] = _format_shift(reporter["shift"])
+    elif slots.get("shift_assignment"):
+        slots["shift_assignment"] = _format_shift(slots["shift_assignment"])
+
+    return {
+        "notes": notes,
+        "category": category,
+        "slots": slots,
+        "answers": answers,
+        "auto_content": auto_content,
+        "markers": markers,
+        "officers": officers,
+    }
+
+
+def _finalize_generation(reports: dict, ctx: dict) -> dict:
+    """Repair, assemble the 005, and run the fabrication + style checks.
+
+    Runs over the COMPLETE report set in both passes. The deferred supplement
+    is validated together with the reports it ships alongside, exactly as it
+    would have been in a single request — the split is a transport change, not
+    a validation change.
+    """
+    from backend.reports.validate import invented_facts
+
+    notes = ctx["notes"]
+    category = ctx["category"]
+    slots = ctx["slots"]
+    answers = ctx["answers"]
+    auto_content = ctx["auto_content"]
+    markers = ctx["markers"]
+    officers = ctx["officers"]
+
+    generation_errors_pending = reports.pop("_errors", [])
+    reports, repaired = repair_all(reports)
+    if repaired:
+        logger.info("Auto-repaired: %s",
+                    "; ".join(f"{k}={','.join(v)}" for k, v in repaired.items()))
+
+    # ── 005 injury / present line logic (deterministic) ──
+    # Injury/treatment lines are left blank — medical detail lives elsewhere.
+    inmate_hurt = slots.get("medical_disposition") in MEDICAL_INJURY_DISPOSITIONS
+    inmate_injury_line = MSF_REFERENCE if inmate_hurt else "N/A"
+    # Officer injury/treatment: blank ("N/A" if no force involvement).
+    officer_force = (category in OFFICER_FORCE_CATEGORIES
+                     or bool(slots.get("officer_injuries"))
+                     or str(slots.get("staff_injured", "")).lower()
+                     in ("yes", "true"))
+    officer_injury_line = MSF_REFERENCE if officer_force else "N/A"
+
+    form005 = {
+        # Ruling 9: every incident report ticks the 005 box; a use of force
+        # ticks the 409 as well.
+        **designation_boxes(category),
+        "unit_division": "BMU",
+        "officer_last": slots.get("officer_last") or "",
+        "officer_first": slots.get("officer_first") or "",
+        "employee_number": slots.get("employee_number") or "",
+        "rank": slots.get("rank") or "",
+        "shift_assignment": slots.get("shift_assignment") or "",
+        "date": slots.get("date") or "",
+        "time": _to_form_time(slots.get("time")) or "",
+        "location": slots.get("location") or "",
+        "inmates_involved": _format_inmates(slots),
+        "employees_involved": _format_employees(slots),
+        # Present lines default to "See Above" (the involved lists) unless
+        # the notes named separate people who were present.
+        "inmates_present": slots.get("inmates_present") or SEE_ABOVE,
+        "employees_present": slots.get("employees_present") or SEE_ABOVE,
+        "others_present": slots.get("others_present") or "N/A",
+        # Medical detail lives in the infirmary/medical report, not the 005.
+        "inmate_injuries": inmate_injury_line,
+        "inmate_treatment": inmate_injury_line,
+        "officer_injuries": officer_injury_line,
+        "officer_treatment": officer_injury_line,
+        "recommendation": reports.get("recommendation", ""),
+        "narrative": reports.get("first_person", ""),
+        "reporting_employee_signature": f"{slots.get('officer_first', '')} {slots.get('officer_last', '')}".strip(),
+        "supervisor_signature": "",
+    }
+
+    all_text = " ".join(v for v in reports.values() if isinstance(v, str))
+    # Values the pipeline generated deterministically — the normalized time,
+    # the fallback date (when the notes stated none), and the built incident
+    # number — are legitimate output, not invented facts. Allow-list them so
+    # the trust signal doesn't fire on the system's own correct work.
+    code_derived = [slots.get("time"), slots.get("date"),
+                    slots.get("incident_number")]
+    flags = invented_facts(all_text, notes, answers, allow=code_derived)
+
+    # Score every report against the style rulings, using the SAME inputs
+    # as the fabrication check above so the two can never disagree.
+    style = summarize(validate_all(
+        reports,
+        officer={"rank": slots.get("rank"), "first": slots.get("officer_first"),
+                 "last": slots.get("officer_last")},
+        notes=notes,
+        auto_content=auto_content,   # routed per report type by insert_into
+        allow=code_derived,
+        answers=answers,
+    ))
+
+    # Any report that failed after retries is reported as a failure rather
+    # than left to pass for a finished document with an error line in it.
+    generation_errors = generation_errors_pending
+    if generation_errors:
+        logger.error("Generation failed for: %s", ", ".join(generation_errors))
+
+    logger.info("Generate → %d reports, %d invented-fact flags, %d markers, "
+                "style %.2f (%d blocking)", len(reports), len(flags),
+                len(markers), style["score"], style["blocking_count"])
+    return {
+        "generation_errors": generation_errors,
+        "reports": reports,
+        "form005": form005,
+        "flags": flags,
+        "markers": markers,
+        "officers": officers,
+        "style": style,
+        "repaired": repaired,
+    }
+
+
+@reports_bp.route("/api/reports/generate", methods=["POST"])
+def reports_generate():
+    data = request.get_json(silent=True) or {}
+    if not data.get("notes", "").strip() or not data.get("category", "").strip():
+        return jsonify({"error": "notes and category required"}), 400
+
+    # The disciplinary supplement consumes the finished first-person report, so
+    # it cannot join the concurrent batch and roughly doubles the request to
+    # ~40s. Phones drop connections over that, losing all the work. Clients can
+    # ask for it to be deferred to a second, shorter request.
+    defer = bool(data.get("defer_disciplinary"))
+    try:
+        ctx = _prepare_generation(data)
+        reports = generate_all_reports(ctx["slots"], ctx["category"],
+                                       auto_content=ctx["auto_content"],
+                                       include_disciplinary=not defer)
+        payload = _finalize_generation(reports, ctx)
+        payload["disciplinary_deferred"] = bool(defer and has_charges(ctx["slots"]))
+        return jsonify(payload)
+    except Exception as exc:
+        category_, status = classify_error(exc)
+        logger.exception("Report generation failed [category=%s]", category_)
+        return jsonify({"error": ERROR_MESSAGES[category_]}), status
+
+
+@reports_bp.route("/api/reports/disciplinary", methods=["POST"])
+def reports_disciplinary():
+    """Second pass: generate the deferred disciplinary supplement.
+
+    Takes the reports produced by the first pass and returns a complete,
+    re-validated payload that replaces it wholesale — so the client never has
+    to merge two partial results, and the style score and fabrication flags are
+    always computed over the full set.
+    """
+    data = request.get_json(silent=True) or {}
+    if not data.get("notes", "").strip() or not data.get("category", "").strip():
         return jsonify({"error": "notes and category required"}), 400
     try:
-        # Merge gap answers into slots
-        slots = dict(slots)
-        slots.update(answers)
-        # Fold any first-name answers back into the inmate records.
-        _apply_first_name_answers(slots, answers)
-
-        # ── Auto-persist new staff to roster ──
-        # When the officer fills in a staff_identity gap, learn it permanently
-        # so the same name never triggers the same gap again.
-        from backend.reports.roster import add_staff_from_gap_answer
-        for key, val in answers.items():
-            if key.startswith("officer_identity_") and val:
-                added = add_staff_from_gap_answer(
-                    key.replace("officer_identity_", ""), str(val))
-                if added:
-                    logger.info("Persisted new staff to roster from gap answer")
-            elif key.startswith("officer_fields_") and val:
-                # staff_missing_fields: the answer is just the missing value(s);
-                # patch the matching person dict if we can identify the officer
-                name_hint = key.replace("officer_fields_", "")
-                for p in slots.get("persons", []):
-                    if (p.get("role") == "security_staff"
-                            and (p.get("last", "").lower() == name_hint.lower()
-                                 or p.get("name", "").lower() == name_hint.lower())):
-                        p["first"] = _titlecase(str(val))
-                        logger.info("Filled a missing staff field from gap answer")
-                        break
-
-        # ── Deterministic BMU defaults (before auto_content resolves) ──
-        # Date: if the notes never stated one, today's date is safe to use.
-        if not slots.get("date"):
-            slots["date"] = _today()
-        # All reports use 12-hour time.
-        if slots.get("time"):
-            slots["time"] = _to_12h(slots["time"])
-        # Incident number: officer supplies only the last 3 digits; the
-        # year and month are prefixed automatically.
-        last3 = slots.get("incident_number_last3") or answers.get("incident_number_last3")
-        if last3 and not slots.get("incident_number"):
-            slots["incident_number"] = _build_incident_number(
-                last3, incident_date=slots.get("date"))
-        # Inmate drug test defaults to N/A unless the officer chose otherwise.
-        if not slots.get("drug_test_disposition"):
-            slots["drug_test_disposition"] = "N/A"
-        # Officer-confirmed charges win over anything extracted.
-        if isinstance(charges, list) and charges:
-            slots["charges"] = ", ".join(charges)
-
-        # Fights/assaults always end in Restrictive Housing — after the
-        # infirmary if the inmate was treated first.
-        if category in FIGHT_RH_CATEGORIES:
-            dest = (slots.get("escort_destination") or "").strip()
-            if not dest:
-                slots["escort_destination"] = RESTRICTIVE_HOUSING
-            elif "restrictive" not in dest.lower():
-                slots["escort_destination"] = (
-                    f"Infirmary, then {RESTRICTIVE_HOUSING}"
-                    if "infirmary" in dest.lower() else RESTRICTIVE_HOUSING)
-
-        # Re-resolve auto_content with answered slots
-        gap_result = find_gaps(category, slots)
-        auto_content = gap_result.get("auto_content", [])
-        markers = list(gap_result.get("markers", []))
-        # Any inmate still missing a first name at generation is flagged so the
-        # officer's attention is drawn to it on the "Review before filing" card.
-        for last in _inmates_missing_first(slots):
-            markers.append(f"[TO BE SUPPLEMENTED: first name for Inmate {last}]")
-
-        # Bind reporter
-        officers = security_staff(slots)
-        reporter = None
-        if officers and reporter_index < len(officers):
-            reporter = officers[reporter_index]
-            slots = bind_reporter(slots, reporter)
-        # If the officer_name gap was answered, parse into component fields
-        # (must run AFTER bind_reporter so person-dict nulls don't overwrite)
-        officer_name = answers.get("officer_name", "")
-        if officer_name:
-            name = str(officer_name).strip()
-            rank_parsed = _parse_rank(name)
-            if rank_parsed:
-                name = name[len(rank_parsed):].strip()
-            if "," in name:
-                last, first, middle = _parse_name(name)
-            else:
-                parts = name.split()
-                if len(parts) == 1:
-                    last, first = parts[0], ""
-                else:
-                    first, last = parts[0], parts[-1]
-            if last:
-                slots["officer_last"] = last
-            if first:
-                slots["officer_first"] = first
-            if rank_parsed:
-                slots["rank"] = rank_parsed
-            # Do not log the name itself (PII); just note parsing happened.
-            logger.debug("Parsed officer_name from gap answer into rank/first/last")
-
-        elif reporters := [p for p in slots.get("persons", [])
-                          if p.get("role") == "security_staff"]:
-            reporter = reporters[0]
-            slots = bind_reporter(slots, reporter)
-
-        # Sanitize null/None officer names — only when ALL fields are null.
-        # Don't touch slots that already have real data or partial data.
-        officer_last = slots.get("officer_last")
-        officer_first = slots.get("officer_first")
-        null_last = not officer_last or str(officer_last).lower() in ("none", "[not in notes]")
-        null_first = not officer_first or str(officer_first).lower() in ("none", "[not in notes]")
-        if null_last or null_first:
-            if not null_last:
-                # Have last name but no first — leave as-is, gap asks for first
-                pass
-            elif not null_first:
-                # Have first name but no last — odd case, leave as-is
-                pass
-            else:
-                # Both null — leave as-is. The gap question asks for the name.
-                # Reports won't generate with [NOT IN NOTES] officer names.
-                pass
-
-        # Shift assignment: use the bound officer's roster shift (a letter like
-        # 'B') rendered as 'B Shift', else normalize whatever was answered.
-        if reporter and reporter.get("shift"):
-            slots["shift_assignment"] = _format_shift(reporter["shift"])
-        elif slots.get("shift_assignment"):
-            slots["shift_assignment"] = _format_shift(slots["shift_assignment"])
-
-        reports = generate_all_reports(slots, category, auto_content=auto_content)
-
-        # ── Style validation + deterministic repair (no AI) ──
-        # repair() runs first so the validator judges the text the officer will
-        # actually see. It only reformats what is already there — it can never
-        # add, remove or change a fact.
-        generation_errors_pending = reports.pop("_errors", [])
-        reports, repaired = repair_all(reports)
-        if repaired:
-            logger.info("Auto-repaired: %s",
-                        "; ".join(f"{k}={','.join(v)}" for k, v in repaired.items()))
-
-        # ── 005 injury / present line logic (deterministic) ──
-        # Injury/treatment lines are left blank — medical detail lives elsewhere.
-        inmate_hurt = slots.get("medical_disposition") in MEDICAL_INJURY_DISPOSITIONS
-        inmate_injury_line = MSF_REFERENCE if inmate_hurt else "N/A"
-        # Officer injury/treatment: blank ("N/A" if no force involvement).
-        officer_force = (category in OFFICER_FORCE_CATEGORIES
-                         or bool(slots.get("officer_injuries"))
-                         or str(slots.get("staff_injured", "")).lower()
-                         in ("yes", "true"))
-        officer_injury_line = MSF_REFERENCE if officer_force else "N/A"
-
-        form005 = {
-            # Ruling 9: every incident report ticks the 005 box; a use of force
-            # ticks the 409 as well.
-            **designation_boxes(category),
-            "unit_division": "BMU",
-            "officer_last": slots.get("officer_last") or "",
-            "officer_first": slots.get("officer_first") or "",
-            "employee_number": slots.get("employee_number") or "",
-            "rank": slots.get("rank") or "",
-            "shift_assignment": slots.get("shift_assignment") or "",
-            "date": slots.get("date") or "",
-            "time": _to_form_time(slots.get("time")) or "",
-            "location": slots.get("location") or "",
-            "inmates_involved": _format_inmates(slots),
-            "employees_involved": _format_employees(slots),
-            # Present lines default to "See Above" (the involved lists) unless
-            # the notes named separate people who were present.
-            "inmates_present": slots.get("inmates_present") or SEE_ABOVE,
-            "employees_present": slots.get("employees_present") or SEE_ABOVE,
-            "others_present": slots.get("others_present") or "N/A",
-            # Medical detail lives in the infirmary/medical report, not the 005.
-            "inmate_injuries": inmate_injury_line,
-            "inmate_treatment": inmate_injury_line,
-            "officer_injuries": officer_injury_line,
-            "officer_treatment": officer_injury_line,
-            "recommendation": reports.get("recommendation", ""),
-            "narrative": reports.get("first_person", ""),
-            "reporting_employee_signature": f"{slots.get('officer_first', '')} {slots.get('officer_last', '')}".strip(),
-            "supervisor_signature": "",
-        }
-
-        all_text = " ".join(v for v in reports.values() if isinstance(v, str))
-        # Values the pipeline generated deterministically — the normalized time,
-        # the fallback date (when the notes stated none), and the built incident
-        # number — are legitimate output, not invented facts. Allow-list them so
-        # the trust signal doesn't fire on the system's own correct work.
-        code_derived = [slots.get("time"), slots.get("date"),
-                        slots.get("incident_number")]
-        flags = invented_facts(all_text, notes, answers, allow=code_derived)
-
-        # Score every report against the style rulings, using the SAME inputs
-        # as the fabrication check above so the two can never disagree.
-        style = summarize(validate_all(
-            reports,
-            officer={"rank": slots.get("rank"), "first": slots.get("officer_first"),
-                     "last": slots.get("officer_last")},
-            notes=notes,
-            auto_content=auto_content,   # routed per report type by insert_into
-            allow=code_derived,
-            answers=answers,
-        ))
-
-        # Any report that failed after retries is reported as a failure rather
-        # than left to pass for a finished document with an error line in it.
-        generation_errors = generation_errors_pending
-        if generation_errors:
-            logger.error("Generation failed for: %s", ", ".join(generation_errors))
-
-        logger.info("Generate → %d reports, %d invented-fact flags, %d markers, "
-                    "style %.2f (%d blocking)", len(reports), len(flags),
-                    len(markers), style["score"], style["blocking_count"])
-        return jsonify({
-            "generation_errors": generation_errors,
-            "reports": reports,
-            "form005": form005,
-            "flags": flags,
-            "markers": markers,
-            "officers": officers,
-            "style": style,
-            "repaired": repaired,
-        })
+        ctx = _prepare_generation(data)
+        prior = data.get("reports") or {}
+        reports = {k: v for k, v in prior.items()
+                   if k in RESUMABLE_REPORT_KEYS and isinstance(v, str)}
+        reports.update(generate_disciplinary_only(
+            ctx["slots"], reports.get("first_person", ""), ctx["auto_content"]))
+        payload = _finalize_generation(reports, ctx)
+        payload["disciplinary_deferred"] = False
+        return jsonify(payload)
     except Exception as exc:
-        category, status = classify_error(exc)
-        logger.exception("Report generation failed [category=%s]", category)
-        return jsonify({"error": ERROR_MESSAGES[category]}), status
-
+        category_, status = classify_error(exc)
+        logger.exception("Disciplinary generation failed [category=%s]", category_)
+        return jsonify({"error": ERROR_MESSAGES[category_]}), status
 
 @reports_bp.route("/api/reports", methods=["POST"])
 def reports_api():
