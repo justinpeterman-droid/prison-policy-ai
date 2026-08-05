@@ -51,6 +51,12 @@ def create_app() -> Flask:
     # Vertex AI cost. Flask returns 413 automatically when exceeded.
     app.config["MAX_CONTENT_LENGTH"] = 1_000_000
 
+    # Content-versioned /static URLs, long-lived cache headers, and gzip for
+    # text responses. Must be registered before the blueprints so its
+    # after_request runs last (Flask runs them in reverse registration order).
+    from backend.webapp.assets import init_assets
+    init_assets(app)
+
     # Routes
     from backend.webapp.routes.chat import chat_bp
     from backend.webapp.routes.reports import reports_bp

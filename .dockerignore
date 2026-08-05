@@ -1,0 +1,21 @@
+# Keep the deployed image (and the Cloud Build upload) to what actually serves.
+
+# Source art for the homepage shield. These 1024px PNGs are the inputs to
+# scripts/optimize_images.py and stay in git so the WebP can be regenerated,
+# but only the .webp files are ever requested at runtime — shipping both would
+# put 6.3MB of dead weight in every image pull.
+# claw-rips.png is deliberately NOT excluded: it is still served as a PNG.
+backend/webapp/static/shield-*.png
+
+# Never part of the runtime image
+.git/
+.github/
+tests/
+scripts/
+frontend/
+docs/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+*.md
+!README.md
