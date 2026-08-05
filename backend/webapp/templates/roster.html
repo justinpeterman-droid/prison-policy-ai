@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Unit Roster</title>
-<link rel="icon" href="/static/seal.svg">
-<link rel="stylesheet" href="/static/fonts.css">
-<link rel="stylesheet" href="/static/tokens.css">
+<link rel="icon" href="{{ asset_url('seal.svg') }}">
+<link rel="stylesheet" href="{{ asset_url('fonts.css') }}">
+<link rel="stylesheet" href="{{ asset_url('tokens.css') }}">
 <style>
   :root{
     --bg:#f7f5f0;--panel:rgba(250,249,245,0.88);--surface:#ffffff;--elevated:#efece4;
@@ -163,7 +163,7 @@
 </head>
 <body>
 <nav>
-  <a class="brand" href="/"><img class="mark" src="/static/seal.svg" alt="" width="32" height="32"><b><span class="brand-acronym">S</span>tandard <span class="brand-acronym">L</span>ogistics</b><span><span class="brand-acronym">U</span>nit <span class="brand-acronym">T</span>ools</span></a>
+  <a class="brand" href="/"><img class="mark" src="{{ asset_url('shield-crystal-front.webp') }}" alt="" width="32" height="32"><b><span class="brand-acronym">S</span>tandard <span class="brand-acronym">L</span>ogistics</b><span><span class="brand-acronym">U</span>nit <span class="brand-acronym">T</span>ools</span></a>
   <div class="nav-right">
     <a class="nav-link" href="/chat">Reference Search</a>
     <a class="nav-link" href="/reports">Forms</a>
@@ -304,6 +304,6 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 load();
 </script>
-<script src="/static/js/feedback.js"></script>
+<script src="{{ asset_url('js/feedback.js') }}"></script>
 </body>
 </html>

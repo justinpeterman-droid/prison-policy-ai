@@ -3,6 +3,7 @@ from pathlib import Path
 from flask import Flask, request, redirect, render_template, make_response, jsonify
 
 from backend.pipeline.config import ACCESS_CODE, logger
+from backend.webapp.assets import init_assets
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
@@ -50,6 +51,11 @@ def create_app() -> Flask:
     # real report. Prevents an oversized paste (or abuse) from running up
     # Vertex AI cost. Flask returns 413 automatically when exceeded.
     app.config["MAX_CONTENT_LENGTH"] = 1_000_000
+
+    # Content-versioned /static URLs, long-lived cache headers, and gzip for
+    # text responses. Must be registered before the blueprints so its
+    # after_request runs last (Flask runs them in reverse registration order).
+    init_assets(app)
 
     # Routes
     from backend.webapp.routes.chat import chat_bp

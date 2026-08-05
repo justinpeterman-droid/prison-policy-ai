@@ -30,3 +30,8 @@ jobs:
 
       - name: Run unit tests
         run: python -m pytest -q
+
+      # Catches a source PNG edited without regenerating its WebP, which would
+      # otherwise ship the old art silently — the templates only load .webp.
+      - name: Check optimized images are current
+        run: python scripts/optimize_images.py --check
