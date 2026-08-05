@@ -3,6 +3,7 @@ from pathlib import Path
 from flask import Flask, request, redirect, render_template, make_response, jsonify
 
 from backend.pipeline.config import ACCESS_CODE, logger
+from backend.webapp.assets import init_assets
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
@@ -54,7 +55,6 @@ def create_app() -> Flask:
     # Content-versioned /static URLs, long-lived cache headers, and gzip for
     # text responses. Must be registered before the blueprints so its
     # after_request runs last (Flask runs them in reverse registration order).
-    from backend.webapp.assets import init_assets
     init_assets(app)
 
     # Routes
