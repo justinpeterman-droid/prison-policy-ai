@@ -47,16 +47,19 @@ To enable them, provide ADC (e.g. `GOOGLE_APPLICATION_CREDENTIALS` service-accou
 ## Learned User Preferences
 
 - Use "field notes" (never "shift notes") for officer input copy across homepage and reports.
-- Trust-first UX copy: AI does not invent facts; officer stays in control; nothing files itself — sell usefulness without over-explaining internals or packing detail stats.
+- Trust-first UX copy: AI does not invent facts; officer stays in control; nothing files itself — sell usefulness without over-explaining internals or packing detail stats; skip version badges and hero stat strips.
 - Keep nav brand markup consistent with the hero/home page on chat, reports, and roster.
 - "Forms page" usually means the Report Writing Assistant at `/reports`, not `frontend/forms/`.
 - Do not switch or steal browser/editor focus while working; browse in the background unless asked to show it.
-- Prefer subtle, corrections-professional visuals (navy/gold, light blue LIVE/CTA accents) over flashy redesigns.
+- Prefer corrections-professional navy/gold visuals; homepage may use a holographic crystal shield as a large blended hero background (not boxed/carded) with restrained motion — avoid flashy chrome elsewhere.
+- When restyling the homepage, keep the original content and process-explainer animation; visual refresh only.
 - Prefer live localhost preview in the agent browser when iterating on UI.
+- Sample field-notes demo CTA can live on both home (`/reports?demo=1`) and the reports page.
 
 ## Learned Workspace Facts
 
-- Product brand is Standard Logistics & Unit Tools (S-L-U-T); navy + gold.
+- Product brand is Standard Logistics & Unit Tools (S-L-U-T); navy + gold; accent the S-L-U-T acronym letters in the nav brand.
+- Homepage crystal shield assets live under `backend/webapp/static/` (e.g. `shield-crystal.png` plus swirl/lettering layers); nav mark uses `shield-crystal-front.png`; favicon/footer stay on `seal.svg`.
 - Local Flask app is run from the repo root and serves on port 8080.
 - Hermes coordination is CLI + `HERMES_HOME=C:\Users\justi\AppData\Local\hermes`; do not use Hermes WebUI on port 8787.
 - Staff roster shifts: A/B = Day, C/D = Night, U = Utility, F = Field; grid order top A B U / bottom C D F; omit clock times from shift labels.
