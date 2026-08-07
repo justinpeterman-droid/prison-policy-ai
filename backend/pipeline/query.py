@@ -394,6 +394,15 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
             logger.warning("Search rejected the extractive-content spec (400); "
                            "retrying with snippets only. Answers will be built "
                            "from shorter passages on this data store.")
+            # Assign, don't return: this function's contract is
+            # (contexts, raw_count), and _search_snippets_only hands back the
+            # raw payload. Returning it directly gave the caller a dict, which
+            # `retrieved, raw_count = ...` then unpacked into the dict's KEYS —
+            # so `retrieved` became the string "results" and the next line died
+            # with TypeError. Search had succeeded; only the shape was wrong,
+            # which is why it surfaced as "An unexpected error occurred" rather
+            # than any search-related category. Falling through to the shared
+            # parsing below keeps both paths on one contract.
             result = _search_snippets_only(url, token, query, page_size, err_body)
         else:
             # Log the resolved config alongside the error: almost every other
