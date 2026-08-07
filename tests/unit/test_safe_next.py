@@ -50,3 +50,9 @@ def test_a_malformed_demo_value_is_dropped_not_echoed():
 
 def test_demo_is_not_smuggled_onto_another_page():
     assert _safe_next("/roster?demo=1") == "/roster"
+
+
+def test_an_unknown_demo_id_is_dropped():
+    """`demo` is matched against the real scenario ids, not just a charset —
+    so a plausible-looking id that doesn't exist can't ride through login."""
+    assert _safe_next("/reports?demo=no_such_scenario") == "/reports"

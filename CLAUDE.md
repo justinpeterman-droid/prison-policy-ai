@@ -123,8 +123,16 @@ prompt. It opens everything `ACCESS_CODE` does *plus* the Unit Roster (`/roster`
 and `/api/roster*`), which carries real staff names and employee numbers. A regular
 user gets **404**, not 403 — the roster shouldn't advertise its existence to someone
 who can't use it — and the nav link is hidden via the `is_admin` template global.
-The cookie stores *the code that was submitted*, which is what distinguishes the
-tiers on later requests, so don't "simplify" it back to a fixed value.
+The cookie carries the tier — it stores the **configured** code that matched
+(`ADMIN_CODE` or `ACCESS_CODE`), never the string the user typed. Matching is
+case-insensitive so the two are equivalent, and keeping user text out of the
+`Set-Cookie` header is what CodeQL's "cookie from user-supplied input" rule wants.
+Don't collapse it back to one fixed value either — later requests read the cookie
+to decide the tier.
+
+For the same reason `_safe_next()` returns members of `NEXT_ALLOWED_PATHS` and a
+demo-URL allowlist built from `demo_notes.json`, rather than reassembling a URL
+around the submitted value — an unknown demo id drops to `/reports`.
 
 `ADMIN_CODE` has **no default and fails closed**: unset, the roster is unreachable
 for everyone (startup logs a warning). The one exception is `ACCESS_CODE=""` — with

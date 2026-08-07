@@ -1,5 +1,4 @@
 """Prison Policy AI — Flask web application with simple access-code auth."""
-import re
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 
@@ -57,19 +56,31 @@ def _is_admin_only(path: str) -> bool:
 # request — nothing an attacker types can become part of the URL we emit.
 NEXT_ALLOWED_PATHS = {"/", "/chat", "/reports", "/roster"}
 
-# The only query parameter worth carrying through login: /reports?demo=1 (or
-# ?demo=<scenario-id>) is a real entry point, and dropping it lands the user on
-# a blank form. Values are matched against this pattern and re-emitted from the
-# literal below, so the parameter is validated, not merely echoed.
-_DEMO_VALUE = re.compile(r"\A[A-Za-z0-9_]{1,40}\Z")
+
+def _demo_targets() -> set[str]:
+    """Every `/reports?demo=…` URL that actually means something.
+
+    Built from the demo scenarios themselves, so an unknown id can't ride
+    through login. Returning a member of this set — rather than reassembling
+    the URL around the submitted value — is what keeps user input out of the
+    Location header entirely.
+    """
+    targets = {"/reports?demo=1"}
+    try:
+        from backend.webapp.routes.reports import _load_demo_scenarios
+        targets.update(f"/reports?demo={s['id']}" for s in _load_demo_scenarios())
+    except Exception:  # pragma: no cover - demo data is optional
+        logger.warning("Could not load demo scenarios for redirect allowlist")
+    return targets
 
 
 def _safe_next(value: str) -> str:
     """Resolve `next` to a known page on this site, or the home page.
 
-    Returns a URL assembled from constants. Absolute URLs, protocol-relative
-    '//evil.com', backslash variants browsers normalize to slashes, and any
-    path not in NEXT_ALLOWED_PATHS all collapse to '/'.
+    Every return value is a string this module produced, never the caller's.
+    Absolute URLs, protocol-relative '//evil.com', backslash variants browsers
+    normalize to slashes, unknown paths and unknown demo ids all collapse to '/'
+    or drop back to the bare page.
     """
     parsed = urlsplit((value or "").strip())
     # A same-site reference has no scheme, host or credentials.
@@ -79,9 +90,17 @@ def _safe_next(value: str) -> str:
     if path not in NEXT_ALLOWED_PATHS:
         return "/"
     demo = parse_qs(parsed.query).get("demo", [""])[0]
-    if path == "/reports" and _DEMO_VALUE.match(demo):
-        return "/reports?demo=" + demo
-    return path
+    if path == "/reports" and demo:
+        candidate = f"/reports?demo={demo}"
+        for known in _demo_targets():
+            if known == candidate:
+                return known
+    # Look the path up rather than echoing it, so nothing user-supplied is
+    # returned even when it happened to be valid.
+    for known in NEXT_ALLOWED_PATHS:
+        if known == path:
+            return known
+    return "/"
 
 
 def _request_is_https() -> bool:
@@ -92,16 +111,20 @@ def _request_is_https() -> bool:
 
 
 def _set_auth_cookie(resp, code: str):
-    """Store the code that was actually entered, with hardening flags:
+    """Store the tier the submitted code unlocked, with hardening flags:
       - HttpOnly: JavaScript can't read it (XSS can't steal the session).
       - Secure:   only sent over HTTPS (in prod) — omitted on local http so dev login works.
       - SameSite=Lax: not sent on cross-site POST/XHR → blocks CSRF against the API.
 
-    The stored value is what distinguishes the two tiers on later requests, so
-    it must be the submitted code rather than a fixed one.
+    The cookie has to carry the tier, since that is what later requests check.
+    But it stores the *configured* code rather than the string the user typed:
+    matching is case-insensitive, so the two are equivalent, and this way no
+    user-supplied text ever reaches the response — which is both what CodeQL
+    wants and one less way for a stray value to end up in a Set-Cookie header.
     """
+    resolved = ADMIN_CODE if _is_admin(code) else ACCESS_CODE
     resp.set_cookie(
-        "access_code", code.strip(),
+        "access_code", resolved,
         max_age=60 * 60 * 24,
         httponly=True,
         secure=_request_is_https(),
