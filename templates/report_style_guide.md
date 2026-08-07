@@ -2,7 +2,7 @@
 
 > ⚠️ `templates/gold_reports/STYLE_RULINGS.md` is AUTHORITATIVE over this file.
 > Where they disagree, the rulings win.
-Extracted from Sgt. Peterman's actual reports (2023–2024). These formulas are injected
+Extracted from a serving sergeant's filed reports (2023–2024). These formulas are injected
 into generation prompts and enforced by post-generation checks. All names/ADC numbers
 below are placeholders — no real identities in this file.
 

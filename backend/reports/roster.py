@@ -1,26 +1,18 @@
 """Staff roster lookup — resolves partial officer names against the roster,
 generating gaps for unidentifiable staff and filling in known details."""
-import json
 import logging
-from pathlib import Path
+
+from backend.reports import roster_store
 
 logger = logging.getLogger(__name__)
 
-ROSTER_PATH = Path(__file__).parent.parent.parent / "templates" / "staff_roster.json"
-
-_cache = None
+ROSTER_PATH = roster_store.SEED_PATH
 
 
 def _load() -> dict:
-    global _cache
-    if _cache is not None:
-        return _cache
-    if not ROSTER_PATH.exists():
-        logger.warning("Staff roster not found at %s — lookups will fail", ROSTER_PATH)
-        _cache = {"shifts": {}, "staff": []}
-        return _cache
-    _cache = json.loads(ROSTER_PATH.read_text())
-    return _cache
+    """The current roster. Backed by GCS when ROSTER_BUCKET is set, otherwise
+    the packaged file — see backend/reports/roster_store.py."""
+    return roster_store.read()
 
 
 def lookup(name_hint: str) -> dict | None:
@@ -57,39 +49,40 @@ def lookup(name_hint: str) -> dict | None:
 
 def _add_to_roster_file(rank: str, first: str, last: str,
                         employee_number: str, shift: str = "A") -> bool:
-    """Persist a new staff member to the roster JSON file.
+    """Persist a new staff member to the roster.
 
     Returns True if the entry was added, False if it already existed.
     """
-    roster = _load()
-    # Check for duplicate by employee number or last name
-    for person in roster.get("staff", []):
-        if (person.get("employee_number", "").lower() == employee_number.lower()
-                or (person.get("last", "").lower() == last.lower()
-                    and person.get("first", "").lower() == first.lower())):
-            return False  # Already exists
+    def mutate(roster: dict):
+        # Re-checked on every attempt, not once up front: update() re-runs this
+        # against a fresh copy after a write conflict, and by then the officer
+        # we're adding may already be there because another request added them.
+        for person in roster.get("staff", []):
+            if (person.get("employee_number", "").lower() == employee_number.lower()
+                    or (person.get("last", "").lower() == last.lower()
+                        and person.get("first", "").lower() == first.lower())):
+                return None  # Already exists — nothing to write
 
-    new_entry = {
-        "rank": rank,
-        "first": first,
-        "last": last,
-        "employee_number": employee_number,
-        "shift": shift,
-    }
-    roster["staff"].append(new_entry)
-    ROSTER_PATH.write_text(json.dumps(roster, indent=2) + "\n")
-    # Bust cache so next lookup uses updated roster
-    global _cache
-    _cache = roster
-    # Do not log names/employee numbers (PII / CodeQL clear-text-logging).
-    logger.info("Added a new staff member to the roster (shift %s)", shift)
-    return True
+        roster.setdefault("staff", []).append({
+            "rank": rank,
+            "first": first,
+            "last": last,
+            "employee_number": employee_number,
+            "shift": shift,
+        })
+        return True
+
+    added = roster_store.update(mutate)
+    if added:
+        # Do not log names/employee numbers (PII / CodeQL clear-text-logging).
+        logger.info("Added a new staff member to the roster (shift %s)", shift)
+    return bool(added)
 
 
 def add_staff_from_gap_answer(name_hint: str, answer_text: str) -> bool:
     """Parse a staff identity gap answer and persist to roster.
 
-    Accepts answers like 'Sgt. Justin Peterman 141432' or 'Justin Peterman'.
+    Accepts answers like 'Sgt. Dana Halvorsen 100411' or 'Dana Halvorsen'.
     Returns True if successfully parsed and persisted.
     """
     text = answer_text.strip()
@@ -123,7 +116,12 @@ def add_staff_from_gap_answer(name_hint: str, answer_text: str) -> bool:
                 "colonel": "Col", "col": "Col", "col.": "Col",
             }
             rank = rank_map.get(m.group(1).lower().rstrip('.'), m.group(1))
-            text = re.sub(pat, '', text, count=1, flags=re.I).strip()
+            # The `\.?` in each pattern can never match: `\b` after a period
+            # fails, since '.' and ' ' are both non-word characters. So "Sgt."
+            # matches as "Sgt" and leaves the period behind, where it used to
+            # be parsed as the officer's first name — every rank written the
+            # normal way ("Sgt. Dana Halvorsen") produced first=".".
+            text = re.sub(pat, '', text, count=1, flags=re.I).lstrip(". ").strip()
             break
 
     # Try to extract employee number (digits at end or standalone digits)

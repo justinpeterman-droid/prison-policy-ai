@@ -18,7 +18,7 @@ STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
     - If ADC# is unknown: 'Inmate {{Last}}, {{First}}'
     - If both unknown: 'Inmate {{Last}}'  (only when both first and ADC# truly unavailable)
   * STAFF first mention:   '{{Rank}} {{First}} {{Last}}'  (Cpl. / Sgt. / Lt. / Cpt.)
-    - Example: 'Sgt. Justin Peterman', 'Cpl. Austin Powell'
+    - Example: 'Sgt. Dana Halvorsen', 'Cpl. Ray Alvarez'
   * ALL later references to the same person use SHORT FORM:
     - Inmate: 'Inmate {{Last}}'
     - Staff: '{{Rank}} {{Last}}'
@@ -54,7 +54,7 @@ STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
   never censored or paraphrased — they are evidence.
 - When the SAME action applies to more than one inmate or staff member, write ONE
   combined sentence ('I applied hand restraints to Inmate Smith and Inmate Jones.';
-  'Cpl. Powell and Cpl. Sohns escorted Inmate Smith and Inmate Jones to the
+  'Cpl. Alvarez and Cpl. Nguyen escorted Inmate Smith and Inmate Jones to the
   infirmary.') — NEVER a separate, near-identical sentence per person.
 - Do NOT describe injuries, wounds, or medical findings, and do NOT write your own
   'seen by medical' sentence — the REQUIRED SENTENCES below already state the medical

@@ -37,10 +37,10 @@ def test_inmate_subsequent_mentions_stay_short():
 
 
 def test_staff_first_mention_uses_rank_first_last():
-    slots = {"persons": [_staff("Sgt.", "Miguel", "Delgado")],
-             "officer_last": "Delgado"}
-    out = enforce_naming("Sgt. Delgado applied hand restraints.", slots)
-    assert "Sgt. Miguel Delgado" in out
+    slots = {"persons": [_staff("Sgt.", "Lee", "Quintero")],
+             "officer_last": "Quintero"}
+    out = enforce_naming("Sgt. Quintero applied hand restraints.", slots)
+    assert "Sgt. Lee Quintero" in out
 
 
 def test_person_without_last_name_is_skipped():
@@ -89,9 +89,9 @@ def test_replacement_never_destroys_surrounding_text():
 
 
 def test_reporter_self_reference_is_left_intact():
-    slots = {"persons": [_staff("Sgt", "Justin", "Peterman")],
-             "officer_last": "Peterman"}
-    text = "I, Sgt Justin Peterman, was assigned to 8 Barracks. I applied restraints."
+    slots = {"persons": [_staff("Sgt", "Dana", "Halvorsen")],
+             "officer_last": "Halvorsen"}
+    text = "I, Sgt Dana Halvorsen, was assigned to 8 Barracks. I applied restraints."
     assert enforce_naming(text, slots) == text
 
 
@@ -105,9 +105,9 @@ def test_already_full_form_is_not_re_expanded():
 
 def test_rank_period_mismatch_still_matches():
     # Roster says 'Sgt.'; the model wrote 'Sgt'.
-    slots = {"persons": [_staff("Sgt.", "Miguel", "Delgado")]}
-    out = enforce_naming("Sgt Delgado applied hand restraints.", slots)
-    assert "Miguel" in out
+    slots = {"persons": [_staff("Sgt.", "Lee", "Quintero")]}
+    out = enforce_naming("Sgt Quintero applied hand restraints.", slots)
+    assert "Lee" in out
 
 
 def test_shared_surname_leaves_bare_mentions_alone():
@@ -121,10 +121,10 @@ def test_shared_surname_leaves_bare_mentions_alone():
 
 def test_multiple_inmates_each_get_their_own_first_mention():
     slots = {"persons": [_inmate("Garcia", "Luis", "448291"),
-                         _inmate("Boyd", "Trevor", "551002")]}
-    out = enforce_naming("Inmate Garcia and Inmate Boyd were separated.", slots)
+                         _inmate("Okonkwo", "Trevor", "551002")]}
+    out = enforce_naming("Inmate Garcia and Inmate Okonkwo were separated.", slots)
     assert "Inmate Garcia, Luis ADC# 448291" in out  # sentence start -> capitalized
-    assert "inmate Boyd, Trevor ADC# 551002" in out   # mid-sentence -> lowercase
+    assert "inmate Okonkwo, Trevor ADC# 551002" in out   # mid-sentence -> lowercase
 
 
 # ── STYLE_RULINGS.md conformance ────────────────────────────────────────────

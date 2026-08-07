@@ -1,4 +1,5 @@
 {
+  "_notes": "Seed roster — fictional demo staff only. Never commit real staff names or employee numbers to this file; the live unit roster is maintained through /roster at runtime.",
   "shifts": {
     "A": {"label": "A Shift", "hours": "Day (06:00–18:00)"},
     "B": {"label": "B Shift", "hours": "Day (06:00–18:00)"},
@@ -8,11 +9,18 @@
     "F": {"label": "F Shift", "hours": "Field"}
   },
   "staff": [
-    {"rank": "Sgt", "first": "Justin", "last": "Peterman", "employee_number": "141432", "shift": "A"},
-    {"rank": "Sgt", "first": "Austin", "last": "Powell", "employee_number": "123456", "shift": "A"},
-    {"rank": "Sgt", "first": "Jack", "last": "Sohns", "employee_number": "868686", "shift": "A"},
-    {"rank": "Sgt", "first": "Miguel", "last": "Delgado", "employee_number": "D4721", "shift": "A"},
-    {"rank": "Cpl", "first": "Thomas", "last": "Brennan", "employee_number": "B3398", "shift": "A"},
-    {"rank": "Cpl", "first": "Daniel", "last": "Ortiz", "employee_number": "O5521", "shift": "A"}
+    {"rank": "Capt", "first": "Grace", "last": "Lindholm", "employee_number": "100401", "shift": "A"},
+    {"rank": "Sgt", "first": "Dana", "last": "Halvorsen", "employee_number": "100411", "shift": "A"},
+    {"rank": "Cpl", "first": "Ray", "last": "Alvarez", "employee_number": "100412", "shift": "A"},
+    {"rank": "Cpl", "first": "Tara", "last": "Nguyen", "employee_number": "100413", "shift": "A"},
+    {"rank": "Sgt", "first": "Lee", "last": "Quintero", "employee_number": "100421", "shift": "B"},
+    {"rank": "Cpl", "first": "Neil", "last": "Castillo", "employee_number": "100422", "shift": "B"},
+    {"rank": "Lt", "first": "Nora", "last": "Franklin", "employee_number": "100431", "shift": "C"},
+    {"rank": "Sgt", "first": "Iris", "last": "Coleman", "employee_number": "100432", "shift": "C"},
+    {"rank": "Cpl", "first": "Dev", "last": "Kaur", "employee_number": "100433", "shift": "C"},
+    {"rank": "Sgt", "first": "Tomas", "last": "Okafor", "employee_number": "100441", "shift": "D"},
+    {"rank": "Cpl", "first": "June", "last": "Hartley", "employee_number": "100442", "shift": "D"},
+    {"rank": "Cpl", "first": "Sam", "last": "Delacroix", "employee_number": "100451", "shift": "U"},
+    {"rank": "Cpl", "first": "Alex", "last": "Okonkwo", "employee_number": "100461", "shift": "F"}
   ]
 }

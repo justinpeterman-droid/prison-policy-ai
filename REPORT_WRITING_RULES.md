@@ -1,6 +1,6 @@
 # REPORT_WRITING_RULES.md — Single Source of Truth
 
-Every rule BMU/ADC reports must follow. Sourced from Sgt. Peterman's actual
+Every rule BMU/ADC reports must follow. Sourced from a serving sergeant's filed
 reports (2023–2024) and codified into deterministic checks.
 
 ## Rule Index
@@ -21,7 +21,7 @@ Each rule has an ID (`RW-###`) and a severity: `BLOCKING` (must fix before use),
 
 ### RW-002 — Staff Naming [BLOCKING]
 `{Rank} {First} {Last}` on FIRST reference — Cpl. / Sgt. / Lt. / Cpt.
-- Example: "Sgt. Justin Peterman", "Cpl. Austin Powell"
+- Example: "Sgt. Dana Halvorsen", "Cpl. Ray Alvarez"
 - After first reference: "{Rank} {Last}" is acceptable
 - Never: bare last name alone on first mention, or rank without first name on first mention
 
@@ -164,8 +164,8 @@ Each staff member named in notes can have own report.
 ### Test 1: Standard Fight
 ```
 Smith ADC#123456 and Jones ADC#654321 fighting 8 Barracks ~10pm.
-Jones cut over eye. Sgt Peterman cuffed both.
-Cpl Powell and Sohns escorted Jones to Infirmary.
+Jones cut over eye. Sgt Halvorsen cuffed both.
+Cpl Alvarez and Nguyen escorted Jones to Infirmary.
 ```
 Expected: enemy_alert, restraint_line, escort_line, medical note, charges
 

@@ -1,27 +1,24 @@
-"""Unit Roster API — read/write staff_roster.json."""
-import json
+"""Unit Roster API — read/write the unit roster.
+
+Storage lives in backend/reports/roster_store.py: GCS when ROSTER_BUCKET is
+set, the packaged JSON file otherwise. Every mutation goes through
+`roster_store.update()` so concurrent edits can't silently drop each other.
+"""
 import logging
-from pathlib import Path
 
 from flask import Blueprint, request, jsonify
 
+from backend.reports import roster_store
+
 logger = logging.getLogger(__name__)
 
-ROSTER_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "staff_roster.json"
 VALID_SHIFTS = {"A", "B", "C", "D", "U", "F"}
 
 roster_bp = Blueprint("roster", __name__)
 
 
 def _load() -> dict:
-    if not ROSTER_PATH.exists():
-        return {"shifts": {}, "staff": []}
-    return json.loads(ROSTER_PATH.read_text())
-
-
-def _save(data: dict) -> None:
-    ROSTER_PATH.parent.mkdir(parents=True, exist_ok=True)
-    ROSTER_PATH.write_text(json.dumps(data, indent=2) + "\n")
+    return roster_store.read()
 
 
 @roster_bp.route("/api/roster", methods=["GET"])
@@ -67,15 +64,22 @@ def add_staff():
     if shift not in VALID_SHIFTS:
         return jsonify({"error": f"Invalid shift '{shift}'. Must be one of: {', '.join(sorted(VALID_SHIFTS))}"}), 400
 
-    data = _load()
+    def mutate(data: dict):
+        # Duplicate check runs inside the mutation so it is re-evaluated after a
+        # write conflict — otherwise two simultaneous adds of the same employee
+        # number would both pass a check made before either wrote.
+        if any(s.get("employee_number", "").strip().lower() == emp.lower()
+               for s in data.get("staff", [])):
+            return "duplicate"
+        data.setdefault("staff", []).append({
+            "rank": rank, "first": first, "last": last,
+            "employee_number": emp, "shift": shift,
+        })
+        return "added"
 
-    # Check duplicate
-    if any(s.get("employee_number", "").strip().lower() == emp.lower() for s in data.get("staff", [])):
+    if roster_store.update(mutate) == "duplicate":
         return jsonify({"error": f"Employee number {emp} already exists."}), 409
 
-    entry = {"rank": rank, "first": first, "last": last, "employee_number": emp, "shift": shift}
-    data.setdefault("staff", []).append(entry)
-    _save(data)
     # Do not log names/employee numbers (PII / CodeQL clear-text-logging).
     logger.info("Added a staff member to the roster (shift %s)", shift)
     return jsonify({"ok": True})
@@ -85,41 +89,43 @@ def add_staff():
 def update_staff(emp_id):
     """Update a staff member's fields (shift reassign, name fix, etc.)."""
     body = request.get_json(silent=True) or {}
-    data = _load()
 
-    for person in data.get("staff", []):
-        if person.get("employee_number", "").strip() == emp_id.strip():
-            if "rank" in body:
-                person["rank"] = body["rank"].strip()
-            if "first" in body:
-                person["first"] = body["first"].strip()
-            if "last" in body:
-                person["last"] = body["last"].strip()
-            if "employee_number" in body:
-                person["employee_number"] = body["employee_number"].strip()
-            if "shift" in body:
-                new_shift = body["shift"].strip().upper()
-                if new_shift not in VALID_SHIFTS:
-                    return jsonify({"error": f"Invalid shift '{new_shift}'."}), 400
-                person["shift"] = new_shift
-            _save(data)
-            logger.info("Updated a staff member")
-            return jsonify({"ok": True})
+    # Validate before mutating so a bad shift is rejected without a round-trip.
+    new_shift = body["shift"].strip().upper() if "shift" in body else None
+    if new_shift is not None and new_shift not in VALID_SHIFTS:
+        return jsonify({"error": f"Invalid shift '{new_shift}'."}), 400
 
-    return jsonify({"error": f"Staff member {emp_id} not found."}), 404
+    def mutate(data: dict):
+        for person in data.get("staff", []):
+            if person.get("employee_number", "").strip() == emp_id.strip():
+                for field in ("rank", "first", "last", "employee_number"):
+                    if field in body:
+                        person[field] = body[field].strip()
+                if new_shift is not None:
+                    person["shift"] = new_shift
+                return "updated"
+        return "missing"
+
+    if roster_store.update(mutate) == "missing":
+        return jsonify({"error": f"Staff member {emp_id} not found."}), 404
+
+    logger.info("Updated a staff member")
+    return jsonify({"ok": True})
 
 
 @roster_bp.route("/api/roster/staff/<emp_id>", methods=["DELETE"])
 def delete_staff(emp_id):
     """Remove a staff member from the roster."""
-    data = _load()
-    staff = data.get("staff", [])
-    before = len(staff)
-    data["staff"] = [s for s in staff if s.get("employee_number", "").strip() != emp_id.strip()]
+    def mutate(data: dict):
+        staff = data.get("staff", [])
+        kept = [s for s in staff if s.get("employee_number", "").strip() != emp_id.strip()]
+        if len(kept) == len(staff):
+            return None  # not found — nothing to write
+        data["staff"] = kept
+        return "removed"
 
-    if len(data["staff"]) == before:
+    if roster_store.update(mutate) is None:
         return jsonify({"error": f"Staff member {emp_id} not found."}), 404
 
-    _save(data)
     logger.info("Removed a staff member")
     return jsonify({"ok": True})

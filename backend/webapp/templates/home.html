@@ -902,7 +902,7 @@
   <div class="links">
     <a href="/chat">Reference Search</a>
     <a href="/reports">Forms</a>
-    <a href="/roster">Unit Roster</a>
+    {% if is_admin %}<a href="/roster">Unit Roster</a>{% endif %}
     <a href="/logout">Log out</a>
   </div>
 </nav>
@@ -1011,7 +1011,7 @@
         <div class="flow-station">
           <div class="note-sheet">
             <div class="tag">Field notes</div>
-            <pre>Garcia ADC#448291 &amp; Whitaker ADC#773015 fighting 8 Barracks ~10pm. Whitaker cut over eye. Sgt Delgado cuffed. Cpl Brennan &amp; Ortiz escorted to RH.</pre>
+            <pre>Rhodes ADC#900512 &amp; Ferraro ADC#900534 fighting 8 Barracks ~2:15pm. Ferraro cut over eye. Sgt Halvorsen cuffed. Cpl Alvarez &amp; Nguyen escorted to RH.</pre>
           </div>
         </div>
         <div class="flow-arrow" aria-hidden="true"></div>
@@ -1085,7 +1085,7 @@
       <h4>Tools</h4>
       <a href="/chat">Reference Search</a>
       <a href="/reports">Forms</a>
-      <a href="/roster">Unit Roster</a>
+      {% if is_admin %}<a href="/roster">Unit Roster</a>{% endif %}
       <a href="{{ asset_url('NCU_Operational_Training_Manual.pdf') }}" download>Training Manual</a>
       <a href="/logout">Log out</a>
     </div>

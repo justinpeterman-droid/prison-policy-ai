@@ -11,14 +11,14 @@ from backend.reports.report_validator import (
     validate_all, validate_report,
 )
 
-OFFICER = {"rank": "Sgt.", "first": "Dana", "last": "Vance"}
+OFFICER = {"rank": "Sgt.", "first": "Dana", "last": "Ferraro"}
 NOTES = ("8 barracks ~950pm Roe 111111 and Doe 222222 fighting, gave 3 orders, "
          "me and Ford cuffed em, both to RH")
 ALLOW = ["9:50 pm", "August 4, 2026"]
 
 # Written to STYLE_RULINGS.md exactly: 'ADC# 111111' (4), 'Sgt.' (2),
 # lowercase mid-sentence 'inmate' (6), '9:50 pm' (11), no closer (13).
-GOOD = ("I, Sgt. Dana Vance, was assigned to 8 Barracks when at approximately "
+GOOD = ("I, Sgt. Dana Ferraro, was assigned to 8 Barracks when at approximately "
         "9:50 pm Inmate Roe, Richard ADC# 111111 and inmate Doe, John ADC# 222222 "
         "began fighting. I gave three direct orders to stop. Cpl. Amy Ford and I "
         "applied hand restraints to inmate Roe and inmate Doe. "
@@ -94,7 +94,7 @@ class TestRulingConformance:
                     if v.rule_id == "RW-034" and v.severity == "BLOCKING"]
 
     def test_a_placeholder_used_as_a_name_is_blocking(self):
-        assert "RW-006" in _rules(_validate("I, Sgt. Dana Vance, saw Inmate Unknown."))
+        assert "RW-006" in _rules(_validate("I, Sgt. Dana Ferraro, saw Inmate Unknown."))
 
     def test_a_genuinely_invented_adc_number_is_still_caught(self):
         """The false-positive fix must not blunt the real check."""
@@ -107,10 +107,10 @@ class TestPerReportRules:
         assert "RW-004" in _rules(r)
 
     def test_a_repeated_self_reference_is_blocking(self):
-        assert "RW-004" in _rules(_validate(GOOD + " I, Sgt. Dana Vance, then left."))
+        assert "RW-004" in _rules(_validate(GOOD + " I, Sgt. Dana Ferraro, then left."))
 
     def test_self_reference_is_not_required_in_a_supervisor_summary(self):
-        r = _validate("On August 4, 2026 Sgt. Vance responded to 8 Barracks.",
+        r = _validate("On August 4, 2026 Sgt. Ferraro responded to 8 Barracks.",
                       report_type="supervisor_summary")
         assert "RW-004" not in _rules(r)
 
@@ -120,22 +120,22 @@ class TestPerReportRules:
         assert "RW-035" in _rules(r)
 
     def test_a_quoted_i_does_not_trip_the_third_person_rule(self):
-        r = _validate('On August 4, 2026 Sgt. Vance heard him yell "I did not do it".',
+        r = _validate('On August 4, 2026 Sgt. Ferraro heard him yell "I did not do it".',
                       report_type="supervisor_summary")
         assert "RW-035" not in _rules(r)
 
     def test_disciplinary_requires_the_charging_closer(self):
-        r = _validate("I, Sgt. Dana Vance, saw the fight.", report_type="disciplinary")
+        r = _validate("I, Sgt. Dana Ferraro, saw the fight.", report_type="disciplinary")
         assert "RW-013" in _rules(r)
 
     def test_disciplinary_closer_worded_per_ruling_5_passes(self):
-        text = ("I, Sgt. Dana Vance, observed the altercation. Due to the above "
-                "stated facts I, Sgt. Dana Vance, am charging inmate Roe, Richard "
+        text = ("I, Sgt. Dana Ferraro, observed the altercation. Due to the above "
+                "stated facts I, Sgt. Dana Ferraro, am charging inmate Roe, Richard "
                 "ADC# 111111 with major rule violation 12-1 pending DCR.")
         assert "RW-013" not in _rules(_validate(text, report_type="disciplinary"))
 
     def test_investigation_opening_formula(self):
-        good = ("I, Sgt. Dana Vance, started an investigation at 9:50 pm and "
+        good = ("I, Sgt. Dana Ferraro, started an investigation at 9:50 pm and "
                 "concluded it at 11:15 pm on August 4, 2026 with the following "
                 "findings: I reviewed the camera footage.")
         assert "RW-010" not in _rules(
@@ -165,7 +165,7 @@ class TestRequiredSentenceRouting:
     def test_a_cover_letter_is_not_flagged_for_the_narratives_sentences(self):
         """Checking every report against every sentence produced three false
         BLOCKING violations on a perfectly good set of reports."""
-        reports = {"cover_letter": "On August 4, 2026 I, Sgt. Dana Vance, was "
+        reports = {"cover_letter": "On August 4, 2026 I, Sgt. Dana Ferraro, was "
                                    "notified. Bravo sentence. Charlie sentence."}
         results = validate_all(reports, OFFICER, NOTES, self.AUTO, ALLOW)
         assert "RW-032" not in _rules(results["cover_letter"])
@@ -221,7 +221,7 @@ class TestSummarize:
     def test_it_reports_blocking_across_every_report(self):
         results = validate_all(
             {"first_person": GOOD.replace("ADC# 111111", "ADC#111111"),
-             "cover_letter": "On August 4, 2026 I, Sgt. Dana Vance, was notified."},
+             "cover_letter": "On August 4, 2026 I, Sgt. Dana Ferraro, was notified."},
             OFFICER, NOTES, None, ALLOW)
         out = summarize(results)
         assert out["blocking_count"] >= 1
@@ -240,14 +240,14 @@ class TestSummarize:
 
 class TestSentenceSplitting:
     """Ruling 2 requires the period on ranks, which a naive sentence split
-    reads as the end of a sentence — tearing 'I, Sgt. Dana Vance, was...' into
+    reads as the end of a sentence — tearing 'I, Sgt. Dana Ferraro, was...' into
     'I, Sgt.' and failing the opening check on correct text."""
 
     def test_a_rank_period_does_not_end_a_sentence(self):
         from backend.reports.report_validator import _split_sentences
         assert _split_sentences(
-            "I, Sgt. Dana Vance, was assigned. I applied restraints."
-        ) == ["I, Sgt. Dana Vance, was assigned.", "I applied restraints."]
+            "I, Sgt. Dana Ferraro, was assigned. I applied restraints."
+        ) == ["I, Sgt. Dana Ferraro, was assigned.", "I applied restraints."]
 
     def test_the_opening_check_passes_on_a_ranked_officer(self):
         assert "RW-010" not in _rules(_validate(GOOD))

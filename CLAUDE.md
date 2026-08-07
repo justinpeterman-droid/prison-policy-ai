@@ -82,8 +82,9 @@ runtime** — not HTML. (Jinja HTML lives in `backend/webapp/templates/`.) Key f
 |------|------|
 | `incident_checklist_v2.json` | **Authoritative** — 9 categories, required slots, conditional rules, gap questions, `auto_content` sentences, shared option sets. Change report behavior *here*, not in prompts. |
 | `disciplinary_charges.json` | Extracted disciplinary handbook charges; classifier validates suggestions against these. |
-| `staff_roster.json` | The live unit roster (`{shifts, staff}`). Read+written by `/api/roster` and auto-persisted from gap answers. |
+| `staff_roster.json` | **Seed** roster (`{shifts, staff}`). **Fictional demo staff only — never commit real names or employee numbers.** In production the live roster lives in GCS (see "Roster persistence" below); this file is the starting point when the bucket has no roster yet, and the whole story locally. |
 | `location_map.json` | Slang → formal BMU location names. |
+| `demo_notes.json` | The three canned field-note scenarios behind the `/reports?demo=1` CTA. **Fictional people only** — staff names must resolve against `staff_roster.json`, and `use_of_force_oc` deliberately withholds the OC canister lot/MFG/serial so the blocking gap fires. `tests/unit/test_demo_notes.py` enforces both. |
 | `005_template_v3.docx` | Current ADC 005 replica the filler populates (older `005*.docx` are legacy). |
 | `report_style_guide.md` | Naming / tone rules the prompts + `name_fixer.py` enforce. |
 
@@ -116,6 +117,32 @@ shared access code (`backend/webapp/app.py`). `ACCESS_CODE` defaults to **`slut`
 navy + gold). Log in at `/login`, or bookmark any URL with `?code=slut` (sets a
 cookie, redirects clean). API routes return **401 JSON**; page routes redirect to
 `/login`. Set `ACCESS_CODE=""` to disable auth entirely.
+
+**Two tiers, one login box.** `ADMIN_CODE` is a second code entered at the same
+prompt. It opens everything `ACCESS_CODE` does *plus* the Unit Roster (`/roster`
+and `/api/roster*`), which carries real staff names and employee numbers. A regular
+user gets **404**, not 403 — the roster shouldn't advertise its existence to someone
+who can't use it — and the nav link is hidden via the `is_admin` template global.
+The cookie carries the tier — it stores the **configured** code that matched
+(`ADMIN_CODE` or `ACCESS_CODE`), never the string the user typed. Matching is
+case-insensitive so the two are equivalent, and keeping user text out of the
+`Set-Cookie` header is what CodeQL's "cookie from user-supplied input" rule wants.
+Don't collapse it back to one fixed value either — later requests read the cookie
+to decide the tier.
+
+For the same reason `_safe_next()` returns members of `NEXT_ALLOWED_PATHS` and a
+demo-URL allowlist built from `demo_notes.json`, rather than reassembling a URL
+around the submitted value — an unknown demo id drops to `/reports`.
+
+`ADMIN_CODE` has **no default and fails closed**: unset, the roster is unreachable
+for everyone (startup logs a warning). The one exception is `ACCESS_CODE=""` — with
+the gate off entirely there is no tier to enforce, so everyone is admin and local
+work doesn't silently lose the roster. Set it in production with:
+
+```bash
+gcloud run services update prison-policy-ai --region us-central1 \
+  --update-env-vars ADMIN_CODE=<code>
+```
 
 ### What works WITHOUT credentials vs. what needs GCP
 
@@ -207,6 +234,39 @@ end in Restrictive Housing." Medical detail is intentionally **left blank** on t
 
 ---
 
+## Roster persistence
+
+The roster is the only runtime state the app writes, and it has two writers:
+`/api/roster` CRUD and `add_staff_from_gap_answer()` (auto-adding an officer named
+in field notes). Both go through **`backend/reports/roster_store.py`** — never write
+`staff_roster.json` directly.
+
+- **No `ROSTER_BUCKET` (default): the packaged file.** What local dev and the test
+  suite use — no bucket, no credentials, no network.
+- **`ROSTER_BUCKET` set: a GCS object.** Cloud Run's filesystem is scratch space
+  discarded on restart, scale-to-zero and every redeploy, so file-backed roster edits
+  vanish in production and instances never see each other's writes.
+
+Every mutation goes through `roster_store.update(mutate)`, which re-reads, re-applies
+and retries on conflict, using the GCS object generation as a compare-and-swap. **The
+`mutate` callback can run more than once**, so re-check preconditions (duplicate
+checks especially) *inside* it rather than before the call — a check made once up front
+is exactly the race that used to drop a new staff member silently. Returning `None`
+from `mutate` means "nothing changed" and skips the write.
+
+Reads are cached for `ROSTER_CACHE_TTL` seconds (default 30) because lookups run per
+person per extraction; writes bust the cache immediately, so the TTL only bounds how
+long one instance can lag behind another's edit.
+
+To enable in production:
+```bash
+gsutil mb -l us-central1 gs://<bucket>          # once
+gcloud run services update prison-policy-ai --region us-central1 \
+  --update-env-vars ROSTER_BUCKET=<bucket>
+```
+The Cloud Run service account needs `roles/storage.objectAdmin` on that bucket. The
+object is created on the first roster edit, seeded from `templates/staff_roster.json`.
+
 ## Policy chat pipeline
 
 `backend/pipeline/query.py`: `answer_question()` runs **gate → expand → search →
@@ -261,6 +321,8 @@ by pytest (excluded via `testpaths`).
 ```bash
 PYTHONPATH=. python3 tests/test_pipeline.py fixtures/inmate_fight_01.txt
 PYTHONPATH=. python3 tests/test_pipeline.py fixtures/inmate_fight_01.txt --step extract
+PYTHONPATH=. python3 tests/test_pipeline.py --demo list          # the demo scenarios
+PYTHONPATH=. python3 tests/test_pipeline.py --demo use_of_force_oc --compare
 PYTHONPATH=. python3 tests/test_pipeline.py --all --compare
 ```
 
@@ -310,7 +372,8 @@ PYTHONPATH=. python3 tests/eval/run_eval.py --id prea_dating
   LIVE/CTA accents). Keep nav brand markup consistent across pages.
 - **Config is centralized** in `backend/pipeline/config.py` and read from env vars
   (`GCP_PROJECT_ID`, `GCP_LOCATION`, `FAST_MODEL`, `PRO_MODEL`, `GCP_MODEL_LOCATION`,
-  `RAG_CORPUS_NAME`, `ACCESS_CODE`, `LOG_LEVEL`, …). Add new knobs there.
+  `RAG_CORPUS_NAME`, `ACCESS_CODE`, `ADMIN_CODE`, `ROSTER_BUCKET`, `LOG_LEVEL`, …). Add new knobs
+  there.
 - **Two Gemini tiers** (config.py): `FAST_MODEL` (default `gemini-3.6-flash`) drives the
   chat gate, incident classifier, and slot extraction; `PRO_MODEL` (default
   `gemini-3.1-pro-preview` — Vertex only serves this model under the "-preview" suffix

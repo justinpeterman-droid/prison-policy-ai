@@ -1,0 +1,29 @@
+{
+  "_notes": "Demo field notes for the /reports 'Try a demo' CTA. Fictional people only — never put a real inmate, staff member, or ADC number in this file. Staff names must resolve against staff_roster.json so the demo shows clean roster resolution rather than spurious gaps.",
+  "scenarios": [
+    {
+      "id": "inmate_fight_dayroom",
+      "category": "inmate_fight",
+      "label": "Inmate on inmate fight",
+      "teaches": "Complete run — every required slot present. Shows per-inmate disposition lines and the 'fights end in Restrictive Housing' convention.",
+      "expect_gap": false,
+      "notes": "Rhodes ADC#900512 & Ferraro ADC#900534 fighting 8 Barracks\n~2:15pm\nFerraro cut over left eye, bleeding\nRhodes on top throwing punches when I got there\nSgt Halvorsen pulled Rhodes off, cuffed him\nCpl Alvarez cuffed Ferraro\nBoth escorted to Restrictive Housing by Cpl Alvarez & Cpl Nguyen\nFerraro seen by Infirmary — 3 sutures over eye\nRhodes refused medical\nPhotos taken of Ferraro eye and blood on floor\nCapt Lindholm notified 2:20pm\nBoth said the other started it\nWitness statements collected from 2 inmates"
+    },
+    {
+      "id": "contraband_shakedown",
+      "category": "contraband",
+      "label": "Introduction of contraband",
+      "teaches": "Complete run against the heaviest conditional branch — satisfies all four contraband rules (drugs -> field test, money -> receipt number, chain of custody, F401).",
+      "expect_gap": false,
+      "notes": "Routine shakedown 4 Barracks ~9:30am\nInmate Prewitt ADC#900608 nervous, kept eyeing his bunk\nFound baggie green leafy substance in mattress seam — approx 2 grams\nAlso homemade tattoo gun (CD player motor, needle, pen tube)\nPrewitt said \"that ain't mine, somebody put it there\"\nField test positive for THC\nSgt Halvorsen photographed and bagged items\nChain of custody to Cpl Nguyen\nF401 Confiscation Form completed\n$23 found in bunk — Business Office money receipt #4421\nCuffed by Cpl Alvarez\nEscorted to Restrictive Housing by Cpl Alvarez & Cpl Castillo\nPrewitt refused drug test\nCapt Lindholm authorized contraband seizure 9:45am"
+    },
+    {
+      "id": "use_of_force_oc",
+      "category": "use_of_force",
+      "label": "Use of force (chemical agent)",
+      "teaches": "GAP SCENARIO — establishes a chemical-agent use of force but never gives the canister MFG year, lot number or PMF/serial. Those are blocking, and the model cannot guess them, so the Missing Information panel has to fire. Do not 'fix' this by adding the numbers to the notes; the refusal is the point.",
+      "expect_gap": true,
+      "notes": "Inmate Lindqvist ADC#900745 refusing to lock down, 2 Barracks dayroom\n~11:40am\nLindqvist yelling, threw a chair, other inmates gathering\nSgt Halvorsen gave 3 direct orders to cuff up — Lindqvist refused each time\nLindqvist advanced on Sgt Halvorsen with fists up\nSgt Halvorsen deployed OC to facial area, one burst\nLindqvist went to the floor and complied\nCuffed by Cpl Alvarez\nEscorted to Infirmary by Cpl Alvarez & Cpl Nguyen\nDecontaminated with cool water and fresh air 11:50am\nNurse checked eyes, no lasting effects\nNo injuries to staff\nPhotos taken\nCapt Lindholm notified 11:45am"
+    }
+  ]
+}

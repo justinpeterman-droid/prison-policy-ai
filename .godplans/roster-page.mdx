@@ -76,14 +76,14 @@ Current behavior:
 
 Add:
 - **First name match**: `hint == first` or `hint in first`
-- **Partial employee number**: `emp.endswith(hint)` or `hint in emp` — so typing "5123" matches "B5123"
+- **Partial employee number**: `emp.endswith(hint)` or `hint in emp` — so typing "5123" matches "100411"
 
 ```python
 # Add after existing checks in lookup():
 # First-name match
 if hint in first:
     return dict(person)
-# Partial employee number (e.g., "5123" matches "B5123")
+# Partial employee number (e.g., "5123" matches "100411")
 if hint in emp or emp.endswith(hint):
     return dict(person)
 ```
@@ -91,10 +91,10 @@ if hint in emp or emp.endswith(hint):
 **Verify:**
 ```python
 from backend.reports.roster import lookup
-assert lookup("Justin") is not None     # first name
-assert lookup("5123") is not None       # partial number
-assert lookup("B5123") is not None      # full number (existing)
-assert lookup("Peterman") is not None   # last name (existing)
+assert lookup("Dana") is not None     # first name
+assert lookup("0411") is not None       # partial number
+assert lookup("100411") is not None      # full number (existing)
+assert lookup("Halvorsen") is not None   # last name (existing)
 assert lookup("BogusName") is None      # no match
 ```
 
@@ -164,16 +164,16 @@ Cursor multi-agent can split this as:
 - [ ] `staff_roster.json` has `U` not `E` in shifts
 - [ ] `GET /api/roster` returns shifts + staff array
 - [ ] `POST /api/roster/staff` adds a staff member
-- [ ] `PUT /api/roster/staff/B5123` with `{"shift":"A"}` moves Peterman to A shift
-- [ ] `DELETE /api/roster/staff/B5123` removes a staff member
+- [ ] `PUT /api/roster/staff/100411` with `{"shift":"A"}` moves Halvorsen to A shift
+- [ ] `DELETE /api/roster/staff/100411` removes a staff member
 - [ ] Duplicate employee_number returns 409
 - [ ] Invalid shift letter returns 400
 - [ ] `/roster` page loads and shows 6 shift cards
 - [ ] Add staff form works (fills, validates, adds)
 - [ ] Remove staff with confirmation works
 - [ ] Edit/reassign shift works
-- [ ] `lookup("Justin")` returns Peterman record
-- [ ] `lookup("5123")` returns Peterman record
+- [ ] `lookup("Dana")` returns Halvorsen record
+- [ ] `lookup("0411")` returns Halvorsen record
 - [ ] Nav has "Unit Roster" on home, chat, and reports pages
 - [ ] Footer on home page lists Unit Roster
 - [ ] Full deploy to Cloud Run succeeds
