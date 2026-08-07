@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 from flask import Flask, request, redirect, render_template, make_response, jsonify
 
-from backend.pipeline.config import ACCESS_CODE, logger
+from backend.pipeline.config import ACCESS_CODE, ADMIN_CODE, logger
 from backend.webapp.assets import init_assets
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
@@ -14,10 +14,42 @@ STATIC_DIR = Path(__file__).parent / "static"
 # Paths reachable without an access code
 AUTH_EXEMPT = {"/login", "/logout", "/health"}
 
+# Admin-only surface. The roster carries real staff names and employee numbers,
+# so it is gated a tier above the rest of the site: the same login box takes
+# either code, and only ADMIN_CODE opens these.
+ADMIN_ONLY_EXACT = {"/roster"}
+ADMIN_ONLY_PREFIXES = ("/api/roster",)
+
+
+def _matches(value: str, code: str) -> bool:
+    """Case-insensitive comparison against a configured code."""
+    return bool(code) and (value or "").strip().lower() == code.strip().lower()
+
 
 def _code_ok(value: str) -> bool:
-    """Case-insensitive access-code check, so 'slut' and 'SLUT' both work."""
-    return bool(ACCESS_CODE) and (value or "").strip().lower() == ACCESS_CODE.strip().lower()
+    """Whether a code opens the site at all. Either tier does."""
+    return _matches(value, ACCESS_CODE) or _matches(value, ADMIN_CODE)
+
+
+def _is_admin(value: str) -> bool:
+    """Whether a code opens the admin tier (the roster)."""
+    return _matches(value, ADMIN_CODE)
+
+
+def _request_is_admin() -> bool:
+    """Whether the current request carries the admin code.
+
+    With no ACCESS_CODE the whole auth gate is off, so there is no meaningful
+    tier to enforce and everyone is treated as admin — otherwise disabling auth
+    for local work would silently take the roster away.
+    """
+    if not ACCESS_CODE:
+        return True
+    return _is_admin(request.cookies.get("access_code"))
+
+
+def _is_admin_only(path: str) -> bool:
+    return path in ADMIN_ONLY_EXACT or path.startswith(ADMIN_ONLY_PREFIXES)
 
 
 # Pages a user can be sent to after logging in. `next` is attacker-controlled,
@@ -59,14 +91,17 @@ def _request_is_https() -> bool:
     return request.is_secure or request.headers.get("X-Forwarded-Proto", "") == "https"
 
 
-def _set_auth_cookie(resp):
-    """Set the access-code cookie with hardening flags:
+def _set_auth_cookie(resp, code: str):
+    """Store the code that was actually entered, with hardening flags:
       - HttpOnly: JavaScript can't read it (XSS can't steal the session).
       - Secure:   only sent over HTTPS (in prod) — omitted on local http so dev login works.
       - SameSite=Lax: not sent on cross-site POST/XHR → blocks CSRF against the API.
+
+    The stored value is what distinguishes the two tiers on later requests, so
+    it must be the submitted code rather than a fixed one.
     """
     resp.set_cookie(
-        "access_code", ACCESS_CODE,
+        "access_code", code.strip(),
         max_age=60 * 60 * 24,
         httponly=True,
         secure=_request_is_https(),
@@ -112,19 +147,36 @@ def create_app() -> Flask:
     except Exception:  # pragma: no cover - never block startup over a log line
         logger.warning("Could not log search config", exc_info=True)
 
+    @app.context_processor
+    def inject_admin_flag():
+        """`is_admin` in every template, so the nav can hide the roster link
+        from users who couldn't open it anyway."""
+        return {"is_admin": _request_is_admin()}
+
     @app.before_request
     def auth_gate():
-        """Require the access code on every route except login/logout/health/static."""
+        """Require the access code on every route except login/logout/health/static.
+
+        Two tiers: ACCESS_CODE opens the site, ADMIN_CODE additionally opens the
+        roster. A non-admin asking for an admin-only path gets a 404, not a 403 —
+        the roster shouldn't advertise its own existence to someone who can't
+        use it.
+        """
         if not ACCESS_CODE:
             return None
         if request.path in AUTH_EXEMPT or request.path.startswith("/static/"):
             return None
         if _code_ok(request.cookies.get("access_code")):
+            if _is_admin_only(request.path) and not _request_is_admin():
+                if request.path.startswith("/api/"):
+                    return jsonify({"error": "Not found."}), 404
+                return render_template("404.html"), 404
             return None
         # Bookmarkable links: ?code=... sets the cookie then redirects clean
-        if _code_ok(request.args.get("code")):
+        submitted = request.args.get("code")
+        if _code_ok(submitted):
             resp = make_response(redirect(request.path))
-            return _set_auth_cookie(resp)
+            return _set_auth_cookie(resp, submitted)
         if request.path.startswith("/api/"):
             return jsonify({"error": "Authentication required — reload the page to log in."}), 401
         # Preserve the query string, not just the path — otherwise a link like
@@ -152,8 +204,14 @@ def create_app() -> Flask:
         if request.method == "POST":
             code = request.form.get("code", "")
             if _code_ok(code):
-                resp = make_response(redirect(_safe_next(request.args.get("next", "/"))))
-                return _set_auth_cookie(resp)
+                target = _safe_next(request.args.get("next", "/"))
+                # An admin link is the one case where the requested page needs
+                # the tier the submitted code grants — send a non-admin home
+                # rather than to a page that will 404 on them.
+                if _is_admin_only(target) and not _is_admin(code):
+                    target = "/"
+                resp = make_response(redirect(target))
+                return _set_auth_cookie(resp, code)
             error = "Invalid access code."
         return render_template("login.html", error=error,
                                next=_safe_next(request.args.get("next", "/")))
@@ -166,6 +224,12 @@ def create_app() -> Flask:
 
     if ACCESS_CODE:
         logger.info("Access code auth enabled")
+        if ADMIN_CODE:
+            logger.info("Admin tier enabled — the Unit Roster requires ADMIN_CODE")
+        else:
+            logger.warning(
+                "No ADMIN_CODE set — the Unit Roster is unreachable for everyone. "
+                "Set ADMIN_CODE to give someone access to it.")
     else:
         logger.warning("No ACCESS_CODE set — app is open to the public")
 

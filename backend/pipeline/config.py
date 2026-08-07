@@ -93,6 +93,15 @@ CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
 # Set ACCESS_CODE="" explicitly to disable auth (open access).
 ACCESS_CODE = os.getenv("ACCESS_CODE", "slut")
 
+# Second, higher tier entered at the same login box. A user who logs in with
+# ADMIN_CODE gets the whole site including the Unit Roster; a user who logs in
+# with ACCESS_CODE gets everything else, and the roster is hidden from the nav
+# and 404s if they go looking for it.
+#
+# No default, and deliberately fail-closed: with ADMIN_CODE unset nobody can
+# reach the roster, rather than everybody being able to. Set it explicitly.
+ADMIN_CODE = os.getenv("ADMIN_CODE", "")
+
 # Roster persistence.
 #
 # Cloud Run gives each container a scratch filesystem that is discarded on

@@ -118,6 +118,24 @@ navy + gold). Log in at `/login`, or bookmark any URL with `?code=slut` (sets a
 cookie, redirects clean). API routes return **401 JSON**; page routes redirect to
 `/login`. Set `ACCESS_CODE=""` to disable auth entirely.
 
+**Two tiers, one login box.** `ADMIN_CODE` is a second code entered at the same
+prompt. It opens everything `ACCESS_CODE` does *plus* the Unit Roster (`/roster`
+and `/api/roster*`), which carries real staff names and employee numbers. A regular
+user gets **404**, not 403 — the roster shouldn't advertise its existence to someone
+who can't use it — and the nav link is hidden via the `is_admin` template global.
+The cookie stores *the code that was submitted*, which is what distinguishes the
+tiers on later requests, so don't "simplify" it back to a fixed value.
+
+`ADMIN_CODE` has **no default and fails closed**: unset, the roster is unreachable
+for everyone (startup logs a warning). The one exception is `ACCESS_CODE=""` — with
+the gate off entirely there is no tier to enforce, so everyone is admin and local
+work doesn't silently lose the roster. Set it in production with:
+
+```bash
+gcloud run services update prison-policy-ai --region us-central1 \
+  --update-env-vars ADMIN_CODE=<code>
+```
+
 ### What works WITHOUT credentials vs. what needs GCP
 
 Boots and works with **no credentials**: home, login, `/health`, the reports/roster
@@ -346,7 +364,7 @@ PYTHONPATH=. python3 tests/eval/run_eval.py --id prea_dating
   LIVE/CTA accents). Keep nav brand markup consistent across pages.
 - **Config is centralized** in `backend/pipeline/config.py` and read from env vars
   (`GCP_PROJECT_ID`, `GCP_LOCATION`, `FAST_MODEL`, `PRO_MODEL`, `GCP_MODEL_LOCATION`,
-  `RAG_CORPUS_NAME`, `ACCESS_CODE`, `ROSTER_BUCKET`, `LOG_LEVEL`, …). Add new knobs
+  `RAG_CORPUS_NAME`, `ACCESS_CODE`, `ADMIN_CODE`, `ROSTER_BUCKET`, `LOG_LEVEL`, …). Add new knobs
   there.
 - **Two Gemini tiers** (config.py): `FAST_MODEL` (default `gemini-3.6-flash`) drives the
   chat gate, incident classifier, and slot extraction; `PRO_MODEL` (default
