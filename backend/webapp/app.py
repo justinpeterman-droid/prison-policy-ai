@@ -1,6 +1,7 @@
 """Prison Policy AI — Flask web application with simple access-code auth."""
+import re
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlsplit
 
 from flask import Flask, request, redirect, render_template, make_response, jsonify
 
@@ -19,17 +20,36 @@ def _code_ok(value: str) -> bool:
     return bool(ACCESS_CODE) and (value or "").strip().lower() == ACCESS_CODE.strip().lower()
 
 
-def _safe_next(value: str) -> str:
-    """Constrain the post-login redirect to a path on this site.
+# Pages a user can be sent to after logging in. `next` is attacker-controlled,
+# so the redirect target is looked up in this table rather than derived from the
+# request — nothing an attacker types can become part of the URL we emit.
+NEXT_ALLOWED_PATHS = {"/", "/chat", "/reports", "/roster"}
 
-    `next` is attacker-controllable, so anything that isn't a single-slash
-    relative path — absolute URLs, protocol-relative '//evil.com', backslash
-    variants browsers normalize to slashes — collapses to the home page.
+# The only query parameter worth carrying through login: /reports?demo=1 (or
+# ?demo=<scenario-id>) is a real entry point, and dropping it lands the user on
+# a blank form. Values are matched against this pattern and re-emitted from the
+# literal below, so the parameter is validated, not merely echoed.
+_DEMO_VALUE = re.compile(r"\A[A-Za-z0-9_]{1,40}\Z")
+
+
+def _safe_next(value: str) -> str:
+    """Resolve `next` to a known page on this site, or the home page.
+
+    Returns a URL assembled from constants. Absolute URLs, protocol-relative
+    '//evil.com', backslash variants browsers normalize to slashes, and any
+    path not in NEXT_ALLOWED_PATHS all collapse to '/'.
     """
-    value = (value or "").strip()
-    if not value.startswith("/") or value.startswith(("//", "/\\")):
+    parsed = urlsplit((value or "").strip())
+    # A same-site reference has no scheme, host or credentials.
+    if parsed.scheme or parsed.netloc:
         return "/"
-    return value
+    path = parsed.path
+    if path not in NEXT_ALLOWED_PATHS:
+        return "/"
+    demo = parse_qs(parsed.query).get("demo", [""])[0]
+    if path == "/reports" and _DEMO_VALUE.match(demo):
+        return "/reports?demo=" + demo
+    return path
 
 
 def _request_is_https() -> bool:
@@ -108,9 +128,11 @@ def create_app() -> Flask:
         if request.path.startswith("/api/"):
             return jsonify({"error": "Authentication required — reload the page to log in."}), 401
         # Preserve the query string, not just the path — otherwise a link like
-        # /reports?demo=1 lands on a bare /reports after login.
-        next_url = request.full_path.rstrip("?") if request.query_string else request.path
-        return redirect(f"/login?next={quote(next_url, safe='/?=&')}")
+        # /reports?demo=1 lands on a bare /reports after login. Normalized
+        # through the same allowlist the login handler uses, so what we hand
+        # back is built from constants either way.
+        requested = request.full_path.rstrip("?") if request.query_string else request.path
+        return redirect("/login?next=" + quote(_safe_next(requested), safe="/?=&"))
 
     @app.route("/")
     def home():
