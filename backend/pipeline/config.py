@@ -93,6 +93,24 @@ CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
 # Set ACCESS_CODE="" explicitly to disable auth (open access).
 ACCESS_CODE = os.getenv("ACCESS_CODE", "slut")
 
+# Roster persistence.
+#
+# Cloud Run gives each container a scratch filesystem that is discarded on
+# restart, scale-to-zero and every redeploy — so roster edits made through
+# /roster, and staff auto-added from gap answers, silently vanish in
+# production. Setting ROSTER_BUCKET keeps the roster in GCS instead, where it
+# outlives the container and is shared across instances.
+#
+# Unset (the default) falls back to the packaged JSON file, which is what
+# local dev and the test suite use: no bucket, no credentials, no network.
+ROSTER_BUCKET = os.getenv("ROSTER_BUCKET", "")
+ROSTER_OBJECT = os.getenv("ROSTER_OBJECT", "staff_roster.json")
+# Seconds to reuse a fetched roster before re-reading. Lookups happen per
+# person per extraction, so reading GCS every time would be wasteful; writes
+# bust the cache immediately, so this only bounds how long one instance can
+# lag behind an edit made on another.
+ROSTER_CACHE_TTL = float(os.getenv("ROSTER_CACHE_TTL", "30"))
+
 # Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 logging.basicConfig(level=getattr(logging, LOG_LEVEL))

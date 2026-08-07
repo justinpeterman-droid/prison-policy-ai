@@ -82,7 +82,7 @@ runtime** — not HTML. (Jinja HTML lives in `backend/webapp/templates/`.) Key f
 |------|------|
 | `incident_checklist_v2.json` | **Authoritative** — 9 categories, required slots, conditional rules, gap questions, `auto_content` sentences, shared option sets. Change report behavior *here*, not in prompts. |
 | `disciplinary_charges.json` | Extracted disciplinary handbook charges; classifier validates suggestions against these. |
-| `staff_roster.json` | The live unit roster (`{shifts, staff}`). Read+written by `/api/roster` and auto-persisted from gap answers. **Seeded with fictional demo staff — never commit real names or employee numbers.** Note the runtime writes land on the container filesystem, which Cloud Run discards on restart. |
+| `staff_roster.json` | **Seed** roster (`{shifts, staff}`). **Fictional demo staff only — never commit real names or employee numbers.** In production the live roster lives in GCS (see "Roster persistence" below); this file is the starting point when the bucket has no roster yet, and the whole story locally. |
 | `location_map.json` | Slang → formal BMU location names. |
 | `demo_notes.json` | The three canned field-note scenarios behind the `/reports?demo=1` CTA. **Fictional people only** — staff names must resolve against `staff_roster.json`, and `use_of_force_oc` deliberately withholds the OC canister lot/MFG/serial so the blocking gap fires. `tests/unit/test_demo_notes.py` enforces both. |
 | `005_template_v3.docx` | Current ADC 005 replica the filler populates (older `005*.docx` are legacy). |
@@ -208,6 +208,39 @@ end in Restrictive Housing." Medical detail is intentionally **left blank** on t
 
 ---
 
+## Roster persistence
+
+The roster is the only runtime state the app writes, and it has two writers:
+`/api/roster` CRUD and `add_staff_from_gap_answer()` (auto-adding an officer named
+in field notes). Both go through **`backend/reports/roster_store.py`** — never write
+`staff_roster.json` directly.
+
+- **No `ROSTER_BUCKET` (default): the packaged file.** What local dev and the test
+  suite use — no bucket, no credentials, no network.
+- **`ROSTER_BUCKET` set: a GCS object.** Cloud Run's filesystem is scratch space
+  discarded on restart, scale-to-zero and every redeploy, so file-backed roster edits
+  vanish in production and instances never see each other's writes.
+
+Every mutation goes through `roster_store.update(mutate)`, which re-reads, re-applies
+and retries on conflict, using the GCS object generation as a compare-and-swap. **The
+`mutate` callback can run more than once**, so re-check preconditions (duplicate
+checks especially) *inside* it rather than before the call — a check made once up front
+is exactly the race that used to drop a new staff member silently. Returning `None`
+from `mutate` means "nothing changed" and skips the write.
+
+Reads are cached for `ROSTER_CACHE_TTL` seconds (default 30) because lookups run per
+person per extraction; writes bust the cache immediately, so the TTL only bounds how
+long one instance can lag behind another's edit.
+
+To enable in production:
+```bash
+gsutil mb -l us-central1 gs://<bucket>          # once
+gcloud run services update prison-policy-ai --region us-central1 \
+  --update-env-vars ROSTER_BUCKET=<bucket>
+```
+The Cloud Run service account needs `roles/storage.objectAdmin` on that bucket. The
+object is created on the first roster edit, seeded from `templates/staff_roster.json`.
+
 ## Policy chat pipeline
 
 `backend/pipeline/query.py`: `answer_question()` runs **gate → expand → search →
@@ -313,7 +346,8 @@ PYTHONPATH=. python3 tests/eval/run_eval.py --id prea_dating
   LIVE/CTA accents). Keep nav brand markup consistent across pages.
 - **Config is centralized** in `backend/pipeline/config.py` and read from env vars
   (`GCP_PROJECT_ID`, `GCP_LOCATION`, `FAST_MODEL`, `PRO_MODEL`, `GCP_MODEL_LOCATION`,
-  `RAG_CORPUS_NAME`, `ACCESS_CODE`, `LOG_LEVEL`, …). Add new knobs there.
+  `RAG_CORPUS_NAME`, `ACCESS_CODE`, `ROSTER_BUCKET`, `LOG_LEVEL`, …). Add new knobs
+  there.
 - **Two Gemini tiers** (config.py): `FAST_MODEL` (default `gemini-3.6-flash`) drives the
   chat gate, incident classifier, and slot extraction; `PRO_MODEL` (default
   `gemini-3.1-pro-preview` — Vertex only serves this model under the "-preview" suffix
