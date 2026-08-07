@@ -52,6 +52,11 @@
   }
   .demo-cta a:hover{color:var(--accent);border-bottom-color:rgba(201,151,28,0.75)}
   .demo-cta span{color:var(--text4);font-size:12.5px}
+  .demo-cta .demo-label:not(:empty){
+    color:var(--accent2);font-weight:600;
+    border:1px solid rgba(201,151,28,0.35);border-radius:999px;
+    padding:2px 9px;font-size:11.5px;white-space:nowrap;
+  }
   .field-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text4);margin-bottom:8px;display:block}
 
   textarea{
@@ -424,10 +429,10 @@
   <div class="input-panel">
     <h2>Field notes → forms</h2>
     <p class="sub">Paste what you wrote. Preview the 005/409 live, then download Word when it looks right.</p>
-    <p class="demo-cta"><a href="/reports?demo=1">Try a demo →</a><span>Watch sample field notes run through the whole pipeline — no typing, one click.</span></p>
+    <p class="demo-cta"><a href="/reports?demo=1">Try a demo →</a><span>Load sample field notes and start the pipeline — no typing, one click.</span><span class="demo-label" id="demoLabel"></span></p>
 
     <label class="field-label" for="notes">Field Notes</label>
-    <textarea id="notes" oninput="onNotesInput()" placeholder="Garcia ADC#448291 &amp; Whitaker ADC#773015 fighting 8 Barracks ~10pm. Whitaker cut over eye. Sgt Delgado cuffed. Cpl Brennan &amp; Ortiz escorted to RH."></textarea>
+    <textarea id="notes" oninput="onNotesInput()" placeholder="Write it how you'd write it in the log — one fact per line. Names, ADC numbers, times, who cuffed, who escorted, medical. Shorthand is fine."></textarea>
     <div class="meta-row">
       <span class="draft-note" id="draftNote"></span>
       <span class="char-count" id="charCount">0 characters</span>
@@ -516,6 +521,12 @@
 
 <script>
 const DRAFT_KEY='slut_notes_draft';
+const DEMO_KEY='slut_demo_index';
+/* Canned demo field notes, served from templates/demo_notes.json. */
+const DEMO_SCENARIOS={{ demo_scenarios | default([], true) | tojson }};
+/* True while the box holds demo text the officer never typed. Cleared on the
+   first keystroke — see onNotesInput(). */
+let _isPristineDemo=false;
 const CATEGORY_LABELS={
   contraband:'Introduction of Contraband',
   inmate_fight:'Inmate on Inmate Fight/Assault',
@@ -634,6 +645,7 @@ function fmt(val){return val||'—'}
 
 /* ---- Draft autosave ---- */
 function onNotesInput(){
+  _isPristineDemo=false;  // they've started editing — it's their draft now
   countChars();
   clearTimeout(_draftTimer);
   _draftTimer=setTimeout(()=>{
@@ -653,6 +665,8 @@ function countChars(){
   document.getElementById('charCount').textContent=n.toLocaleString()+' character'+(n===1?'':'s');
 }
 window.addEventListener('beforeunload',e=>{
+  // Only guard work the officer actually did — an untouched demo is not work.
+  if(_isPristineDemo)return;
   if(document.getElementById('notes').value.trim()){e.preventDefault();e.returnValue='';}
 });
 
@@ -682,6 +696,10 @@ function clearAll(){
   document.getElementById('tracePanel').innerHTML='';
   hidePipeline();
   localStorage.removeItem(DRAFT_KEY);
+  // Drop ?demo= so a reload after Clear doesn't re-inject the demo notes.
+  _isPristineDemo=false;
+  if(window.location.search)history.replaceState({},'','/reports');
+  const _dl=document.getElementById('demoLabel');if(_dl)_dl.textContent='';
   countChars();
   document.getElementById('toolbar').classList.remove('visible');
   document.getElementById('editHint').classList.remove('visible');
@@ -1464,15 +1482,33 @@ function saveBlob(blob,name){
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
 
-/* ---- Init: restore draft ---- */
+/* ---- Init: demo scenario or restore draft ---- */
 (function(){
   const saved=localStorage.getItem(DRAFT_KEY);
   const notes=document.getElementById('notes');
   const params=new URLSearchParams(window.location.search);
-  const isDemo=params.get('demo')==='1';
+  const demoParam=params.get('demo');
 
-  if(isDemo && !notes.value){
-    notes.value="Garcia ADC#448291 & Whitaker ADC#773015 fighting 8 Barracks ~10pm. Whitaker cut over eye. Sgt Delgado cuffed. Cpl Brennan & Ortiz escorted to RH.";
+  /* Pick the scenario. `?demo=1` walks the list in order across presses so a
+     user who clicks the CTA repeatedly sees all of them; `?demo=<id>` pins one,
+     which is how you re-run a single case while tuning generator output. */
+  let scenario=null;
+  if(demoParam && DEMO_SCENARIOS.length){
+    if(demoParam==='1'){
+      const i=(parseInt(localStorage.getItem(DEMO_KEY)||'0',10)||0)%DEMO_SCENARIOS.length;
+      scenario=DEMO_SCENARIOS[i];
+      localStorage.setItem(DEMO_KEY,String((i+1)%DEMO_SCENARIOS.length));
+    }else{
+      scenario=DEMO_SCENARIOS.find(s=>s.id===demoParam)||null;
+    }
+  }
+
+  if(scenario && !notes.value){
+    notes.value=scenario.notes;
+    // Demo text the officer didn't type — don't nag them on the way out.
+    _isPristineDemo=true;
+    const label=document.getElementById('demoLabel');
+    if(label)label.textContent='Demo: '+scenario.label;
     countChars();
     // Brief delay so the user sees the pre-filled notes, then auto-run
     setTimeout(function(){generate()},800);

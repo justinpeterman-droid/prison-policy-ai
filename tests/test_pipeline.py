@@ -27,6 +27,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 FIXTURES_DIR = _PROJECT_ROOT / "tests" / "fixtures"
 OUTPUT_DIR = _PROJECT_ROOT / "tests" / "output"
+DEMO_NOTES_PATH = _PROJECT_ROOT / "templates" / "demo_notes.json"
 
 # ── Helpers ──────────────────────────────────────────────────────
 
@@ -61,14 +62,19 @@ def _diff_dicts(a: dict, b: dict, label_a: str = "previous", label_b: str = "cur
 
 # ── Pipeline runner ─────────────────────────────────────────────
 
-def run_pipeline(fixture_path: Path, step: str = "generate",
-                 compare: bool = False) -> int:
-    """Run the pipeline against a fixture file. Returns exit code."""
-    name = fixture_path.stem
+def run_pipeline(fixture_path: Path | None = None, step: str = "generate",
+                 compare: bool = False, notes: str | None = None,
+                 name: str | None = None) -> int:
+    """Run the pipeline against a fixture file, or against notes supplied
+    directly (used by --demo, which reads templates/demo_notes.json rather
+    than a file). Returns exit code."""
+    name = name or fixture_path.stem
     out_dir = OUTPUT_DIR / name
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    notes = fixture_path.read_text(encoding="utf-8").strip()
+    if notes is None:
+        notes = fixture_path.read_text(encoding="utf-8")
+    notes = notes.strip()
     if not notes:
         print(f"  WARN {name}: empty fixture — skipping")
         return 1
@@ -297,9 +303,28 @@ def main():
                         help="Compare against previous snapshot after running")
     parser.add_argument("--all", action="store_true",
                         help="Run all fixtures in tests/fixtures/")
+    parser.add_argument("--demo", metavar="ID", default=None,
+                        help="Run a demo scenario from templates/demo_notes.json "
+                             "by id (use --demo list to see them)")
     parser.add_argument("--output-dir", default=str(OUTPUT_DIR),
                         help=f"Output directory (default: {OUTPUT_DIR})")
     args = parser.parse_args()
+
+    if args.demo:
+        scenarios = json.loads(DEMO_NOTES_PATH.read_text(encoding="utf-8"))["scenarios"]
+        if args.demo == "list":
+            print(f"Demo scenarios in {DEMO_NOTES_PATH.name}:")
+            for s in scenarios:
+                gap = "  [expects a gap]" if s.get("expect_gap") else ""
+                print(f"  {s['id']:<24} {s['category']:<16}{gap}")
+            return 0
+        match = next((s for s in scenarios if s["id"] == args.demo), None)
+        if match is None:
+            print(f"No demo scenario with id {args.demo!r}. "
+                  f"Known ids: {', '.join(s['id'] for s in scenarios)}")
+            return 1
+        return run_pipeline(step=args.step, compare=args.compare,
+                            notes=match["notes"], name=match["id"])
 
     if args.all:
         fixtures = sorted(FIXTURES_DIR.glob("*.txt"))

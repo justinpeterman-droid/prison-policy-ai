@@ -82,8 +82,9 @@ runtime** — not HTML. (Jinja HTML lives in `backend/webapp/templates/`.) Key f
 |------|------|
 | `incident_checklist_v2.json` | **Authoritative** — 9 categories, required slots, conditional rules, gap questions, `auto_content` sentences, shared option sets. Change report behavior *here*, not in prompts. |
 | `disciplinary_charges.json` | Extracted disciplinary handbook charges; classifier validates suggestions against these. |
-| `staff_roster.json` | The live unit roster (`{shifts, staff}`). Read+written by `/api/roster` and auto-persisted from gap answers. |
+| `staff_roster.json` | The live unit roster (`{shifts, staff}`). Read+written by `/api/roster` and auto-persisted from gap answers. **Seeded with fictional demo staff — never commit real names or employee numbers.** Note the runtime writes land on the container filesystem, which Cloud Run discards on restart. |
 | `location_map.json` | Slang → formal BMU location names. |
+| `demo_notes.json` | The three canned field-note scenarios behind the `/reports?demo=1` CTA. **Fictional people only** — staff names must resolve against `staff_roster.json`, and `use_of_force_oc` deliberately withholds the OC canister lot/MFG/serial so the blocking gap fires. `tests/unit/test_demo_notes.py` enforces both. |
 | `005_template_v3.docx` | Current ADC 005 replica the filler populates (older `005*.docx` are legacy). |
 | `report_style_guide.md` | Naming / tone rules the prompts + `name_fixer.py` enforce. |
 
@@ -261,6 +262,8 @@ by pytest (excluded via `testpaths`).
 ```bash
 PYTHONPATH=. python3 tests/test_pipeline.py fixtures/inmate_fight_01.txt
 PYTHONPATH=. python3 tests/test_pipeline.py fixtures/inmate_fight_01.txt --step extract
+PYTHONPATH=. python3 tests/test_pipeline.py --demo list          # the demo scenarios
+PYTHONPATH=. python3 tests/test_pipeline.py --demo use_of_force_oc --compare
 PYTHONPATH=. python3 tests/test_pipeline.py --all --compare
 ```
 

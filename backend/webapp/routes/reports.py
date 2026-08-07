@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 reports_bp = Blueprint("reports", __name__)
 
 _LOCATION_MAP_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "location_map.json"
+_DEMO_NOTES_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "demo_notes.json"
 
 
 @lru_cache(maxsize=1)
@@ -29,6 +30,18 @@ def _load_location_map() -> dict:
     except Exception:
         logger.warning("Could not load location_map.json; skipping normalization")
         return {}
+
+
+@lru_cache(maxsize=1)
+def _load_demo_scenarios() -> list:
+    """Canned field notes behind the 'Try a demo' CTA. Static data, so cached.
+    Fails soft: a missing or malformed file just means the demo link no-ops
+    rather than 500-ing the whole reports page."""
+    try:
+        return json.loads(_DEMO_NOTES_PATH.read_text()).get("scenarios", [])
+    except Exception:
+        logger.warning("Could not load demo_notes.json; demo CTA will be inert")
+        return []
 
 # 005 field values, taken from real filed forms (see
 # templates/gold_reports/STYLE_RULINGS.md, rulings 1 and 3). The injury and
@@ -302,7 +315,7 @@ def _parse_name(full_name: str) -> tuple[str, str, str]:
 
 
 def _parse_rank(full_name: str) -> str:
-    """Extract rank prefix from a name like 'Sgt. Justin Peterman'."""
+    """Extract rank prefix from a name like 'Sgt. Dana Whitfield'."""
     if not full_name:
         return ""
     RANKS = ["Cpt.", "Lt.", "Sgt.", "Cpl.", "Ofc.", "Officer", "Capt.",
@@ -319,7 +332,7 @@ def _parse_rank(full_name: str) -> str:
 
 @reports_bp.route("/reports")
 def reports_page():
-    return render_template("reports.html")
+    return render_template("reports.html", demo_scenarios=_load_demo_scenarios())
 
 
 # ── v2 three-step pipeline ──────────────────────────────────────

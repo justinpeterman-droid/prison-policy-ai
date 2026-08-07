@@ -37,10 +37,10 @@ def test_inmate_subsequent_mentions_stay_short():
 
 
 def test_staff_first_mention_uses_rank_first_last():
-    slots = {"persons": [_staff("Sgt.", "Miguel", "Delgado")],
-             "officer_last": "Delgado"}
-    out = enforce_naming("Sgt. Delgado applied hand restraints.", slots)
-    assert "Sgt. Miguel Delgado" in out
+    slots = {"persons": [_staff("Sgt.", "Lee", "Barrett")],
+             "officer_last": "Barrett"}
+    out = enforce_naming("Sgt. Barrett applied hand restraints.", slots)
+    assert "Sgt. Lee Barrett" in out
 
 
 def test_person_without_last_name_is_skipped():
@@ -89,9 +89,9 @@ def test_replacement_never_destroys_surrounding_text():
 
 
 def test_reporter_self_reference_is_left_intact():
-    slots = {"persons": [_staff("Sgt", "Justin", "Peterman")],
-             "officer_last": "Peterman"}
-    text = "I, Sgt Justin Peterman, was assigned to 8 Barracks. I applied restraints."
+    slots = {"persons": [_staff("Sgt", "Dana", "Whitfield")],
+             "officer_last": "Whitfield"}
+    text = "I, Sgt Dana Whitfield, was assigned to 8 Barracks. I applied restraints."
     assert enforce_naming(text, slots) == text
 
 
@@ -105,9 +105,9 @@ def test_already_full_form_is_not_re_expanded():
 
 def test_rank_period_mismatch_still_matches():
     # Roster says 'Sgt.'; the model wrote 'Sgt'.
-    slots = {"persons": [_staff("Sgt.", "Miguel", "Delgado")]}
-    out = enforce_naming("Sgt Delgado applied hand restraints.", slots)
-    assert "Miguel" in out
+    slots = {"persons": [_staff("Sgt.", "Lee", "Barrett")]}
+    out = enforce_naming("Sgt Barrett applied hand restraints.", slots)
+    assert "Lee" in out
 
 
 def test_shared_surname_leaves_bare_mentions_alone():

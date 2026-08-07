@@ -1,5 +1,7 @@
 """Prison Policy AI — Flask web application with simple access-code auth."""
 from pathlib import Path
+from urllib.parse import quote
+
 from flask import Flask, request, redirect, render_template, make_response, jsonify
 
 from backend.pipeline.config import ACCESS_CODE, logger
@@ -15,6 +17,19 @@ AUTH_EXEMPT = {"/login", "/logout", "/health"}
 def _code_ok(value: str) -> bool:
     """Case-insensitive access-code check, so 'slut' and 'SLUT' both work."""
     return bool(ACCESS_CODE) and (value or "").strip().lower() == ACCESS_CODE.strip().lower()
+
+
+def _safe_next(value: str) -> str:
+    """Constrain the post-login redirect to a path on this site.
+
+    `next` is attacker-controllable, so anything that isn't a single-slash
+    relative path — absolute URLs, protocol-relative '//evil.com', backslash
+    variants browsers normalize to slashes — collapses to the home page.
+    """
+    value = (value or "").strip()
+    if not value.startswith("/") or value.startswith(("//", "/\\")):
+        return "/"
+    return value
 
 
 def _request_is_https() -> bool:
@@ -92,7 +107,10 @@ def create_app() -> Flask:
             return _set_auth_cookie(resp)
         if request.path.startswith("/api/"):
             return jsonify({"error": "Authentication required — reload the page to log in."}), 401
-        return redirect(f"/login?next={request.path}")
+        # Preserve the query string, not just the path — otherwise a link like
+        # /reports?demo=1 lands on a bare /reports after login.
+        next_url = request.full_path.rstrip("?") if request.query_string else request.path
+        return redirect(f"/login?next={quote(next_url, safe='/?=&')}")
 
     @app.route("/")
     def home():
@@ -112,11 +130,11 @@ def create_app() -> Flask:
         if request.method == "POST":
             code = request.form.get("code", "")
             if _code_ok(code):
-                next_url = request.args.get("next", "/")
-                resp = make_response(redirect(next_url))
+                resp = make_response(redirect(_safe_next(request.args.get("next", "/"))))
                 return _set_auth_cookie(resp)
             error = "Invalid access code."
-        return render_template("login.html", error=error, next=request.args.get("next", "/"))
+        return render_template("login.html", error=error,
+                               next=_safe_next(request.args.get("next", "/")))
 
     @app.route("/logout")
     def logout():

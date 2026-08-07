@@ -89,7 +89,7 @@ def _add_to_roster_file(rank: str, first: str, last: str,
 def add_staff_from_gap_answer(name_hint: str, answer_text: str) -> bool:
     """Parse a staff identity gap answer and persist to roster.
 
-    Accepts answers like 'Sgt. Justin Peterman 141432' or 'Justin Peterman'.
+    Accepts answers like 'Sgt. Dana Whitfield 100411' or 'Dana Whitfield'.
     Returns True if successfully parsed and persisted.
     """
     text = answer_text.strip()
