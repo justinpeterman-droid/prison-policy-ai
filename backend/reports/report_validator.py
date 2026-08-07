@@ -471,7 +471,7 @@ def _snippet(text: str, at: int, width: int = 60) -> str:
 
 
 # Ruling 2 requires the period on ranks, which makes a naive sentence split
-# tear 'I, Sgt. Dana Vance, was assigned...' into 'I, Sgt.' — and then every
+# tear 'I, Sgt. Dana Ferraro, was assigned...' into 'I, Sgt.' — and then every
 # opening-formula check fails on correct text. Abbreviations that legitimately
 # end in a period never end a sentence here.
 # The split point sits AFTER the period, so each lookbehind has to include it.

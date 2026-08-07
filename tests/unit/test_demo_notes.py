@@ -78,7 +78,7 @@ def test_the_three_scenarios_cover_distinct_categories(scenarios):
     assert len(set(cats)) == 3, f"demo scenarios should not repeat a category: {cats}"
 
 
-# "Sgt Whitfield", "Cpl. Alvarez", "Capt Lindholm" — rank followed by a surname.
+# "Sgt Halvorsen", "Cpl. Alvarez", "Capt Lindholm" — rank followed by a surname.
 _RANKED_NAME = re.compile(
     r"\b(?:Sgt|Cpl|Lt|Capt|Cpt|Maj|Col|Ofc)\.?\s+([A-Z][a-z]+)\b"
 )

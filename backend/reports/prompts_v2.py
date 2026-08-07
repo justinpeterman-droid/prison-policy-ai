@@ -18,7 +18,7 @@ STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
     - If ADC# is unknown: 'Inmate {{Last}}, {{First}}'
     - If both unknown: 'Inmate {{Last}}'  (only when both first and ADC# truly unavailable)
   * STAFF first mention:   '{{Rank}} {{First}} {{Last}}'  (Cpl. / Sgt. / Lt. / Cpt.)
-    - Example: 'Sgt. Dana Whitfield', 'Cpl. Ray Alvarez'
+    - Example: 'Sgt. Dana Halvorsen', 'Cpl. Ray Alvarez'
   * ALL later references to the same person use SHORT FORM:
     - Inmate: 'Inmate {{Last}}'
     - Staff: '{{Rank}} {{Last}}'

@@ -94,7 +94,7 @@ Existing textarea/preview/download stay. Add, in order:
    "Unknown" button. Progress: "3 of 6 required items remaining".
    Continue button enables at blocking_remaining == 0.
 3. **Officer buttons row**: one button per security staff
-   ("Generate Cpl. Powell's report"); tap → /generate with reporter_index →
+   ("Generate Cpl. Alvarez's report"); tap → /generate with reporter_index →
    re-render preview with that officer's header + perspective narrative.
    If an officer is named but has no actions, ask (text):
    "What did {Rank} {Name} do or observe?"
@@ -126,8 +126,8 @@ incident_number, medical_disposition (dropdown), drug_test_disposition
 (dropdown)} + ADC#s for Smith/Jones → non-blocking toggles {witness
 statements, enemy alert, footage} → after answers, disciplinary + cover letter
 contain the enemy-alert line with real values; first-person contains
-"Sgt. Justin Peterman placed hand restraints onto Inmate Jones... and
-Cpl. Austin Powell and Cpl. Jack Sohns escorted him to Restrictive Housing.";
-tapping "Generate Cpl. Powell's report" produces a 005 whose header is
-Powell's name/employee #/rank and whose narrative contains only Powell's
+"Sgt. Dana Halvorsen placed hand restraints onto Inmate Jones... and
+Cpl. Ray Alvarez and Cpl. Tara Nguyen escorted him to Restrictive Housing.";
+tapping "Generate Cpl. Alvarez's report" produces a 005 whose header is
+Alvarez's name/employee #/rank and whose narrative contains only Alvarez's
 attributed actions; any planted fake ADC# gets flagged yellow.

@@ -133,7 +133,7 @@ def _find_span(notes: str, notes_lower: str, value: str, vl: str) -> str | None:
         ctx_highlighted = ctx.replace(snippet, f"**{snippet}**")
         return ctx_highlighted
 
-    # 2) Try matching individual words (e.g. "Dana" matches "Sgt Dana Whitfield")
+    # 2) Try matching individual words (e.g. "Dana" matches "Sgt Dana Halvorsen")
     words = [w for w in re.split(r"[\s,.;:]+", vl) if len(w) > 2]
     if words:
         for word in words:

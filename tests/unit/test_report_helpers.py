@@ -84,13 +84,13 @@ class TestNameAndRankParsing:
         assert reports._parse_name("Garcia, Luis") == ("Garcia", "Luis", "")
 
     def test_parse_last_first_middle(self):
-        assert reports._parse_name("Barrett, Lee A") == ("Barrett", "Lee", "A")
+        assert reports._parse_name("Quintero, Lee A") == ("Quintero", "Lee", "A")
 
     def test_parse_empty(self):
         assert reports._parse_name("") == ("", "", "")
 
     @pytest.mark.parametrize("full,expected", [
-        ("Sgt. Dana Whitfield", "Sgt."),
+        ("Sgt. Dana Halvorsen", "Sgt."),
         ("Sergeant Dana", "Sgt."),   # spelled-out rank abbreviated
         ("Corporal Okafor", "Cpl."),
     ])
@@ -98,7 +98,7 @@ class TestNameAndRankParsing:
         assert reports._parse_rank(full) == expected
 
     def test_no_rank_returns_empty(self):
-        assert reports._parse_rank("Dana Whitfield") == ""
+        assert reports._parse_rank("Dana Halvorsen") == ""
 
 
 class TestFormatShift:

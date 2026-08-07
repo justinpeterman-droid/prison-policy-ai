@@ -27,7 +27,7 @@ API_TIMEOUT = 120  # seconds — generate can be slow on Cloud Run
 TEST_CASES = [
     {
         "name": "Standard Fight (witnessed)",
-        "notes": "Smith ADC#123456 and Jones ADC#654321 fighting 8 Barracks ~10pm. Jones cut over eye. Sgt Whitfield cuffed both. Cpl Alvarez and Nguyen escorted Jones to Infirmary.",
+        "notes": "Smith ADC#123456 and Jones ADC#654321 fighting 8 Barracks ~10pm. Jones cut over eye. Sgt Halvorsen cuffed both. Cpl Alvarez and Nguyen escorted Jones to Infirmary.",
     },
     {
         "name": "Notification (not witnessed)",
@@ -35,7 +35,7 @@ TEST_CASES = [
     },
     {
         "name": "Single Inmate Contraband",
-        "notes": "Inmate Brown ADC#888888 found with cell phone during shakedown 2 House ~8am. Sgt Whitfield confiscated phone and placed Brown in RH.",
+        "notes": "Inmate Brown ADC#888888 found with cell phone during shakedown 2 House ~8am. Sgt Halvorsen confiscated phone and placed Brown in RH.",
     },
 ]
 
@@ -114,11 +114,11 @@ def run_test(name: str, notes: str, verbose: bool = True) -> dict:
                     "employee_number": raw.get("employee_number", ""),
                 }
             else:
-                officer = {"rank": "Sgt.", "first": "Dana", "last": "Whitfield",
+                officer = {"rank": "Sgt.", "first": "Dana", "last": "Halvorsen",
                            "employee_number": "100411"}
                 print("  Reporter: [default] (unnamed in notes)")
         else:
-            officer = {"rank": "Sgt.", "first": "Dana", "last": "Whitfield",
+            officer = {"rank": "Sgt.", "first": "Dana", "last": "Halvorsen",
                        "employee_number": "100411"}
             print("  Reporter: [default]")
     except Exception as e:
@@ -140,7 +140,7 @@ def run_test(name: str, notes: str, verbose: bool = True) -> dict:
         elif atype == "yes_no":
             answers[slot] = "Yes"
         elif slot == "officer_name":
-            answers[slot] = "Sgt. Dana Whitfield"
+            answers[slot] = "Sgt. Dana Halvorsen"
         else:
             answers[slot] = f"TEST-{slot}"
     

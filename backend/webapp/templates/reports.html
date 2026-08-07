@@ -758,9 +758,7 @@ async function generate(){
   _reportTexts=[];_data=null;_confirmedCategory=null;_extractedSlots={};_officers=[];
   hidePipeline();showPipeline();setPipeline('classify','active');
   try{
-    const r=await fetch('/api/reports/classify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes})});
-    const d=await r.json();
-    if(d.error)throw new Error(d.error);
+    const d=await postJSON('/api/reports/classify',{notes});
     setPipeline('classify','done');
     showCatChip(d.incident_type,d.label);
     _chargeDesc=d.charge_descriptions||{};_charges=(d.charges||[]).map(c=>typeof c==='string'?{code:c,inmate:'',description:_chargeDesc[c]||''}:c);
@@ -783,10 +781,7 @@ async function runExtract(){
   document.getElementById('missingPanel').style.display='none';
   showPipeline();setPipeline('extract','active');
   try{
-    const r=await fetch('/api/reports/extract',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({notes,category:_confirmedCategory})});
-    const d=await r.json();
-    if(d.error)throw new Error(d.error);
+    const d=await postJSON('/api/reports/extract',{notes,category:_confirmedCategory});
     setPipeline('extract','done');
     _extractedSlots=d.slots||{};
     _officers=d.officers||[];
@@ -803,6 +798,69 @@ async function runExtract(){
 }
 
 /* Step 3: Generate (triggered by Continue button) */
+/* POST JSON, retrying once if the request dies at the network layer.
+   fetch() only rejects on a transport failure — a 4xx/5xx still resolves and is
+   surfaced as d.error — so this retries dropped connections (a phone changing
+   network mid-request, which is what "Load failed" is) without ever silently
+   re-running a request the server already rejected on its merits. */
+async function postJSON(url,body,tries=2){
+  let lastErr;
+  for(let attempt=0;attempt<tries;attempt++){
+    try{
+      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+                               body:JSON.stringify(body)});
+      const d=await r.json();
+      if(d.error)throw new Error(d.error);
+      return d;
+    }catch(e){
+      // A server-sent error is a verdict, not a blip — don't retry it.
+      if(e instanceof TypeError===false&&e.message&&!/load failed|failed to fetch|network/i.test(e.message))throw e;
+      lastErr=e;
+      if(attempt<tries-1)await new Promise(s=>setTimeout(s,1200));
+    }
+  }
+  throw lastErr;
+}
+
+/* Paint a generation payload. Called once per pass so the officer sees the
+   finished reports immediately rather than after the supplement lands. */
+function render(d){
+  _data=d;
+  let html='';
+  const rp=d.reports||{};
+  if(rp.cover_letter)html+=reportBox('Cover Letter',rp.cover_letter);
+  if(rp.first_person)html+=reportBox('First Person Report',rp.first_person);
+  if(rp.supervisor_summary)html+=reportBox('Supervisor Summary',rp.supervisor_summary);
+  if(rp.investigation)html+=reportBox('Investigation Report',rp.investigation);
+  if(rp.disciplinary)html+=reportBox('Disciplinary Supplement',rp.disciplinary);
+  document.getElementById('reports').innerHTML=html;
+
+  renderOfficerButtons(d.officers||[]);
+  renderVerify(d);
+  buildToolbar(d);
+  showForm('form005');
+  renderProvenance();
+  if(window.matchMedia('(max-width: 820px)').matches)togglePreview(true);
+}
+
+/* Re-run only the deferred supplement, keeping the reports already on screen. */
+async function retryDisciplinary(){
+  if(!_data||!_data.reports)return;
+  const notes=document.getElementById('notes').value.trim();
+  document.getElementById('error').innerHTML='';
+  setPipeline('draft','active');
+  try{
+    const full=await postJSON('/api/reports/disciplinary',{
+      notes,category:_confirmedCategory,slots:_extractedSlots,
+      answers:collectAnswers(),charges:collectCharges(),reports:_data.reports});
+    render(full);
+  }catch(e){
+    document.getElementById('error').innerHTML=
+      `<div class="error">${esc(e.message)}</div>`;
+  }
+  setPipeline('draft','done');setPipeline('validate','done');
+}
+
 async function runGenerate(reporterIndex){
   const notes=document.getElementById('notes').value.trim();
   if(!notes||!_confirmedCategory)return;
@@ -815,28 +873,33 @@ async function runGenerate(reporterIndex){
   showPipeline();setPipeline('draft','active');
   try{
     const answers=collectAnswers();
-    const r=await fetch('/api/reports/generate',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({notes,category:_confirmedCategory,slots:_extractedSlots,answers,charges:collectCharges(),reporter_index:idx})});
-    const d=await r.json();
-    if(d.error)throw new Error(d.error);
+    const base={notes,category:_confirmedCategory,slots:_extractedSlots,answers,
+                charges:collectCharges(),reporter_index:idx};
+    // Ask for the disciplinary supplement separately. It can't run alongside
+    // the others (it reads the finished first-person report), so bundling it
+    // doubles the request to ~40s — long enough that phones drop the
+    // connection and the officer loses everything.
+    let d=await postJSON('/api/reports/generate',{...base,defer_disciplinary:true});
     setPipeline('draft','done');setPipeline('validate','done');
-    _data=d;
+    render(d);
 
-    let html='';
-    const rp=d.reports||{};
-    if(rp.cover_letter)html+=reportBox('Cover Letter',rp.cover_letter);
-    if(rp.first_person)html+=reportBox('First Person Report',rp.first_person);
-    if(rp.supervisor_summary)html+=reportBox('Supervisor Summary',rp.supervisor_summary);
-    if(rp.investigation)html+=reportBox('Investigation Report',rp.investigation);
-    if(rp.disciplinary)html+=reportBox('Disciplinary Supplement',rp.disciplinary);
-    document.getElementById('reports').innerHTML=html;
-
-    renderOfficerButtons(d.officers||[]);
-    renderVerify(d);
-    buildToolbar(d);
-    showForm('form005');
-    renderProvenance();
-    if(window.matchMedia('(max-width: 820px)').matches)togglePreview(true);
+    if(d.disciplinary_deferred){
+      // Reports are already on screen; the supplement fills in behind them.
+      setPipeline('draft','active');
+      try{
+        const full=await postJSON('/api/reports/disciplinary',
+                                  {...base,reports:d.reports});
+        d=full;render(full);
+      }catch(e2){
+        // The reports above are finished and valid — say what's missing
+        // instead of throwing the whole packet away.
+        document.getElementById('error').innerHTML=
+          `<div class="error">Reports are ready, but the disciplinary supplement `+
+          `could not be generated (${esc(e2.message)}). `+
+          `<a href="#" onclick="retryDisciplinary();return false;">Try again</a></div>`;
+      }
+      setPipeline('draft','done');setPipeline('validate','done');
+    }
   }catch(e){
     setPipeline('draft','idle');
     document.getElementById('error').innerHTML=`<div class="error">${esc(e.message)}</div>`;

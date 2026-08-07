@@ -10,17 +10,17 @@
   },
   "staff": [
     {"rank": "Capt", "first": "Grace", "last": "Lindholm", "employee_number": "100401", "shift": "A"},
-    {"rank": "Sgt", "first": "Dana", "last": "Whitfield", "employee_number": "100411", "shift": "A"},
+    {"rank": "Sgt", "first": "Dana", "last": "Halvorsen", "employee_number": "100411", "shift": "A"},
     {"rank": "Cpl", "first": "Ray", "last": "Alvarez", "employee_number": "100412", "shift": "A"},
     {"rank": "Cpl", "first": "Tara", "last": "Nguyen", "employee_number": "100413", "shift": "A"},
-    {"rank": "Sgt", "first": "Lee", "last": "Barrett", "employee_number": "100421", "shift": "B"},
-    {"rank": "Cpl", "first": "Owen", "last": "Castillo", "employee_number": "100422", "shift": "B"},
+    {"rank": "Sgt", "first": "Lee", "last": "Quintero", "employee_number": "100421", "shift": "B"},
+    {"rank": "Cpl", "first": "Neil", "last": "Castillo", "employee_number": "100422", "shift": "B"},
     {"rank": "Lt", "first": "Nora", "last": "Franklin", "employee_number": "100431", "shift": "C"},
     {"rank": "Sgt", "first": "Iris", "last": "Coleman", "employee_number": "100432", "shift": "C"},
     {"rank": "Cpl", "first": "Dev", "last": "Kaur", "employee_number": "100433", "shift": "C"},
-    {"rank": "Sgt", "first": "Paul", "last": "Okafor", "employee_number": "100441", "shift": "D"},
+    {"rank": "Sgt", "first": "Tomas", "last": "Okafor", "employee_number": "100441", "shift": "D"},
     {"rank": "Cpl", "first": "June", "last": "Hartley", "employee_number": "100442", "shift": "D"},
     {"rank": "Cpl", "first": "Sam", "last": "Delacroix", "employee_number": "100451", "shift": "U"},
-    {"rank": "Cpl", "first": "Alex", "last": "Boyd", "employee_number": "100461", "shift": "F"}
+    {"rank": "Cpl", "first": "Alex", "last": "Okonkwo", "employee_number": "100461", "shift": "F"}
   ]
 }
