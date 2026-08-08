@@ -246,3 +246,89 @@ class TestSnippetsFallbackClassification:
             query._search_snippets_only("https://example.invalid", "tok",
                                         "use of force", 10, "original 400")
         assert caught.value.__cause__ is original
+
+
+class TestSnippetsFallbackReturnContract:
+    """The 400 fallback must return `(contexts, raw_count)` like the main path.
+
+    This was the actual chat outage. Most data stores reject the
+    extractive-content spec with a 400, so EVERY on-topic question took the
+    fallback — which `return`ed the raw Discovery Engine payload instead of the
+    parsed tuple. `retrieved, raw_count = _search_with_stats(...)` then unpacked
+    a dict, binding `retrieved` to the string "results", and the next line died
+    with `TypeError: string indices must be integers`.
+
+    Search had SUCCEEDED; only the shape was wrong. That is why it surfaced as
+    the `internal` catch-all ("An unexpected error occurred") and why wrapping
+    search *exceptions* never touched it — there was no exception to wrap.
+    """
+
+    PAYLOAD = {
+        "results": [
+            {"document": {"derivedStructData": {
+                "title": "AD 2024-15 Use of Force",
+                "snippets": [{"snippet": "Force must be reasonable."}]}}},
+        ],
+        "totalSize": 1,
+    }
+
+    def _run(self, monkeypatch):
+        import io
+        import json as _json
+        from backend.pipeline import query
+
+        calls = {"n": 0}
+
+        def fake_urlopen(_req, timeout=None):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise urllib.error.HTTPError(
+                    "u", 400, "Bad Request", {},
+                    io.BytesIO(b'{"error":"extractive spec unsupported"}'))
+
+            class _Resp:
+                def read(self):
+                    return _json.dumps(TestSnippetsFallbackReturnContract.PAYLOAD).encode()
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *_a):
+                    return False
+
+            return _Resp()
+
+        monkeypatch.setattr(query, "_get_token", lambda: "tok")
+        monkeypatch.setattr(query.urllib.request, "urlopen", fake_urlopen)
+        return query._search_with_stats("use of force", 10)
+
+    def test_the_fallback_returns_a_tuple_not_the_raw_payload(self, monkeypatch):
+        out = self._run(monkeypatch)
+        assert isinstance(out, tuple) and len(out) == 2, (
+            f"expected (contexts, raw_count), got {type(out).__name__}")
+
+    def test_the_fallback_returns_parsed_passages(self, monkeypatch):
+        contexts, raw_count = self._run(monkeypatch)
+        assert raw_count == 1
+        assert [c["source"] for c in contexts] == ["AD 2024-15 Use of Force"]
+        assert contexts[0]["text"].startswith("Force must be reasonable")
+
+    def test_the_unpacked_result_survives_what_answer_question_does_next(self, monkeypatch):
+        """The exact line that raised in production."""
+        retrieved, _ = self._run(monkeypatch)
+        assert retrieved[0]["source"][:60] == "AD 2024-15 Use of Force"
+
+    def test_a_non_400_http_error_still_raises_a_classified_search_error(self, monkeypatch):
+        """Restructuring the 400 branch must not swallow other HTTP errors."""
+        import io
+        from backend.pipeline import query
+
+        def fake_urlopen(_req, timeout=None):
+            raise urllib.error.HTTPError("u", 503, "Unavailable", {},
+                                         io.BytesIO(b"upstream down"))
+
+        monkeypatch.setattr(query, "_get_token", lambda: "tok")
+        monkeypatch.setattr(query.urllib.request, "urlopen", fake_urlopen)
+        with pytest.raises(RuntimeError) as caught:
+            query._search_with_stats("use of force", 10)
+        assert classify_error(caught.value)[0] == "upstream"
