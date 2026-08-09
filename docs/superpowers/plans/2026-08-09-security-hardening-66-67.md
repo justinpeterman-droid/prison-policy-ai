@@ -138,13 +138,53 @@ git commit -m "fix(auth): require explicit access code configuration"
 
 ```python
 """Security contracts for report-template rendering."""
+import json
 from pathlib import Path
+import re
+import subprocess
 
 from backend.reports.extraction import compute_provenance
 
 
 TEMPLATE = (Path(__file__).resolve().parents[2]
             / "backend" / "webapp" / "templates" / "reports.html")
+
+
+def _render_provenance_in_node(provenance: list[dict]) -> str:
+    template = TEMPLATE.read_text(encoding="utf-8")
+    esc_fn = re.search(r"function esc\(s\)\{[^\n]+\}", template).group(0)
+    start = template.index("function renderProvenance(){")
+    end = template.index("function setSourcesOpen(open){", start)
+    render_fn = template[start:end]
+    script = f"""
+const elements = {{
+  sourcesArea: {{style: {{}}}},
+  sourcesCnt: {{textContent: ''}},
+  tracePanel: {{innerHTML: ''}},
+  sourcesToggle: {{}},
+}};
+global.document = {{
+  getElementById: id => elements[id],
+  createElement: () => ({{
+    _value: '',
+    set textContent(value) {{ this._value = String(value); }},
+    get innerHTML() {{
+      return this._value.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }},
+  }}),
+}};
+const _extractedData = {{provenance: {json.dumps(provenance)}}};
+function setSourcesOpen() {{}}
+{esc_fn}
+{render_fn}
+renderProvenance();
+process.stdout.write(elements.tracePanel.innerHTML);
+"""
+    result = subprocess.run(
+        ["node", "-e", script], capture_output=True, text=True, check=True,
+    )
+    return result.stdout
 
 
 def test_raw_provenance_is_escaped_at_html_text_sink():
@@ -155,18 +195,16 @@ def test_raw_provenance_is_escaped_at_html_text_sink():
     )
     assert payload in provenance[0]["source"]
 
-    template = TEMPLATE.read_text(encoding="utf-8")
-    unsafe = "${fuzzy?'≈ ':''}${cleanSource}</span>"
-    safe = "${fuzzy?'≈ ':''}${esc(cleanSource)}</span>"
-    assert unsafe not in template
-    assert safe in template
+    rendered = _render_provenance_in_node(provenance)
+    assert "<img" not in rendered
+    assert "&lt;img" in rendered
 ```
 
 - [ ] **Step 2: Run the focused test and verify it fails at the unsafe sink assertion**
 
 Run: `python -m pytest tests/unit/test_reports_template_security.py -q`
 
-Expected: FAIL because the template still contains the unescaped `cleanSource` interpolation. The provenance assertion passes, proving the test reaches raw note-derived content.
+Expected: FAIL because the rendered panel contains the raw `<img` element. The provenance assertion passes, proving the test reaches raw note-derived content.
 
 - [ ] **Step 3: Apply text-context escaping at the verified sink**
 
