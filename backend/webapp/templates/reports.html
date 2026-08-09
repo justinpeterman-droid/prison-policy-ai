@@ -931,7 +931,7 @@ function renderProvenance(){
     html+=`<div class="trace-row">
       <span class="trace-label">${esc(e.label)}</span>
       ${e.source
-        ?`<span class="trace-src${srcClass}">${fuzzy?'≈ ':''}${cleanSource}</span>`
+        ?`<span class="trace-src${srcClass}">${fuzzy?'≈ ':''}${esc(cleanSource)}</span>`
         :`<span class="trace-src inferred">⚡ Inferred — not verbatim in notes</span>`
       }
     </div>`;
