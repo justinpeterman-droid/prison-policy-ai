@@ -11,8 +11,6 @@ import re
 import urllib.request
 import urllib.error
 
-import google.auth
-import google.auth.transport.requests
 from google import genai
 from google.genai import types
 from backend.pipeline.config import (
@@ -20,6 +18,8 @@ from backend.pipeline.config import (
     AGENT_BUILDER_LOCATION, search_config_summary, serving_config_path,
 )
 from backend.pipeline.citations import build_grounded
+from backend.pipeline.gcp_auth import get_access_token
+from backend.pipeline.rerank import rerank_passages
 from backend.pipeline.retry import with_retries
 from backend.pipeline.retrieval import (
     augment_query, format_history, parse_search_results, select_passages,
@@ -212,22 +212,9 @@ def log_search_config() -> None:
     logger.info("Policy search config: %s", search_config_summary())
 
 
-_token_cache = {"token": None, "expiry": 0}
-
-
-def _get_token() -> str:
-    """Get an OAuth token from Application Default Credentials."""
-    import time
-    if _token_cache["token"] and time.time() < _token_cache["expiry"] - 60:
-        return _token_cache["token"]
-
-    creds, project = google.auth.default(
-        scopes=["https://www.googleapis.com/auth/cloud-platform"]
-    )
-    creds.refresh(google.auth.transport.requests.Request())
-    _token_cache["token"] = creds.token
-    _token_cache["expiry"] = creds.expiry.timestamp() if creds.expiry else time.time() + 3500
-    return creds.token
+# Shared with the Ranking API caller in rerank.py — both run on every chat turn,
+# and a per-module cache would refresh credentials twice for one question.
+_get_token = get_access_token
 
 
 def _classify_query(question: str, history: list[dict] | None = None) -> bool:
@@ -499,6 +486,17 @@ def answer_question(question: str, history: list[dict] | None = None) -> dict:
             "sources": [],
             "retrieved_sources": [],
         }
+
+    # Reorder by cross-encoder relevance BEFORE trimming. select_passages spends
+    # its per-source cap and character budget in list order and keeps only the
+    # first MAX_CONTEXT_PASSAGES, so whatever ordering it is handed decides what
+    # the generator ever sees. Reranking is best-effort and fails open — on any
+    # error this is the retriever's own ordering, unchanged.
+    #
+    # The ranker gets the officer's original question, not the augmented search
+    # query: the appended slang terms are a recall device for Discovery Engine,
+    # and they only dilute a semantic question/passage comparison.
+    retrieved = rerank_passages(question, retrieved)
 
     # Trim to the top passages (dedupe + per-source cap), numbered for citation.
     contexts = select_passages(retrieved, MAX_CONTEXT_PASSAGES,

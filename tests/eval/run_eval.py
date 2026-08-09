@@ -14,9 +14,16 @@ Usage:
     PYTHONPATH=. python3 tests/eval/run_eval.py --cases tests/eval/cases.jsonl
     PYTHONPATH=. python3 tests/eval/run_eval.py --gate-only     # gate routing only
     PYTHONPATH=. python3 tests/eval/run_eval.py --id prea_dating  # a single case
+    PYTHONPATH=. python3 tests/eval/run_eval.py --no-rerank     # reranker off
+
+To measure what semantic reranking is worth, run the set twice — once plain,
+once with --no-rerank — and compare retrieval hit-rate and answer pass-rate.
+Reranking only reorders retrieved passages, so it cannot change which documents
+were found; what it changes is which of them reach the generator.
 """
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -104,6 +111,7 @@ def _print_scorecard(results: list[dict], scorecard: dict) -> None:
     print("  POLICY-CHAT EVAL SCORECARD")
     print("=" * 60)
     print(f"  cases:              {scorecard['n']}")
+    print(f"  reranking:          {'on' if scorecard.get('rerank') else 'OFF'}")
     print(f"  gate accuracy:      {pct(scorecard['gate_accuracy'])}")
     print(f"  retrieval hit-rate: {pct(scorecard['retrieval_hit_rate'])}")
     print(f"  answer pass-rate:   {pct(scorecard['answer_pass_rate'])}")
@@ -132,7 +140,16 @@ def main() -> int:
     ap.add_argument("--gate-only", action="store_true",
                     help="Only score gate routing (fewer LLM calls)")
     ap.add_argument("--id", help="Run a single case by id")
+    ap.add_argument("--no-rerank", action="store_true",
+                    help="Disable semantic reranking, for an A/B against the "
+                         "default run")
     args = ap.parse_args()
+
+    # Set before anything imports backend.pipeline.config, which reads this at
+    # import time — run() does the backend imports lazily for exactly this kind
+    # of reason.
+    if args.no_rerank:
+        os.environ["RERANK_ENABLED"] = "0"
 
     cases = load_cases(Path(args.cases))
     if args.id:
@@ -145,6 +162,10 @@ def main() -> int:
     results = run(cases, gate_only=args.gate_only)
     scorecard = summarize(results)
     scorecard["elapsed_s"] = round(time.time() - t0, 1)
+    # Stamped into results.json so an A/B pair of runs is self-describing — two
+    # scorecards with no record of which one had reranking on are not a
+    # comparison.
+    scorecard["rerank"] = not args.no_rerank
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     out = OUTPUT_DIR / "results.json"
