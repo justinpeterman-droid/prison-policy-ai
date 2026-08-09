@@ -89,9 +89,9 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
 
 # Auth — simple shared access code. Set via ACCESS_CODE env var.
-# Defaults to "slut"; matching is case-insensitive (see webapp auth).
-# Set ACCESS_CODE="" explicitly to disable auth (open access).
-ACCESS_CODE = os.getenv("ACCESS_CODE", "slut")
+# No default: omission is a deployment error. An explicitly empty value keeps
+# the intentional local-development auth bypass.
+ACCESS_CODE = os.getenv("ACCESS_CODE")
 
 # Second, higher tier entered at the same login box. A user who logs in with
 # ADMIN_CODE gets the whole site including the Unit Roster; a user who logs in
