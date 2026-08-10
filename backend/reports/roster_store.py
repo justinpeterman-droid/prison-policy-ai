@@ -25,6 +25,8 @@ credentials and no network.
 """
 import json
 import logging
+import os
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -137,11 +139,31 @@ def invalidate() -> None:
         _clear_cache_unlocked()
 
 
+def _write_local(payload: str) -> None:
+    """Atomically replace the local roster with a complete JSON payload."""
+    SEED_PATH.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temp_name = tempfile.mkstemp(
+        prefix=f".{SEED_PATH.name}.",
+        suffix=".tmp",
+        dir=SEED_PATH.parent,
+    )
+    temp_path = Path(temp_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as staged:
+            staged.write(payload)
+            staged.flush()
+            os.fsync(staged.fileno())
+        os.replace(temp_path, SEED_PATH)
+        temp_path = None
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
 def _write(data: dict, generation: int | None) -> None:
     payload = json.dumps(data, indent=2) + "\n"
     if not using_gcs():
-        SEED_PATH.parent.mkdir(parents=True, exist_ok=True)
-        SEED_PATH.write_text(payload, encoding="utf-8")
+        _write_local(payload)
         return
     _blob().upload_from_string(
         payload, content_type="application/json",
