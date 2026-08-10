@@ -25,6 +25,8 @@ credentials and no network.
 """
 import json
 import logging
+import os
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -123,25 +125,62 @@ def read(*, refresh: bool = False) -> dict:
         return _cache
 
 
+def _clear_cache_unlocked() -> None:
+    """Clear cached state. The caller must hold ``_lock``."""
+    global _cache, _cache_expires, _cache_generation
+    _cache = None
+    _cache_expires = 0.0
+    _cache_generation = None
+
+
 def invalidate() -> None:
     """Drop the cached roster. Mainly for tests and for after an external edit."""
-    global _cache, _cache_expires, _cache_generation
     with _lock:
-        _cache = None
-        _cache_expires = 0.0
-        _cache_generation = None
+        _clear_cache_unlocked()
+
+
+def _write_local(payload: str) -> None:
+    """Atomically replace the local roster with a complete JSON payload."""
+    SEED_PATH.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temp_name = tempfile.mkstemp(
+        prefix=f".{SEED_PATH.name}.",
+        suffix=".tmp",
+        dir=SEED_PATH.parent,
+    )
+    temp_path = Path(temp_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as staged:
+            staged.write(payload)
+            staged.flush()
+            os.fsync(staged.fileno())
+        os.replace(temp_path, SEED_PATH)
+        temp_path = None
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def _write(data: dict, generation: int | None) -> None:
     payload = json.dumps(data, indent=2) + "\n"
     if not using_gcs():
-        SEED_PATH.parent.mkdir(parents=True, exist_ok=True)
-        SEED_PATH.write_text(payload, encoding="utf-8")
+        _write_local(payload)
         return
     _blob().upload_from_string(
         payload, content_type="application/json",
         if_generation_match=generation,
     )
+
+
+def _update_local(mutate):
+    """Apply one local read-modify-write transaction under ``_lock``."""
+    with _lock:
+        data, generation = _fetch()
+        result = mutate(data)
+        if result is None:
+            return None
+        _write(data, generation)
+        _clear_cache_unlocked()
+        return result
 
 
 def update(mutate):
@@ -156,6 +195,9 @@ def update(mutate):
     should re-check its own preconditions (a duplicate check, say) each time
     rather than assuming the state it saw first.
     """
+    if not using_gcs():
+        return _update_local(mutate)
+
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         data, generation = _fetch()
         result = mutate(data)

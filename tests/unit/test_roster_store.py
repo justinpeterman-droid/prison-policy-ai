@@ -7,6 +7,9 @@ without a bucket, so these tests drive the GCS path against a fake and assert
 the compare-and-swap behaviour directly.
 """
 import json
+import os
+import threading
+from pathlib import Path
 
 import pytest
 
@@ -77,6 +80,102 @@ def test_update_busts_the_cache(tmp_path, monkeypatch):
 
     roster_store.update(add)
     assert [s["last"] for s in roster_store.read()["staff"]] == ["Alvarez"]
+
+
+def test_local_write_atomically_replaces_complete_json(tmp_path, monkeypatch):
+    path = tmp_path / "staff_roster.json"
+    original = {"shifts": {}, "staff": [{"last": "Alvarez"}]}
+    path.write_text(json.dumps(original))
+    monkeypatch.setattr(roster_store, "SEED_PATH", path)
+    roster_store.invalidate()
+
+    observed = {}
+    real_replace = os.replace
+
+    def inspect_replace(source, destination):
+        observed["before"] = json.loads(path.read_text())
+        observed["staged"] = json.loads(Path(source).read_text())
+        real_replace(source, destination)
+
+    monkeypatch.setattr(os, "replace", inspect_replace)
+
+    def add(data):
+        data["staff"].append({"last": "Nguyen"})
+        return "added"
+
+    assert roster_store.update(add) == "added"
+    assert observed["before"] == original
+    assert [person["last"] for person in observed["staged"]["staff"]] == [
+        "Alvarez", "Nguyen",
+    ]
+    assert json.loads(path.read_text()) == observed["staged"]
+
+
+def test_failed_local_replace_keeps_original_and_removes_temp_file(tmp_path, monkeypatch):
+    path = tmp_path / "staff_roster.json"
+    original = {"shifts": {}, "staff": [{"last": "Alvarez"}]}
+    path.write_text(json.dumps(original))
+    monkeypatch.setattr(roster_store, "SEED_PATH", path)
+    roster_store.invalidate()
+
+    def fail_replace(source, destination):
+        raise OSError("replacement failed")
+
+    monkeypatch.setattr(os, "replace", fail_replace)
+
+    def add(data):
+        data["staff"].append({"last": "Nguyen"})
+        return "added"
+
+    with pytest.raises(OSError, match="replacement failed"):
+        roster_store.update(add)
+
+    assert json.loads(path.read_text()) == original
+    assert list(tmp_path.glob(".staff_roster.json.*.tmp")) == []
+
+
+def test_concurrent_local_updates_keep_both_changes(tmp_path, monkeypatch):
+    path = tmp_path / "staff_roster.json"
+    path.write_text(json.dumps({"shifts": {}, "staff": []}))
+    monkeypatch.setattr(roster_store, "SEED_PATH", path)
+    roster_store.invalidate()
+
+    original_write = roster_store._write
+    write_barrier = threading.Barrier(2)
+
+    def coordinated_write(data, generation):
+        try:
+            write_barrier.wait(timeout=1)
+        except threading.BrokenBarrierError:
+            pass
+        original_write(data, generation)
+
+    monkeypatch.setattr(roster_store, "_write", coordinated_write)
+    results = []
+
+    def add(last, employee_number):
+        def mutate(data):
+            data["staff"].append({
+                "last": last,
+                "employee_number": employee_number,
+            })
+            return "added"
+
+        results.append(roster_store.update(mutate))
+
+    threads = [
+        threading.Thread(target=add, args=("Nguyen", "100413")),
+        threading.Thread(target=add, args=("Kaur", "100433")),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=3)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert results.count("added") == 2
+    names = sorted(person["last"] for person in json.loads(path.read_text())["staff"])
+    assert names == ["Kaur", "Nguyen"]
 
 
 # ── GCS backend, driven against a fake ───────────────────────────────────
