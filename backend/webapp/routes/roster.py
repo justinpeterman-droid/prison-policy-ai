@@ -89,6 +89,10 @@ def add_staff():
 def update_staff(emp_id):
     """Update a staff member's fields (shift reassign, name fix, etc.)."""
     body = request.get_json(silent=True) or {}
+    new_employee_number = (
+        body["employee_number"].strip()
+        if "employee_number" in body else None
+    )
 
     # Validate before mutating so a bad shift is rejected without a round-trip.
     new_shift = body["shift"].strip().upper() if "shift" in body else None
@@ -98,15 +102,31 @@ def update_staff(emp_id):
     def mutate(data: dict):
         for person in data.get("staff", []):
             if person.get("employee_number", "").strip() == emp_id.strip():
-                for field in ("rank", "first", "last", "employee_number"):
+                if new_employee_number is not None:
+                    candidate = new_employee_number.casefold()
+                    if any(
+                        other is not person
+                        and (other.get("employee_number") or "").strip().casefold()
+                        == candidate
+                        for other in data.get("staff", [])
+                    ):
+                        return "duplicate"
+                for field in ("rank", "first", "last"):
                     if field in body:
                         person[field] = body[field].strip()
+                if new_employee_number is not None:
+                    person["employee_number"] = new_employee_number
                 if new_shift is not None:
                     person["shift"] = new_shift
                 return "updated"
         return "missing"
 
-    if roster_store.update(mutate) == "missing":
+    result = roster_store.update(mutate)
+    if result == "duplicate":
+        return jsonify({
+            "error": f"Employee number {new_employee_number} already exists.",
+        }), 409
+    if result == "missing":
         return jsonify({"error": f"Staff member {emp_id} not found."}), 404
 
     logger.info("Updated a staff member")
