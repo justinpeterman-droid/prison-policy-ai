@@ -7,6 +7,7 @@ without a bucket, so these tests drive the GCS path against a fake and assert
 the compare-and-swap behaviour directly.
 """
 import json
+import threading
 
 import pytest
 
@@ -77,6 +78,50 @@ def test_update_busts_the_cache(tmp_path, monkeypatch):
 
     roster_store.update(add)
     assert [s["last"] for s in roster_store.read()["staff"]] == ["Alvarez"]
+
+
+def test_concurrent_local_updates_keep_both_changes(tmp_path, monkeypatch):
+    path = tmp_path / "staff_roster.json"
+    path.write_text(json.dumps({"shifts": {}, "staff": []}))
+    monkeypatch.setattr(roster_store, "SEED_PATH", path)
+    roster_store.invalidate()
+
+    original_write = roster_store._write
+    write_barrier = threading.Barrier(2)
+
+    def coordinated_write(data, generation):
+        try:
+            write_barrier.wait(timeout=1)
+        except threading.BrokenBarrierError:
+            pass
+        original_write(data, generation)
+
+    monkeypatch.setattr(roster_store, "_write", coordinated_write)
+    results = []
+
+    def add(last, employee_number):
+        def mutate(data):
+            data["staff"].append({
+                "last": last,
+                "employee_number": employee_number,
+            })
+            return "added"
+
+        results.append(roster_store.update(mutate))
+
+    threads = [
+        threading.Thread(target=add, args=("Nguyen", "100413")),
+        threading.Thread(target=add, args=("Kaur", "100433")),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=3)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert results.count("added") == 2
+    names = sorted(person["last"] for person in json.loads(path.read_text())["staff"])
+    assert names == ["Kaur", "Nguyen"]
 
 
 # ── GCS backend, driven against a fake ───────────────────────────────────

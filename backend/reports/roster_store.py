@@ -123,13 +123,18 @@ def read(*, refresh: bool = False) -> dict:
         return _cache
 
 
+def _clear_cache_unlocked() -> None:
+    """Clear cached state. The caller must hold ``_lock``."""
+    global _cache, _cache_expires, _cache_generation
+    _cache = None
+    _cache_expires = 0.0
+    _cache_generation = None
+
+
 def invalidate() -> None:
     """Drop the cached roster. Mainly for tests and for after an external edit."""
-    global _cache, _cache_expires, _cache_generation
     with _lock:
-        _cache = None
-        _cache_expires = 0.0
-        _cache_generation = None
+        _clear_cache_unlocked()
 
 
 def _write(data: dict, generation: int | None) -> None:
@@ -144,6 +149,18 @@ def _write(data: dict, generation: int | None) -> None:
     )
 
 
+def _update_local(mutate):
+    """Apply one local read-modify-write transaction under ``_lock``."""
+    with _lock:
+        data, generation = _fetch()
+        result = mutate(data)
+        if result is None:
+            return None
+        _write(data, generation)
+        _clear_cache_unlocked()
+        return result
+
+
 def update(mutate):
     """Apply `mutate` to the roster and persist the result.
 
@@ -156,6 +173,9 @@ def update(mutate):
     should re-check its own preconditions (a duplicate check, say) each time
     rather than assuming the state it saw first.
     """
+    if not using_gcs():
+        return _update_local(mutate)
+
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         data, generation = _fetch()
         result = mutate(data)
