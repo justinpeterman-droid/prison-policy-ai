@@ -74,12 +74,31 @@ Field Notes
 
 ## Quick Start
 
+Install dependencies from the repository root:
+
 ```bash
-cd backend && pip install -r requirements.txt
-cd webapp && python app.py  # → http://localhost:8080
+python -m pip install -r requirements.txt
+```
+
+For isolated local work, explicitly disable the shared-code gate and run the
+application from the repository root:
+
+```powershell
+$env:ACCESS_CODE=""
+python backend/webapp/app.py
+```
+
+```bash
+ACCESS_CODE="" PYTHONPATH=. python backend/webapp/app.py
 ```
 
 ## Deploy
+
+Production requires `ACCESS_CODE` to be present. Bind it from Google Secret
+Manager or set it in the service environment before deployment; never commit
+the value or place it in shell history. An omitted value stops application
+startup, while an explicitly empty value disables authentication and is only
+appropriate for isolated local development.
 
 ```bash
 gcloud run deploy prison-policy-ai \
