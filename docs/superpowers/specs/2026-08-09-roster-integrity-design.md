@@ -1,7 +1,7 @@
 # Roster Integrity Design
 
-**Date:** 2026-08-09  
-**Issues:** #68, #70  
+**Date:** 2026-08-09
+**Issues:** #68, #70
 **Branch:** `fix/roster-integrity-68-70`
 
 ## Context
