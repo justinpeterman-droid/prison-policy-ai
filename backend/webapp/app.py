@@ -134,6 +134,12 @@ def _set_auth_cookie(resp, code: str):
 
 
 def create_app() -> Flask:
+    if ACCESS_CODE is None:
+        raise RuntimeError(
+            "ACCESS_CODE must be configured; set it to a non-empty secret in "
+            "production or explicitly set ACCESS_CODE='' for isolated local work."
+        )
+
     app = Flask(
         __name__,
         template_folder=str(TEMPLATE_DIR),
