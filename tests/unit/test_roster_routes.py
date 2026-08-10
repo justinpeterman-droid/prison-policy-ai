@@ -63,6 +63,30 @@ def test_update_accepts_the_target_staff_members_unchanged_number(roster_client)
     assert staff[0]["first"] == "Rafael"
 
 
+def test_update_finds_staff_member_from_a_case_insensitive_path_id(roster_client):
+    client, path = roster_client
+
+    response = client.put(
+        "/api/roster/staff/emp-a",
+        json={"first": "Rafael"},
+    )
+
+    assert response.status_code == 200
+    assert json.loads(path.read_text())["staff"][0]["first"] == "Rafael"
+
+
+def test_update_accepts_a_new_unused_employee_number(roster_client):
+    client, path = roster_client
+
+    response = client.put(
+        "/api/roster/staff/EMP-A",
+        json={"employee_number": " EMP-C "},
+    )
+
+    assert response.status_code == 200
+    assert json.loads(path.read_text())["staff"][0]["employee_number"] == "EMP-C"
+
+
 def test_update_missing_staff_member_stays_404(roster_client):
     client, path = roster_client
     before = json.loads(path.read_text())

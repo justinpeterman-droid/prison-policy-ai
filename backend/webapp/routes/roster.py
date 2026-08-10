@@ -101,7 +101,10 @@ def update_staff(emp_id):
 
     def mutate(data: dict):
         for person in data.get("staff", []):
-            if person.get("employee_number", "").strip() == emp_id.strip():
+            if (
+                (person.get("employee_number") or "").strip().casefold()
+                == (emp_id or "").strip().casefold()
+            ):
                 if new_employee_number is not None:
                     candidate = new_employee_number.casefold()
                     if any(
