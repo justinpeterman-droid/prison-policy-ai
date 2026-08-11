@@ -7,7 +7,14 @@
       "label": "Inmate on inmate fight",
       "teaches": "Complete run — every required slot present. Shows per-inmate disposition lines and the 'fights end in Restrictive Housing' convention.",
       "expect_gap": false,
-      "notes": "Rhodes ADC#900512 & Ferraro ADC#900534 fighting 8 Barracks\n~2:15pm\nFerraro cut over left eye, bleeding\nRhodes on top throwing punches when I got there\nSgt Halvorsen pulled Rhodes off, cuffed him\nCpl Alvarez cuffed Ferraro\nBoth escorted to Restrictive Housing by Cpl Alvarez & Cpl Nguyen\nFerraro seen by Infirmary — 3 sutures over eye\nRhodes refused medical\nPhotos taken of Ferraro eye and blood on floor\nCapt Lindholm notified 2:20pm\nBoth said the other started it\nWitness statements collected from 2 inmates"
+      "demo_answers": {
+        "date": "2026-08-10",
+        "incident_number_last3": "101",
+        "investigation_start_time": "2:25 PM",
+        "investigation_end_time": "3:05 PM",
+        "restraints_applied_by": "Sgt. Dana Halvorsen and Cpl. Ray Alvarez"
+      },
+      "notes": "Rhodes ADC#900512 & Ferraro ADC#900534 fighting 8 Barracks\n~2:15pm\nFerraro cut over left eye, bleeding\nCpl Castillo observed Rhodes on top throwing punches upon arrival\nSgt Halvorsen pulled Rhodes off, cuffed him\nCpl Alvarez cuffed Ferraro\nBoth escorted to Restrictive Housing by Cpl Alvarez & Cpl Nguyen\nFerraro seen by Infirmary — 3 sutures over eye\nRhodes refused medical\nPhotos taken of Ferraro eye and blood on floor\nCapt Lindholm notified 2:20pm\nBoth said the other started it\nWitness statements collected from 2 inmates"
     },
     {
       "id": "contraband_shakedown",
@@ -15,6 +22,11 @@
       "label": "Introduction of contraband",
       "teaches": "Complete run against the heaviest conditional branch — satisfies all four contraband rules (drugs -> field test, money -> receipt number, chain of custody, F401).",
       "expect_gap": false,
+      "demo_answers": {
+        "date": "2026-08-10",
+        "incident_number_last3": "102",
+        "medical_disposition": "N/A - no injuries reported"
+      },
       "notes": "Routine shakedown 4 Barracks ~9:30am\nInmate Prewitt ADC#900608 nervous, kept eyeing his bunk\nFound baggie green leafy substance in mattress seam — approx 2 grams\nAlso homemade tattoo gun (CD player motor, needle, pen tube)\nPrewitt said \"that ain't mine, somebody put it there\"\nField test positive for THC\nSgt Halvorsen photographed and bagged items\nChain of custody to Cpl Nguyen\nF401 Confiscation Form completed\n$23 found in bunk — Business Office money receipt #4421\nCuffed by Cpl Alvarez\nEscorted to Restrictive Housing by Cpl Alvarez & Cpl Castillo\nPrewitt refused drug test\nCapt Lindholm authorized contraband seizure 9:45am"
     },
     {
@@ -23,6 +35,11 @@
       "label": "Use of force (chemical agent)",
       "teaches": "GAP SCENARIO — establishes a chemical-agent use of force but never gives the canister MFG year, lot number or PMF/serial. Those are blocking, and the model cannot guess them, so the Missing Information panel has to fire. Do not 'fix' this by adding the numbers to the notes; the refusal is the point.",
       "expect_gap": true,
+      "demo_answers": {
+        "date": "2026-08-10",
+        "incident_number_last3": "103",
+        "authorization": "Shift Captain (Capt. Grace Lindholm notified at 11:45 AM)"
+      },
       "review_answers": {
         "chemical_agent": "OC spray; MFG 2025; lot DEMO-OC-042; PMF/serial DEMO-409-017"
       },

@@ -15,7 +15,7 @@ from backend.reports.report_validator import (
     repair_all, summarize, validate_all,
 )
 from backend.reports.demo_scenarios import load_demo_scenarios
-from backend.reports.gap_answers import merge_gap_answers
+from backend.reports.gap_answers import build_incident_number, merge_gap_answers
 from backend.webapp.errors import classify_error, ERROR_MESSAGES
 
 logger = logging.getLogger(__name__)
@@ -231,28 +231,8 @@ def _is_first_person_unnamed(notes: str, slots: dict) -> bool:
 
 
 def _build_incident_number(last3, incident_date=None) -> str:
-    """Compose YYYY-MM-### from the officer's 3-digit log number.
-
-    Uses the incident date for year-month when available; falls back to today.
-    """
-    digits = "".join(ch for ch in str(last3 or "") if ch.isdigit())[-3:]
-    if not digits:
-        return ""
-    # Try to extract year-month from the incident date
-    year, month = None, None
-    if incident_date:
-        # YYYY-MM-DD or YYYY/MM/DD
-        m = re.match(r'(\d{4})[-/](\d{2})', str(incident_date))
-        if m:
-            year, month = m.group(1), m.group(2)
-        else:
-            # MM-DD-YYYY or MM/DD/YYYY
-            m = re.match(r'(\d{2})[-/](\d{2})[-/](\d{4})', str(incident_date))
-            if m:
-                year, month = m.group(3), m.group(1)
-    if year and month:
-        return f"{year}-{month}-{digits.zfill(3)}"
-    return f"{datetime.now():%Y-%m}-{digits.zfill(3)}"
+    """Backward-compatible route wrapper for the shared helper."""
+    return build_incident_number(last3, incident_date)
 
 
 def _format_inmates(slots: dict) -> str:

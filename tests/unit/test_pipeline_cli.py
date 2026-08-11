@@ -66,7 +66,10 @@ def test_oc_demo_gap_resolution_retains_initial_gap_and_separate_answers():
 
     assert any(g["slot"] == "chemical_agent" for g in initial["gaps"])
     assert not any(g["slot"] == "chemical_agent" for g in final["gaps"])
-    assert answers == scenario["review_answers"]
+    assert answers == {
+        **scenario["demo_answers"],
+        **scenario["review_answers"],
+    }
     assert resolved["chemical_agent"] == answers["chemical_agent"]
     assert slots["chemical_agent"] is None
 

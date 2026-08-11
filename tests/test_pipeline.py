@@ -32,7 +32,7 @@ FIXTURES_DIR = _PROJECT_ROOT / "tests" / "fixtures"
 OUTPUT_DIR = _PROJECT_ROOT / "tests" / "output"
 from backend.pipeline.config import FAST_MODEL, MODEL_LOCATION, PRO_MODEL
 from backend.reports.demo_scenarios import load_demo_scenarios
-from backend.reports.gap_answers import merge_gap_answers
+from backend.reports.gap_answers import build_incident_number, merge_gap_answers
 from backend.reports.validate import find_gaps
 
 
@@ -85,8 +85,14 @@ def build_manifest(*, run_id: str, name: str, output_root: Path,
 def resolve_demo_gaps(category: str, slots: dict,
                       scenario: dict | None) -> tuple[dict, dict, dict, dict]:
     initial = find_gaps(category, slots)
-    answers = dict((scenario or {}).get("review_answers") or {})
+    scenario = scenario or {}
+    answers = dict(scenario.get("demo_answers") or {})
+    answers.update(scenario.get("review_answers") or {})
     resolved = merge_gap_answers(slots, answers)
+    last3 = resolved.get("incident_number_last3")
+    if last3 and not resolved.get("incident_number"):
+        resolved["incident_number"] = build_incident_number(
+            last3, resolved.get("date"))
     final = find_gaps(category, resolved)
     return resolved, initial, final, answers
 
@@ -290,7 +296,9 @@ def run_pipeline(fixture_path: Path | None = None, step: str = "generate",
         # Validation: invented facts check
         from backend.reports.validate import invented_facts
         all_text = " ".join(v for v in reports.values() if isinstance(v, str))
-        flags = invented_facts(all_text, notes, {})
+        derived = [slots.get("date"), slots.get("incident_number")]
+        flags = invented_facts(
+            all_text, notes, demo_answers, allow=derived)
 
         _save_json(reports, out_dir / "04_reports.json")
 

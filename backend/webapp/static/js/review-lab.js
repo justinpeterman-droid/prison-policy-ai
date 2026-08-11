@@ -80,8 +80,7 @@
     captureReviewedFields();
   }
 
-  function applyDemoGapAnswers(){
-    const answers=(ACTIVE_DEMO_SCENARIO&&ACTIVE_DEMO_SCENARIO.review_answers)||{};
+  function applyAnswers(answers,markDirty){
     Object.entries(answers).forEach(function(entry){
       const slot=entry[0],value=entry[1];
       let field=document.querySelector('#missingPanel [data-slot="'+CSS.escape(slot)+'"]');
@@ -96,7 +95,11 @@
       field.dispatchEvent(new Event('change',{bubbles:true}));
       state.gapAnswers[slot]=value;
     });
-    window.__reviewDirty=true;
+    if(markDirty)window.__reviewDirty=true;
+  }
+  function applyDemoGapAnswers(){
+    const answers=(ACTIVE_DEMO_SCENARIO&&ACTIVE_DEMO_SCENARIO.review_answers)||{};
+    applyAnswers(answers,true);
     setStatus('Demo-only canister details applied. Continue when ready.','ok');
   }
   function addDemoGapButton(){
@@ -214,6 +217,7 @@
       checklist:clone(event.detail.checklist||[])
     };
     state.timings.extraction=elapsed(state.extractStarted);
+    applyAnswers((ACTIVE_DEMO_SCENARIO&&ACTIVE_DEMO_SCENARIO.demo_answers)||{},false);
     addDemoGapButton();
   });
   window.addEventListener('report:generated',function(event){

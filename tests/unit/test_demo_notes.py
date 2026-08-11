@@ -65,6 +65,14 @@ def test_only_the_intentional_gap_demo_has_review_answers(scenarios):
     assert set(oc["review_answers"]) == {"chemical_agent"}
 
 
+def test_every_demo_has_separate_operational_answers(scenarios):
+    for scenario in scenarios:
+        answers = scenario.get("demo_answers")
+        assert answers, f"{scenario['id']} needs deterministic demo metadata"
+        assert {"date", "incident_number_last3"} <= set(answers)
+        assert all(str(value).strip() for value in answers.values())
+
+
 def test_categories_are_real_categories(scenarios):
     for s in scenarios:
         assert s["category"] in VALID_CATEGORIES, (
@@ -100,6 +108,12 @@ def test_every_officer_named_in_the_notes_is_on_the_roster(scenarios, roster_las
                 f"{s['id']} names officer {surname!r}, who is not in "
                 f"staff_roster.json — the demo would open on a gap panel"
             )
+
+
+def test_complete_fight_demo_names_the_observing_officer(scenarios):
+    fight = next(s for s in scenarios if s["id"] == "inmate_fight_dayroom")
+    assert "Cpl Castillo observed" in fight["notes"]
+    assert "when I got there" not in fight["notes"]
 
 
 def test_exactly_one_scenario_expects_a_gap(scenarios):
