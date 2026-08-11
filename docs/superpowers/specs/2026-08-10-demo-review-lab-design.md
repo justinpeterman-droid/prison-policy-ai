@@ -1,7 +1,7 @@
 # Demo Review Lab Design
 
-**Date:** 2026-08-10  
-**Status:** Approved for implementation planning  
+**Date:** 2026-08-10
+**Status:** Approved for implementation planning
 **Owner:** Prison Policy AI administrator
 
 ## Purpose
