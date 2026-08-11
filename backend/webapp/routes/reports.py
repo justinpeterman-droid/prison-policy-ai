@@ -14,13 +14,14 @@ from backend.reports.filler import fill_template, designation_boxes
 from backend.reports.report_validator import (
     repair_all, summarize, validate_all,
 )
+from backend.reports.demo_scenarios import load_demo_scenarios
+from backend.reports.gap_answers import merge_gap_answers
 from backend.webapp.errors import classify_error, ERROR_MESSAGES
 
 logger = logging.getLogger(__name__)
 reports_bp = Blueprint("reports", __name__)
 
 _LOCATION_MAP_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "location_map.json"
-_DEMO_NOTES_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "demo_notes.json"
 
 
 @lru_cache(maxsize=1)
@@ -40,7 +41,7 @@ def _load_demo_scenarios() -> list:
     Fails soft: a missing or malformed file just means the demo link no-ops
     rather than 500-ing the whole reports page."""
     try:
-        return json.loads(_DEMO_NOTES_PATH.read_text()).get("scenarios", [])
+        return list(load_demo_scenarios())
     except Exception:
         logger.warning("Could not load demo_notes.json; demo CTA will be inert")
         return []
@@ -500,7 +501,7 @@ def _prepare_generation(data: dict) -> dict:
 
     # Merge gap answers into slots
     slots = dict(slots)
-    slots.update(answers)
+    slots = merge_gap_answers(slots, answers)
     # Fold any first-name answers back into the inmate records.
     _apply_first_name_answers(slots, answers)
 

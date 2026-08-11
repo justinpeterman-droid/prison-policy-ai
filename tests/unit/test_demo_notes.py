@@ -58,6 +58,13 @@ def test_every_scenario_has_the_required_fields(scenarios):
         assert s["notes"].strip(), f"{s['id']} has empty notes"
 
 
+def test_only_the_intentional_gap_demo_has_review_answers(scenarios):
+    answered = [s["id"] for s in scenarios if s.get("review_answers")]
+    assert answered == ["use_of_force_oc"]
+    oc = next(s for s in scenarios if s["id"] == "use_of_force_oc")
+    assert set(oc["review_answers"]) == {"chemical_agent"}
+
+
 def test_categories_are_real_categories(scenarios):
     for s in scenarios:
         assert s["category"] in VALID_CATEGORIES, (

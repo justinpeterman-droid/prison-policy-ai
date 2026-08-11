@@ -23,6 +23,9 @@
       "label": "Use of force (chemical agent)",
       "teaches": "GAP SCENARIO — establishes a chemical-agent use of force but never gives the canister MFG year, lot number or PMF/serial. Those are blocking, and the model cannot guess them, so the Missing Information panel has to fire. Do not 'fix' this by adding the numbers to the notes; the refusal is the point.",
       "expect_gap": true,
+      "review_answers": {
+        "chemical_agent": "OC spray; MFG 2025; lot DEMO-OC-042; PMF/serial DEMO-409-017"
+      },
       "notes": "Inmate Lindqvist ADC#900745 refusing to lock down, 2 Barracks dayroom\n~11:40am\nLindqvist yelling, threw a chair, other inmates gathering\nSgt Halvorsen gave 3 direct orders to cuff up — Lindqvist refused each time\nLindqvist advanced on Sgt Halvorsen with fists up\nSgt Halvorsen deployed OC to facial area, one burst\nLindqvist went to the floor and complied\nCuffed by Cpl Alvarez\nEscorted to Infirmary by Cpl Alvarez & Cpl Nguyen\nDecontaminated with cool water and fresh air 11:50am\nNurse checked eyes, no lasting effects\nNo injuries to staff\nPhotos taken\nCapt Lindholm notified 11:45am"
     }
   ]
