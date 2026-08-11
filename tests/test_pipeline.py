@@ -17,7 +17,10 @@ import difflib
 import json
 import sys
 import time
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 # Ensure the project root is on sys.path so backend.* imports work
 _THIS_FILE = Path(__file__).resolve()
@@ -27,7 +30,65 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 FIXTURES_DIR = _PROJECT_ROOT / "tests" / "fixtures"
 OUTPUT_DIR = _PROJECT_ROOT / "tests" / "output"
-DEMO_NOTES_PATH = _PROJECT_ROOT / "templates" / "demo_notes.json"
+from backend.pipeline.config import FAST_MODEL, MODEL_LOCATION, PRO_MODEL
+from backend.reports.demo_scenarios import load_demo_scenarios
+from backend.reports.gap_answers import merge_gap_answers
+from backend.reports.validate import find_gaps
+
+
+@dataclass(frozen=True)
+class OutputPaths:
+    run_dir: Path
+    snapshot_dir: Path
+
+
+def output_paths(output_root: Path, name: str) -> OutputPaths:
+    root = Path(output_root)
+    return OutputPaths(root / name, root / f"{name}_snapshot")
+
+
+def _iso_z(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def build_manifest(*, run_id: str, name: str, output_root: Path,
+                   started_at: datetime, finished_at: datetime,
+                   timing: dict, errors: list[tuple[str, str]],
+                   initial_blocking: int, final_blocking: int,
+                   artifacts: list[str]) -> dict:
+    return {
+        "schema_version": 1,
+        "run_id": run_id,
+        "name": name,
+        "started_at": _iso_z(started_at),
+        "finished_at": _iso_z(finished_at),
+        "output_root": str(Path(output_root).resolve()),
+        "models": {
+            "classification": FAST_MODEL,
+            "extraction": FAST_MODEL,
+            "generation": PRO_MODEL,
+            "location": MODEL_LOCATION,
+        },
+        "timing_seconds": timing,
+        "gaps": {
+            "initial_blocking": initial_blocking,
+            "final_blocking": final_blocking,
+        },
+        "errors": [
+            {"step": step_name, "message": message}
+            for step_name, message in errors
+        ],
+        "artifacts": sorted(artifacts),
+    }
+
+
+def resolve_demo_gaps(category: str, slots: dict,
+                      scenario: dict | None) -> tuple[dict, dict, dict, dict]:
+    initial = find_gaps(category, slots)
+    answers = dict((scenario or {}).get("review_answers") or {})
+    resolved = merge_gap_answers(slots, answers)
+    final = find_gaps(category, resolved)
+    return resolved, initial, final, answers
 
 # ── Helpers ──────────────────────────────────────────────────────
 
@@ -64,16 +125,19 @@ def _diff_dicts(a: dict, b: dict, label_a: str = "previous", label_b: str = "cur
 
 def run_pipeline(fixture_path: Path | None = None, step: str = "generate",
                  compare: bool = False, notes: str | None = None,
-                 name: str | None = None) -> int:
+                 name: str | None = None, output_root: Path = OUTPUT_DIR,
+                 scenario: dict | None = None) -> int:
     """Run the pipeline against a fixture file, or against notes supplied
     directly (used by --demo, which reads templates/demo_notes.json rather
     than a file). Returns exit code."""
-    name = name or fixture_path.stem
-    out_dir = OUTPUT_DIR / name
+    name = name or (scenario or {}).get("id") or fixture_path.stem
+    paths = output_paths(Path(output_root), name)
+    out_dir = paths.run_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if notes is None:
-        notes = fixture_path.read_text(encoding="utf-8")
+        notes = ((scenario or {}).get("notes")
+                 if scenario else fixture_path.read_text(encoding="utf-8"))
     notes = notes.strip()
     if not notes:
         print(f"  WARN {name}: empty fixture — skipping")
@@ -84,7 +148,32 @@ def run_pipeline(fixture_path: Path | None = None, step: str = "generate",
 
     timing = {}
     errors = []
+    initial_blocking = 0
+    final_blocking = 0
+    started_at = datetime.now(timezone.utc)
+    run_id = f"run_{started_at.strftime('%Y%m%dT%H%M%SZ')}_{uuid4().hex[:12]}"
     t0 = time.time()
+
+    def finish(exit_code: int) -> int:
+        timing["total"] = round(time.time() - t0, 2)
+        artifacts = [
+            item.name for item in out_dir.iterdir()
+            if item.is_file() and item.name != "manifest.json"
+        ]
+        manifest = build_manifest(
+            run_id=run_id,
+            name=name,
+            output_root=Path(output_root),
+            started_at=started_at,
+            finished_at=datetime.now(timezone.utc),
+            timing=timing,
+            errors=errors,
+            initial_blocking=initial_blocking,
+            final_blocking=final_blocking,
+            artifacts=artifacts,
+        )
+        _save_json(manifest, out_dir / "manifest.json")
+        return exit_code
 
     # ── Step 1: Classify ─────────────────────────────────────────
     classification = None
@@ -107,7 +196,7 @@ def run_pipeline(fixture_path: Path | None = None, step: str = "generate",
                               "charge_descriptions": {}}
 
     if step == "classify":
-        return 0 if not errors else 1
+        return finish(0 if not errors else 1)
 
     # ── Step 2: Extract ──────────────────────────────────────────
     slots = {}
@@ -127,15 +216,27 @@ def run_pipeline(fixture_path: Path | None = None, step: str = "generate",
                 resolved, roster_gaps = resolve_staff_from_persons(persons)
                 slots["persons"] = resolved
 
-            # Gap analysis
-            from backend.reports.validate import find_gaps
-            gap_result = find_gaps(category, slots)
+            # Preserve the model extraction, then resolve separately recorded
+            # demo-only answers before generation.
+            extracted_slots = slots
+            slots, initial_gap_result, gap_result, demo_answers = resolve_demo_gaps(
+                category, extracted_slots, scenario)
             if roster_gaps:
+                initial_gap_result["gaps"] = (
+                    initial_gap_result.get("gaps", []) + roster_gaps)
+                initial_gap_result["blocking_remaining"] = sum(
+                    1 for g in initial_gap_result["gaps"] if g.get("blocking"))
                 gap_result["gaps"] = gap_result.get("gaps", []) + roster_gaps
                 gap_result["blocking_remaining"] = sum(
                     1 for g in gap_result["gaps"] if g.get("blocking"))
 
-            _save_json(slots, out_dir / "02_extract.json")
+            initial_blocking = initial_gap_result.get("blocking_remaining", 0)
+            final_blocking = gap_result.get("blocking_remaining", 0)
+            _save_json(extracted_slots, out_dir / "02_extract.json")
+            _save_json(initial_gap_result, out_dir / "03_gaps_initial.json")
+            if demo_answers:
+                _save_json(demo_answers, out_dir / "03_gap_answers.json")
+            _save_json(gap_result, out_dir / "03_gaps_final.json")
             _save_json(gap_result, out_dir / "03_gaps.json")
 
             n_facts = len(slots.get("narrative_facts", []))
@@ -151,7 +252,13 @@ def run_pipeline(fixture_path: Path | None = None, step: str = "generate",
             slots = {}
 
     if step == "extract":
-        return 0 if not errors else 1
+        return finish(0 if not errors else 1)
+
+    if scenario and final_blocking:
+        message = f"{final_blocking} blocking gap(s) remain after demo answers"
+        errors.append(("gaps", message))
+        print(f"  FAIL gaps: {message}")
+        return finish(1)
 
     # ── Step 3: Generate ─────────────────────────────────────────
     try:
@@ -241,7 +348,7 @@ def run_pipeline(fixture_path: Path | None = None, step: str = "generate",
     if compare:
         print()
         print("── Snapshot comparison ──")
-        snapshot_dir = out_dir.parent / f"{name}_snapshot"
+        snapshot_dir = paths.snapshot_dir
         if not snapshot_dir.exists():
             print(f"  No snapshot at {snapshot_dir} — saving current as baseline")
             # Copy current output to snapshot
@@ -286,12 +393,12 @@ def run_pipeline(fixture_path: Path | None = None, step: str = "generate",
     if errors:
         for step_name, msg in errors:
             print(f"  ERROR [{step_name}]: {msg}")
-        return 1
-    return 0
+        return finish(1)
+    return finish(0)
 
 # ── CLI ──────────────────────────────────────────────────────────
 
-def main():
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run field notes through the report pipeline")
     parser.add_argument("fixture", nargs="?", default=None,
@@ -306,25 +413,57 @@ def main():
     parser.add_argument("--demo", metavar="ID", default=None,
                         help="Run a demo scenario from templates/demo_notes.json "
                              "by id (use --demo list to see them)")
-    parser.add_argument("--output-dir", default=str(OUTPUT_DIR),
+    parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR,
                         help=f"Output directory (default: {OUTPUT_DIR})")
-    args = parser.parse_args()
+    return parser
+
+
+def run_demo_batch(*, output_root: Path, step: str = "generate",
+                   compare: bool = False, runner=None) -> int:
+    run_one = runner or run_pipeline
+    exit_code = 0
+    for scenario in load_demo_scenarios():
+        print(f"\n{'='*60}")
+        print(f"  {scenario['id']}")
+        print(f"{'='*60}")
+        rc = run_one(
+            step=step,
+            compare=compare,
+            notes=scenario["notes"],
+            name=scenario["id"],
+            output_root=Path(output_root),
+            scenario=scenario,
+        )
+        if rc != 0:
+            exit_code = 1
+    return exit_code
+
+
+def main():
+    args = build_parser().parse_args()
 
     if args.demo:
-        scenarios = json.loads(DEMO_NOTES_PATH.read_text(encoding="utf-8"))["scenarios"]
+        scenarios = load_demo_scenarios()
         if args.demo == "list":
-            print(f"Demo scenarios in {DEMO_NOTES_PATH.name}:")
+            print("Demo scenarios in demo_notes.json:")
             for s in scenarios:
                 gap = "  [expects a gap]" if s.get("expect_gap") else ""
                 print(f"  {s['id']:<24} {s['category']:<16}{gap}")
             return 0
+        if args.demo == "all":
+            return run_demo_batch(
+                output_root=args.output_dir,
+                step=args.step,
+                compare=args.compare,
+            )
         match = next((s for s in scenarios if s["id"] == args.demo), None)
         if match is None:
             print(f"No demo scenario with id {args.demo!r}. "
                   f"Known ids: {', '.join(s['id'] for s in scenarios)}")
             return 1
         return run_pipeline(step=args.step, compare=args.compare,
-                            notes=match["notes"], name=match["id"])
+                            notes=match["notes"], name=match["id"],
+                            output_root=args.output_dir, scenario=match)
 
     if args.all:
         fixtures = sorted(FIXTURES_DIR.glob("*.txt"))
@@ -336,7 +475,8 @@ def main():
             print(f"\n{'='*60}")
             print(f"  {fp.stem}")
             print(f"{'='*60}")
-            rc = run_pipeline(fp, step=args.step, compare=args.compare)
+            rc = run_pipeline(fp, step=args.step, compare=args.compare,
+                              output_root=args.output_dir)
             if rc != 0:
                 exit_code = 1
         return exit_code
@@ -359,7 +499,8 @@ def main():
                 print(f"  {f.stem}")
             return 1
 
-    return run_pipeline(fp, step=args.step, compare=args.compare)
+    return run_pipeline(fp, step=args.step, compare=args.compare,
+                        output_root=args.output_dir)
 
 if __name__ == "__main__":
     sys.exit(main())
