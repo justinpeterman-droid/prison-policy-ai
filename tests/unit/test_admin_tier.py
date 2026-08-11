@@ -29,7 +29,10 @@ def _client(app, code=None):
 
 # ── The regular tier cannot see the roster ───────────────────────────────
 
-@pytest.mark.parametrize("path", ["/roster", "/api/roster", "/api/roster/lookup?q=x"])
+@pytest.mark.parametrize("path", [
+    "/roster", "/api/roster", "/api/roster/lookup?q=x",
+    "/review-lab", "/api/review-lab/submissions",
+])
 def test_regular_users_get_404_on_admin_paths(tiered, path):
     assert _client(tiered, REGULAR).get(path).status_code == 404
 

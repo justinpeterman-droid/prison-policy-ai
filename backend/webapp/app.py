@@ -16,8 +16,8 @@ AUTH_EXEMPT = {"/login", "/logout", "/health"}
 # Admin-only surface. The roster carries real staff names and employee numbers,
 # so it is gated a tier above the rest of the site: the same login box takes
 # either code, and only ADMIN_CODE opens these.
-ADMIN_ONLY_EXACT = {"/roster"}
-ADMIN_ONLY_PREFIXES = ("/api/roster",)
+ADMIN_ONLY_EXACT = {"/roster", "/review-lab"}
+ADMIN_ONLY_PREFIXES = ("/api/roster", "/api/review-lab")
 
 
 def _matches(value: str, code: str) -> bool:
@@ -54,7 +54,7 @@ def _is_admin_only(path: str) -> bool:
 # Pages a user can be sent to after logging in. `next` is attacker-controlled,
 # so the redirect target is looked up in this table rather than derived from the
 # request — nothing an attacker types can become part of the URL we emit.
-NEXT_ALLOWED_PATHS = {"/", "/chat", "/reports", "/roster"}
+NEXT_ALLOWED_PATHS = {"/", "/chat", "/reports", "/roster", "/review-lab"}
 
 
 def _demo_targets() -> set[str]:
@@ -68,7 +68,9 @@ def _demo_targets() -> set[str]:
     targets = {"/reports?demo=1"}
     try:
         from backend.webapp.routes.reports import _load_demo_scenarios
-        targets.update(f"/reports?demo={s['id']}" for s in _load_demo_scenarios())
+        for scenario in _load_demo_scenarios():
+            targets.add(f"/reports?demo={scenario['id']}")
+            targets.add(f"/review-lab?demo={scenario['id']}")
     except Exception:  # pragma: no cover - demo data is optional
         logger.warning("Could not load demo scenarios for redirect allowlist")
     return targets
@@ -90,8 +92,8 @@ def _safe_next(value: str) -> str:
     if path not in NEXT_ALLOWED_PATHS:
         return "/"
     demo = parse_qs(parsed.query).get("demo", [""])[0]
-    if path == "/reports" and demo:
-        candidate = f"/reports?demo={demo}"
+    if path in {"/reports", "/review-lab"} and demo:
+        candidate = f"{path}?demo={demo}"
         for known in _demo_targets():
             if known == candidate:
                 return known
@@ -161,11 +163,13 @@ def create_app() -> Flask:
     from backend.webapp.routes.reports import reports_bp
     from backend.webapp.routes.roster import roster_bp
     from backend.webapp.routes.feedback import feedback_bp
+    from backend.webapp.routes.review_lab import review_lab_bp
 
     app.register_blueprint(chat_bp)
     app.register_blueprint(reports_bp)
     app.register_blueprint(roster_bp)
     app.register_blueprint(feedback_bp)
+    app.register_blueprint(review_lab_bp)
 
     # Record the resolved search/model config at startup so the values actually
     # in use are visible in the logs — a config mismatch is the usual cause of a
@@ -180,7 +184,11 @@ def create_app() -> Flask:
     def inject_admin_flag():
         """`is_admin` in every template, so the nav can hide the roster link
         from users who couldn't open it anyway."""
-        return {"is_admin": _request_is_admin()}
+        from backend.webapp.routes.review_lab import REVIEW_LAB_ENABLED
+        return {
+            "is_admin": _request_is_admin(),
+            "review_lab_enabled": REVIEW_LAB_ENABLED,
+        }
 
     @app.before_request
     def auth_gate():

@@ -26,7 +26,7 @@ def test_hostile_or_unknown_targets_collapse_to_home(value):
     assert _safe_next(value) == "/"
 
 
-@pytest.mark.parametrize("value", ["/", "/chat", "/reports", "/roster"])
+@pytest.mark.parametrize("value", ["/", "/chat", "/reports", "/roster", "/review-lab"])
 def test_known_pages_are_preserved(value):
     assert _safe_next(value) == value
 
@@ -36,6 +36,8 @@ def test_the_demo_deep_link_survives_login():
     this, a logged-out 'Try a demo' click lands on a blank /reports."""
     assert _safe_next("/reports?demo=1") == "/reports?demo=1"
     assert _safe_next("/reports?demo=use_of_force_oc") == "/reports?demo=use_of_force_oc"
+    assert _safe_next("/review-lab?demo=use_of_force_oc") == (
+        "/review-lab?demo=use_of_force_oc")
 
 
 def test_only_the_demo_parameter_rides_along():

@@ -47,3 +47,36 @@ def test_create_app_keeps_configured_access_code_gate(monkeypatch):
     monkeypatch.setattr(app_mod, "ADMIN_CODE", "")
     app = app_mod.create_app()
     assert app.test_client().get("/").status_code == 302
+
+
+@pytest.mark.parametrize("value", ["1", "true", "YES", "on"])
+def test_review_lab_feature_flag_accepts_explicit_truthy_values(value):
+    env = os.environ.copy()
+    env["REVIEW_LAB_ENABLED"] = value
+    result = subprocess.run(
+        [sys.executable, "-c", (
+            "from backend.pipeline.config import REVIEW_LAB_ENABLED; "
+            "print(REVIEW_LAB_ENABLED)"),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == "True"
+
+
+def test_review_lab_feature_flag_defaults_off():
+    env = os.environ.copy()
+    env.pop("REVIEW_LAB_ENABLED", None)
+    result = subprocess.run(
+        [sys.executable, "-c", (
+            "from backend.pipeline.config import REVIEW_LAB_ENABLED; "
+            "print(REVIEW_LAB_ENABLED)"),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == "False"

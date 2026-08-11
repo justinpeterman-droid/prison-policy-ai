@@ -120,6 +120,19 @@ ROSTER_OBJECT = os.getenv("ROSTER_OBJECT", "staff_roster.json")
 # lag behind an edit made on another.
 ROSTER_CACHE_TTL = float(os.getenv("ROSTER_CACHE_TTL", "30"))
 
+# Temporary administrator evaluation surface. It is disabled unless explicitly
+# enabled, and stores immutable review objects under a dedicated bucket prefix.
+def _env_bool(name: str, default: bool = False) -> bool:
+    return os.getenv(name, str(default)).strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
+REVIEW_LAB_ENABLED = _env_bool("REVIEW_LAB_ENABLED")
+REVIEW_BUCKET = os.getenv("REVIEW_BUCKET", ROSTER_BUCKET or "")
+REVIEW_OBJECT_PREFIX = os.getenv(
+    "REVIEW_OBJECT_PREFIX", "review-lab/submissions").strip("/")
+
 # Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 logging.basicConfig(level=getattr(logging, LOG_LEVEL))
