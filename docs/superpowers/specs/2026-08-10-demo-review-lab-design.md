@@ -136,6 +136,30 @@ Review persistence lives in a small, independent
 `backend/reports/review_store.py` module. It must not modify or depend on the
 roster document itself; it only shares the configured bucket.
 
+### Command-line demo parity
+
+The credentialed pipeline harness remains useful for local regression work and
+must reflect the same canonical demo behavior as the web lab. Update
+`tests/test_pipeline.py` so:
+
+- `--demo all` runs all scenarios from `templates/demo_notes.json` in their
+  declared order and returns nonzero if any scenario fails.
+- `--output-dir <path>` controls every generated artifact and snapshot instead
+  of being parsed and ignored.
+- Demo-only supplemental answers are applied through the same deterministic
+  slot-answering logic used by the website. The OC notes remain unchanged, the
+  initially detected blocking gap is saved, the applied answers are saved
+  separately, and generation runs only after validation confirms no blocking
+  gap remains.
+- Each run writes a versioned manifest with the scenario/fixture identifier,
+  timestamps, step timings, configured Vertex model names and location, input
+  and output paths, initial and final gap counts, error summaries, and names of
+  the emitted artifacts.
+
+The harness continues to require Vertex AI ADC for live model calls. Its
+argument parsing, path selection, demo iteration, answer application, and
+manifest construction must be unit-testable without ADC.
+
 ### Configuration
 
 Add these environment-driven settings:
@@ -296,6 +320,10 @@ grouped accurately.
   history endpoint, and compare the stored generated/edited values.
 - Verify `/health`, `/reports`, regular login, admin login, roster access, and
   ordinary report download remain unchanged.
+- Run credential-free unit tests for the pipeline harness argument/path helpers,
+  `--demo all` iteration, deterministic demo-answer application, and manifest
+  construction. When ADC is available, run `--demo all` into a temporary output
+  directory and verify all three manifests and JSON artifact sets.
 
 ## Deployment and removal
 
@@ -330,3 +358,10 @@ independent.
 9. The feature can be disabled without redeploying or deleting stored reviews.
 10. Automated tests pass without requiring live Vertex AI credentials; a live
     ADC smoke test verifies the complete demo workflow before production use.
+11. `tests/test_pipeline.py --demo all` runs all three canonical scenarios.
+12. `--output-dir` redirects normal outputs and snapshots to the requested
+    directory.
+13. The OC CLI run saves the initially detected gap and separately recorded
+    demo answers before generating reports.
+14. Every CLI run emits a versioned manifest with model, timing, path, artifact,
+    gap, and error metadata.
