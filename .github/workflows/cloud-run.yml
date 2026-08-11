@@ -39,4 +39,5 @@ jobs:
             --source . \
             --region us-central1 \
             --allow-unauthenticated \
+            --update-env-vars SOURCE_COMMIT=${{ github.sha }} \
             --project gen-lang-client-0968389176
