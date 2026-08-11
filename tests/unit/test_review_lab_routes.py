@@ -111,6 +111,49 @@ def test_enabled_admin_can_open_the_lab(monkeypatch, fake_store):
     assert "Field notes" in response.get_data(as_text=True)
 
 
+def test_review_page_has_review_controls_readonly_notes_and_versioned_script(
+        monkeypatch, fake_store):
+    app = configured_app(monkeypatch, enabled=True, store=fake_store)
+    body = logged_in(app, ADMIN).get(
+        "/review-lab?demo=inmate_fight_dayroom").get_data(as_text=True)
+
+    assert 'id="reviewSubmit"' in body
+    assert 'id="reviewScore"' in body
+    assert 'id="reviewComments"' in body
+    assert 'id="reviewHistory"' in body
+    assert '<textarea id="notes" readonly' in body
+    assert "/static/js/review-lab.js?v=" in body
+
+
+def test_ordinary_reports_page_has_no_review_controls_or_readonly_notes(
+        monkeypatch, fake_store):
+    app = configured_app(monkeypatch, enabled=True, store=fake_store)
+    body = logged_in(app, ADMIN).get("/reports").get_data(as_text=True)
+
+    assert 'id="reviewSubmit"' not in body
+    assert "/static/js/review-lab.js" not in body
+    assert '<textarea id="notes" readonly' not in body
+
+
+def test_review_lab_navigation_is_admin_and_feature_flag_only(
+        monkeypatch, fake_store):
+    enabled = configured_app(monkeypatch, enabled=True, store=fake_store)
+    assert "/review-lab" in logged_in(enabled, ADMIN).get("/").get_data(as_text=True)
+    assert "/review-lab" not in logged_in(enabled, REGULAR).get("/").get_data(as_text=True)
+
+    disabled = configured_app(monkeypatch, enabled=False, store=fake_store)
+    assert "/review-lab" not in logged_in(disabled, ADMIN).get("/").get_data(as_text=True)
+
+
+def test_review_lab_script_is_served(monkeypatch, fake_store):
+    app = configured_app(monkeypatch, enabled=True, store=fake_store)
+
+    response = logged_in(app, ADMIN).get("/static/js/review-lab.js")
+
+    assert response.status_code == 200
+    assert response.mimetype == "text/javascript"
+
+
 def test_admin_submission_is_validated_saved_and_returned(monkeypatch, fake_store):
     app = configured_app(monkeypatch, enabled=True, store=fake_store)
 

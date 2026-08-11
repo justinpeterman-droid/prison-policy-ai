@@ -539,6 +539,7 @@
   <div class="nav-right">
     <a class="nav-link" href="/chat">Reference Search</a>
     <a class="nav-link" href="/reports">Forms</a>
+    {% if is_admin and review_lab_enabled %}<a class="nav-link" href="/review-lab">Review Lab</a>{% endif %}
     {% if is_admin %}<a class="nav-link active" href="/roster">Unit Roster</a>{% endif %}
     <a class="nav-link" href="/logout">Log out</a>
   </div>

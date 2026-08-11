@@ -335,7 +335,11 @@ def _parse_rank(full_name: str) -> str:
 
 @reports_bp.route("/reports")
 def reports_page():
-    return render_template("reports.html", demo_scenarios=_load_demo_scenarios())
+    return render_template(
+        "reports.html",
+        demo_scenarios=_load_demo_scenarios(),
+        review_mode=False,
+    )
 
 
 # ── v2 three-step pipeline ──────────────────────────────────────
