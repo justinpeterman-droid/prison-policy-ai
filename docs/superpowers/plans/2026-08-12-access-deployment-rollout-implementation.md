@@ -111,6 +111,7 @@ For every OP task:
 - Create: `tests/unit/test_operations_prerequisites.py`
 - Create: `tests/unit/test_preimplementation_safety.py`
 - Modify: `.github/workflows/pages.yml`
+- Modify: `tests/unit/test_deploy_config.py`
 - Delete: `.github/workflows/cloud-run.yml`
 - Delete: `backend/scripts/deploy.sh`
 - Delete: `scripts/merge_and_deploy.py`
@@ -250,7 +251,7 @@ Expected: FAIL because prerequisite documents are absent, the automatic/bypass d
 
 - [ ] **Step 3: Retire automatic/bypass deployment and narrow Pages**
 
-Delete `.github/workflows/cloud-run.yml`, `backend/scripts/deploy.sh`, and `scripts/merge_and_deploy.py`. Change `.github/workflows/pages.yml` so its upload artifact root is exactly `frontend/forms`; preserve its static validation and Pages deployment behavior. Do not replace Cloud Run deployment yet—OP-08 adds the reviewed protected path. Until then, repository automation cannot deploy Cloud Run.
+Delete `.github/workflows/cloud-run.yml`, `backend/scripts/deploy.sh`, and `scripts/merge_and_deploy.py`. Change `.github/workflows/pages.yml` so its upload artifact root is exactly `frontend/forms`; preserve its static validation and Pages deployment behavior. Update the obsolete `tests/unit/test_deploy_config.py` assertion so it enforces absence of the automatic Cloud Run workflow instead of requiring that deleted workflow to stamp a commit. Do not replace Cloud Run deployment yet—OP-08 adds the reviewed protected path. Until then, repository automation cannot deploy Cloud Run.
 
 - [ ] **Step 4: Define the external prerequisite register**
 

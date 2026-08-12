@@ -66,6 +66,7 @@ You may create only:
 You may modify only:
 
 - `.github/workflows/pages.yml`
+- `tests/unit/test_deploy_config.py`
 
 You are explicitly authorized to delete only these three tracked repository files:
 
@@ -105,7 +106,7 @@ python -m pytest tests/unit/test_operations_prerequisites.py tests/unit/test_pre
 
 Expected red result: failure because the prerequisite documents do not exist, the three unsafe deployment files still exist, and Pages still publishes too broad a path. If it fails for an unrelated environment or collection problem, diagnose that first; do not claim the required red state.
 
-3. Delete only the three explicitly authorized files. Narrow `.github/workflows/pages.yml` to `frontend/forms` exactly. Create the six non-secret documents with all exact tables, phrases, gate states, and prohibitions from the plan.
+3. Delete only the three explicitly authorized deployer files. Narrow `.github/workflows/pages.yml` to `frontend/forms` exactly. Replace the obsolete `test_cloud_run_deploy_stamps_the_source_commit` assertion in `tests/unit/test_deploy_config.py` with an assertion that the automatic Cloud Run workflow remains absent; do not remove or weaken the safety invariant. Create the six non-secret documents with all exact tables, phrases, gate states, and prohibitions from the plan.
 4. Re-run the focused tests and require them to pass.
 5. Run regressions:
 
@@ -165,6 +166,7 @@ $allowed = @(
     'tests/unit/test_operations_prerequisites.py'
     'tests/unit/test_preimplementation_safety.py'
     '.github/workflows/pages.yml'
+    'tests/unit/test_deploy_config.py'
     '.github/workflows/cloud-run.yml'
     'backend/scripts/deploy.sh'
     'scripts/merge_and_deploy.py'
