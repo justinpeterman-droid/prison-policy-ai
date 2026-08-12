@@ -34,7 +34,10 @@ dependency or external approval.
 - [x] 012 RP-03 — Engine adapters, staff lookup, and incidents. `LOCAL`
   commits `c8fbc32`, `972e499`, and `268983c`; final two-pass review READY,
   1,210 unit/contract tests and 82 PostgreSQL tests passed.
-- [ ] 013 RP-04 — User report API.
+- [x] 013 RP-04 — User report API. `LOCAL`
+  commits `a1ae719` and `577480d`; final independent review READY,
+  1,214 unit/contract tests and two PostgreSQL runs of 106 tests passed;
+  fresh focused PostgreSQL verification passed 44 tests.
 - [ ] 014 RP-05 — Admin report API.
 - [ ] 015 RP-06 — AI jobs/outbox.
 - [ ] 016 RP-07 — Private worker/dispatcher.
