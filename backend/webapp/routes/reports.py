@@ -16,6 +16,8 @@ from backend.reports.report_validator import (
 )
 from backend.reports.demo_scenarios import load_demo_scenarios
 from backend.reports.gap_answers import build_incident_number, merge_gap_answers
+from backend.reports import service as report_service
+from backend.reports.roster import FileStaffProvider
 from backend.webapp.errors import classify_error, ERROR_MESSAGES
 
 logger = logging.getLogger(__name__)
@@ -331,17 +333,10 @@ def reports_classify():
     if not notes:
         return jsonify({"error": "No field notes provided"}), 400
     try:
-        classification = classify_incident(notes)
+        classification = report_service.classify_incident_notes(notes)
         logger.info("Classify → %s, %d charges", classification.get("incident_type"),
-                    len(classification.get("charges_applicable", [])))
-        return jsonify({
-            "incident_type": classification.get("incident_type"),
-            "label": classification.get("label", ""),
-            # AI-suggested charges from the disciplinary handbook — the officer
-            # confirms/edits these; they are not applied until generate.
-            "charges": classification.get("charges_applicable", []),
-            "charge_descriptions": classification.get("charge_descriptions", {}),
-        })
+                    len(classification.get("charges", [])))
+        return jsonify(classification)
     except Exception as exc:
         category, status = classify_error(exc)
         logger.exception("Classification failed [category=%s]", category)
@@ -350,108 +345,14 @@ def reports_classify():
 
 @reports_bp.route("/api/reports/extract", methods=["POST"])
 def reports_extract():
-    from backend.reports.extraction import extract_slots, compute_provenance
-    from backend.reports.validate import find_gaps
-    from backend.reports.schema import security_staff
-
     data = request.get_json(silent=True) or {}
     notes = data.get("notes", "").strip()
     category = data.get("category", "").strip()
     if not notes or not category:
         return jsonify({"error": "notes and category required"}), 400
     try:
-        slots = extract_slots(notes, category)
-
-        # If the notes never stated a date, today's is safe — don't ask for it.
-        if not slots.get("date"):
-            slots["date"] = _today()
-        # Normalize slang location names to formal BMU terms.
-        if slots.get("location"):
-            slots["location"] = _normalize_location(slots["location"])
-        # All reports use 12-hour time; try to clean common typos first.
-        if slots.get("time"):
-            cleaned, valid = _validate_and_clean_time(slots["time"])
-            if valid:
-                slots["time"] = cleaned
-            else:
-                # Leave as-is but flag for the officer
-                slots["time"] = _to_12h(slots["time"])
-
-        # ── Staff roster resolution ──
-        from backend.reports.roster import resolve_staff_from_persons
-        persons = slots.get("persons", [])
-        roster_gaps = []
-        if persons:
-            resolved_persons, roster_gaps = resolve_staff_from_persons(persons)
-            slots["persons"] = resolved_persons
-            # Also fill officer_* slots from the first reporting officer match,
-            # including the shift assignment (which comes from the roster).
-            for p in resolved_persons:
-                if p.get("role") == "security_staff" and p.get("_roster_match"):
-                    slots.setdefault("officer_last", p.get("last", ""))
-                    slots.setdefault("officer_first", p.get("first", ""))
-                    slots.setdefault("rank", p.get("rank", ""))
-                    slots.setdefault("employee_number", p.get("employee_number", ""))
-                    if p.get("shift") and not slots.get("shift_assignment"):
-                        slots["shift_assignment"] = _format_shift(p.get("shift"))
-                    break
-
-        # The involved lists come from the extracted persons — don't ask for
-        # them again as a Missing-Information question.
-        if not slots.get("inmates_involved") and any(
-                p.get("role") == "inmate" and p.get("last")
-                for p in slots.get("persons", [])):
-            slots["inmates_involved"] = _format_inmates(slots)
-        if not slots.get("employees_involved") and any(
-                p.get("role") == "security_staff" and p.get("last")
-                for p in slots.get("persons", [])):
-            slots["employees_involved"] = _format_employees(slots)
-
-        gap_result = find_gaps(category, slots)
-        gaps = gap_result.get("gaps", [])
-        # Merge roster gaps
-        if roster_gaps:
-            gaps = gaps + roster_gaps
-        # Shift assignment comes from the unit roster — if it couldn't be
-        # resolved, ask for it (non-blocking, like the other checklist items).
-        if not slots.get("shift_assignment"):
-            gaps.append({"slot": "shift_assignment", "blocking": False,
-                         "answer_type": "text",
-                         "question": "Shift assignment? (from the unit roster)"})
-        # Notes use first-person ("I"/"me") but no officer name was extracted —
-        # must ask who the reporting officer is before generating.
-        if _is_first_person_unnamed(notes, slots):
-            gaps.insert(0, {"slot": "officer_name", "blocking": True,
-                            "answer_type": "text",
-                            "question": "Who is the reporting officer? "
-                                        "(name not found in the notes)"})
-        # An inmate named only by last name needs a first name — ask per inmate.
-        for last in _inmates_missing_first(slots):
-            gaps.append({"slot": f"inmate_first::{last}", "blocking": False,
-                         "answer_type": "text",
-                         "question": f"First name for Inmate {last}? "
-                                     f"(leave blank if unknown)"})
-        gap_result["gaps"] = gaps
-        gap_result["blocking_remaining"] = sum(1 for g in gaps if g.get("blocking"))
-        # Pre-select suggested defaults (medical disposition, drug test).
-        _apply_gap_defaults(category, gaps)
-        officers = security_staff(slots)
-        provenance = compute_provenance(notes, slots)
-        logger.info("Extract → %d gaps (%d blocking), %d officers, %d provenance entries",
-                    len(gap_result.get("gaps", [])),
-                    gap_result.get("blocking_remaining", 0),
-                    len(officers),
-                    len(provenance))
-        return jsonify({
-            "slots": slots,
-            "gaps": gap_result.get("gaps", []),
-            "blocking_remaining": gap_result.get("blocking_remaining", 0),
-            "markers": gap_result.get("markers", []),
-            "checklist": gap_result.get("checklist", []),
-            "auto_content": gap_result.get("auto_content", []),
-            "officers": officers,
-            "provenance": provenance,
-        })
+        return jsonify(report_service.extract_incident_notes(
+            notes, category, FileStaffProvider()))
     except Exception as exc:
         category, status = classify_error(exc)
         logger.exception("Extraction failed [category=%s]", category)
@@ -743,12 +644,10 @@ def reports_generate():
     # ask for it to be deferred to a second, shorter request.
     defer = bool(data.get("defer_disciplinary"))
     try:
-        ctx = _prepare_generation(data)
-        reports = generate_all_reports(ctx["slots"], ctx["category"],
-                                       auto_content=ctx["auto_content"],
-                                       include_disciplinary=not defer)
-        payload = _finalize_generation(reports, ctx)
-        payload["disciplinary_deferred"] = bool(defer and has_charges(ctx["slots"]))
+        payload = report_service._generate_report_set(
+            data, staff_provider=FileStaffProvider(),
+            generate_all=generate_all_reports, charges_present=has_charges,
+        )
         return jsonify(payload)
     except Exception as exc:
         category_, status = classify_error(exc)
@@ -769,14 +668,10 @@ def reports_disciplinary():
     if not data.get("notes", "").strip() or not data.get("category", "").strip():
         return jsonify({"error": "notes and category required"}), 400
     try:
-        ctx = _prepare_generation(data)
-        prior = data.get("reports") or {}
-        reports = {k: v for k, v in prior.items()
-                   if k in RESUMABLE_REPORT_KEYS and isinstance(v, str)}
-        reports.update(generate_disciplinary_only(
-            ctx["slots"], reports.get("first_person", ""), ctx["auto_content"]))
-        payload = _finalize_generation(reports, ctx)
-        payload["disciplinary_deferred"] = False
+        payload = report_service._generate_disciplinary_report(
+            data, staff_provider=FileStaffProvider(),
+            generate_only=generate_disciplinary_only,
+        )
         return jsonify(payload)
     except Exception as exc:
         category_, status = classify_error(exc)

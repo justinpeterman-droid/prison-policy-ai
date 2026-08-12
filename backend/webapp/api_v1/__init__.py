@@ -60,6 +60,13 @@ def prepare_api_request():
         "api_v1.admin_api.account_unlock": "admin_account_unlock",
         "api_v1.admin_api.account_sessions": "admin_account_sessions",
         "api_v1.admin_api.account_revoke_sessions": "admin_account_revoke_sessions",
+        "api_v1.staff_api.staff_list": "staff_list",
+        "api_v1.incidents_api.create": "incident_create",
+        "api_v1.incidents_api.get": "incident_read",
+        "api_v1.incidents_api.save": "incident_save",
+        "api_v1.incidents_api.revision_list": "incident_revision_list",
+        "api_v1.incidents_api.revision_detail": "incident_revision_read",
+        "api_v1.incidents_api.restore": "incident_restore",
     }.get(request.endpoint or "", "unknown")
     if request.endpoint != "api_v1.client_policy":
         if getattr(g, "client_version", None) is None:
@@ -128,6 +135,14 @@ api_v1_bp.register_blueprint(auth_bp, url_prefix="/auth")
 from backend.webapp.api_v1.admin import admin_bp
 
 api_v1_bp.register_blueprint(admin_bp, url_prefix="/admin")
+
+from backend.webapp.api_v1.staff import staff_bp
+
+api_v1_bp.register_blueprint(staff_bp, url_prefix="/staff")
+
+from backend.webapp.api_v1.incidents import incidents_bp
+
+api_v1_bp.register_blueprint(incidents_bp, url_prefix="/incidents")
 
 
 @api_v1_bp.get("/me", endpoint="me")

@@ -9,6 +9,8 @@ tags:
   - name: Admin Staff
   - name: Admin Accounts
   - name: Browser Handoff
+  - name: Staff
+  - name: Incidents
 security:
   - AccessBearer: []
 paths:
@@ -33,6 +35,158 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessEnvelope"
+  /api/v1/staff:
+    get:
+      operationId: searchActiveStaff
+      tags: [Staff]
+      parameters:
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/StaffLookupQuery"
+        - $ref: "#/components/parameters/StaffLookupLimit"
+        - $ref: "#/components/parameters/PageCursor"
+      responses:
+        "200":
+          description: Bounded active staff matches for report selection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StaffLookupSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents:
+    post:
+      operationId: createIncident
+      tags: [Incidents]
+      parameters:
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IncidentCreateRequest" }
+      responses:
+        "201":
+          description: Canonical incident workspace and revision one created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IncidentSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}:
+    get:
+      operationId: getIncident
+      tags: [Incidents]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: Authorized incident workspace
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IncidentSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+    patch:
+      operationId: saveIncident
+      tags: [Incidents]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IncidentSaveRequest" }
+      responses:
+        "200":
+          description: Incident revision appended
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IncidentSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/RevisionOrIdempotencyConflict" }
+        "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/revisions:
+    get:
+      operationId: listIncidentRevisions
+      tags: [Incidents]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: Authorized immutable incident revision summaries
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IncidentRevisionListSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/revisions/{revision_number}:
+    get:
+      operationId: getIncidentRevision
+      tags: [Incidents]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/RevisionNumber"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: Authorized immutable incident revision
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IncidentRevisionSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/restore:
+    post:
+      operationId: restoreIncidentRevision
+      tags: [Incidents]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IncidentRestoreRequest" }
+      responses:
+        "200":
+          description: Historical incident content copied into a new current revision
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IncidentSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/RevisionOrIdempotencyConflict" }
+        "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/v1/auth/login:
     post:
       operationId: loginAccessClient
@@ -576,6 +730,35 @@ components:
       in: path
       required: true
       schema: { $ref: "#/components/schemas/Uuid" }
+    IncidentId:
+      name: incident_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Uuid" }
+    RevisionNumber:
+      name: revision_number
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      description: Quoted integer revision matching base_revision_number when supplied.
+      schema:
+        type: string
+        pattern: '^"[1-9][0-9]*"$'
+        example: '"1"'
+    StaffLookupQuery:
+      name: query
+      in: query
+      required: true
+      schema: { type: string, minLength: 2, maxLength: 100, example: Example }
+    StaffLookupLimit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 50, default: 25 }
     AccountId:
       name: account_id
       in: path
@@ -667,6 +850,16 @@ components:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
     NotFound:
       description: The requested resource was not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    RevisionOrIdempotencyConflict:
+      description: Revision or idempotency conflict; code is revision_conflict, idempotency_conflict, request_in_progress, or client_upgrade_required
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    BlockingInformationRequired:
+      description: Required incident information is unresolved; code is blocking_information_required
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
@@ -1153,6 +1346,143 @@ components:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/BrowserHandoffIssueData" } } }]
     BrowserHandoffRedeemSuccessEnvelope:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/BrowserHandoffRedeemData" } } }]
+    StaffLookupItem:
+      type: object
+      additionalProperties: false
+      required: [staff_id, employee_number, display_name, rank, first, last, shift, is_active]
+      properties:
+        staff_id: { $ref: "#/components/schemas/Uuid" }
+        employee_number: { type: string, maxLength: 64, example: TEST-2101 }
+        display_name: { type: string, maxLength: 300, example: Officer Alex Example }
+        rank: { type: string, maxLength: 64, example: Officer }
+        first: { type: string, maxLength: 100, example: Alex }
+        last: { type: string, maxLength: 100, example: Example }
+        shift: { type: string, maxLength: 16, example: A }
+        is_active: { type: boolean, const: true }
+    StaffLookupData:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/StaffLookupItem" }
+        next_cursor:
+          oneOf:
+            - $ref: "#/components/schemas/Cursor"
+            - type: "null"
+    StaffLookupSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/StaffLookupData" } } }]
+    IncidentContent:
+      type: object
+      additionalProperties: false
+      properties:
+        schema_version: { type: integer, const: 1, default: 1 }
+        field_notes:
+          type: string
+          maxLength: 30000
+          example: Fictional field notes for incident contract testing.
+        incident_date: { type: [string, "null"], format: date }
+        incident_time: { type: [string, "null"], format: time }
+        facility: { type: [string, "null"], maxLength: 120, example: Fictional Unit }
+        shift: { type: [string, "null"], maxLength: 32, example: A }
+        location: { type: [string, "null"], maxLength: 200, example: Fictional Dayroom }
+        category: { type: [string, "null"], maxLength: 120, example: fictional_incident }
+        classification: { type: object, additionalProperties: true }
+        extracted_facts: { type: object, additionalProperties: true }
+        gap_answers: { type: object, additionalProperties: { type: string, maxLength: 5000 } }
+        charges:
+          type: array
+          maxItems: 50
+          items: { type: string, maxLength: 200, example: TEST-01 }
+        validation: { type: object, additionalProperties: true }
+    IncidentCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [reporting_staff_ids, field_notes]
+      properties:
+        reporting_staff_ids:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { $ref: "#/components/schemas/Uuid" }
+          example:
+            - 00000000-0000-4000-8000-000000000021
+            - 00000000-0000-4000-8000-000000000022
+        field_notes:
+          type: string
+          maxLength: 30000
+          example: Fictional field notes for incident contract testing.
+    IncidentSaveRequest:
+      type: object
+      additionalProperties: false
+      required: [field_notes, base_revision_number]
+      properties:
+        field_notes:
+          type: string
+          maxLength: 30000
+          example: Fictional revised field notes for incident contract testing.
+        base_revision_number: { type: integer, minimum: 1, example: 1 }
+        reason: { type: string, enum: [autosave, manual_save], default: manual_save }
+      allOf:
+        - $ref: "#/components/schemas/IncidentContent"
+    IncidentData:
+      allOf:
+        - $ref: "#/components/schemas/IncidentContent"
+        - type: object
+          additionalProperties: false
+          required: [incident_id, status, current_revision_number, reporting_staff_ids, field_notes, created_at, updated_at]
+          properties:
+            incident_id: { $ref: "#/components/schemas/Uuid" }
+            status: { type: string, enum: [in_progress, completed, archived] }
+            current_revision_number: { type: integer, minimum: 1 }
+            reporting_staff_ids:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items: { $ref: "#/components/schemas/Uuid" }
+            created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+            updated_at: { $ref: "#/components/schemas/UtcTimestamp" }
+    IncidentRevisionSummary:
+      type: object
+      additionalProperties: false
+      required: [revision_number, reason, changed_fields, editor_staff_member_id, client_version, created_at]
+      properties:
+        revision_number: { type: integer, minimum: 1 }
+        reason: { type: string, enum: [autosave, manual_save, ai_result, restored, status_change, ownership_change, recovery] }
+        changed_fields:
+          type: array
+          maxItems: 100
+          items: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
+        editor_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        client_version: { type: string, maxLength: 64 }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+    IncidentRevisionData:
+      allOf:
+        - $ref: "#/components/schemas/IncidentContent"
+        - $ref: "#/components/schemas/IncidentRevisionSummary"
+    IncidentRevisionListData:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/IncidentRevisionSummary" }
+    IncidentRestoreRequest:
+      type: object
+      additionalProperties: false
+      required: [revision_number]
+      properties:
+        revision_number: { type: integer, minimum: 1, example: 1 }
+    IncidentSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/IncidentData" } } }]
+    IncidentRevisionListSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/IncidentRevisionListData" } } }]
+    IncidentRevisionSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/IncidentRevisionData" } } }]
     StaffSuccessEnvelope:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/StaffData" } } }]
     StaffPageSuccessEnvelope:

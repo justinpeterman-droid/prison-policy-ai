@@ -1,0 +1,261 @@
+"""Authorized incident workspace and immutable revision routes."""
+from datetime import UTC
+from uuid import UUID
+
+from flask import Blueprint, current_app, g, request
+from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
+
+from backend.identity.idempotency import IdempotencyConflict, RequestInProgress
+from backend.persistence.database import DatabaseUnavailable
+from backend.reports.persistence import (
+    IncidentNotFound,
+    IncidentRevisionNotFound,
+    IncidentView,
+    create_incident,
+    get_incident,
+    get_incident_revision,
+    incident_revision_content,
+    list_incident_revisions,
+    restore_incident_record,
+    save_incident_record,
+)
+from backend.reports.revisions import RevisionConflict
+from backend.webapp.api_v1.client_policy import require_compatible_write
+from backend.webapp.api_v1.context import request_id
+from backend.webapp.api_v1.errors import ApiError
+from backend.webapp.api_v1.middleware import (
+    current_actor,
+    current_request_session,
+    require_access_token,
+)
+from backend.webapp.api_v1.responses import success
+from backend.webapp.api_v1.schemas.reporting import SaveIncidentRequest
+
+
+incidents_bp = Blueprint("incidents_api", __name__)
+CREATE_FIELDS = {"reporting_staff_ids", "field_notes"}
+SAVE_FIELDS = {
+    "schema_version", "field_notes", "incident_date", "incident_time", "facility",
+    "shift", "location", "category", "classification", "extracted_facts",
+    "gap_answers", "charges", "validation", "warnings", "base_revision_number", "reason",
+}
+
+
+def _body(*, exact: set[str] | None = None, allowed: set[str] | None = None) -> dict:
+    value = request.get_json(silent=True)
+    if not isinstance(value, dict):
+        raise ApiError("validation_failed", "The request body is invalid.", status=400)
+    keys = set(value)
+    if (exact is not None and keys != exact) or (
+        allowed is not None and (not keys or not keys <= allowed)
+    ):
+        raise ApiError("validation_failed", "The request body is invalid.", status=400)
+    return value
+
+
+def _metadata() -> tuple[str, str]:
+    return request_id(), str(g.client_version)
+
+
+def _validate_if_match(base_revision_number: int) -> None:
+    value = request.headers.get("If-Match")
+    if value is None:
+        return
+    if (
+        len(value) < 3 or value[0] != '"' or value[-1] != '"'
+        or not value[1:-1].isdigit() or value[1:-1].startswith("0")
+        or int(value[1:-1]) != base_revision_number
+    ):
+        raise ApiError(
+            "validation_failed", "If-Match must agree with base_revision_number.",
+            status=400,
+        )
+
+
+def _timestamp(value) -> str | None:
+    if value is None:
+        return None
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _view_data(view: IncidentView) -> dict[str, object]:
+    row = view.incident
+    return {
+        "incident_id": str(row.id),
+        "status": row.status,
+        "current_revision_number": row.current_revision_number,
+        "reporting_staff_ids": [str(value) for value in view.reporting_staff_ids],
+        "field_notes": row.field_notes,
+        "incident_date": row.incident_date.isoformat() if row.incident_date else None,
+        "incident_time": row.incident_time.isoformat() if row.incident_time else None,
+        "facility": row.facility,
+        "shift": row.shift,
+        "location": row.location,
+        "category": row.category,
+        "classification": row.classification,
+        "extracted_facts": row.extracted_facts,
+        "gap_answers": row.gap_answers,
+        "charges": row.charges,
+        "validation": row.validation,
+        "created_at": _timestamp(row.created_at),
+        "updated_at": _timestamp(row.updated_at),
+    }
+
+
+def _revision_summary(row) -> dict[str, object]:
+    return {
+        "revision_number": row.revision_number,
+        "reason": row.reason,
+        "changed_fields": list((row.changed_fields or {}).get("fields", [])),
+        "editor_staff_member_id": str(row.editor_staff_member_id),
+        "client_version": row.client_version,
+        "created_at": _timestamp(row.created_at),
+    }
+
+
+def _revision_data(row) -> dict[str, object]:
+    return {**_revision_summary(row), **incident_revision_content(row)}
+
+
+def _handle_write(operation):
+    db = current_request_session()
+    try:
+        result, status = operation(db)
+        db.commit()
+        return success(_view_data(result), status=status)
+    except RequestInProgress as error:
+        db.rollback()
+        raise ApiError("request_in_progress", str(error), status=409, retryable=True) from None
+    except IdempotencyConflict as error:
+        db.rollback()
+        raise ApiError("idempotency_conflict", str(error), status=409) from None
+    except RevisionConflict as error:
+        db.rollback()
+        raise ApiError(
+            "revision_conflict", "The incident changed; reload and try again.", status=409,
+            details={"current_revision_number": error.current_revision_number},
+        ) from None
+    except (IncidentNotFound, IncidentRevisionNotFound):
+        db.rollback()
+        raise ApiError("not_found", "Incident not found.", status=404) from None
+    except (ValidationError, ValueError) as error:
+        db.rollback()
+        raise ApiError("validation_failed", "The incident request is invalid.", status=400) from None
+    except IntegrityError:
+        db.rollback()
+        raise ApiError("revision_conflict", "The incident changed; reload and try again.", status=409) from None
+    except OperationalError as error:
+        db.rollback()
+        sqlstate = getattr(getattr(error, "orig", None), "sqlstate", None)
+        if sqlstate in {"40P01", "40001", "55P03"}:
+            raise ApiError(
+                "revision_conflict", "The incident changed; reload and try again.", status=409,
+            ) from None
+        raise ApiError(
+            "dependency_unavailable", "Incident storage is temporarily unavailable.",
+            status=503, retryable=True,
+        ) from None
+    except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
+        db.rollback()
+        raise ApiError(
+            "dependency_unavailable", "Incident storage is temporarily unavailable.",
+            status=503, retryable=True,
+        ) from None
+
+
+@incidents_bp.post("", endpoint="create")
+@require_access_token
+@require_compatible_write
+def create_route():
+    payload = _body(exact=CREATE_FIELDS)
+    try:
+        model = SaveIncidentRequest.model_validate({"field_notes": payload["field_notes"]})
+    except ValidationError:
+        raise ApiError("validation_failed", "The incident request is invalid.", status=400) from None
+    req_id, version = _metadata()
+    return _handle_write(lambda db: (
+        create_incident(
+            db, current_actor(), payload["reporting_staff_ids"], model,
+            request.headers.get("Idempotency-Key", ""), request_id=req_id,
+            client_version=version, audit_writer=current_app.config["AUDIT_WRITER"],
+        ),
+        201,
+    ))
+
+
+@incidents_bp.get("/<uuid:incident_id>", endpoint="get")
+@require_access_token
+def get_route(incident_id: UUID):
+    try:
+        return success(_view_data(get_incident(
+            current_request_session(), current_actor(), incident_id)))
+    except IncidentNotFound:
+        raise ApiError("not_found", "Incident not found.", status=404) from None
+    except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
+        raise ApiError(
+            "dependency_unavailable", "Incident storage is temporarily unavailable.",
+            status=503, retryable=True,
+        ) from None
+
+
+@incidents_bp.patch("/<uuid:incident_id>", endpoint="save")
+@require_access_token
+@require_compatible_write
+def save_route(incident_id: UUID):
+    payload = _body(allowed=SAVE_FIELDS)
+    if "field_notes" not in payload or "base_revision_number" not in payload:
+        raise ApiError("validation_failed", "The incident request is invalid.", status=400)
+    try:
+        model = SaveIncidentRequest.model_validate(payload)
+    except ValidationError:
+        raise ApiError("validation_failed", "The incident request is invalid.", status=400) from None
+    _validate_if_match(model.base_revision_number)
+    req_id, version = _metadata()
+    return _handle_write(lambda db: (
+        save_incident_record(
+            db, current_actor(), incident_id, model,
+            request.headers.get("Idempotency-Key", ""), request_id=req_id,
+            client_version=version, audit_writer=current_app.config["AUDIT_WRITER"],
+        ),
+        200,
+    ))
+
+
+@incidents_bp.get("/<uuid:incident_id>/revisions", endpoint="revision_list")
+@require_access_token
+def revision_list_route(incident_id: UUID):
+    try:
+        rows = list_incident_revisions(current_request_session(), current_actor(), incident_id)
+        return success({"items": [_revision_summary(row) for row in rows]})
+    except IncidentNotFound:
+        raise ApiError("not_found", "Incident not found.", status=404) from None
+
+
+@incidents_bp.get(
+    "/<uuid:incident_id>/revisions/<int:revision_number>", endpoint="revision_detail",
+)
+@require_access_token
+def revision_detail_route(incident_id: UUID, revision_number: int):
+    try:
+        row = get_incident_revision(
+            current_request_session(), current_actor(), incident_id, revision_number)
+        return success(_revision_data(row))
+    except (IncidentNotFound, IncidentRevisionNotFound):
+        raise ApiError("not_found", "Incident not found.", status=404) from None
+
+
+@incidents_bp.post("/<uuid:incident_id>/restore", endpoint="restore")
+@require_access_token
+@require_compatible_write
+def restore_route(incident_id: UUID):
+    payload = _body(exact={"revision_number"})
+    req_id, version = _metadata()
+    return _handle_write(lambda db: (
+        restore_incident_record(
+            db, current_actor(), incident_id, payload["revision_number"],
+            request.headers.get("Idempotency-Key", ""), request_id=req_id,
+            client_version=version, audit_writer=current_app.config["AUDIT_WRITER"],
+        ),
+        200,
+    ))

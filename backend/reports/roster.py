@@ -1,12 +1,143 @@
 """Staff roster lookup — resolves partial officer names against the roster,
 generating gaps for unidentifiable staff and filling in known details."""
+from dataclasses import dataclass
+from datetime import datetime
 import logging
+from typing import Protocol
+from uuid import UUID
+
+from sqlalchemy import and_, or_, select
+from sqlalchemy.orm import Session
 
 from backend.reports import roster_store
+from backend.persistence.models.identity import StaffMember
 
 logger = logging.getLogger(__name__)
 
 ROSTER_PATH = roster_store.SEED_PATH
+
+
+class StaffProvider(Protocol):
+    """Minimal route-neutral staff lookup used by report orchestration."""
+
+    def lookup(self, name_hint: str) -> dict | None: ...
+
+    def search(self, query: str, *, limit: int = 25) -> list[dict]: ...
+
+
+@dataclass(frozen=True)
+class StaffPage:
+    items: list[dict]
+    next_cursor: dict[str, str] | None
+
+
+class FileStaffProvider:
+    """Legacy roster adapter retained for the browser report routes."""
+
+    def lookup(self, name_hint: str) -> dict | None:
+        return lookup(name_hint)
+
+    def search(self, query: str, *, limit: int = 25) -> list[dict]:
+        hint = query.strip().lower()
+        if not hint:
+            return []
+        matches = []
+        for person in all_staff():
+            values = (
+                person.get("first", ""), person.get("last", ""),
+                person.get("employee_number", ""),
+            )
+            if any(hint in str(value).lower() for value in values):
+                matches.append(dict(person))
+            if len(matches) >= limit:
+                break
+        return matches
+
+    def add_from_gap_answer(self, name_hint: str, answer_text: str) -> bool:
+        return add_staff_from_gap_answer(name_hint, answer_text)
+
+
+class SqlStaffProvider:
+    """Active-only Cloud SQL staff provider for Access/API report work."""
+
+    def __init__(self, session: Session):
+        self._session = session
+
+    @staticmethod
+    def _record(row: StaffMember) -> dict[str, object]:
+        display_name = " ".join(
+            value for value in (row.rank, row.first_name, row.last_name) if value
+        )
+        return {
+            "staff_id": str(row.id),
+            "employee_number": row.employee_number,
+            "display_name": display_name,
+            "rank": row.rank,
+            "first": row.first_name,
+            "last": row.last_name,
+            "shift": row.shift,
+            "is_active": row.is_active,
+        }
+
+    def search_page(
+        self, query: str, *, limit: int = 25, cursor: dict[str, str] | None = None,
+    ) -> StaffPage:
+        hint = query.strip()
+        if not hint or not 1 <= limit <= 50:
+            return StaffPage([], None)
+        escaped = hint.replace("%", "\\%").replace("_", "\\_")[:100]
+        pattern = f"%{escaped}%"
+        statement = (
+            select(StaffMember)
+            .where(
+                StaffMember.is_active.is_(True),
+                or_(
+                    StaffMember.employee_number.ilike(pattern, escape="\\"),
+                    StaffMember.first_name.ilike(pattern, escape="\\"),
+                    StaffMember.last_name.ilike(pattern, escape="\\"),
+                ),
+            )
+        )
+        if cursor:
+            created_at = datetime.fromisoformat(
+                cursor["created_at"].replace("Z", "+00:00"))
+            staff_id = UUID(cursor["id"])
+            statement = statement.where(or_(
+                StaffMember.created_at > created_at,
+                and_(StaffMember.created_at == created_at, StaffMember.id > staff_id),
+            ))
+        rows = list(self._session.scalars(
+            statement.order_by(StaffMember.created_at, StaffMember.id).limit(limit + 1)
+        ).all())
+        page_rows = rows[:limit]
+        next_cursor = None
+        if len(rows) > limit and page_rows:
+            last = page_rows[-1]
+            next_cursor = {"created_at": last.created_at.isoformat(), "id": str(last.id)}
+        return StaffPage([self._record(row) for row in page_rows], next_cursor)
+
+    def search(self, query: str, *, limit: int = 25) -> list[dict]:
+        return self.search_page(query, limit=limit).items
+
+    def lookup(self, name_hint: str) -> dict | None:
+        hint = name_hint.strip().lower()
+        if not hint:
+            return None
+        for record in self.search(name_hint, limit=25):
+            first = str(record.get("first", "")).lower()
+            last = str(record.get("last", "")).lower()
+            employee_number = str(record.get("employee_number", "")).lower()
+            if (
+                hint == last
+                or hint == employee_number
+                or hint == f"{first} {last}"
+                or hint in last
+                or hint in first
+                or hint in employee_number
+                or employee_number.endswith(hint)
+            ):
+                return record
+        return None
 
 
 def _load() -> dict:
@@ -159,13 +290,16 @@ def add_staff_from_gap_answer(name_hint: str, answer_text: str) -> bool:
     return _add_to_roster_file(rank, first, last, employee_number)
 
 
-def resolve_staff_from_persons(persons: list[dict]) -> tuple[list[dict], list[dict]]:
+def resolve_staff_from_persons(
+    persons: list[dict], staff_provider: StaffProvider | None = None,
+) -> tuple[list[dict], list[dict]]:
     """Given a list of person dicts from extraction, resolve each against
     the roster. Returns (resolved_persons, gaps).
 
     A gap is generated for any security_staff person whose last name can't
     be matched in the roster, or who is missing required fields.
     """
+    provider = staff_provider or FileStaffProvider()
     resolved = []
     gaps = []
 
@@ -178,7 +312,7 @@ def resolve_staff_from_persons(persons: list[dict]) -> tuple[list[dict], list[di
         last = p.get("last", "") or ""
 
         # Try last name first, then full name from the person dict
-        match = lookup(last) or lookup(name)
+        match = provider.lookup(last) or provider.lookup(name)
 
         if match:
             # Fill in missing fields from roster — override None values
