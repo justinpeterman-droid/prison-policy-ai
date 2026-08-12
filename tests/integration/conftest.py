@@ -12,6 +12,13 @@ from tests.integration.identity_fixtures import (
     issue_fictional_tokens,
     seed_fictional_account,
 )
+from tests.support.reporting import (
+    FictionalStaff,
+    make_incident,
+    make_report,
+    seed_fictional_staff_and_accounts,
+)
+from backend.webapp.api_v1.middleware import Actor
 
 from datetime import UTC, datetime
 
@@ -114,3 +121,103 @@ def user_bearer_headers(fictional_user_tokens):
 @pytest.fixture
 def admin_bearer_headers(fictional_admin_tokens):
     return bearer_headers(fictional_admin_tokens)
+
+
+@pytest.fixture
+def fictional_staff_and_accounts(db_session, identity_fixed_now):
+    return seed_fictional_staff_and_accounts(db_session, identity_fixed_now)
+
+
+@pytest.fixture
+def fictional_staff(fictional_staff_and_accounts):
+    return FictionalStaff(
+        fictional_staff_and_accounts.user.staff_member,
+        fictional_staff_and_accounts.preparer.staff_member,
+    )
+
+
+@pytest.fixture
+def fictional_incident(db_session, fictional_staff_and_accounts, identity_fixed_now):
+    return make_incident(
+        db_session, fictional_staff_and_accounts.preparer, identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def fictional_report(
+    db_session, fictional_incident, fictional_staff_and_accounts, identity_fixed_now,
+):
+    return make_report(
+        db_session, incident=fictional_incident,
+        owner=fictional_staff_and_accounts.user,
+        preparer=fictional_staff_and_accounts.preparer,
+        now=identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def shared_report(fictional_report):
+    return fictional_report
+
+
+@pytest.fixture
+def incident_id(fictional_incident):
+    return fictional_incident.id
+
+
+@pytest.fixture
+def report_id(fictional_report):
+    return fictional_report.id
+
+
+@pytest.fixture
+def user_actor(fictional_staff_and_accounts, fictional_owner_tokens):
+    account = fictional_staff_and_accounts.user
+    return Actor(
+        account.id, account.staff_member_id, fictional_owner_tokens.session_id,
+        "user", account.auth_version, account.must_change_pin,
+    )
+
+
+@pytest.fixture
+def fictional_owner_tokens(db_session, fictional_staff_and_accounts, identity_fixed_now):
+    return issue_fictional_tokens(
+        db_session, account=fictional_staff_and_accounts.user,
+        device_id="device-fictional-owner-0001", now=identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def fictional_preparer_tokens(db_session, fictional_staff_and_accounts, identity_fixed_now):
+    return issue_fictional_tokens(
+        db_session, account=fictional_staff_and_accounts.preparer,
+        device_id="device-fictional-preparer-0001", now=identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def fictional_unrelated_tokens(db_session, fictional_staff_and_accounts, identity_fixed_now):
+    return issue_fictional_tokens(
+        db_session, account=fictional_staff_and_accounts.unrelated,
+        device_id="device-fictional-unrelated-0001", now=identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def owner_bearer_headers(fictional_owner_tokens):
+    return bearer_headers(fictional_owner_tokens)
+
+
+@pytest.fixture
+def preparer_bearer_headers(fictional_preparer_tokens):
+    return bearer_headers(fictional_preparer_tokens)
+
+
+@pytest.fixture
+def unrelated_bearer_headers(fictional_unrelated_tokens):
+    return bearer_headers(fictional_unrelated_tokens)
+
+
+@pytest.fixture
+def old_client_bearer_headers(fictional_owner_tokens):
+    return bearer_headers(fictional_owner_tokens, client_version="0.1.0")
