@@ -57,6 +57,7 @@ def close_request_session(error=None) -> None:
 def _failure(code: str, message: str, status: int, *, retryable: bool = False):
     if not hasattr(g, "request_id"):
         g.request_id = str(uuid4())
+    g.api_error_code = code
     return failure(code, message, status, retryable=retryable)
 
 
