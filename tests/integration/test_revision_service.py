@@ -147,6 +147,169 @@ def test_service_uses_caller_transaction_and_flushes_without_begin_or_commit(
     assert session.flush_count == 1
 
 
+@pytest.mark.parametrize("target", ["report", "incident"])
+def test_ai_result_stamps_centralized_provenance_and_fingerprint_columns(
+    monkeypatch, target
+):
+    expected = {
+        "fast_model": "fictional-fast-model",
+        "pro_model": "fictional-pro-model",
+        "model_location": "fictional-location",
+        "classification_prompt_sha256": "a" * 64,
+        "generation_prompt_sha256": "b" * 64,
+        "checklist_sha256": "c" * 64,
+        "template_sha256": "d" * 64,
+        "cloud_run_revision": "fictional-cloud-revision",
+        "source_commit": "e" * 40,
+    }
+    session = SimpleNamespace(added=[], flush_count=0)
+    session.add = lambda value: session.added.append(value)
+    session.flush = lambda: setattr(session, "flush_count", session.flush_count + 1)
+    actor = revisions.Actor(uuid4(), uuid4(), uuid4(), "user", 1, False)
+    monkeypatch.setattr(revisions, "collect_provenance", lambda: dict(expected))
+    monkeypatch.setattr(revisions, "_next_revision_number", lambda *_args: 2)
+    monkeypatch.setattr(revisions, "_append_audit", lambda *_args, **_kwargs: None)
+
+    if target == "report":
+        row = SimpleNamespace(
+            current_revision_number=1,
+            current_content={
+                "schema_version": 1,
+                "narrative": "Fictional initial narrative.",
+                "editable_fields": {},
+                "validation": {},
+                "warnings": [],
+            },
+            status="in_progress",
+            updated_at=None,
+        )
+        monkeypatch.setattr(revisions, "_lock_row", lambda *_args: row)
+        revision = save_report(
+            session, actor, uuid4(),
+            ReportContentV1(narrative="Fictional AI narrative."),
+            1, "ai_result",
+        )
+        assert revision.provenance == expected
+        for key, value in expected.items():
+            assert getattr(revision, key) == value
+    else:
+        row = SimpleNamespace(
+            current_revision_number=1,
+            incident_date=None,
+            incident_time=None,
+            facility="Fictional Unit",
+            shift="A",
+            location="Fictional Dayroom",
+            category="inmate_fight",
+            field_notes="Fictional notes.",
+            classification={},
+            extracted_facts={},
+            gap_answers={},
+            charges=[],
+            validation={},
+            status="in_progress",
+            updated_at=None,
+        )
+        monkeypatch.setattr(revisions, "_lock_row", lambda *_args: row)
+        revision = save_incident(
+            session, actor, uuid4(),
+            IncidentSnapshotV1(
+                field_notes="Fictional notes.",
+                classification={"persons_involved": [{"role": "inmate"}]},
+            ),
+            1, "ai_result",
+        )
+        assert revision.snapshot["provenance"] == expected
+
+    assert session.flush_count == 1
+
+
+@pytest.mark.parametrize("reason", ["manual_save", "autosave"])
+def test_non_ai_report_save_does_not_claim_ai_provenance(monkeypatch, reason):
+    session = SimpleNamespace(added=[], flush_count=0)
+    session.add = lambda value: session.added.append(value)
+    session.flush = lambda: setattr(session, "flush_count", session.flush_count + 1)
+    row = SimpleNamespace(
+        current_revision_number=1,
+        current_content={
+            "schema_version": 1,
+            "narrative": "Fictional initial narrative.",
+            "editable_fields": {},
+            "validation": {},
+            "warnings": [],
+        },
+        status="in_progress",
+        updated_at=None,
+    )
+    actor = revisions.Actor(uuid4(), uuid4(), uuid4(), "user", 1, False)
+    monkeypatch.setattr(revisions, "_lock_row", lambda *_args: row)
+    monkeypatch.setattr(revisions, "_next_revision_number", lambda *_args: 2)
+    monkeypatch.setattr(revisions, "_append_audit", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        revisions, "collect_provenance",
+        lambda: pytest.fail("manual/autosave must not collect AI provenance"),
+    )
+
+    revision = save_report(
+        session, actor, uuid4(),
+        ReportContentV1(narrative="Fictional officer edit."),
+        1, reason,
+    )
+
+    assert revision.provenance == {}
+    for key in revisions.PROVENANCE_COLUMN_NAMES:
+        assert getattr(revision, key) is None
+
+
+@pytest.mark.parametrize("reason", ["manual_save", "autosave"])
+def test_non_ai_incident_save_does_not_inject_provenance(monkeypatch, reason):
+    session = SimpleNamespace(added=[], flush_count=0)
+    session.add = lambda value: session.added.append(value)
+    session.flush = lambda: setattr(session, "flush_count", session.flush_count + 1)
+    row = SimpleNamespace(
+        current_revision_number=1,
+        incident_date=None,
+        incident_time=None,
+        facility="Fictional Unit",
+        shift="A",
+        location="Fictional Dayroom",
+        category="inmate_fight",
+        field_notes="Fictional notes.",
+        classification={},
+        extracted_facts={},
+        gap_answers={},
+        charges=[],
+        validation={},
+        status="in_progress",
+        updated_at=None,
+    )
+    actor = revisions.Actor(uuid4(), uuid4(), uuid4(), "user", 1, False)
+    monkeypatch.setattr(revisions, "_lock_row", lambda *_args: row)
+    monkeypatch.setattr(revisions, "_next_revision_number", lambda *_args: 2)
+    monkeypatch.setattr(revisions, "_append_audit", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        revisions, "collect_provenance",
+        lambda: pytest.fail("manual/autosave must not collect AI provenance"),
+    )
+
+    revision = save_incident(
+        session, actor, uuid4(), IncidentSnapshotV1(field_notes="Fictional notes."),
+        1, reason,
+    )
+
+    assert "provenance" not in revision.snapshot
+    assert not hasattr(row, "provenance")
+
+
+def test_source_revision_metadata_composes_with_existing_provenance():
+    source = {"fast_model": "fictional-fast-model", "source_commit": "a" * 40}
+
+    assert revisions._source_revision_provenance(source, 3) == {
+        **source,
+        "source_revision_number": 3,
+    }
+
+
 @pytest.mark.parametrize("invalid_base", [-1, True, "1"])
 def test_recovery_rejects_invalid_source_revision_before_database_work(
     invalid_base

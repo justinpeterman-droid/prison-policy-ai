@@ -12,10 +12,11 @@ the limit the server enforces cannot drift apart.
 from datetime import date, datetime, time
 import json
 from math import isfinite
+import re
 from typing import Annotated, Final, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from backend.webapp.api_v1.client_policy import FIELD_NOTES_MAX_CHARACTERS
 
@@ -29,6 +30,26 @@ MAX_MAP_ENTRIES: Final[int] = 100
 MAX_WARNINGS: Final[int] = 100
 MAX_CHARGES: Final[int] = 50
 MAX_CONTENT_JSON_BYTES: Final[int] = 750_000
+MAX_JSON_COLLECTION_ITEMS: Final[int] = 100
+MAX_JSON_DEPTH: Final[int] = 8
+MAX_JSON_NODES: Final[int] = 2_000
+MAX_JSON_STRING_CHARACTERS: Final[int] = 5_000
+JSON_KEY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+SERVER_OWNED_CONTENT_KEYS = frozenset({
+    "provenance",
+    "prompt_fingerprints",
+    "classification_prompt_sha256",
+    "generation_prompt_sha256",
+    "checklist_sha256",
+    "template_sha256",
+    "cloud_run_revision",
+    "source_commit",
+    "actor_account_id",
+    "owner_staff_member_id",
+    "preparer_staff_member_id",
+    "editor_account_id",
+    "created_by_account_id",
+})
 
 #: Values a client may place inside a bounded content map.
 JsonScalar = str | int | float | bool | None
@@ -60,6 +81,38 @@ def _has_nonfinite(value: object) -> bool:
     if isinstance(value, (list, tuple, set)):
         return any(_has_nonfinite(item) for item in value)
     return False
+
+
+def _validate_recursive_json(
+    value: JsonValue, *, depth: int = 0, nodes: list[int] | None = None,
+) -> None:
+    """Bound model-produced JSON while preserving its real nested shape."""
+    if nodes is None:
+        nodes = [0]
+    nodes[0] += 1
+    if nodes[0] > MAX_JSON_NODES or depth > MAX_JSON_DEPTH:
+        raise ValueError("nested content is too large")
+    if isinstance(value, str):
+        if len(value) > MAX_JSON_STRING_CHARACTERS:
+            raise ValueError("nested content string is too long")
+    elif isinstance(value, float) and not isfinite(value):
+        raise ValueError("nested content must not contain non-finite numbers")
+    elif isinstance(value, list):
+        if len(value) > MAX_JSON_COLLECTION_ITEMS:
+            raise ValueError("nested content collection is too large")
+        for item in value:
+            _validate_recursive_json(item, depth=depth + 1, nodes=nodes)
+    elif isinstance(value, dict):
+        if len(value) > MAX_JSON_COLLECTION_ITEMS:
+            raise ValueError("nested content collection is too large")
+        for key, item in value.items():
+            if (
+                not isinstance(key, str)
+                or not JSON_KEY_PATTERN.fullmatch(key)
+                or key in SERVER_OWNED_CONTENT_KEYS
+            ):
+                raise ValueError("nested content key is invalid")
+            _validate_recursive_json(item, depth=depth + 1, nodes=nodes)
 
 
 class StrictApiModel(BaseModel):
@@ -101,9 +154,9 @@ class IncidentSnapshotV1(BoundedContent):
     shift: str | None = Field(default=None, max_length=32)
     location: ShortText | None = None
     category: str | None = Field(default=None, max_length=120)
-    classification: dict[CodeText, JsonScalar] = Field(
+    classification: dict[CodeText, JsonValue] = Field(
         default_factory=dict, max_length=MAX_MAP_ENTRIES)
-    extracted_facts: dict[CodeText, JsonScalar] = Field(
+    extracted_facts: dict[CodeText, JsonValue] = Field(
         default_factory=dict, max_length=MAX_MAP_ENTRIES)
     gap_answers: dict[CodeText, LongAnswer] = Field(
         default_factory=dict, max_length=MAX_MAP_ENTRIES)
@@ -111,6 +164,12 @@ class IncidentSnapshotV1(BoundedContent):
     validation: dict[CodeText, object] = Field(
         default_factory=dict, max_length=MAX_MAP_ENTRIES)
     warnings: list[ShortText] = Field(default_factory=list, max_length=MAX_WARNINGS)
+
+    @model_validator(mode="after")
+    def _bound_generated_json(self):
+        _validate_recursive_json(self.classification)
+        _validate_recursive_json(self.extracted_facts)
+        return self
 
 
 class ReportContentV1(BoundedContent):

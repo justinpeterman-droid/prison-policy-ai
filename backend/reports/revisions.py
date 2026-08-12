@@ -19,6 +19,7 @@ from backend.persistence.models.reporting import (
     Report,
     ReportRevision,
 )
+from backend.reports.provenance import collect_provenance
 from backend.webapp.api_v1.middleware import Actor
 from backend.webapp.api_v1.schemas.reporting import (
     IncidentSnapshotV1,
@@ -54,6 +55,17 @@ INCIDENT_CONTENT_FIELDS = (
     "gap_answers",
     "charges",
     "validation",
+)
+PROVENANCE_COLUMN_NAMES = (
+    "fast_model",
+    "pro_model",
+    "model_location",
+    "classification_prompt_sha256",
+    "generation_prompt_sha256",
+    "checklist_sha256",
+    "template_sha256",
+    "cloud_run_revision",
+    "source_commit",
 )
 
 
@@ -137,6 +149,21 @@ def _report_payload(content: ReportContentV1) -> dict:
     return ReportContentV1.model_validate(content).model_dump(mode="json")
 
 
+def _ai_provenance(reason: str) -> dict[str, str | None]:
+    return collect_provenance() if reason == "ai_result" else {}
+
+
+def _source_revision_provenance(
+    provenance: dict | None, source_revision_number: int,
+) -> dict:
+    source_revision_number = _validate_revision_number(
+        source_revision_number, "source")
+    return {
+        **dict(provenance or {}),
+        "source_revision_number": source_revision_number,
+    }
+
+
 def _incident_current_payload(incident: Incident) -> dict:
     values = {field: getattr(incident, field) for field in INCIDENT_CONTENT_FIELDS}
     return IncidentSnapshotV1.model_validate(values).model_dump(mode="json")
@@ -188,6 +215,7 @@ def save_report(
 
     payload = _report_payload(content)
     changed_fields = _changed_fields(report.current_content, payload)
+    provenance = _ai_provenance(reason)
     revision = ReportRevision(
         report_id=report_id,
         revision_number=_next_revision_number(
@@ -197,7 +225,8 @@ def save_report(
         snapshot=payload,
         changed_fields=changed_fields,
         reason=reason,
-        provenance={},
+        provenance=provenance,
+        **{name: provenance.get(name) for name in PROVENANCE_COLUMN_NAMES},
         client_version=client_version,
         request_id=request_id,
     )
@@ -249,13 +278,17 @@ def save_incident(
     validated = IncidentSnapshotV1.model_validate(snapshot)
     payload = validated.model_dump(mode="json")
     changed_fields = _changed_fields(_incident_current_payload(incident), payload)
+    persisted_snapshot = dict(payload)
+    provenance = _ai_provenance(reason)
+    if provenance:
+        persisted_snapshot["provenance"] = provenance
     revision = IncidentRevision(
         incident_id=incident_id,
         revision_number=_next_revision_number(
             session, IncidentRevision, IncidentRevision.incident_id, incident_id),
         editor_account_id=actor.account_id,
         editor_staff_member_id=actor.staff_member_id,
-        snapshot=payload,
+        snapshot=persisted_snapshot,
         changed_fields=changed_fields,
         reason=reason,
         client_version=client_version,
@@ -318,7 +351,11 @@ def restore_report(
         snapshot=payload,
         changed_fields=changed_fields,
         reason="restored",
-        provenance={"source_revision_number": revision_number},
+        provenance=_source_revision_provenance(source.provenance, revision_number),
+        **{
+            name: getattr(source, name)
+            for name in PROVENANCE_COLUMN_NAMES
+        },
         client_version=client_version,
         request_id=request_id,
     )
@@ -363,6 +400,12 @@ def create_recovery_revision(
     report = _lock_row(session, Report, report_id)
     if base_revision_number > report.current_revision_number:
         raise RevisionTargetMissing("base revision was not found")
+    source = session.execute(select(ReportRevision).where(
+        ReportRevision.report_id == report_id,
+        ReportRevision.revision_number == base_revision_number,
+    )).scalar_one_or_none()
+    if source is None:
+        raise RevisionTargetMissing("base revision was not found")
 
     payload = _report_payload(content)
     changed_fields = _changed_fields(report.current_content, payload)
@@ -375,7 +418,12 @@ def create_recovery_revision(
         snapshot=payload,
         changed_fields=changed_fields,
         reason="recovery",
-        provenance={"source_revision_number": base_revision_number},
+        provenance=_source_revision_provenance(
+            source.provenance, base_revision_number),
+        **{
+            name: getattr(source, name)
+            for name in PROVENANCE_COLUMN_NAMES
+        },
         client_version=client_version,
         request_id=request_id,
     )

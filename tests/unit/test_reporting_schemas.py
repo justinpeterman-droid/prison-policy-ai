@@ -124,6 +124,15 @@ def test_incident_snapshot_rejects_unknown_fields():
         })
 
 
+@pytest.mark.parametrize("model", [IncidentSnapshotV1, SaveIncidentRequest])
+def test_incident_clients_cannot_supply_server_provenance(model):
+    with pytest.raises(ValidationError):
+        model.model_validate({
+            "field_notes": "Fictional field notes.",
+            "provenance": {"source_commit": "client-owned"},
+        })
+
+
 @pytest.mark.parametrize("forbidden", [
     "provenance",
     "prompt_fingerprints",
@@ -249,6 +258,90 @@ def test_incident_snapshot_carries_bounded_searchable_fields():
         IncidentSnapshotV1.model_validate({
             "field_notes": "Fictional field notes.",
             "location": "x" * (reporting.MAX_SHORT_TEXT + 1),
+        })
+
+
+def test_incident_snapshot_accepts_realistic_nested_classifier_and_extractor_shapes():
+    snapshot = IncidentSnapshotV1.model_validate({
+        "field_notes": "Fictional Officer Example observed a staged incident.",
+        "classification": {
+            "incident_type": "inmate_fight",
+            "label": "Inmate Fight",
+            "persons_involved": [{
+                "role": "inmate",
+                "name": "Example, Jordan",
+                "rank": None,
+                "adc_number": "000000",
+            }],
+            "charges_applicable": [{
+                "code": "12-1",
+                "inmate": "Example",
+                "description": "Fictional charge description.",
+            }],
+            "charge_descriptions": {
+                "12-1": "Fictional charge description.",
+            },
+            "facility": "Fictional Unit",
+            "shift": "A",
+            "location": "Fictional Dayroom",
+            "date": "2026-08-12",
+            "time": "2:35pm",
+        },
+        "extracted_facts": {
+            "persons": [{
+                "role": "inmate",
+                "last": "Example",
+                "first": "Jordan",
+                "adc_number": "000000",
+                "actions": ["Raised hands in a staged confrontation."],
+            }],
+            "narrative_facts": [
+                "Officer Example observed the fictional staged incident.",
+                "Staff separated the fictional participants.",
+            ],
+            "quotes": [{
+                "speaker": "Example, Jordan",
+                "text": "Fictional quoted statement.",
+            }],
+            "investigation_findings": [
+                "Reviewed fictional training footage.",
+            ],
+        },
+    })
+
+    assert snapshot.classification["persons_involved"][0]["role"] == "inmate"
+    assert snapshot.classification["charges_applicable"][0]["code"] == "12-1"
+    assert snapshot.extracted_facts["persons"][0]["actions"] == [
+        "Raised hands in a staged confrontation."]
+
+
+def test_recursive_incident_json_rejects_unbounded_or_unsafe_nested_values():
+    with pytest.raises(ValidationError):
+        IncidentSnapshotV1.model_validate({
+            "classification": {
+                "persons_involved": [
+                    {"role": "inmate"}
+                    for _ in range(reporting.MAX_JSON_COLLECTION_ITEMS + 1)
+                ],
+            },
+        })
+
+    nested = "fictional"
+    for _ in range(reporting.MAX_JSON_DEPTH + 1):
+        nested = {"nested": nested}
+    with pytest.raises(ValidationError):
+        IncidentSnapshotV1.model_validate({"extracted_facts": {"nested": nested}})
+
+    with pytest.raises(ValidationError):
+        IncidentSnapshotV1.model_validate({
+            "extracted_facts": {
+                "persons": [{"actions": [float("nan")]}],
+            },
+        })
+
+    with pytest.raises(ValidationError):
+        IncidentSnapshotV1.model_validate({
+            "classification": {"provenance": {"source_commit": "client-owned"}},
         })
 
 
