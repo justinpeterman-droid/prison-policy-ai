@@ -307,6 +307,8 @@ release-one source.
 
 Each implementation task follows this exact lifecycle:
 
+For every task, the matching reviewed Claude prompt's exact `$allowed` array and staged-path revalidation replace any broader staging shorthand in a detailed plan. A worker must stage only those exact paths, must not execute both staging forms, and must stop if the plan and prompt file lists differ.
+
 1. Read `AGENTS.md`, the relevant approved specification, this roadmap, the relevant detailed plan task, and the matching Claude prompt.
 2. Run `git status --short`; stop on unexpected changes that overlap allowed files.
 3. Create a dedicated task branch from current reviewed `main`; never work directly on production resources.

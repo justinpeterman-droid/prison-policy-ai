@@ -31,6 +31,8 @@ Never ask Claude Code to work directly on production, push, merge, deploy, apply
 
 The detailed task section is the executable source of truth. The roadmap's locked cross-client wire contracts, stable errors, and canonical version projection override an accidental stale example elsewhere; any genuine contradiction is a stop condition that must return to plan review.
 
+For staging and committing, the assigned task prompt's exact `$allowed` array, union-based dirty-path check, `git add -A -- $allowed`, staged-path revalidation, and cached whitespace check are authoritative. Any broader `git add` example remaining in a detailed plan is non-executable legacy shorthand and is replaced by the prompt block; never execute both.
+
 ## Sequence and dependencies
 
 | Seq. | Task | Prompt | Depends on |
