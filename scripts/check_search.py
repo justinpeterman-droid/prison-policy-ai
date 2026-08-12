@@ -5,6 +5,11 @@ reports latency, raw hit count, and how many hits yielded usable passage text.
 Use it when the chat says it found nothing, or returns a generic error: it tells
 you *which* stage is broken — config, auth, retrieval, or text extraction.
 
+It then runs the semantic reranker over those passages. That stage fails open
+and silently, so a working chat is no evidence it is reaching the Ranking API —
+this is the only way to see whether it is. A reranking failure does NOT affect
+the exit code: the chat still works without it.
+
 Needs GCP Application Default Credentials. Run from the repo root:
 
     PYTHONPATH=. python3 scripts/check_search.py
@@ -18,8 +23,44 @@ import time
 
 from backend.pipeline.config import search_config_summary
 from backend.pipeline.query import _search_with_stats
+from backend.pipeline.rerank import rerank_passages, rerank_status
 
 DEFAULT_QUERY = "use of force"
+
+
+def _report_rerank(query: str, passages: list[dict]) -> None:
+    """Run the semantic reranker over the retrieved passages and show what it
+    changed. Diagnostic only — reranking fails open, so a failure here means
+    the chat is running on the retriever's ordering, not that it is broken."""
+    print("\nSemantic reranking")
+    print("-" * 60)
+    status = rerank_status()
+    if not status["enabled"]:
+        print("  disabled via RERANK_ENABLED — retriever ordering is used as-is")
+        return
+
+    before = [p["source"] for p in passages]
+    start = time.monotonic()
+    reranked = rerank_passages(query, passages)
+    elapsed = time.monotonic() - start
+    status = rerank_status()  # re-read: a permanent failure disables it here
+
+    reason = status["disabled_reason"]
+    if reason:
+        print(f"  UNAVAILABLE      {str(reason)[:200]}")
+        print("  → The chat still works; passages just keep the retriever's order.")
+        print(f"    Ranking config: {status['ranking_config']}")
+        return
+
+    after = [p["source"] for p in reranked]
+    print(f"  latency          {elapsed:.2f}s")
+    print(f"  model            {status['model']}")
+    print(f"  order changed    {'yes' if after != before else 'no'}")
+    if after != before:
+        print("  new top sources:")
+        for p in reranked[:5]:
+            preview = " ".join(p["text"].split())[:80]
+            print(f"    - {p['source']}: {preview}…")
 
 
 def main(argv: list[str]) -> int:
@@ -61,6 +102,8 @@ def main(argv: list[str]) -> int:
         preview = " ".join(p["text"].split())[:80]
         print(f"    - {p['source']}: {preview}…")
     print("\n  OK — search returned usable passages.")
+
+    _report_rerank(query, passages)
     return 0
 
 

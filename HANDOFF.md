@@ -136,5 +136,21 @@ and workflow-permission issues — is separate and should stay on.
   (`UNGROUNDED_NOTE`), not blocked, to protect passage-less PREA/DOMAIN_RULES
   answers. A stricter "block unless a domain rule fired" mode is a possible
   follow-up.
-- **Next RAG levers** — semantic reranker (Vertex Ranking API) and extractive
-  segments; both need the live env to tune against the eval baseline (§2).
+- **Semantic reranker** — **shipped** (`backend/pipeline/rerank.py`), on by
+  default and fails open. Two things still need the live env:
+  1. **Confirm it is actually reaching the Ranking API.** It fails open
+     *silently*, so a working chat proves nothing.
+     `PYTHONPATH=. python3 scripts/check_search.py "use of force"` now reports
+     whether the ranker ran, its latency, and whether it changed the order. If
+     it prints `UNAVAILABLE`, the service account is likely missing
+     `discoveryengine.rankingConfigs.rank` — grant
+     `roles/discoveryengine.viewer` on the project.
+  2. **Measure it** against the eval set (§2): run once plain, once with
+     `--no-rerank`, and compare answer pass-rate. Reranking cannot change
+     *which* documents were retrieved, only which reach the generator, so
+     watch answer quality rather than retrieval hit-rate.
+- **Next RAG lever** — extractive segments. Implemented but **dead in
+  production**: the data store rejects the extractive-content spec (400), so
+  search runs permanently in snippets-only fallback and the richer passages
+  RC-5 added never reach anyone. Needs a data store provisioned for extractive
+  content; that is a corpus/data-store change, not a code change.

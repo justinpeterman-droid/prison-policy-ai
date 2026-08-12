@@ -40,7 +40,9 @@ prison-policy-ai/
 ├── backend/                     # THE Flask product (absolute `backend.*` imports)
 │   ├── pipeline/                # Policy RAG chat
 │   │   ├── config.py            # All env-driven config + ACCESS_CODE + logger
-│   │   ├── query.py             # gate → expand → search (Agent Builder) → generate
+│   │   ├── query.py             # gate → augment → search (Agent Builder) → rerank → generate
+│   │   ├── rerank.py            # Semantic reranking (Ranking API); fails open
+│   │   ├── gcp_auth.py          # Cached ADC access token, shared by both REST callers
 │   │   ├── extract.py, chunk.py, embed.py, import_to_agent_builder.py  # corpus build
 │   ├── reports/                 # v2 report engine (see "Report pipeline" below)
 │   │   ├── classifier.py        # Incident-type detection (Gemini) + charge suggestion
@@ -269,8 +271,8 @@ object is created on the first roster edit, seeded from `templates/staff_roster.
 
 ## Policy chat pipeline
 
-`backend/pipeline/query.py`: `answer_question()` runs **gate → expand → search →
-generate**.
+`backend/pipeline/query.py`: `answer_question()` runs **gate → augment → search →
+rerank → generate**.
 
 - **Gate** (`_classify_query`): keyword fast-path then a Gemini fallback; off-topic
   queries get a canned "you're at work" reply. Fails **open**.
@@ -281,6 +283,22 @@ generate**.
 - **Search**: Vertex AI **Agent Builder / Discovery Engine** data store
   (`prison-policies-engine`) via REST — *not* the older `vertexai.preview.rag` corpus
   (that migration was to draw on the Agent Builder credit; README wording may lag).
+- **Rerank** (`rerank.rerank_passages`, Vertex AI **Ranking API**): a cross-encoder
+  pass that reorders the retrieved passages by how well each one answers the
+  question, before `select_passages` trims them. Retrieval is tuned for recall and
+  scores question and passage independently; the ranker reads them *together*.
+  This matters because `select_passages` spends its per-source cap and character
+  budget in list order and keeps only the first `MAX_CONTEXT_PASSAGES` — the
+  ordering it is handed decides what the generator ever sees. **Fails open:** any
+  error, timeout or missing permission returns the retriever's own ordering, so
+  the chat is never worse than before. A *permanent* failure (400/401/403/404 —
+  wrong ranking-config path, API not enabled, missing IAM) disables it for the
+  process after one log line, rather than paying the latency on every turn
+  forever. It ranks against the officer's **original** question, not the
+  slang-augmented search query — the appended terms are a recall device for
+  Discovery Engine and only dilute a semantic question/passage comparison.
+  `RERANK_ENABLED=0` switches it off; `rerank_status()` reports live state and
+  `scripts/check_search.py` prints it.
 - **Generate**: Gemini with `CHAT_SYSTEM_PROMPT`, which embeds hard-coded
   `DOMAIN_RULES` (PREA zero-tolerance, undue familiarity) the model must never
   contradict. The top `MAX_CONTEXT_PASSAGES` passages (deduped + per-source-capped
@@ -341,7 +359,14 @@ runner drives the live pipeline. Expand/tune `cases.jsonl` against the real corp
 PYTHONPATH=. python3 tests/eval/run_eval.py            # full scorecard → tests/eval/output/
 PYTHONPATH=. python3 tests/eval/run_eval.py --gate-only
 PYTHONPATH=. python3 tests/eval/run_eval.py --id prea_dating
+PYTHONPATH=. python3 tests/eval/run_eval.py --no-rerank   # A/B the semantic reranker
 ```
+
+**No baseline has ever been recorded** — `tests/eval/output/` does not exist in any
+checkout, and `cases.jsonl`'s `expect_sources` are still placeholder titles rather
+than real corpus doc names. Every retrieval-quality change (reranking included) is
+therefore reasoned, not measured. Running the set twice — plain, then `--no-rerank`
+— is the cheapest way to change that; the scorecard stamps which mode it ran in.
 
 ---
 
@@ -372,8 +397,8 @@ PYTHONPATH=. python3 tests/eval/run_eval.py --id prea_dating
   LIVE/CTA accents). Keep nav brand markup consistent across pages.
 - **Config is centralized** in `backend/pipeline/config.py` and read from env vars
   (`GCP_PROJECT_ID`, `GCP_LOCATION`, `FAST_MODEL`, `PRO_MODEL`, `GCP_MODEL_LOCATION`,
-  `RAG_CORPUS_NAME`, `ACCESS_CODE`, `ADMIN_CODE`, `ROSTER_BUCKET`, `LOG_LEVEL`, …). Add new knobs
-  there.
+  `RAG_CORPUS_NAME`, `ACCESS_CODE`, `ADMIN_CODE`, `ROSTER_BUCKET`, `RERANK_ENABLED`,
+  `LOG_LEVEL`, …). Add new knobs there.
 - **Two Gemini tiers** (config.py): `FAST_MODEL` (default `gemini-3.6-flash`) drives the
   chat gate, incident classifier, and slot extraction; `PRO_MODEL` (default
   `gemini-3.1-pro-preview` — Vertex only serves this model under the "-preview" suffix
@@ -392,6 +417,15 @@ PYTHONPATH=. python3 tests/eval/run_eval.py --id prea_dating
   (`AGENT_BUILDER_DATA_STORE`), while the chat searches the *engine* built on it — if
   the engine is attached to a different store, imports succeed and search still finds
   nothing.
+- **Rerank config knobs** (config.py): `RERANK_ENABLED` (default on),
+  `RERANK_MODEL`, and the `ranking_config_path()` parts `RERANK_LOCATION` /
+  `RERANK_CONFIG_ID`. The Ranking API is a **separate resource from the search
+  engine** — a working chat says nothing about whether reranking is reaching it,
+  because reranking fails open and silently. `search_config_summary()` includes the
+  resolved ranking config, and `scripts/check_search.py` shows whether the ranker
+  ran, how long it took, and whether it changed the order. The Cloud Run service
+  account needs `roles/discoveryengine.viewer` (or equivalent) for
+  `discoveryengine.rankingConfigs.rank`.
 - **Diagnosing a broken chat:** `PYTHONPATH=. python3 scripts/check_search.py "use of
   force"` prints the resolved config and runs one query, reporting latency, raw hit
   count, and usable passages. It distinguishes config/auth failure from an empty

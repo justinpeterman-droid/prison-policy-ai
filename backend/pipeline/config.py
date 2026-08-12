@@ -67,6 +67,35 @@ def serving_config_path() -> str:
             f"/servingConfigs/{AGENT_BUILDER_SERVING_CONFIG}")
 
 
+# ── Semantic reranking (Vertex AI Ranking API) ──
+# A cross-encoder pass over the passages retrieval already found, reordering
+# them by how well each one actually answers the question. See
+# backend/pipeline/rerank.py.
+#
+# On by default because it fails open: any error, timeout or missing permission
+# leaves the retriever's original order in place and the chat behaves exactly as
+# it did before. Set RERANK_ENABLED=0 to switch it off outright (useful for
+# A/B-ing the eval scorecard, which is what `run_eval.py --no-rerank` does).
+#
+# Every part of the ranking-config path is an env knob for the same reason the
+# serving-config path is (RC-2): a mismatch in any one of them fails the call,
+# and it must be fixable without a code change.
+RERANK_ENABLED = os.getenv("RERANK_ENABLED", "1").strip().lower() not in (
+    "0", "false", "no", "off", "")
+RERANK_LOCATION = os.getenv("RERANK_LOCATION", "global")
+RERANK_CONFIG_ID = os.getenv("RERANK_CONFIG_ID", "default_ranking_config")
+# "@latest" tracks the current default semantic ranker. Pin a dated id (e.g.
+# semantic-ranker-512-003) if ordering needs to be reproducible across a
+# model refresh.
+RERANK_MODEL = os.getenv("RERANK_MODEL", "semantic-ranker-default@latest")
+
+
+def ranking_config_path() -> str:
+    """Fully-qualified Ranking API config used by the semantic reranker."""
+    return (f"projects/{PROJECT_ID}/locations/{RERANK_LOCATION}"
+            f"/rankingConfigs/{RERANK_CONFIG_ID}")
+
+
 def search_config_summary() -> dict:
     """Resolved search config, for logs and the diagnostic script.
     Contains no secrets — safe to log."""
@@ -80,6 +109,9 @@ def search_config_summary() -> dict:
         "model_location": MODEL_LOCATION,
         "fast_model": FAST_MODEL,
         "pro_model": PRO_MODEL,
+        "rerank_enabled": RERANK_ENABLED,
+        "rerank_model": RERANK_MODEL,
+        "ranking_config_path": ranking_config_path(),
     }
 
 CORPUS_NAME = os.getenv("RAG_CORPUS_NAME", "prison-policies")
