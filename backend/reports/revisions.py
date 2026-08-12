@@ -17,6 +17,7 @@ from backend.persistence.models.reporting import (
     Incident,
     IncidentRevision,
     Report,
+    ReportAccess,
     ReportRevision,
 )
 from backend.persistence.models.identity import StaffMember
@@ -38,6 +39,7 @@ __all__ = [
     "save_incident",
     "save_report",
     "save_report_status",
+    "transfer_report_ownership",
 ]
 
 DEFAULT_CLIENT_VERSION = "0.0.0-development"
@@ -533,3 +535,107 @@ def create_recovery_revision(
     )
     session.flush()
     return recovery
+
+
+def transfer_report_ownership(
+    session: Session,
+    actor: Actor,
+    report_id: UUID,
+    new_owner_staff_id: UUID,
+    new_preparer_staff_id: UUID | None,
+    *,
+    request_id: str | None = None,
+    client_version: str | None = None,
+    audit_writer: AuditWriter | None = None,
+) -> ReportRevision:
+    """Replace owner/preparer access, then append an ownership revision.
+
+    Locks the report and every access row it has ever had, verifies both
+    target staff members are active, revokes access for anyone no longer in
+    the resolved owner/preparer pair, grants (or reactivates) access for the
+    resolved pair, and appends an unchanged-content revision naming the
+    administrator. `report_access` is keyed on `(report_id, staff_member_id)`
+    -- one row per staff member per report for all time -- so returning
+    access reactivates that staff member's existing row rather than
+    inserting a second one; a row already revoked before is never deleted,
+    only its `revoked_at`/`relationship` are updated forward.
+    """
+    request_id, client_version, audit_writer = _metadata(
+        request_id, client_version, audit_writer)
+    report = _lock_row(session, Report, report_id)
+    resolved_preparer = new_preparer_staff_id or report.prepared_by_staff_member_id
+    target_ids = {new_owner_staff_id, resolved_preparer}
+    active = session.execute(
+        select(StaffMember)
+        .where(StaffMember.id.in_(target_ids), StaffMember.is_active.is_(True))
+        .with_for_update()
+    ).scalars().all()
+    if {row.id for row in active} != target_ids:
+        raise ValueError("Transfer targets must identify active staff.")
+
+    existing_by_staff = {
+        row.staff_member_id: row
+        for row in session.execute(
+            select(ReportAccess).where(ReportAccess.report_id == report_id).with_for_update()
+        ).scalars().all()
+    }
+    fixed = datetime.now(UTC)
+    old_owner_staff_id = report.reporting_staff_member_id
+
+    relationships = [(new_owner_staff_id, "owner")]
+    if resolved_preparer != new_owner_staff_id:
+        relationships.append((resolved_preparer, "preparer"))
+    final_staff_ids = {staff_id for staff_id, _relationship in relationships}
+
+    for staff_id, row in existing_by_staff.items():
+        if staff_id not in final_staff_ids and row.revoked_at is None:
+            row.revoked_at = fixed
+    for staff_id, relationship in relationships:
+        row = existing_by_staff.get(staff_id)
+        if row is not None:
+            row.relationship = relationship
+            row.revoked_at = None
+            row.granted_by_account_id = actor.account_id
+        else:
+            session.add(ReportAccess(
+                report_id=report_id, staff_member_id=staff_id, relationship=relationship,
+                granted_by_account_id=actor.account_id, created_at=fixed,
+            ))
+    report.reporting_staff_member_id = new_owner_staff_id
+    report.prepared_by_staff_member_id = resolved_preparer
+
+    payload = _report_payload(ReportContentV1.model_validate(report.current_content))
+    revision = ReportRevision(
+        report_id=report_id,
+        revision_number=_next_revision_number(
+            session, ReportRevision, ReportRevision.report_id, report_id),
+        editor_account_id=actor.account_id,
+        editor_staff_member_id=actor.staff_member_id,
+        snapshot=payload,
+        changed_fields={"fields": []},
+        reason="ownership_change",
+        provenance={},
+        client_version=client_version,
+        request_id=request_id,
+        created_at=fixed,
+    )
+    session.add(revision)
+    report.current_revision_number = revision.revision_number
+    report.updated_at = fixed
+    _append_audit(
+        session,
+        audit_writer,
+        actor,
+        action="report.ownership_transferred",
+        target_type="report",
+        target_id=report_id,
+        request_id=request_id,
+        details={
+            "report_id": str(report_id),
+            "old_owner_staff_id": str(old_owner_staff_id),
+            "new_owner_staff_id": str(new_owner_staff_id),
+        },
+        client_version=client_version,
+    )
+    session.flush()
+    return revision

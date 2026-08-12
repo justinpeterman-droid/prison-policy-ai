@@ -1,11 +1,11 @@
 """Authorized, caller-transaction-owned incident persistence operations."""
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 import json
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, event, or_, select
+from sqlalchemy import and_, event, or_, select, text
 from sqlalchemy.orm import Session, aliased
 
 from backend.identity.audit import AuditEventInput, AuditWriter, PostgresAuditWriter
@@ -29,6 +29,7 @@ from backend.reports.revisions import (
     restore_report,
     save_report,
     save_report_status,
+    transfer_report_ownership,
 )
 from backend.webapp.api_v1.middleware import Actor
 from backend.webapp.api_v1.schemas.reporting import (
@@ -106,6 +107,62 @@ class ReportPage:
 @dataclass(frozen=True)
 class ReportRevisionPage:
     items: list[ReportRevision]
+    next_cursor: dict[str, str] | None
+
+
+@dataclass(frozen=True)
+class AdminReportFilters:
+    """One closed set of bounded, indexed, structured-column search filters.
+
+    Reused as-is by RP-09 bulk export. Every field is optional; the caller
+    (route layer) is responsible for rejecting unknown or empty-string query
+    fields before constructing this.
+    """
+
+    report_id: UUID | None = None
+    incident_id: UUID | None = None
+    reporting_staff_id: UUID | None = None
+    preparer_staff_id: UUID | None = None
+    incident_date_from: date | None = None
+    incident_date_to: date | None = None
+    created_at_from: datetime | None = None
+    created_at_to: datetime | None = None
+    inmate_first_name: str | None = None
+    inmate_middle_name: str | None = None
+    inmate_last_name: str | None = None
+    inmate_adc_number: str | None = None
+    category: str | None = None
+    facility: str | None = None
+    location: str | None = None
+    shift: str | None = None
+    status: str | None = None
+    last_editor_staff_id: UUID | None = None
+    modified_at_from: datetime | None = None
+    modified_at_to: datetime | None = None
+
+
+ADMIN_REPORT_FILTER_FIELDS: tuple[str, ...] = tuple(AdminReportFilters.__dataclass_fields__)
+ADMIN_REPORT_SEARCH_SORTS: dict[str, bool] = {
+    "updated_at_desc": True,
+    "updated_at_asc": False,
+    "created_at_desc": True,
+    "created_at_asc": False,
+}
+ADMIN_REPORT_SEARCH_MAX_PAGE_SIZE = 100
+ADMIN_REPORT_SEARCH_DEFAULT_PAGE_SIZE = 50
+
+
+@dataclass(frozen=True)
+class AdminReportSearchItem:
+    report: Report
+    incident: Incident
+    last_editor_staff_member_id: UUID
+    inmate_adc_numbers: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class AdminReportSearchPage:
+    items: list[AdminReportSearchItem]
     next_cursor: dict[str, str] | None
 
 
@@ -763,6 +820,227 @@ def report_revision_content(revision: ReportRevision) -> dict:
     return ReportContentV1.model_validate(revision.snapshot).model_dump(mode="json")
 
 
+def get_report_admin(session: Session, report_id: UUID) -> ReportView:
+    """Load any report for an already-authorized Admin actor.
+
+    Existence, not a client-owned relationship, is the only precondition;
+    Admin authorization (role plus active elevation) is enforced by the
+    route-level guard before this is ever called.
+    """
+    report = session.get(Report, report_id)
+    if report is None:
+        raise ReportNotFound("Report not found.")
+    revision = session.scalar(select(ReportRevision).where(
+        ReportRevision.report_id == report.id,
+        ReportRevision.revision_number == report.current_revision_number,
+    ))
+    if revision is None:
+        raise ReportNotFound("Report not found.")
+    return _report_revision_view(session, report, revision)
+
+
+def list_report_revisions_admin(
+    session: Session, report_id: UUID, *, limit: int = 25,
+    cursor: dict[str, str] | None = None,
+) -> ReportRevisionPage:
+    if session.get(Report, report_id) is None:
+        raise ReportNotFound("Report not found.")
+    statement = select(ReportRevision).where(ReportRevision.report_id == report_id)
+    if cursor:
+        cursor_id = UUID(cursor["id"])
+        cursor_row = session.scalar(select(ReportRevision).where(
+            ReportRevision.report_id == report_id,
+            ReportRevision.id == cursor_id,
+        ))
+        if cursor_row is None or cursor_row.created_at.isoformat() != cursor["created_at"]:
+            raise ValueError("revision cursor is invalid")
+        statement = statement.where(or_(
+            ReportRevision.revision_number > cursor_row.revision_number,
+            and_(
+                ReportRevision.revision_number == cursor_row.revision_number,
+                ReportRevision.id > cursor_row.id,
+            ),
+        ))
+    rows = list(session.scalars(statement.order_by(
+        ReportRevision.revision_number, ReportRevision.id,
+    ).limit(limit + 1)).all())
+    page_rows = rows[:limit]
+    next_cursor = None
+    if len(rows) > limit:
+        last = page_rows[-1]
+        next_cursor = {"created_at": last.created_at.isoformat(), "id": str(last.id)}
+    return ReportRevisionPage(page_rows, next_cursor)
+
+
+def get_report_revision_admin(
+    session: Session, report_id: UUID, revision_number: int,
+) -> ReportRevision:
+    if session.get(Report, report_id) is None:
+        raise ReportNotFound("Report not found.")
+    revision = session.scalar(select(ReportRevision).where(
+        ReportRevision.report_id == report_id,
+        ReportRevision.revision_number == revision_number,
+    ))
+    if revision is None:
+        raise ReportRevisionNotFound("Report revision not found.")
+    return revision
+
+
+def _inmate_adc_numbers(extracted_facts: object) -> tuple[str, ...]:
+    persons = extracted_facts.get("persons") if isinstance(extracted_facts, dict) else None
+    if not isinstance(persons, list):
+        return ()
+    numbers: list[str] = []
+    for person in persons:
+        if not isinstance(person, dict) or person.get("role") != "inmate":
+            continue
+        adc = person.get("adc_number")
+        if isinstance(adc, str) and adc and adc not in numbers:
+            numbers.append(adc)
+    return tuple(numbers)
+
+
+_ADMIN_INMATE_FILTER_COLUMNS = {
+    "inmate_first_name": "first",
+    "inmate_middle_name": "middle",
+    "inmate_last_name": "last",
+}
+
+
+def admin_search_reports(
+    session: Session, filters: AdminReportFilters, *,
+    limit: int = ADMIN_REPORT_SEARCH_DEFAULT_PAGE_SIZE,
+    cursor: dict[str, str] | None = None, sort: str = "updated_at_desc",
+    actor: Actor, request_id: str, client_version: str,
+    audit_writer: AuditWriter | None = None,
+) -> AdminReportSearchPage:
+    """Bounded, indexed, structured-column Admin search.
+
+    Every predicate reads a structured column (report/incident fields or
+    structured `extracted_facts` persons entries) -- never the free-text
+    narrative or field notes. Writes exactly one bounded audit event naming
+    the filters that were used (never their values) and the result count.
+    """
+    if sort not in ADMIN_REPORT_SEARCH_SORTS:
+        raise ValueError("sort is invalid")
+    descending = ADMIN_REPORT_SEARCH_SORTS[sort]
+    sort_column = Report.updated_at if sort.startswith("updated_at") else Report.created_at
+
+    current_revision = aliased(ReportRevision)
+    statement = (
+        select(Report, Incident, current_revision)
+        .join(Incident, Incident.id == Report.incident_id)
+        .join(current_revision, and_(
+            current_revision.report_id == Report.id,
+            current_revision.revision_number == Report.current_revision_number,
+        ))
+    )
+    if filters.report_id is not None:
+        statement = statement.where(Report.id == filters.report_id)
+    if filters.incident_id is not None:
+        statement = statement.where(Report.incident_id == filters.incident_id)
+    if filters.reporting_staff_id is not None:
+        statement = statement.where(
+            Report.reporting_staff_member_id == filters.reporting_staff_id)
+    if filters.preparer_staff_id is not None:
+        statement = statement.where(
+            Report.prepared_by_staff_member_id == filters.preparer_staff_id)
+    if filters.incident_date_from is not None:
+        statement = statement.where(Incident.incident_date >= filters.incident_date_from)
+    if filters.incident_date_to is not None:
+        statement = statement.where(Incident.incident_date <= filters.incident_date_to)
+    if filters.created_at_from is not None:
+        statement = statement.where(Report.created_at >= filters.created_at_from)
+    if filters.created_at_to is not None:
+        statement = statement.where(Report.created_at <= filters.created_at_to)
+    if filters.category is not None:
+        statement = statement.where(Incident.category == filters.category)
+    if filters.facility is not None:
+        statement = statement.where(Incident.facility == filters.facility)
+    if filters.location is not None:
+        statement = statement.where(Incident.location == filters.location)
+    if filters.shift is not None:
+        statement = statement.where(Incident.shift == filters.shift)
+    if filters.status is not None:
+        statement = statement.where(Report.status == filters.status)
+    if filters.last_editor_staff_id is not None:
+        statement = statement.where(
+            current_revision.editor_staff_member_id == filters.last_editor_staff_id)
+    if filters.modified_at_from is not None:
+        statement = statement.where(Report.updated_at >= filters.modified_at_from)
+    if filters.modified_at_to is not None:
+        statement = statement.where(Report.updated_at <= filters.modified_at_to)
+
+    inmate_conditions = []
+    inmate_params: dict[str, str] = {}
+    for field_name, person_key in _ADMIN_INMATE_FILTER_COLUMNS.items():
+        value = getattr(filters, field_name)
+        if value is not None:
+            param = f"admin_{person_key}"
+            inmate_conditions.append(f"person->>'{person_key}' ILIKE :{param}")
+            inmate_params[param] = value
+    if filters.inmate_adc_number is not None:
+        inmate_conditions.append("person->>'adc_number' = :admin_adc_number")
+        inmate_params["admin_adc_number"] = filters.inmate_adc_number
+    if inmate_conditions:
+        clause = (
+            "EXISTS (SELECT 1 FROM jsonb_array_elements("
+            "COALESCE(incidents.extracted_facts->'persons', '[]'::jsonb)) AS person "
+            "WHERE person->>'role' = 'inmate' AND " + " AND ".join(inmate_conditions) + ")"
+        )
+        statement = statement.where(text(clause).bindparams(**inmate_params))
+
+    if cursor:
+        cursor_time = datetime.fromisoformat(cursor["created_at"].replace("Z", "+00:00"))
+        cursor_id = UUID(cursor["id"])
+        if descending:
+            statement = statement.where(or_(
+                sort_column < cursor_time,
+                and_(sort_column == cursor_time, Report.id < cursor_id),
+            ))
+        else:
+            statement = statement.where(or_(
+                sort_column > cursor_time,
+                and_(sort_column == cursor_time, Report.id > cursor_id),
+            ))
+    order = (
+        (sort_column.desc(), Report.id.desc()) if descending
+        else (sort_column.asc(), Report.id.asc())
+    )
+    rows = session.execute(statement.order_by(*order).limit(limit + 1)).all()
+    page_rows = rows[:limit]
+    items = [
+        AdminReportSearchItem(
+            report=row[0], incident=row[1],
+            last_editor_staff_member_id=row[2].editor_staff_member_id,
+            inmate_adc_numbers=_inmate_adc_numbers(row[1].extracted_facts),
+        )
+        for row in page_rows
+    ]
+    next_cursor = None
+    if len(rows) > limit:
+        last_report = page_rows[-1][0]
+        sort_value = last_report.updated_at if sort.startswith("updated_at") else last_report.created_at
+        next_cursor = {"created_at": sort_value.isoformat(), "id": str(last_report.id)}
+
+    provided_filters = sorted(
+        name for name in ADMIN_REPORT_FILTER_FIELDS if getattr(filters, name) is not None)
+    writer = audit_writer or PostgresAuditWriter()
+    writer.append(session, AuditEventInput(
+        actor_account_id=actor.account_id,
+        actor_staff_member_id=actor.staff_member_id,
+        action="admin.report_search",
+        result="success",
+        request_id=request_id,
+        target_type="report",
+        target_id=None,
+        details={"filters": provided_filters, "result_count": len(items)},
+        client_version=client_version,
+    ))
+    session.flush()
+    return AdminReportSearchPage(items, next_cursor)
+
+
 def _report_reference(
     view: ReportView, *, operation_revision_number: int | None = None,
 ) -> dict[str, object]:
@@ -798,6 +1076,134 @@ def _report_view_from_reference(
         ),
         revision_number,
     )
+
+
+def _report_view_from_reference_admin(
+    session: Session, reference: dict,
+) -> ReportView:
+    try:
+        report_id = UUID(str(reference["report_id"]))
+        revision_number = int(reference["revision_number"])
+        current_revision_number = int(reference["current_revision_number"])
+        status = str(reference["status"])
+    except (KeyError, TypeError, ValueError):
+        raise RuntimeError("idempotency reference is invalid") from None
+    report = session.get(Report, report_id)
+    if report is None:
+        raise RuntimeError("idempotency reference is invalid")
+    revision = session.scalar(select(ReportRevision).where(
+        ReportRevision.report_id == report_id,
+        ReportRevision.revision_number == revision_number,
+    ))
+    if revision is None:
+        raise RuntimeError("idempotency reference is invalid")
+    return _report_revision_view(
+        session, report, revision, status=status,
+        current_revision_number=current_revision_number,
+    )
+
+
+def save_report_admin_record(
+    session: Session, actor: Actor, report_id: UUID, request_model: SaveReportRequest,
+    idempotency_key: str, *, now: datetime | None = None, request_id: str,
+    client_version: str, audit_writer: AuditWriter | None = None,
+) -> ReportView:
+    """Admin edit: same shared revision service, reason fixed to admin_edit."""
+    validated = SaveReportRequest.model_validate(request_model)
+    fixed = now or datetime.now(UTC)
+    canonical = {"report_id": str(report_id), **validated.model_dump(mode="json")}
+    claim = claim_idempotency(
+        session, actor, key=idempotency_key, action="report.admin_edit",
+        request_sha256=request_digest(canonical), now=fixed,
+    )
+    if claim.replayed:
+        return _report_view_from_reference_admin(session, claim.response_reference or {})
+    try:
+        revision = save_report(
+            session, actor, report_id, validated.content,
+            validated.base_revision_number, "admin_edit",
+            request_id=request_id, client_version=client_version,
+            audit_writer=audit_writer,
+        )
+    except RevisionTargetMissing as error:
+        raise ReportNotFound(str(error)) from None
+    report = session.get(Report, report_id)
+    view = _report_revision_view(session, report, revision)
+    complete_idempotency(
+        session, claim, response_status=200,
+        response_reference=_report_reference(view), now=fixed,
+    )
+    session.flush()
+    return view
+
+
+def restore_report_admin_record(
+    session: Session, actor: Actor, report_id: UUID, revision_number: int,
+    idempotency_key: str, *, now: datetime | None = None, request_id: str,
+    client_version: str, audit_writer: AuditWriter | None = None,
+) -> ReportView:
+    fixed = now or datetime.now(UTC)
+    canonical = {"report_id": str(report_id), "revision_number": revision_number}
+    claim = claim_idempotency(
+        session, actor, key=idempotency_key, action="report.admin_restore",
+        request_sha256=request_digest(canonical), now=fixed,
+    )
+    if claim.replayed:
+        return _report_view_from_reference_admin(session, claim.response_reference or {})
+    try:
+        revision = restore_report(
+            session, actor, report_id, revision_number,
+            request_id=request_id, client_version=client_version,
+            audit_writer=audit_writer,
+        )
+    except RevisionTargetMissing as error:
+        raise ReportRevisionNotFound(str(error)) from None
+    report = session.get(Report, report_id)
+    view = _report_revision_view(session, report, revision)
+    complete_idempotency(
+        session, claim, response_status=200,
+        response_reference=_report_reference(view), now=fixed,
+    )
+    session.flush()
+    return view
+
+
+def transfer_report_ownership_record(
+    session: Session, actor: Actor, report_id: UUID, new_owner_staff_id: UUID,
+    new_preparer_staff_id: UUID | None, reason: str, idempotency_key: str, *,
+    now: datetime | None = None, request_id: str, client_version: str,
+    audit_writer: AuditWriter | None = None,
+) -> ReportView:
+    fixed = now or datetime.now(UTC)
+    canonical = {
+        "report_id": str(report_id),
+        "new_owner_staff_id": str(new_owner_staff_id),
+        "new_preparer_staff_id": (
+            str(new_preparer_staff_id) if new_preparer_staff_id else None),
+        "reason": reason,
+    }
+    claim = claim_idempotency(
+        session, actor, key=idempotency_key, action="report.transfer",
+        request_sha256=request_digest(canonical), now=fixed,
+    )
+    if claim.replayed:
+        return _report_view_from_reference_admin(session, claim.response_reference or {})
+    try:
+        revision = transfer_report_ownership(
+            session, actor, report_id, new_owner_staff_id, new_preparer_staff_id,
+            request_id=request_id, client_version=client_version,
+            audit_writer=audit_writer,
+        )
+    except RevisionTargetMissing as error:
+        raise ReportNotFound(str(error)) from None
+    report = session.get(Report, report_id)
+    view = _report_revision_view(session, report, revision)
+    complete_idempotency(
+        session, claim, response_status=200,
+        response_reference=_report_reference(view), now=fixed,
+    )
+    session.flush()
+    return view
 
 
 def save_report_record(
@@ -939,13 +1345,19 @@ def create_report_recovery_record(
 
 
 __all__ = [
+    "AdminReportFilters", "AdminReportSearchItem", "AdminReportSearchPage",
+    "ADMIN_REPORT_FILTER_FIELDS", "ADMIN_REPORT_SEARCH_SORTS",
+    "ADMIN_REPORT_SEARCH_DEFAULT_PAGE_SIZE", "ADMIN_REPORT_SEARCH_MAX_PAGE_SIZE",
     "IncidentNotFound", "IncidentRevisionNotFound", "IncidentRevisionPage", "IncidentView",
     "ReportNotFound", "ReportPage", "ReportRevisionNotFound", "ReportRevisionPage",
     "ReportSummaryRow", "ReportView", "create_report_recovery_record",
     "create_incident", "get_incident", "get_incident_revision",
-    "get_report", "get_report_revision", "list_report_revisions", "list_reports",
+    "get_report", "get_report_admin", "get_report_revision", "get_report_revision_admin",
+    "list_report_revisions", "list_report_revisions_admin", "list_reports",
+    "admin_search_reports",
     "incident_revision_content", "list_incident_revisions",
-    "report_revision_content", "restore_report_record", "save_report_record",
-    "save_report_status_record",
+    "report_revision_content", "restore_report_record", "restore_report_admin_record",
+    "save_report_record", "save_report_admin_record", "save_report_status_record",
+    "transfer_report_ownership_record",
     "restore_incident_record", "save_incident_record",
 ]
