@@ -1,0 +1,178 @@
+openapi: 3.1.0
+info:
+  title: Prison Policy Access API
+  version: 1.0.0
+  description: Versioned API for the managed Microsoft Access client.
+tags:
+  - name: Authentication
+  - name: Self
+  - name: Admin Staff
+  - name: Admin Accounts
+  - name: Browser Handoff
+security:
+  - AccessBearer: []
+paths:
+  /api/v1/client-policy:
+    get:
+      operationId: getClientPolicy
+      tags: [Authentication]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: Current Access compatibility policy
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestId"
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessEnvelope"
+components:
+  securitySchemes:
+    AccessBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+  parameters:
+    XClientVersion:
+      name: X-Client-Version
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+    XRequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      schema:
+        $ref: "#/components/schemas/RequestId"
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+  headers:
+    XRequestId:
+      description: Validated request correlation identifier.
+      schema:
+        $ref: "#/components/schemas/RequestId"
+  schemas:
+    RequestId:
+      type: string
+      pattern: '^[A-Za-z0-9_-]{8,64}$'
+      example: request_20260812_000001
+    UtcTimestamp:
+      type: string
+      format: date-time
+      example: '2026-08-12T18:30:00Z'
+    Uuid:
+      type: string
+      format: uuid
+      example: 00000000-0000-4000-8000-000000000001
+    Cursor:
+      type: string
+      minLength: 40
+      maxLength: 512
+    FictionalEmployeeNumber:
+      type: string
+      example: TEST-1001
+    OpaqueToken:
+      type: string
+      example: example-token-not-valid
+    ClientPolicy:
+      type: object
+      additionalProperties: false
+      required:
+        - release_version
+        - latest_client_version
+        - minimum_client_version
+        - minimum_server_version
+        - api_version
+        - release_notes
+        - read_only_required
+        - review_lab_origin
+        - field_notes_max_characters
+      properties:
+        release_version:
+          type: string
+          example: 1.4.0
+        latest_client_version:
+          type: string
+          example: 1.4.0
+        minimum_client_version:
+          type: string
+          example: 1.2.0
+        minimum_server_version:
+          type: string
+          example: 1.2.0
+        api_version:
+          type: string
+          enum: [v1]
+        release_notes:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: Fictional reviewed release.
+        read_only_required:
+          type: boolean
+          example: false
+        review_lab_origin:
+          type: string
+          format: uri
+          example: https://review.example.gov
+        field_notes_max_characters:
+          type: integer
+          const: 30000
+          example: 30000
+    SuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, request_id, server_time, api_version]
+      properties:
+        data:
+          $ref: "#/components/schemas/ClientPolicy"
+        request_id:
+          $ref: "#/components/schemas/RequestId"
+        server_time:
+          $ref: "#/components/schemas/UtcTimestamp"
+        api_version:
+          type: string
+          const: v1
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, retryable]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        retryable:
+          type: boolean
+        details:
+          type: object
+          additionalProperties: true
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error, request_id, server_time, api_version]
+      properties:
+        error:
+          $ref: "#/components/schemas/Error"
+        request_id:
+          $ref: "#/components/schemas/RequestId"
+        server_time:
+          $ref: "#/components/schemas/UtcTimestamp"
+        api_version:
+          type: string
+          const: v1

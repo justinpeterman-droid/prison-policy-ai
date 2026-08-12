@@ -1,4 +1,5 @@
 """Prison Policy AI — Flask web application with simple access-code auth."""
+import os
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 
@@ -153,6 +154,13 @@ def create_app() -> Flask:
     # Vertex AI cost. Flask returns 413 automatically when exceeded.
     app.config["MAX_CONTENT_LENGTH"] = 1_000_000
 
+    from backend.identity.config import IdentitySettings
+    from backend.persistence.database import init_database
+
+    identity_settings = IdentitySettings.from_env(os.environ)
+    app.config["IDENTITY_SETTINGS"] = identity_settings
+    init_database(identity_settings)
+
     # Content-versioned /static URLs, long-lived cache headers, and gzip for
     # text responses. Must be registered before the blueprints so its
     # after_request runs last (Flask runs them in reverse registration order).
@@ -170,6 +178,10 @@ def create_app() -> Flask:
     app.register_blueprint(roster_bp)
     app.register_blueprint(feedback_bp)
     app.register_blueprint(review_lab_bp)
+    if identity_settings.enabled:
+        from backend.webapp.api_v1 import api_v1_bp
+
+        app.register_blueprint(api_v1_bp)
 
     # Record the resolved search/model config at startup so the values actually
     # in use are visible in the logs — a config mismatch is the usual cause of a
@@ -199,6 +211,8 @@ def create_app() -> Flask:
         the roster shouldn't advertise its own existence to someone who can't
         use it.
         """
+        if request.path.startswith("/api/v1/"):
+            return None
         if not ACCESS_CODE:
             return None
         if request.path in AUTH_EXEMPT or request.path.startswith("/static/"):
