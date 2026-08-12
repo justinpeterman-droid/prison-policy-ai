@@ -132,6 +132,11 @@ paths:
         - $ref: "#/components/parameters/IncidentId"
         - $ref: "#/components/parameters/XClientVersion"
         - $ref: "#/components/parameters/XRequestId"
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 100 }
+        - $ref: "#/components/parameters/PageCursor"
       responses:
         "200":
           description: Authorized immutable incident revision summaries
@@ -1377,7 +1382,7 @@ components:
     IncidentContent:
       type: object
       additionalProperties: false
-      properties:
+      properties: &IncidentContentProperties
         schema_version: { type: integer, const: 1, default: 1 }
         field_notes:
           type: string
@@ -1419,36 +1424,34 @@ components:
       additionalProperties: false
       required: [field_notes, base_revision_number]
       properties:
+        <<: *IncidentContentProperties
         field_notes:
           type: string
           maxLength: 30000
           example: Fictional revised field notes for incident contract testing.
         base_revision_number: { type: integer, minimum: 1, example: 1 }
         reason: { type: string, enum: [autosave, manual_save], default: manual_save }
-      allOf:
-        - $ref: "#/components/schemas/IncidentContent"
     IncidentData:
-      allOf:
-        - $ref: "#/components/schemas/IncidentContent"
-        - type: object
-          additionalProperties: false
-          required: [incident_id, status, current_revision_number, reporting_staff_ids, field_notes, created_at, updated_at]
-          properties:
-            incident_id: { $ref: "#/components/schemas/Uuid" }
-            status: { type: string, enum: [in_progress, completed, archived] }
-            current_revision_number: { type: integer, minimum: 1 }
-            reporting_staff_ids:
-              type: array
-              minItems: 1
-              maxItems: 20
-              items: { $ref: "#/components/schemas/Uuid" }
-            created_at: { $ref: "#/components/schemas/UtcTimestamp" }
-            updated_at: { $ref: "#/components/schemas/UtcTimestamp" }
+      type: object
+      additionalProperties: false
+      required: [incident_id, status, current_revision_number, reporting_staff_ids, field_notes, created_at, updated_at]
+      properties:
+        <<: *IncidentContentProperties
+        incident_id: { $ref: "#/components/schemas/Uuid" }
+        status: { type: string, enum: [in_progress, completed, archived] }
+        current_revision_number: { type: integer, minimum: 1 }
+        reporting_staff_ids:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { $ref: "#/components/schemas/Uuid" }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UtcTimestamp" }
     IncidentRevisionSummary:
       type: object
       additionalProperties: false
       required: [revision_number, reason, changed_fields, editor_staff_member_id, client_version, created_at]
-      properties:
+      properties: &IncidentRevisionSummaryProperties
         revision_number: { type: integer, minimum: 1 }
         reason: { type: string, enum: [autosave, manual_save, ai_result, restored, status_change, ownership_change, recovery] }
         changed_fields:
@@ -1459,18 +1462,21 @@ components:
         client_version: { type: string, maxLength: 64 }
         created_at: { $ref: "#/components/schemas/UtcTimestamp" }
     IncidentRevisionData:
-      allOf:
-        - $ref: "#/components/schemas/IncidentContent"
-        - $ref: "#/components/schemas/IncidentRevisionSummary"
+      type: object
+      additionalProperties: false
+      required: [revision_number, reason, changed_fields, editor_staff_member_id, client_version, created_at]
+      properties:
+        <<: [*IncidentContentProperties, *IncidentRevisionSummaryProperties]
     IncidentRevisionListData:
       type: object
       additionalProperties: false
-      required: [items]
+      required: [items, next_cursor]
       properties:
         items:
           type: array
           maxItems: 100
           items: { $ref: "#/components/schemas/IncidentRevisionSummary" }
+        next_cursor: { $ref: "#/components/schemas/PageCursorValue" }
     IncidentRestoreRequest:
       type: object
       additionalProperties: false

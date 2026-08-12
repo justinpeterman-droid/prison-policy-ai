@@ -1,9 +1,11 @@
 """Authorized, caller-transaction-owned incident persistence operations."""
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import json
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, event, or_, select
 from sqlalchemy.orm import Session
 
 from backend.identity.audit import AuditEventInput, AuditWriter, PostgresAuditWriter
@@ -45,6 +47,16 @@ class IncidentRevisionNotFound(LookupError):
 class IncidentView:
     incident: Incident
     reporting_staff_ids: tuple[UUID, ...]
+    revision_number: int | None = None
+    status: str | None = None
+    content: dict | None = None
+    updated_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class IncidentRevisionPage:
+    items: list[IncidentRevision]
+    next_cursor: dict[str, str] | None
 
 
 def _content_payload(value: IncidentSnapshotV1 | SaveIncidentRequest) -> dict:
@@ -74,6 +86,41 @@ def _selection_from_snapshot(snapshot: dict) -> tuple[UUID, ...]:
         raise RuntimeError("incident server metadata is invalid") from None
 
 
+def _content_from_snapshot(snapshot: dict) -> dict:
+    content = {
+        key: value for key, value in snapshot.items()
+        if key not in {SERVER_METADATA_KEY, "provenance"}
+    }
+    return IncidentSnapshotV1.model_validate_json(
+        json.dumps(content)).model_dump(mode="json")
+
+
+@event.listens_for(Session, "before_flush")
+def _carry_incident_server_metadata(session, _flush_context, _instances) -> None:
+    """Carry trusted selection metadata into revisions written by RP-02 services."""
+    for revision in tuple(session.new):
+        if not isinstance(revision, IncidentRevision):
+            continue
+        snapshot = revision.snapshot
+        if not isinstance(snapshot, dict) or SERVER_METADATA_KEY in snapshot:
+            continue
+        previous = session.scalar(
+            select(IncidentRevision)
+            .where(
+                IncidentRevision.incident_id == revision.incident_id,
+                IncidentRevision.snapshot.has_key(SERVER_METADATA_KEY),  # noqa: W601
+            )
+            .order_by(
+                IncidentRevision.revision_number.desc(), IncidentRevision.id.desc())
+            .limit(1)
+        )
+        if previous is not None:
+            revision.snapshot = {
+                **snapshot,
+                SERVER_METADATA_KEY: deepcopy(previous.snapshot[SERVER_METADATA_KEY]),
+            }
+
+
 def _latest_revision(session: Session, incident_id: UUID) -> IncidentRevision:
     revision = session.scalar(
         select(IncidentRevision)
@@ -86,7 +133,7 @@ def _latest_revision(session: Session, incident_id: UUID) -> IncidentRevision:
     return revision
 
 
-def _active_selection(session: Session, values: object) -> tuple[UUID, ...]:
+def _normalize_selection(values: object) -> tuple[UUID, ...]:
     if not isinstance(values, list) or not 1 <= len(values) <= MAX_REPORTING_STAFF:
         raise ValueError("reporting_staff_ids must contain 1 through 20 staff UUIDs")
     normalized = []
@@ -101,6 +148,10 @@ def _active_selection(session: Session, values: object) -> tuple[UUID, ...]:
         if staff_id not in seen:
             normalized.append(staff_id)
             seen.add(staff_id)
+    return tuple(normalized)
+
+
+def _active_selection(session: Session, normalized: tuple[UUID, ...]) -> tuple[UUID, ...]:
     rows = session.scalars(select(StaffMember).where(
         StaffMember.id.in_(normalized), StaffMember.is_active.is_(True),
     )).all()
@@ -174,9 +225,36 @@ def _apply_content(incident: Incident, validated: IncidentSnapshotV1, payload: d
 def _view_from_reference(session: Session, actor: Actor, reference: dict) -> IncidentView:
     try:
         incident_id = UUID(str(reference["incident_id"]))
+        revision_number = int(reference["revision_number"])
+        reporting_staff_ids = tuple(
+            UUID(str(value)) for value in reference["reporting_staff_ids"])
+        status = str(reference["status"])
     except (KeyError, TypeError, ValueError):
         raise RuntimeError("idempotency reference is invalid") from None
-    return get_incident(session, actor, incident_id)
+    incident = session.get(Incident, incident_id)
+    revision = session.scalar(select(IncidentRevision).where(
+        IncidentRevision.incident_id == incident_id,
+        IncidentRevision.revision_number == revision_number,
+    ))
+    if incident is None or revision is None:
+        raise RuntimeError("idempotency reference is invalid")
+    return IncidentView(
+        incident,
+        reporting_staff_ids,
+        revision_number=revision_number,
+        status=status,
+        content=_content_from_snapshot(revision.snapshot),
+        updated_at=revision.created_at,
+    )
+
+
+def _response_reference(view: IncidentView) -> dict[str, object]:
+    return {
+        "incident_id": str(view.incident.id),
+        "revision_number": view.revision_number or view.incident.current_revision_number,
+        "reporting_staff_ids": [str(value) for value in view.reporting_staff_ids],
+        "status": view.status or view.incident.status,
+    }
 
 
 def create_incident(
@@ -195,7 +273,7 @@ def create_incident(
     validated = SaveIncidentRequest.model_validate(request_model)
     if validated.base_revision_number != 0:
         raise ValueError("A new incident must use base_revision_number 0.")
-    selection = _active_selection(session, reporting_staff_ids)
+    selection = _normalize_selection(reporting_staff_ids)
     content = _content_payload(validated)
     canonical = {
         "reporting_staff_ids": [str(value) for value in selection],
@@ -208,6 +286,7 @@ def create_incident(
     )
     if claim.replayed:
         return _view_from_reference(session, actor, claim.response_reference or {})
+    selection = _active_selection(session, selection)
 
     incident = Incident(
         id=uuid4(),
@@ -240,12 +319,16 @@ def create_incident(
         request_id=request_id, client_version=client_version,
         details={"incident_id": str(incident.id)},
     )
+    view = IncidentView(
+        incident, selection, revision_number=1, status=incident.status,
+        content=content, updated_at=fixed,
+    )
     complete_idempotency(
         session, claim, response_status=201,
-        response_reference={"incident_id": str(incident.id)}, now=fixed,
+        response_reference=_response_reference(view), now=fixed,
     )
     session.flush()
-    return IncidentView(incident, selection)
+    return view
 
 
 def save_incident_record(
@@ -255,7 +338,6 @@ def save_incident_record(
     audit_writer: AuditWriter | None = None,
 ) -> IncidentView:
     validated = SaveIncidentRequest.model_validate(request_model)
-    current = get_incident(session, actor, incident_id)
     fixed = now or datetime.now(UTC)
     canonical = {"incident_id": str(incident_id), **validated.model_dump(mode="json")}
     claim = claim_idempotency(
@@ -264,6 +346,7 @@ def save_incident_record(
     )
     if claim.replayed:
         return _view_from_reference(session, actor, claim.response_reference or {})
+    current = get_incident(session, actor, incident_id)
     content = IncidentSnapshotV1.model_validate(validated.model_dump(
         exclude={"base_revision_number", "reason"}))
     incident = session.scalar(select(Incident).where(
@@ -311,21 +394,48 @@ def save_incident_record(
             "reason": validated.reason,
         },
     )
+    view = IncidentView(
+        incident, current.reporting_staff_ids, revision_number=next_number,
+        status=incident.status, content=payload, updated_at=fixed,
+    )
     complete_idempotency(
         session, claim, response_status=200,
-        response_reference={"incident_id": str(incident_id)}, now=fixed,
+        response_reference=_response_reference(view), now=fixed,
     )
     session.flush()
-    return IncidentView(incident, current.reporting_staff_ids)
+    return view
 
 
 def list_incident_revisions(
-    session: Session, actor: Actor, incident_id: UUID,
-) -> list[IncidentRevision]:
+    session: Session, actor: Actor, incident_id: UUID, *, limit: int = 100,
+    cursor: dict[str, str] | None = None,
+) -> IncidentRevisionPage:
     get_incident(session, actor, incident_id)
-    return list(session.scalars(select(IncidentRevision).where(
-        IncidentRevision.incident_id == incident_id,
-    ).order_by(IncidentRevision.revision_number)).all())
+    statement = select(IncidentRevision).where(IncidentRevision.incident_id == incident_id)
+    if cursor:
+        cursor_id = UUID(cursor["id"])
+        cursor_row = session.scalar(select(IncidentRevision).where(
+            IncidentRevision.incident_id == incident_id,
+            IncidentRevision.id == cursor_id,
+        ))
+        if cursor_row is None or cursor_row.created_at.isoformat() != cursor["created_at"]:
+            raise ValueError("revision cursor is invalid")
+        statement = statement.where(or_(
+            IncidentRevision.revision_number > cursor_row.revision_number,
+            and_(
+                IncidentRevision.revision_number == cursor_row.revision_number,
+                IncidentRevision.id > cursor_row.id,
+            ),
+        ))
+    rows = list(session.scalars(statement.order_by(
+        IncidentRevision.revision_number, IncidentRevision.id,
+    ).limit(limit + 1)).all())
+    page_rows = rows[:limit]
+    next_cursor = None
+    if len(rows) > limit:
+        last = page_rows[-1]
+        next_cursor = {"created_at": last.created_at.isoformat(), "id": str(last.id)}
+    return IncidentRevisionPage(page_rows, next_cursor)
 
 
 def get_incident_revision(
@@ -348,7 +458,6 @@ def restore_incident_record(
 ) -> IncidentView:
     if not isinstance(revision_number, int) or isinstance(revision_number, bool) or revision_number < 1:
         raise ValueError("revision_number must be a positive integer")
-    current = get_incident(session, actor, incident_id)
     fixed = now or datetime.now(UTC)
     canonical = {"incident_id": str(incident_id), "revision_number": revision_number}
     claim = claim_idempotency(
@@ -357,15 +466,14 @@ def restore_incident_record(
     )
     if claim.replayed:
         return _view_from_reference(session, actor, claim.response_reference or {})
+    current = get_incident(session, actor, incident_id)
     incident = session.scalar(select(Incident).where(
         Incident.id == incident_id).with_for_update())
     if incident is None:
         raise IncidentNotFound("Incident not found.")
     source = get_incident_revision(session, actor, incident_id, revision_number)
-    source_content = {
-        key: value for key, value in source.snapshot.items() if key != SERVER_METADATA_KEY
-    }
-    validated = IncidentSnapshotV1.model_validate(source_content)
+    validated = IncidentSnapshotV1.model_validate_json(json.dumps(
+        _content_from_snapshot(source.snapshot)))
     payload = validated.model_dump(mode="json")
     previous = IncidentSnapshotV1.model_validate({
         field: getattr(incident, field)
@@ -397,23 +505,24 @@ def restore_incident_record(
             "source_revision_number": revision_number,
         },
     )
+    view = IncidentView(
+        incident, current.reporting_staff_ids, revision_number=next_number,
+        status=incident.status, content=payload, updated_at=fixed,
+    )
     complete_idempotency(
         session, claim, response_status=200,
-        response_reference={"incident_id": str(incident_id)}, now=fixed,
+        response_reference=_response_reference(view), now=fixed,
     )
     session.flush()
-    return IncidentView(incident, current.reporting_staff_ids)
+    return view
 
 
 def incident_revision_content(revision: IncidentRevision) -> dict:
-    return {
-        key: value for key, value in revision.snapshot.items()
-        if key != SERVER_METADATA_KEY
-    }
+    return _content_from_snapshot(revision.snapshot)
 
 
 __all__ = [
-    "IncidentNotFound", "IncidentRevisionNotFound", "IncidentView",
+    "IncidentNotFound", "IncidentRevisionNotFound", "IncidentRevisionPage", "IncidentView",
     "create_incident", "get_incident", "get_incident_revision",
     "incident_revision_content", "list_incident_revisions",
     "restore_incident_record", "save_incident_record",

@@ -1,5 +1,6 @@
 """Authorized incident workspace and immutable revision routes."""
 from datetime import UTC
+import json
 from uuid import UUID
 
 from flask import Blueprint, current_app, g, request
@@ -28,6 +29,12 @@ from backend.webapp.api_v1.middleware import (
     current_actor,
     current_request_session,
     require_access_token,
+)
+from backend.webapp.api_v1.pagination import (
+    InvalidCursor,
+    decode_cursor,
+    encode_cursor,
+    parse_page_size,
 )
 from backend.webapp.api_v1.responses import success
 from backend.webapp.api_v1.schemas.reporting import SaveIncidentRequest
@@ -81,14 +88,10 @@ def _timestamp(value) -> str | None:
 
 def _view_data(view: IncidentView) -> dict[str, object]:
     row = view.incident
-    return {
-        "incident_id": str(row.id),
-        "status": row.status,
-        "current_revision_number": row.current_revision_number,
-        "reporting_staff_ids": [str(value) for value in view.reporting_staff_ids],
+    content = view.content or {
         "field_notes": row.field_notes,
-        "incident_date": row.incident_date.isoformat() if row.incident_date else None,
-        "incident_time": row.incident_time.isoformat() if row.incident_time else None,
+        "incident_date": row.incident_date,
+        "incident_time": row.incident_time,
         "facility": row.facility,
         "shift": row.shift,
         "location": row.location,
@@ -98,8 +101,34 @@ def _view_data(view: IncidentView) -> dict[str, object]:
         "gap_answers": row.gap_answers,
         "charges": row.charges,
         "validation": row.validation,
+    }
+    incident_date = content.get("incident_date")
+    incident_time = content.get("incident_time")
+    return {
+        "incident_id": str(row.id),
+        "status": view.status or row.status,
+        "current_revision_number": view.revision_number or row.current_revision_number,
+        "reporting_staff_ids": [str(value) for value in view.reporting_staff_ids],
+        "field_notes": content.get("field_notes", ""),
+        "incident_date": (
+            incident_date.isoformat()
+            if hasattr(incident_date, "isoformat") else incident_date
+        ),
+        "incident_time": (
+            incident_time.isoformat()
+            if hasattr(incident_time, "isoformat") else incident_time
+        ),
+        "facility": content.get("facility"),
+        "shift": content.get("shift"),
+        "location": content.get("location"),
+        "category": content.get("category"),
+        "classification": content.get("classification", {}),
+        "extracted_facts": content.get("extracted_facts", {}),
+        "gap_answers": content.get("gap_answers", {}),
+        "charges": content.get("charges", []),
+        "validation": content.get("validation", {}),
         "created_at": _timestamp(row.created_at),
-        "updated_at": _timestamp(row.updated_at),
+        "updated_at": _timestamp(view.updated_at or row.updated_at),
     }
 
 
@@ -207,7 +236,7 @@ def save_route(incident_id: UUID):
     if "field_notes" not in payload or "base_revision_number" not in payload:
         raise ApiError("validation_failed", "The incident request is invalid.", status=400)
     try:
-        model = SaveIncidentRequest.model_validate(payload)
+        model = SaveIncidentRequest.model_validate_json(json.dumps(payload))
     except ValidationError:
         raise ApiError("validation_failed", "The incident request is invalid.", status=400) from None
     _validate_if_match(model.base_revision_number)
@@ -226,10 +255,29 @@ def save_route(incident_id: UUID):
 @require_access_token
 def revision_list_route(incident_id: UUID):
     try:
-        rows = list_incident_revisions(current_request_session(), current_actor(), incident_id)
-        return success({"items": [_revision_summary(row) for row in rows]})
+        limit = parse_page_size(request.args.get("limit", "100"))
+        key = current_app.config["IDENTITY_SETTINGS"].cursor_signing_key
+        if not key:
+            raise RuntimeError("incident revision pagination key is unavailable")
+        raw_cursor = request.args.get("cursor")
+        cursor = decode_cursor(raw_cursor, key) if raw_cursor else None
+        page = list_incident_revisions(
+            current_request_session(), current_actor(), incident_id,
+            limit=limit, cursor=cursor,
+        )
+        return success({
+            "items": [_revision_summary(row) for row in page.items],
+            "next_cursor": encode_cursor(page.next_cursor, key) if page.next_cursor else None,
+        })
+    except (InvalidCursor, ValueError):
+        raise ApiError("validation_failed", "Revision pagination is invalid.", status=400) from None
     except IncidentNotFound:
         raise ApiError("not_found", "Incident not found.", status=404) from None
+    except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
+        raise ApiError(
+            "dependency_unavailable", "Incident storage is temporarily unavailable.",
+            status=503, retryable=True,
+        ) from None
 
 
 @incidents_bp.get(
@@ -243,6 +291,11 @@ def revision_detail_route(incident_id: UUID, revision_number: int):
         return success(_revision_data(row))
     except (IncidentNotFound, IncidentRevisionNotFound):
         raise ApiError("not_found", "Incident not found.", status=404) from None
+    except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
+        raise ApiError(
+            "dependency_unavailable", "Incident storage is temporarily unavailable.",
+            status=503, retryable=True,
+        ) from None
 
 
 @incidents_bp.post("/<uuid:incident_id>/restore", endpoint="restore")
