@@ -6,8 +6,9 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
+from tests.integration.identity_fixtures import bearer_headers, issue_fictional_tokens
 from backend.persistence.models import AuditEvent
-from backend.persistence.models.reporting import Report, ReportRevision
+from backend.persistence.models.reporting import Report, ReportAccess, ReportRevision
 from backend.persistence.models.security import IdempotencyRecord
 from tests.support.reporting import fictional_report_content, make_incident, make_report
 
@@ -41,6 +42,80 @@ def _save_body(narrative, base=1, **extra):
         "reason": "manual_save",
         **extra,
     }
+
+
+def _headers_for_account(db_session, account, now, suffix):
+    tokens = issue_fictional_tokens(
+        db_session, account=account,
+        device_id=f"device-fictional-{suffix}-0001", now=now,
+    )
+    return bearer_headers(tokens)
+
+
+@pytest.mark.parametrize(("method", "path_suffix", "body"), [
+    ("get", "", None),
+    ("patch", "", _save_body("Fictional unauthorized Admin content.")),
+    ("get", "/revisions", None),
+    ("get", "/revisions/1", None),
+    ("post", "/restore", {"revision_number": 1}),
+    ("post", "/recovery-revisions", {
+        "base_revision_number": 1,
+        "content": fictional_report_content("Fictional unauthorized recovery."),
+    }),
+    ("patch", "", {"base_revision_number": 1, "status": "archived"}),
+])
+def test_unrelated_admin_is_concealed_on_every_ordinary_report_operation(
+    db_session, db_session_factory, api_client, fictional_staff_and_accounts,
+    identity_fixed_now, shared_report, method, path_suffix, body,
+):
+    admin = fictional_staff_and_accounts.admin
+    headers = _headers_for_account(db_session, admin, identity_fixed_now, "admin-unrelated")
+    if method in {"patch", "post"}:
+        headers = _headers(headers, f"admin-unrelated-{method}-{len(path_suffix)}-0001")
+    report_id = shared_report.id
+    db_session.commit()
+
+    response = getattr(api_client, method)(
+        f"/api/v1/reports/{report_id}{path_suffix}", headers=headers, json=body,
+    )
+
+    assert response.status_code == 404
+    assert response.json["error"]["code"] == "not_found"
+    with db_session_factory() as verification:
+        assert verification.get(Report, report_id).current_revision_number == 1
+        assert verification.scalar(select(func.count()).select_from(ReportRevision).where(
+            ReportRevision.report_id == report_id)) == 1
+        assert verification.scalar(select(func.count()).select_from(AuditEvent).where(
+            AuditEvent.target_id == report_id)) == 0
+        assert verification.scalar(select(func.count()).select_from(IdempotencyRecord).where(
+            IdempotencyRecord.actor_account_id == admin.id)) == 0
+
+
+@pytest.mark.parametrize("relationship", ["owned", "prepared"])
+def test_admin_with_live_employee_relationship_uses_ordinary_report_routes(
+    db_session, api_client, fictional_staff_and_accounts, identity_fixed_now,
+    relationship,
+):
+    admin = fictional_staff_and_accounts.admin
+    user = fictional_staff_and_accounts.user
+    incident = make_incident(db_session, admin, identity_fixed_now)
+    report = make_report(
+        db_session, incident=incident,
+        owner=admin if relationship == "owned" else user,
+        preparer=user if relationship == "owned" else admin,
+        now=identity_fixed_now,
+    )
+    headers = _headers_for_account(db_session, admin, identity_fixed_now, relationship)
+    db_session.commit()
+
+    listed = api_client.get(
+        f"/api/v1/reports?relationship={relationship}", headers=headers)
+    detail = api_client.get(f"/api/v1/reports/{report.id}", headers=headers)
+
+    assert listed.status_code == detail.status_code == 200
+    assert [item["report_id"] for item in listed.json["data"]["items"]] == [
+        str(report.id)]
+    assert detail.json["data"]["report_id"] == str(report.id)
 
 
 def test_owner_and_preparer_lists_reference_same_canonical_report(

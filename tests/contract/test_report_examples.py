@@ -82,3 +82,23 @@ def test_report_summaries_and_conflicts_exclude_sensitive_content():
     assert "narrative" not in conflict_properties
     assert "content" not in conflict_properties
     assert "field_notes" not in conflict_properties
+
+
+def test_report_patch_409_oneof_executes_every_actual_safe_conflict_envelope():
+    document = _document()
+    response = document["paths"]["/api/v1/reports/{report_id}"]["patch"][
+        "responses"]["409"]
+    media = response["content"]["application/json"]
+    assert {branch["$ref"] for branch in media["schema"]["oneOf"]} == {
+        "#/components/schemas/ReportRevisionConflictEnvelope",
+        "#/components/schemas/ReportIdempotencyConflictEnvelope",
+        "#/components/schemas/ReportRequestInProgressEnvelope",
+        "#/components/schemas/ClientUpgradeRequiredEnvelope",
+    }
+    assert set(media["examples"]) == {
+        "revision_conflict", "idempotency_conflict", "request_in_progress",
+        "client_upgrade_required",
+    }
+    validator = _validator(document, media["schema"])
+    for example in media["examples"].values():
+        assert list(validator.iter_errors(example["value"])) == []

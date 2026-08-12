@@ -313,7 +313,37 @@ paths:
         "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/AuthenticationRequired" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/ReportRevisionConflict" }
+        "409":
+          description: Safe report mutation conflict; no report content is returned
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ReportRevisionConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportIdempotencyConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportRequestInProgressEnvelope"
+                  - $ref: "#/components/schemas/ClientUpgradeRequiredEnvelope"
+              examples:
+                revision_conflict:
+                  value:
+                    error:
+                      code: revision_conflict
+                      message: The fictional report changed; reload before saving.
+                      retryable: false
+                      details:
+                        current_revision_number: 7
+                        current_editor_display_name: Officer Alex Example
+                        current_edited_at: "2026-08-12T15:10:00Z"
+                        changed_fields: [narrative]
+                    request_id: req_20260812_report_conflict
+                    server_time: "2026-08-12T15:10:01Z"
+                    api_version: v1
+                idempotency_conflict:
+                  value: { error: { code: idempotency_conflict, message: The idempotency key was already used for a different fictional request., retryable: false }, request_id: req_20260812_idempotency_conflict, server_time: "2026-08-12T15:10:01Z", api_version: v1 }
+                request_in_progress:
+                  value: { error: { code: request_in_progress, message: The matching fictional request is still in progress., retryable: true }, request_id: req_20260812_request_in_progress, server_time: "2026-08-12T15:10:01Z", api_version: v1 }
+                client_upgrade_required:
+                  value: { error: { code: client_upgrade_required, message: Upgrade the fictional client before saving., retryable: false }, request_id: req_20260812_client_upgrade, server_time: "2026-08-12T15:10:01Z", api_version: v1 }
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/v1/reports/{report_id}/revisions:
     get:
@@ -1982,6 +2012,54 @@ components:
             message: { type: string }
             retryable: { type: boolean, const: false }
             details: { $ref: "#/components/schemas/RevisionConflictDetails" }
+        request_id: { $ref: "#/components/schemas/RequestId" }
+        server_time: { $ref: "#/components/schemas/UtcTimestamp" }
+        api_version: { type: string, const: v1 }
+    ReportIdempotencyConflictEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error, request_id, server_time, api_version]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, retryable]
+          properties:
+            code: { type: string, const: idempotency_conflict }
+            message: { type: string }
+            retryable: { type: boolean, const: false }
+        request_id: { $ref: "#/components/schemas/RequestId" }
+        server_time: { $ref: "#/components/schemas/UtcTimestamp" }
+        api_version: { type: string, const: v1 }
+    ReportRequestInProgressEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error, request_id, server_time, api_version]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, retryable]
+          properties:
+            code: { type: string, const: request_in_progress }
+            message: { type: string }
+            retryable: { type: boolean, const: true }
+        request_id: { $ref: "#/components/schemas/RequestId" }
+        server_time: { $ref: "#/components/schemas/UtcTimestamp" }
+        api_version: { type: string, const: v1 }
+    ClientUpgradeRequiredEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error, request_id, server_time, api_version]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, retryable]
+          properties:
+            code: { type: string, const: client_upgrade_required }
+            message: { type: string }
+            retryable: { type: boolean, const: false }
         request_id: { $ref: "#/components/schemas/RequestId" }
         server_time: { $ref: "#/components/schemas/UtcTimestamp" }
         api_version: { type: string, const: v1 }

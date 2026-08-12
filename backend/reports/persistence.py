@@ -578,17 +578,34 @@ def _display_name(staff: StaffMember) -> str:
 
 
 def _authorized_report_statement(actor: Actor, report_id: UUID | None = None):
-    statement = select(Report)
-    if actor.role != "admin":
-        statement = statement.join(
-            ReportAccess, ReportAccess.report_id == Report.id,
-        ).where(
-            ReportAccess.staff_member_id == actor.staff_member_id,
-            ReportAccess.revoked_at.is_(None),
-        )
+    statement = select(Report).join(
+        ReportAccess, ReportAccess.report_id == Report.id,
+    ).where(
+        ReportAccess.staff_member_id == actor.staff_member_id,
+        ReportAccess.revoked_at.is_(None),
+    )
     if report_id is not None:
         statement = statement.where(Report.id == report_id)
     return statement
+
+
+def _lock_authorized_report(
+    session: Session, actor: Actor, report_id: UUID,
+) -> Report:
+    """Lock the report, then its live employee access, in one transaction."""
+    report = session.scalar(
+        select(Report).where(Report.id == report_id).with_for_update()
+    )
+    if report is None:
+        raise ReportNotFound("Report not found.")
+    access = session.scalar(select(ReportAccess).where(
+        ReportAccess.report_id == report_id,
+        ReportAccess.staff_member_id == actor.staff_member_id,
+        ReportAccess.revoked_at.is_(None),
+    ).with_for_update())
+    if access is None:
+        raise ReportNotFound("Report not found.")
+    return report
 
 
 def _report_revision_view(
@@ -789,7 +806,7 @@ def save_report_record(
     client_version: str, audit_writer: AuditWriter | None = None,
 ) -> ReportView:
     validated = SaveReportRequest.model_validate(request_model)
-    get_report(session, actor, report_id)
+    _lock_authorized_report(session, actor, report_id)
     fixed = now or datetime.now(UTC)
     canonical = {"report_id": str(report_id), **validated.model_dump(mode="json")}
     claim = claim_idempotency(
@@ -819,7 +836,7 @@ def save_report_status_record(
     base_revision_number: int, idempotency_key: str, *, now: datetime | None = None,
     request_id: str, client_version: str, audit_writer: AuditWriter | None = None,
 ) -> ReportView:
-    get_report(session, actor, report_id)
+    _lock_authorized_report(session, actor, report_id)
     fixed = now or datetime.now(UTC)
     canonical = {
         "report_id": str(report_id), "status": status,
@@ -851,7 +868,7 @@ def restore_report_record(
     idempotency_key: str, *, now: datetime | None = None, request_id: str,
     client_version: str, audit_writer: AuditWriter | None = None,
 ) -> ReportView:
-    get_report(session, actor, report_id)
+    _lock_authorized_report(session, actor, report_id)
     fixed = now or datetime.now(UTC)
     canonical = {"report_id": str(report_id), "revision_number": revision_number}
     claim = claim_idempotency(
@@ -883,6 +900,7 @@ def create_report_recovery_record(
     base_revision_number: int, idempotency_key: str, *, now: datetime | None = None,
     request_id: str, client_version: str, audit_writer: AuditWriter | None = None,
 ) -> tuple[ReportView, int]:
+    _lock_authorized_report(session, actor, report_id)
     current = get_report(session, actor, report_id)
     validated = ReportContentV1.model_validate(content)
     fixed = now or datetime.now(UTC)
