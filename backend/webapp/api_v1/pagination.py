@@ -25,6 +25,9 @@ def decode_cursor(value: str, key: str) -> dict[str, str]:
         raise InvalidCursor("cursor is invalid") from exc
     if len(raw) <= 32:
         raise InvalidCursor("cursor is invalid")
+    canonical = base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+    if not hmac.compare_digest(value, canonical):
+        raise InvalidCursor("cursor is invalid")
     body, supplied = raw[:-32], raw[-32:]
     expected = hmac.new(key.encode("utf-8"), body, hashlib.sha256).digest()
     if not hmac.compare_digest(supplied, expected):
