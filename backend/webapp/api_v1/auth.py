@@ -28,7 +28,9 @@ from backend.identity.idempotency import (
 from backend.identity.rate_limits import consume_limit
 from backend.identity.normalization import normalize_employee_number
 from backend.identity.tokens import hash_device_id
+from backend.identity.elevation import StepUpRequired, confirm_admin_pin
 from backend.persistence.database import DatabaseUnavailable, session_scope
+from backend.persistence.models.security import IdempotencyRecord
 from backend.webapp.api_v1.context import request_id
 from backend.webapp.api_v1.errors import ApiError
 from backend.webapp.api_v1.responses import success
@@ -37,6 +39,7 @@ from backend.webapp.api_v1.middleware import (
     current_actor,
     current_request_session,
     require_access_token,
+    require_role,
 )
 
 
@@ -357,6 +360,83 @@ def delete_session_route(session_id: UUID):
         }
 
     return _mutation("auth.revoke_session", payload, operation)
+
+
+@auth_bp.post("/admin-step-up", endpoint="admin_step_up")
+@require_access_token
+@require_role("admin")
+@require_compatible_write
+def admin_step_up_route():
+    payload = _json_object({"pin", "purpose"})
+    pin = _validated_pin({"pin": payload["pin"]})
+    purpose = _required_string(payload, "purpose")
+    actor = current_actor()
+    db_session = current_request_session()
+    now = datetime.now(UTC)
+    claim = None
+    try:
+        canonical = {"session_id": str(actor.session_id), "purpose": purpose}
+        try:
+            claim = claim_idempotency(
+                db_session, actor, key=_idempotency_key(), action="auth.admin_step_up",
+                request_sha256=request_digest(canonical), now=now,
+            )
+        except RequestInProgress as error:
+            raise ApiError("request_in_progress", str(error), status=409, retryable=True) from None
+        except IdempotencyConflict as error:
+            raise ApiError("idempotency_conflict", str(error), status=409) from None
+        if claim.replayed:
+            reference = claim.response_reference or {}
+            if reference.get("one_time_value_unavailable"):
+                raise ApiError("idempotent_response_unavailable",
+                               "The one-time response is no longer available.", status=409)
+            return success(reference)
+        result = confirm_admin_pin(
+            db_session, actor=actor, pin=pin, purpose=purpose, now=now,
+            audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
+        )
+        data = {
+            "purpose": result.purpose,
+            "elevation_expires_at": _timestamp(result.elevation_expires_at),
+        }
+        reference = dict(data)
+        if result.step_up_token is not None:
+            data["step_up_token"] = result.step_up_token
+            data["step_up_expires_at"] = _timestamp(result.step_up_expires_at)
+            reference = {
+                "purpose": result.purpose,
+                "elevation_expires_at": data["elevation_expires_at"],
+                "one_time_value_unavailable": True,
+            }
+        complete_idempotency(
+            db_session, claim, response_status=200, response_reference=reference, now=now,
+        )
+        db_session.commit()
+        return success(data)
+    except StepUpRequired as error:
+        try:
+            if claim is not None and not claim.replayed:
+                record = db_session.get(IdempotencyRecord, claim.record_id)
+                if record is not None:
+                    db_session.delete(record)
+            db_session.commit()
+        except (SQLAlchemyError, RuntimeError):
+            db_session.rollback()
+            raise ApiError(
+                "dependency_unavailable", "Authentication is temporarily unavailable.",
+                status=503, retryable=True,
+            ) from None
+        raise ApiError("step_up_required", str(error), status=403) from None
+    except ApiError:
+        db_session.rollback()
+        raise
+    except ValueError as error:
+        db_session.rollback()
+        raise ApiError("validation_failed", str(error), status=400) from None
+    except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
+        db_session.rollback()
+        raise ApiError("dependency_unavailable", "Authentication is temporarily unavailable.",
+                       status=503, retryable=True) from None
 
 
 

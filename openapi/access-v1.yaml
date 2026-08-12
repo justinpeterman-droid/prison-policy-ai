@@ -253,6 +253,220 @@ paths:
           $ref: "#/components/responses/IdempotencyConflict"
         "503":
           $ref: "#/components/responses/DependencyUnavailable"
+  /api/v1/auth/admin-step-up:
+    post:
+      operationId: confirmAdminPin
+      tags: [Authentication]
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminStepUpRequest" }
+      responses:
+        "200": { description: Elevation refreshed, content: { application/json: { schema: { $ref: "#/components/schemas/AdminStepUpSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/staff:
+    get:
+      operationId: listAdminStaff
+      tags: [Admin Staff]
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/PageLimit" }
+        - { $ref: "#/components/parameters/PageCursor" }
+        - { $ref: "#/components/parameters/StaffQuery" }
+      responses:
+        "200": { description: Bounded staff page, content: { application/json: { schema: { $ref: "#/components/schemas/StaffPageSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+    post:
+      operationId: createAdminStaff
+      tags: [Admin Staff]
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StaffCreateRequest" }
+      responses:
+        "200": { description: Staff created, content: { application/json: { schema: { $ref: "#/components/schemas/StaffSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/staff/{staff_id}:
+    patch:
+      operationId: updateAdminStaff
+      tags: [Admin Staff]
+      parameters:
+        - { $ref: "#/components/parameters/StaffId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StaffUpdateRequest" }
+      responses:
+        "200": { description: Staff updated, content: { application/json: { schema: { $ref: "#/components/schemas/StaffSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/accounts:
+    get:
+      operationId: listAdminAccounts
+      tags: [Admin Accounts]
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/PageLimit" }
+        - { $ref: "#/components/parameters/PageCursor" }
+      responses:
+        "200": { description: Bounded account page, content: { application/json: { schema: { $ref: "#/components/schemas/AccountPageSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+    post:
+      operationId: createAdminAccount
+      tags: [Admin Accounts]
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AccountCreateRequest" }
+      responses:
+        "200": { description: Account and one-time PIN, content: { application/json: { schema: { $ref: "#/components/schemas/TemporaryPinSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/accounts/{account_id}:
+    patch:
+      operationId: updateAdminAccount
+      tags: [Admin Accounts]
+      parameters:
+        - { $ref: "#/components/parameters/AccountId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AccountUpdateRequest" }
+      responses:
+        "200": { description: Account updated, content: { application/json: { schema: { $ref: "#/components/schemas/AccountSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/accounts/{account_id}/reset-pin:
+    post:
+      operationId: resetAdminAccountPin
+      tags: [Admin Accounts]
+      parameters:
+        - { $ref: "#/components/parameters/AccountId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      responses:
+        "200": { description: Reset one-time PIN, content: { application/json: { schema: { $ref: "#/components/schemas/TemporaryPinSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/accounts/{account_id}/unlock:
+    post:
+      operationId: unlockAdminAccount
+      tags: [Admin Accounts]
+      parameters:
+        - { $ref: "#/components/parameters/AccountId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      responses:
+        "200": { description: Account unlocked, content: { application/json: { schema: { $ref: "#/components/schemas/AccountSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/accounts/{account_id}/sessions:
+    get:
+      operationId: listAdminAccountSessions
+      tags: [Admin Accounts]
+      parameters:
+        - { $ref: "#/components/parameters/AccountId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/PageLimit" }
+        - { $ref: "#/components/parameters/PageCursor" }
+      responses:
+        "200": { description: Safe account sessions, content: { application/json: { schema: { $ref: "#/components/schemas/AdminSessionPageSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/accounts/{account_id}/revoke-sessions:
+    post:
+      operationId: revokeAdminAccountSessions
+      tags: [Admin Accounts]
+      parameters:
+        - { $ref: "#/components/parameters/AccountId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RevokeSessionsRequest" }
+      responses:
+        "200": { description: Sessions revoked, content: { application/json: { schema: { $ref: "#/components/schemas/RevokeSessionsSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
 components:
   securitySchemes:
     AccessBearer:
@@ -290,6 +504,40 @@ components:
         type: string
         minLength: 16
         maxLength: 256
+    XAdminStepUp:
+      name: X-Admin-Step-Up
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 40
+        maxLength: 512
+        writeOnly: true
+    PageLimit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    PageCursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { $ref: "#/components/schemas/Cursor" }
+    StaffQuery:
+      name: query
+      in: query
+      required: false
+      schema: { type: string, maxLength: 100 }
+    StaffId:
+      name: staff_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Uuid" }
+    AccountId:
+      name: account_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Uuid" }
   headers:
     XRequestId:
       description: Validated request correlation identifier.
@@ -353,7 +601,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorEnvelope"
     IdempotencyConflict:
-      description: Mutation conflict; code is idempotency_conflict, request_in_progress, idempotent_response_unavailable, or client_upgrade_required
+      description: Mutation conflict; code is idempotency_conflict, request_in_progress, idempotent_response_unavailable, client_upgrade_required, duplicate_employee_number, account_already_exists, last_active_admin, or account_conflict
       content:
         application/json:
           schema:
@@ -364,6 +612,21 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorEnvelope"
+    AdminElevationRequired:
+      description: Admin authorization failed; code is permission_denied, pin_change_required, or admin_elevation_required
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    StepUpRequired:
+      description: Admin authorization failed; code is permission_denied, pin_change_required, admin_elevation_required, or step_up_required
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    NotFound:
+      description: The requested resource was not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
   schemas:
     RequestId:
       type: string
@@ -617,6 +880,211 @@ components:
         - type: object
           properties:
             data: { $ref: "#/components/schemas/SessionRevokeData" }
+    AdminPurpose:
+      type: string
+      enum: [admin_center, staff_write, account_create, account_role_status, account_reset_pin, account_unlock, account_revoke_sessions, report_restore, report_transfer, bulk_export, audit_export, review_lab_handoff]
+    SensitiveAdminPurpose:
+      type: string
+      enum: [staff_write, account_create, account_role_status, account_reset_pin, account_unlock, account_revoke_sessions, report_restore, report_transfer, bulk_export, audit_export, review_lab_handoff]
+    AdminStepUpRequest:
+      type: object
+      additionalProperties: false
+      required: [pin, purpose]
+      properties:
+        pin:
+          type: string
+          minLength: 4
+          maxLength: 8
+          pattern: '^[A-Za-z0-9]{4,8}$'
+          writeOnly: true
+        purpose: { $ref: "#/components/schemas/AdminPurpose" }
+    AdminElevationData:
+      type: object
+      additionalProperties: false
+      required: [purpose, elevation_expires_at]
+      properties:
+        purpose: { const: admin_center }
+        elevation_expires_at: { $ref: "#/components/schemas/UtcTimestamp" }
+    AdminPurposeTokenData:
+      type: object
+      additionalProperties: false
+      required: [purpose, elevation_expires_at, step_up_token, step_up_expires_at]
+      properties:
+        purpose: { $ref: "#/components/schemas/SensitiveAdminPurpose" }
+        elevation_expires_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        step_up_token: { type: string, minLength: 40, maxLength: 512, writeOnly: true }
+        step_up_expires_at: { $ref: "#/components/schemas/UtcTimestamp" }
+    AdminStepUpSuccessEnvelope:
+      allOf:
+        - { $ref: "#/components/schemas/GenericSuccessEnvelope" }
+        - type: object
+          properties:
+            data:
+              oneOf:
+                - { $ref: "#/components/schemas/AdminElevationData" }
+                - { $ref: "#/components/schemas/AdminPurposeTokenData" }
+    StaffCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [employee_number, rank, first_name, last_name, shift]
+      properties:
+        employee_number: { type: string, minLength: 1, maxLength: 64 }
+        rank: { type: string, maxLength: 64 }
+        first_name: { type: string, minLength: 1, maxLength: 100 }
+        last_name: { type: string, minLength: 1, maxLength: 100 }
+        shift: { type: string, minLength: 1, maxLength: 16 }
+    StaffUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        employee_number: { type: string, minLength: 1, maxLength: 64 }
+        rank: { type: string, maxLength: 64 }
+        first_name: { type: string, minLength: 1, maxLength: 100 }
+        last_name: { type: string, minLength: 1, maxLength: 100 }
+        shift: { type: string, minLength: 1, maxLength: 16 }
+        is_active: { type: boolean }
+    StaffData:
+      type: object
+      additionalProperties: false
+      required: [staff_id, employee_number, rank, first_name, last_name, shift, is_active, created_at, updated_at]
+      properties:
+        staff_id: { $ref: "#/components/schemas/Uuid" }
+        employee_number: { type: string, maxLength: 64 }
+        rank: { type: string, maxLength: 64 }
+        first_name: { type: string, maxLength: 100 }
+        last_name: { type: string, maxLength: 100 }
+        shift: { type: string, maxLength: 16 }
+        is_active: { type: boolean }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UtcTimestamp" }
+    AccountCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [staff_id, role]
+      properties:
+        staff_id: { $ref: "#/components/schemas/Uuid" }
+        role: { type: string, enum: [user, admin] }
+    AccountUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [role, status]
+      properties:
+        role: { type: string, enum: [user, admin] }
+        status: { type: string, enum: [active, deactivated] }
+    AccountData:
+      type: object
+      additionalProperties: false
+      required: [account_id, staff_id, role, status, must_change_pin, created_at, updated_at]
+      properties:
+        account_id: { $ref: "#/components/schemas/Uuid" }
+        staff_id: { $ref: "#/components/schemas/Uuid" }
+        role: { type: string, enum: [user, admin] }
+        status: { type: string, enum: [active, locked, deactivated] }
+        must_change_pin: { type: boolean }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UtcTimestamp" }
+    PageCursorValue:
+      oneOf:
+        - { $ref: "#/components/schemas/Cursor" }
+        - { type: 'null' }
+    StaffPageData:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/StaffData" } }
+        next_cursor: { $ref: "#/components/schemas/PageCursorValue" }
+    AccountPageData:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AccountData" } }
+        next_cursor: { $ref: "#/components/schemas/PageCursorValue" }
+    TemporaryPinFirstData:
+      type: object
+      additionalProperties: false
+      required: [operation_reference_id, account_id, temporary_pin, one_time_value_unavailable]
+      properties:
+        operation_reference_id: { $ref: "#/components/schemas/Uuid" }
+        account_id: { $ref: "#/components/schemas/Uuid" }
+        temporary_pin: { type: string, minLength: 4, maxLength: 8, writeOnly: true }
+        one_time_value_unavailable: { type: boolean, const: false }
+    TemporaryPinReplayData:
+      type: object
+      additionalProperties: false
+      required: [operation_reference_id, account_id, one_time_value_unavailable]
+      properties:
+        operation_reference_id: { $ref: "#/components/schemas/Uuid" }
+        account_id: { $ref: "#/components/schemas/Uuid" }
+        one_time_value_unavailable: { type: boolean, const: true }
+    TemporaryPinSuccessEnvelope:
+      allOf:
+        - { $ref: "#/components/schemas/GenericSuccessEnvelope" }
+        - type: object
+          properties:
+            data:
+              oneOf:
+                - { $ref: "#/components/schemas/TemporaryPinFirstData" }
+                - { $ref: "#/components/schemas/TemporaryPinReplayData" }
+    AdminSessionData:
+      type: object
+      additionalProperties: false
+      required: [session_id, device_label, persistent, created_at, last_used_at, idle_expires_at, revoked_at, current]
+      properties:
+        session_id: { $ref: "#/components/schemas/Uuid" }
+        device_label: { type: string, maxLength: 120 }
+        persistent: { type: boolean }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        last_used_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        idle_expires_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        revoked_at:
+          oneOf:
+            - { $ref: "#/components/schemas/UtcTimestamp" }
+            - { type: 'null' }
+        current: { type: boolean }
+    AdminSessionPageData:
+      type: object
+      additionalProperties: false
+      required: [account_id, items, next_cursor]
+      properties:
+        account_id: { $ref: "#/components/schemas/Uuid" }
+        items: { type: array, items: { $ref: "#/components/schemas/AdminSessionData" } }
+        next_cursor: { $ref: "#/components/schemas/PageCursorValue" }
+    RevokeSessionsRequest:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [scope]
+          properties: { scope: { const: all } }
+        - type: object
+          additionalProperties: false
+          required: [scope, session_id]
+          properties:
+            scope: { const: one }
+            session_id: { $ref: "#/components/schemas/Uuid" }
+    RevokeSessionsData:
+      type: object
+      additionalProperties: false
+      required: [account_id, scope, revoked_session_ids, revoked_count]
+      properties:
+        account_id: { $ref: "#/components/schemas/Uuid" }
+        scope: { type: string, enum: [all, one] }
+        revoked_session_ids: { type: array, items: { $ref: "#/components/schemas/Uuid" } }
+        revoked_count: { type: integer, minimum: 0 }
+    StaffSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/StaffData" } } }]
+    StaffPageSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/StaffPageData" } } }]
+    AccountSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/AccountData" } } }]
+    AccountPageSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/AccountPageData" } } }]
+    AdminSessionPageSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/AdminSessionPageData" } } }]
+    RevokeSessionsSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/RevokeSessionsData" } } }]
     ClientPolicy:
       type: object
       additionalProperties: false

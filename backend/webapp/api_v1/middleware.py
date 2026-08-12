@@ -11,6 +11,7 @@ from backend.identity.sessions import SessionReauthenticationRequired, resolve_a
 from backend.persistence.database import DatabaseUnavailable, session_scope
 from backend.webapp.api_v1.responses import failure
 from backend.webapp.api_v1.client_policy import MUST_CHANGE_PIN_ALLOWED_PATHS
+from backend.identity.elevation import AdminElevationRequired, touch_admin_elevation
 
 
 @dataclass(frozen=True)
@@ -116,3 +117,41 @@ def require_pin_changed(view):
             return _failure("pin_change_required", "Change the temporary PIN to continue.", 403)
         return view(*args, **kwargs)
     return wrapped
+
+
+def require_admin_elevation(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        try:
+            touch_admin_elevation(
+                current_request_session(), current_actor(), datetime.now(UTC)
+            )
+        except AdminElevationRequired:
+            return _failure(
+                "admin_elevation_required",
+                "Administrator PIN confirmation is required.", 403,
+            )
+        except (DatabaseUnavailable, SQLAlchemyError):
+            g.identity_db_failed = True
+            return _failure(
+                "dependency_unavailable", "The Admin service is temporarily unavailable.",
+                503, retryable=True,
+            )
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def require_step_up(purpose: str):
+    def decorate(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            raw = request.headers.get("X-Admin-Step-Up", "")
+            if not raw:
+                return _failure(
+                    "step_up_required",
+                    "Administrator PIN confirmation is required.", 403,
+                )
+            g.pending_step_up = (purpose, raw)
+            return view(*args, **kwargs)
+        return wrapped
+    return decorate

@@ -49,6 +49,17 @@ def prepare_api_request():
         "api_v1.auth_api.change_pin": "auth_change_pin",
         "api_v1.auth_api.sessions": "auth_sessions",
         "api_v1.auth_api.delete_session": "auth_revoke_session",
+        "api_v1.auth_api.admin_step_up": "auth_admin_step_up",
+        "api_v1.admin_api.staff_list": "admin_staff_list",
+        "api_v1.admin_api.staff_create": "admin_staff_create",
+        "api_v1.admin_api.staff_update": "admin_staff_update",
+        "api_v1.admin_api.account_list": "admin_account_list",
+        "api_v1.admin_api.account_create": "admin_account_create",
+        "api_v1.admin_api.account_update": "admin_account_update",
+        "api_v1.admin_api.account_reset_pin": "admin_account_reset_pin",
+        "api_v1.admin_api.account_unlock": "admin_account_unlock",
+        "api_v1.admin_api.account_sessions": "admin_account_sessions",
+        "api_v1.admin_api.account_revoke_sessions": "admin_account_revoke_sessions",
     }.get(request.endpoint or "", "unknown")
     if request.endpoint != "api_v1.client_policy":
         if getattr(g, "client_version", None) is None:
@@ -113,6 +124,10 @@ def client_policy():
 from backend.webapp.api_v1.auth import auth_bp
 
 api_v1_bp.register_blueprint(auth_bp, url_prefix="/auth")
+
+from backend.webapp.api_v1.admin import admin_bp
+
+api_v1_bp.register_blueprint(admin_bp, url_prefix="/admin")
 
 
 @api_v1_bp.get("/me", endpoint="me")
