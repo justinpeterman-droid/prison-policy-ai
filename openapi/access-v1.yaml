@@ -33,6 +33,78 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessEnvelope"
+  /api/v1/auth/login:
+    post:
+      operationId: loginAccessClient
+      tags: [Authentication]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: New opaque Access session and server-owned profile
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestId"
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSuccessEnvelope"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/InvalidCredentials"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+  /api/v1/auth/renew:
+    post:
+      operationId: renewAccessSession
+      tags: [Authentication]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenewRequest"
+      responses:
+        "200":
+          description: Rotated opaque Access session and server-owned profile
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestId"
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSuccessEnvelope"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/SessionReauthenticationRequired"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
 components:
   securitySchemes:
     AccessBearer:
@@ -66,6 +138,52 @@ components:
       description: Validated request correlation identifier.
       schema:
         $ref: "#/components/schemas/RequestId"
+  responses:
+    ValidationFailed:
+      description: Closed request validation failed
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    InvalidCredentials:
+      description: Employee number or PIN is invalid
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    SessionReauthenticationRequired:
+      description: Renewal is invalid and a new sign-in is required
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    RateLimited:
+      description: Authentication rate limit exceeded
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    DependencyUnavailable:
+      description: Authentication persistence dependency is unavailable
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
   schemas:
     RequestId:
       type: string
@@ -89,6 +207,118 @@ components:
     OpaqueToken:
       type: string
       example: example-token-not-valid
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [employee_number, pin, device_id, device_label, persistent]
+      properties:
+        employee_number:
+          $ref: "#/components/schemas/FictionalEmployeeNumber"
+        pin:
+          type: string
+          minLength: 4
+          maxLength: 8
+          pattern: '^[A-Za-z0-9]{4,8}$'
+          writeOnly: true
+          example: Z9Y8X7
+        device_id:
+          type: string
+          minLength: 16
+          maxLength: 256
+          writeOnly: true
+          example: device-fictional-user-0001
+        device_label:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Fictional Intake Desk
+        persistent:
+          type: boolean
+          example: false
+    RenewRequest:
+      type: object
+      additionalProperties: false
+      required: [renewal_token, device_id]
+      properties:
+        renewal_token:
+          type: string
+          minLength: 40
+          maxLength: 512
+          writeOnly: true
+          example: example-renewal-token-not-valid
+        device_id:
+          type: string
+          minLength: 16
+          maxLength: 256
+          writeOnly: true
+          example: device-fictional-user-0001
+    SessionProfile:
+      type: object
+      additionalProperties: false
+      required: [staff_id, employee_number, display_name, rank, shift, role, status]
+      properties:
+        staff_id:
+          $ref: "#/components/schemas/Uuid"
+        employee_number:
+          $ref: "#/components/schemas/FictionalEmployeeNumber"
+        display_name:
+          type: string
+          example: Officer Avery Morgan
+        rank:
+          type: string
+          example: Officer
+        shift:
+          type: string
+          example: A
+        role:
+          type: string
+          enum: [user, admin]
+        status:
+          type: string
+          enum: [active, locked, deactivated]
+    SessionTokenData:
+      type: object
+      additionalProperties: false
+      required:
+        - session_id
+        - access_token
+        - renewal_token
+        - access_expires_at
+        - renewal_expires_at
+        - persistent
+        - requires_pin_change
+        - profile
+      properties:
+        session_id:
+          $ref: "#/components/schemas/Uuid"
+        access_token:
+          $ref: "#/components/schemas/OpaqueToken"
+        renewal_token:
+          $ref: "#/components/schemas/OpaqueToken"
+        access_expires_at:
+          $ref: "#/components/schemas/UtcTimestamp"
+        renewal_expires_at:
+          $ref: "#/components/schemas/UtcTimestamp"
+        persistent:
+          type: boolean
+        requires_pin_change:
+          type: boolean
+        profile:
+          $ref: "#/components/schemas/SessionProfile"
+    AuthSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, request_id, server_time, api_version]
+      properties:
+        data:
+          $ref: "#/components/schemas/SessionTokenData"
+        request_id:
+          $ref: "#/components/schemas/RequestId"
+        server_time:
+          $ref: "#/components/schemas/UtcTimestamp"
+        api_version:
+          type: string
+          const: v1
     ClientPolicy:
       type: object
       additionalProperties: false

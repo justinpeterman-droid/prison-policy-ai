@@ -21,6 +21,8 @@ def prepare_api_request():
     g.api_action = endpoint or {
         "api_v1.client_policy": "client_policy",
         "api_v1.me": "self_read",
+        "api_v1.auth_api.login": "auth_login",
+        "api_v1.auth_api.renew": "auth_renew",
     }.get(request.endpoint or "", "unknown")
     if request.endpoint != "api_v1.client_policy":
         if getattr(g, "client_version", None) is None:
@@ -82,3 +84,8 @@ def me():
         "Authentication is required.",
         status=401,
     )
+
+
+from backend.webapp.api_v1.auth import auth_bp
+
+api_v1_bp.register_blueprint(auth_bp, url_prefix="/auth")

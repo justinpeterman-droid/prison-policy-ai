@@ -7,6 +7,14 @@ from alembic.config import Config
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from tests.integration.identity_fixtures import (
+    bearer_headers,
+    issue_fictional_tokens,
+    seed_fictional_account,
+)
+
+from datetime import UTC, datetime
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -59,3 +67,50 @@ def api_client():
     app = create_app()
     app.config.update(TESTING=True)
     return app.test_client()
+
+
+@pytest.fixture
+def identity_fixed_now():
+    return datetime(2026, 8, 12, 15, 0, tzinfo=UTC)
+
+
+@pytest.fixture
+def fictional_user_account(db_session, identity_fixed_now):
+    return seed_fictional_account(
+        db_session, employee_number="TEST-1001", role="user",
+        pin="Z9Y8X7", now=identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def fictional_admin_account(db_session, identity_fixed_now):
+    return seed_fictional_account(
+        db_session, employee_number="TEST-9001", role="admin",
+        pin="Q7W9E2", now=identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def fictional_user_tokens(db_session, fictional_user_account, identity_fixed_now):
+    return issue_fictional_tokens(
+        db_session, account=fictional_user_account,
+        device_id="device-fictional-user-0001", now=identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def fictional_admin_tokens(db_session, fictional_admin_account, identity_fixed_now):
+    return issue_fictional_tokens(
+        db_session, account=fictional_admin_account,
+        device_id="device-fictional-admin-0001", now=identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def user_bearer_headers(fictional_user_tokens):
+    return bearer_headers(fictional_user_tokens)
+
+
+@pytest.fixture
+def admin_bearer_headers(fictional_admin_tokens):
+    return bearer_headers(fictional_admin_tokens)
