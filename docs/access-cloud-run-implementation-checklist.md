@@ -38,7 +38,9 @@ dependency or external approval.
   commits `a1ae719` and `577480d`; final independent review READY,
   1,214 unit/contract tests and two PostgreSQL runs of 106 tests passed;
   fresh focused PostgreSQL verification passed 44 tests.
-- [ ] 014 RP-05 — Admin report API.
+- [x] 014 RP-05 — Admin report API. `LOCAL 3954b92`; PR #78 open (draft) against
+  `integration/access-cloud-run-rp02`; focused suite 44 passed, full regression
+  1,349 passed/1 skipped; independent review pending.
 - [ ] 015 RP-06 — AI jobs/outbox.
 - [ ] 016 RP-07 — Private worker/dispatcher.
 - [ ] 017 RP-08 — Policy Expert API.
