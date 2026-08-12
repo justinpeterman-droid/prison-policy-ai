@@ -1,10 +1,8 @@
 """Validation and normalization for persisted demo review submissions."""
 from copy import deepcopy
 from datetime import datetime, timezone
-import hashlib
 import json
 import os
-from pathlib import Path
 import re
 from collections.abc import Callable
 from uuid import uuid4
@@ -16,15 +14,13 @@ from backend.pipeline.config import (
     PRO_MODEL,
 )
 from backend.reports.demo_scenarios import get_demo_scenario
+from backend.reports.provenance import source_fingerprints
 
 
-ROOT = Path(__file__).parents[2]
-PROMPT_SOURCES = {
-    "classification": ROOT / "backend" / "reports" / "prompts.py",
-    "generation": ROOT / "backend" / "reports" / "prompts_v2.py",
-    "checklist": ROOT / "templates" / "incident_checklist_v2.json",
-    "charges": ROOT / "templates" / "disciplinary_charges.json",
-}
+#: The subset of shared provenance sources Review Lab records. The digests come
+#: from `backend.reports.provenance` so a Review Lab submission and a stored
+#: report describe the same prompt files the same way.
+REVIEW_FINGERPRINT_SOURCES = ("classification", "generation", "checklist", "charges")
 REPORT_TYPES = {
     "first_person",
     "supervisor_summary",
@@ -139,10 +135,7 @@ def _reviewed_fields(value) -> dict:
 
 
 def _prompt_fingerprints() -> dict[str, str]:
-    return {
-        name: hashlib.sha256(path.read_bytes()).hexdigest()
-        for name, path in PROMPT_SOURCES.items()
-    }
+    return source_fingerprints(REVIEW_FINGERPRINT_SOURCES)
 
 
 def build_review_submission(
