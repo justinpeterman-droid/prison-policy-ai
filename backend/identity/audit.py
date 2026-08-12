@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from dataclasses import dataclass
 import json
+import re
 from typing import Protocol
 from uuid import UUID
 
@@ -32,7 +33,45 @@ AUDIT_ACTION_FIELDS = {
         "operation_id",
         "approval_reference_sha256",
     },
+    # Reporting. Audit rows outlive the report they describe and are exported
+    # to oversight, so an action may record identifiers, revision numbers,
+    # counts, digests and latency — never field notes, report or policy text,
+    # staff names, employee numbers, or inmate identifiers.
+    "incident.created": {"incident_id"},
+    "incident.saved": {
+        "incident_id", "revision_number", "changed_fields", "reason"},
+    "incident.restored": {
+        "incident_id", "revision_number", "source_revision_number"},
+    "incident.status_changed": {"incident_id", "old_status", "new_status"},
+    "report.created": {"report_id", "incident_id", "report_type"},
+    "report.viewed_by_admin": {"report_id"},
+    "report.saved": {"report_id", "revision_number", "changed_fields", "reason"},
+    "report.restored": {
+        "report_id", "revision_number", "source_revision_number"},
+    "report.recovery_created": {
+        "report_id", "revision_number", "source_revision_number"},
+    "report.status_changed": {"report_id", "old_status", "new_status"},
+    "report.ownership_transferred": {
+        "report_id", "old_owner_staff_id", "new_owner_staff_id"},
+    "report.exported": {"report_id", "export_id", "export_format"},
+    "report.exported_by_admin": {"report_id", "export_id", "export_format"},
+    "ai.job_submitted": {"job_id", "job_type", "incident_id"},
+    "ai.job_succeeded": {"job_id", "job_type", "latency_ms"},
+    "ai.job_failed": {"job_id", "job_type", "result_code"},
+    # The question itself is a digest: policy questions quote incidents.
+    "policy.question_answered": {
+        "question_sha256", "document_count", "latency_ms"},
+    "admin.report_search": {"filters", "result_count"},
+    "admin.bulk_exported": {"export_id", "report_count"},
+    "admin.audit_exported": {"export_id", "event_count"},
+    "admin.health_viewed": set(),
 }
+
+#: Detail fields that carry *names* of fields or filters. Bounded by pattern so
+#: a caller cannot smuggle report text through a list that reads as metadata.
+AUDIT_NAME_LIST_FIELDS = frozenset({"changed_fields", "filters"})
+AUDIT_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+MAX_AUDIT_NAME_LIST = 100
 
 
 @dataclass(frozen=True)
@@ -69,12 +108,22 @@ def validate_actor_attribution(event: AuditEventInput) -> None:
         raise ValueError("audit actor attribution is invalid")
 
 
+def _validate_name_list(value: object) -> None:
+    if not isinstance(value, list) or len(value) > MAX_AUDIT_NAME_LIST:
+        raise ValueError("audit details are invalid")
+    for name in value:
+        if not isinstance(name, str) or not AUDIT_NAME_PATTERN.fullmatch(name):
+            raise ValueError("audit details are invalid")
+
+
 def validate_details(action: str, details: dict) -> dict:
     allowed = AUDIT_ACTION_FIELDS.get(action)
     if allowed is None or not isinstance(details, dict) or not set(details) <= allowed:
         raise ValueError("audit details are invalid")
     if action == "system.initial_admin_bootstrapped" and set(details) != allowed:
         raise ValueError("audit details are invalid")
+    for key in AUDIT_NAME_LIST_FIELDS & set(details):
+        _validate_name_list(details[key])
     encoded = json.dumps(details, sort_keys=True, separators=(",", ":"))
     if len(encoded.encode("utf-8")) > 4096:
         raise ValueError("audit details are too large")
