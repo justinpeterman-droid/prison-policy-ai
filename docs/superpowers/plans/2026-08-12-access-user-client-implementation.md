@@ -302,6 +302,9 @@ Public Sub LogoutAll()
 Public Sub RevokeSession(ByVal sessionId As String)
 Public Function LoadCurrentProfile() As CUserProfile
 Public Function ReviewLabOrigin() As String
+Public Function RefreshClientPolicy() As ClientCompatibility
+Public Function TrustedReviewLabOrigin() As String
+Public Function FieldNotesMaxCharacters() As Long
 
 ' ISecureStore
 Public Function ReadSecret(ByVal name As String) As String
@@ -311,8 +314,7 @@ Public Function Exists(ByVal name As String) As Boolean
 
 Public Function SearchActiveStaff(ByVal query As String) As Collection
 Public Function BeginNewIncident(ByVal reportingStaffIds As Collection) As CWorkflowState
-Public Sub SetFieldNotes(ByVal state As CWorkflowState, ByVal fieldNotes As String, _
-                         ByVal maximumCharacters As Long)
+Public Sub SetFieldNotes(ByVal state As CWorkflowState, ByVal fieldNotes As String)
 Public Function SubmitJob(ByVal incidentId As String, ByVal jobType As String, _
                           ByVal payloadJson As String, ByVal idempotencyKey As String) As CJobState
 Public Function PollJob(ByVal jobId As String) As CJobState
@@ -821,7 +823,7 @@ Expected: one commit containing only AC-01 files. Record Access version, PowerSh
 
 - [ ] **Step 1: Write failing Python OpenAPI/fixture/route tests**
 
-Create tests/unit/test_access_fixture_contracts.py to load every AC-02 fixture and validate it against the exact response schema named by its x-openapi-fixture-schema field. Create tests/unit/test_access_route_parity.py with:
+Create tests/unit/test_access_fixture_contracts.py to load every AC-02 fixture and validate it against the exact response schema named by its x-openapi-fixture-schema field. The `policy/client-current.json` fixture must contain the closed public `ClientPolicy` data object with all nine required fields, including integer `field_notes_max_characters: 30000`; the fixture test asserts that exact value and rejects omission, string coercion, or additional public-policy fields. Create tests/unit/test_access_route_parity.py with:
 
 ~~~python
 from __future__ import annotations
@@ -1501,7 +1503,7 @@ Expected: one commit limited to AC-03 files and the source-matched binary.
 
 **Interfaces:**
 - Consumes: AC-03 session restoration, renewal, profile, app state, API client, and DPAPI store.
-- Produces: AppStart; NavigateTo; ApplyTheme; RefreshClientPolicy() As ClientCompatibility; `TrustedReviewLabOrigin() As String`; RefreshDashboard; Test_Navigate and expanded Test_GetStateJson.
+- Produces: AppStart; NavigateTo; ApplyTheme; RefreshClientPolicy() As ClientCompatibility; `TrustedReviewLabOrigin() As String`; `FieldNotesMaxCharacters() As Long`; RefreshDashboard; Test_Navigate and expanded Test_GetStateJson.
 
 - [ ] **Step 1: Write failing startup, navigation, policy, and unbound-form tests**
 
@@ -1515,11 +1517,22 @@ Public Sub TestClientPolicy_Run()
     TestAssert.AreEqual CompatibilityCurrent, RefreshClientPolicy(), "current client"
     TestAssert.AreEqual "https://review.example.gov", TrustedReviewLabOrigin(), _
                         "policy owns the trusted Review Lab origin"
+    TestAssert.AreEqual 30000, FieldNotesMaxCharacters(), _
+                        "policy owns the release-one field notes maximum"
     TestAssert.AreEqual CompatibilityReadOnly, RefreshClientPolicy(), "minimum client"
+    TestAssert.AreEqual 30000, FieldNotesMaxCharacters(), _
+                        "read-only policy keeps the same field notes maximum"
     TestAssert.IsTrue ApplicationWritesAllowed() = False, "old client is read only"
     TestAssert.IsTrue ExportsAllowed() = True, "saved export remains allowed"
 End Sub
 ~~~
+
+Both `client-current.json` (produced by AC-02) and the new
+`client-read-only.json` fixture contain the same required integer
+`field_notes_max_characters: 30000`. Add malformed-policy cases for a missing
+value, a JSON string value, zero/negative values, and any value other than
+`30000`; each fails closed without replacing the last validated in-memory
+policy.
 
 Add COM tests to tests/access/test_user_workflows.py that start Access with no token, assert frmLogin is active, seed a fictional persistent token and assert frmDashboard is active after renewal, assert User navigation contains exactly Home, New Report, My Reports, Reports I Prepared, Policy Expert, Account, and assert every loaded form/subform has an empty RecordSource.
 
@@ -1596,7 +1609,7 @@ AC-06 adds unfinished-job checks and AC-07 adds recovery checks after step 7. St
 
 - [ ] **Step 5: Implement client compatibility and update notice**
 
-RefreshClientPolicy validates `release_version`, `latest_client_version`, `minimum_client_version`, `minimum_server_version`, `api_version`, `release_notes`, `read_only_required`, and `review_lab_origin` from the closed OpenAPI example, plus protected package metadata only when present on the authenticated response. It compares semantic versions numerically, not lexically. `review_lab_origin` must be an HTTPS origin containing scheme, host, and optional port only—no user info, path other than `/`, query, or fragment—and is stored in memory with the current policy. `TrustedReviewLabOrigin()` returns that validated origin for AD-05; it is never sourced from `ApiBaseUrl`, a redirect, the `Host` header, a form, registry, or local table.
+RefreshClientPolicy validates exactly `release_version`, `latest_client_version`, `minimum_client_version`, `minimum_server_version`, `api_version`, `release_notes`, `read_only_required`, `review_lab_origin`, and `field_notes_max_characters` from the closed OpenAPI example for every caller. It rejects package selection, expected hash, signer, URL, bucket, or other extra policy fields; OP-09's authenticated update-grant response owns update package metadata. `field_notes_max_characters` must be a JSON integer exactly equal to `30000` in release one and is stored with the current policy in module memory; `FieldNotesMaxCharacters()` returns it for AC-05. It is never read from modBuildInfo, an environment value, a registry/local table/file, or `release/version.json`. Refresh compares semantic versions numerically, not lexically. `review_lab_origin` must be an HTTPS origin containing scheme, host, and optional port only—no user info, path other than `/`, query, or fragment—and is stored in memory with the current policy. `TrustedReviewLabOrigin()` returns that validated origin for AD-05; it is never sourced from `ApiBaseUrl`, a redirect, the `Host` header, a form, registry, or local table.
 
 frmUpdateNotice displays:
 
@@ -1708,7 +1721,7 @@ Expected: one commit limited to AC-04 files and the source-matched binary.
 - Consume without modifying: openapi/access-v1.yaml
 
 **Interfaces:**
-- Consumes: CurrentProfile, NewApiRequest, ApiSend, route helpers, JsonSerialize, ParseSuccessEnvelope, NavigateTo, and ApplicationWritesAllowed.
+- Consumes: CurrentProfile, NewApiRequest, ApiSend, route helpers, JsonSerialize, ParseSuccessEnvelope, NavigateTo, ApplicationWritesAllowed, and AC-04 `FieldNotesMaxCharacters() As Long` from the validated in-memory client policy.
 - Produces: SearchActiveStaff, BeginNewIncident, SetFieldNotes; CWorkflowState; StartNewReport, ShowWorkflowStep, CurrentWorkflow; Step 1 and Step 2 test hooks.
 
 - [ ] **Step 1: Write failing workflow-domain tests**
@@ -1730,12 +1743,20 @@ Public Sub TestReportWorkflow_Run()
     TestAssert.AreEqual 2, state.ReportingStaffIds.Count, "two reporting officers"
     TestAssert.AreEqual "staff-user-001", state.ReportingStaffIds(1), "signed in default"
 
-    SetFieldNotes state, "Fictional field notes.", 1000
+    SetFieldNotes state, "Fictional field notes."
     TestAssert.AreEqual "Fictional field notes.", state.FieldNotes, "field notes retained"
+    SetFieldNotes state, String$(FieldNotesMaxCharacters(), "F")
+    TestAssert.AreEqual 30000, Len(state.FieldNotes), "maximum accepted"
+    On Error Resume Next
+    SetFieldNotes state, String$(FieldNotesMaxCharacters() + 1, "F")
+    TestAssert.IsTrue Err.Number <> 0, "maximum plus one rejected"
+    Err.Clear
+    On Error GoTo 0
 End Sub
 ~~~
 
-The literal maximum 1000 is a unit-test parameter, not a production contract limit.
+Preserve the exact 30,000-accepted/30,001-rejected assertions. The rejected
+call must not replace the already accepted value or invoke an API/AI route.
 
 - [ ] **Step 2: Write failing COM workflow tests**
 
@@ -1830,7 +1851,7 @@ frmFieldNotes controls:
 - cmdBackToOfficers
 - cmdContinueToReviewFacts
 
-SetFieldNotes requires maximumCharacters greater than zero, rejects over-limit text locally, updates CWorkflowState, and marks it dirty in memory. The production maximum comes from the exact OpenAPI/client-policy field defined by the backend contract. Stop AC-05 if no authoritative maximum is supplied.
+`SetFieldNotes(state, value)` calls AC-04 `FieldNotesMaxCharacters()` and uses a surrogate-pair-aware VBA counter matching Pydantic's decoded-Unicode-code-point `max_length`: one valid high/low UTF-16 pair counts as one, while an unpaired high or low surrogate is invalid. It performs no Unicode normalization. It rejects invalid/over-limit text locally without changing the last accepted value and does not accept a caller-supplied maximum or duplicate the literal in AC-05. Because AC-04 already validates and stores the required release-one policy value, AC-05 has no undefined maximum/source stop. It updates `CWorkflowState` and marks it dirty in memory only after validation. The VBA and fake/COM tests prove a non-BMP fictional character counts as one, exactly 30,000 code points are accepted, 30,001 are rejected before an API or AI call, and the visible bounds label uses the same counter and `30000` in-memory policy value.
 
 The form’s Change event updates state and character count but makes no classify, extract, generate, or policy call. Continue is the first point that AC-06 may submit classification.
 
@@ -2557,6 +2578,12 @@ Expected: one commit limited to AC-08 files and the source-matched binary.
 - Create: access-client/tests/vba/classes/CFakeProcessLauncher.cls
 - Create: access-client/tests/fixtures/word/fictional-report.docx
 - Create: access-client/tests/fixtures/word/fictional-report-metadata.json
+- Create: access-client/src/modules/modUpdater.bas
+- Create: access-client/src/classes/IUpdaterLauncher.cls
+- Create: access-client/src/classes/CWindowsUpdaterLauncher.cls
+- Create: access-client/tests/vba/TestUpdater.bas
+- Create: access-client/tests/vba/classes/CFakeUpdaterLauncher.cls
+- Create: access-client/tests/fixtures/policy/update-grant.json
 - Create: access-client/build/InvokeAccessSmokeTests.ps1
 - Create: access-client/build/ScanAccessSource.ps1
 - Create: tests/unit/test_access_vba_safety.py
@@ -2565,10 +2592,15 @@ Expected: one commit limited to AC-08 files and the source-matched binary.
 - Modify: access-client/build/ValidateAccessBuild.ps1
 - Modify: access-client/build/build-matrix.example.json
 - Modify: access-client/src/modules/modWin32.bas
+- Modify: access-client/src/modules/modApiClient.bas
+- Modify: access-client/src/modules/modAppStartup.bas
+- Modify: access-client/src/modules/modBuildInfo.bas
+- Modify: access-client/src/modules/modClientPolicy.bas
 - Modify: access-client/src/modules/modReportWorkflow.bas
 - Modify: access-client/src/modules/modTestHooks.bas
 - Modify: access-client/src/forms/frmReportEditor.txt
 - Modify: access-client/src/forms/frmShell.txt
+- Modify: access-client/src/forms/frmUpdateNotice.txt
 - Modify: access-client/src/manifest.json
 - Modify: access-client/tests/vba/TestRunner.bas
 - Modify: tests/access/access_com.py
@@ -2581,8 +2613,8 @@ Expected: one commit limited to AC-08 files and the source-matched binary.
 - Consume without modifying: tests/unit/test_filler_boxes.py
 
 **Interfaces:**
-- Consumes: AC-07 SaveNow/report revisions/conflict behavior; AC-02 byte responses; /reports/{report_id}/export-docx; file dialog/process adapters; AC-01 build/validate harness.
-- Produces: ExportSavedRevision; IFileDialogService.PromptSavePath; IProcessLauncher.OpenFile/OpenUri; WriteBytesAtomically; InvokeAccessSmokeTests; ScanAccessSource; per-supported-version/bitness acceptance evidence.
+- Consumes: AC-07 SaveNow/report revisions/conflict behavior; AC-02 byte/JSON responses; `/reports/{report_id}/export-docx`; the roadmap's locked update-grant/API/IPC contract; file dialog/process adapters; AC-01 build/validate harness.
+- Produces: ExportSavedRevision; IFileDialogService.PromptSavePath; IProcessLauncher.OpenFile/OpenUri; WriteBytesAtomically; `BeginApprovedUpdate(accessBitness, windowsArchitecture) As Boolean`; `IUpdaterLauncher.LaunchWithNamedPipe(pipeName, requestId) As Boolean`; public COM-safe `ValidateRelease() As String`; one-message current-user-only named-pipe client; InvokeAccessSmokeTests; ScanAccessSource; per-supported-version/bitness acceptance evidence.
 
 - [ ] **Step 1: Write failing Word-export unit tests**
 
@@ -2660,7 +2692,83 @@ frmExport controls:
 
 Only server-authorized saved revisions are selectable. Unsaved local values are not offered. Export failure displays safe guidance and does not alter report SaveStateText.
 
-- [ ] **Step 5: Write static source/security/accessibility tests**
+- [ ] **Step 5: Implement and fake-test the accepted-update handoff and release validation hook**
+
+Write `TestUpdater.bas` before implementation and run it through the AC-01 unit
+harness. `update-grant.json` is a closed fictional first-response fixture with
+exactly:
+
+~~~json
+{
+  "update_grant": "fixture-update-grant-not-a-secret",
+  "expires_at": "2026-08-12T18:35:00Z",
+  "release_version": "0.0.0-test",
+  "package_id": "access-x64-win-x64-fixture",
+  "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "manifest_size_bytes": 1024,
+  "signer_thumbprint": "0000000000000000000000000000000000000000000000000000000000000000",
+  "one_time_value_unavailable": false
+}
+~~~
+
+Tests must prove:
+
+- `BeginApprovedUpdate("x64", "x64")` does nothing until the employee accepts;
+- acceptance sends `POST /api/v1/client-updates/grants` with bearer,
+  `X-Client-Version`, `X-Request-ID`, `Idempotency-Key`, and a closed body with
+  exactly `access_bitness` plus `windows_architecture`; test both approved Access
+  values `x86|x64` on Windows `x64`, use
+  `{"access_bitness":"x64","windows_architecture":"x64"}` as the exact
+  fictional example, and reject any combination outside the OP-01 matrix before
+  launch;
+- a first closed response requires every fixture field, keeps `update_grant` in
+  memory only, and rejects unknown/missing fields, bad hashes, nonpositive size,
+  expired grants, or mismatched package metadata;
+- an idempotent replay with `one_time_value_unavailable: true` and no
+  `update_grant` never launches and shows safe retry guidance;
+- `CFakeUpdaterLauncher` receives only a random pipe name and request ID, never a
+  grant, bearer, endpoint, person/report value, install path, or other secret;
+- the pipe payload is exactly one length-prefixed UTF-8 JSON object no larger
+  than 64 KiB and the connection is closed after the message;
+- no update grant or bearer reaches arguments, environment variables, registry,
+  clipboard, disk, diagnostics, errors, or source-matched binary artifacts; and
+- `ValidateRelease()` returns bounded valid JSON with only version, source,
+  API-compatibility, signature, and startup results and fails closed on each
+  injected mismatch without returning a credential, URL, path, identity, report
+  value, or raw exception.
+
+Run the red test first:
+
+~~~powershell
+powershell.exe -NoProfile -File access-client/build/InvokeAccessUnitTests.ps1 -Database access-client/SLUT-Client.accdb -Tests TestUpdater_Run
+~~~
+
+Expected: FAIL because `BeginApprovedUpdate` and `IUpdaterLauncher` are undefined.
+
+Implement `modUpdater` with the exact grant request/closed-response rules above.
+The response's `signer_thumbprint` is descriptive grant-bound metadata, never a
+trust anchor; Access and the helper rely only on the preapproved managed-signing
+and Windows trust policy and expected publisher identity.
+
+`CWindowsUpdaterLauncher` launches the already installed trusted helper with only
+the cryptographically random pipe name and request ID as command-line arguments.
+The helper owns the named-pipe server and must create it with .NET
+`PipeOptions.CurrentUserOnly`; Access connects through pointer-safe declarations
+centralized in `modWin32`, sends one closed length-prefixed request, and closes.
+The exact `UpdateRequest` keys are `schema_version`, `api_base_url`,
+`update_grant`, `expires_at`, `release_version`, `package_id`,
+`manifest_sha256`, `manifest_size_bytes`, `signer_thumbprint`,
+`access_bitness`, `windows_architecture`, `current_client_version`,
+`install_path`, and `request_id`. It contains no employee/report data. No
+credential or sensitive value may leave memory through arguments, environment,
+registry, clipboard, file, or log surfaces.
+
+Expose public COM-safe `ValidateRelease()` from a standard module. It returns a
+closed JSON result containing only `passed`, `client_version`, `source_commit`,
+`api_compatible`, `signature_valid`, `startup_valid`, and bounded stable
+`failure_code`. It performs no update, download, install, signing, or publication.
+
+- [ ] **Step 6: Write static source/security/accessibility tests**
 
 Create tests/unit/test_access_vba_safety.py:
 
@@ -2733,7 +2841,7 @@ def test_no_admin_client_objects():
 
 Expand ScanAccessSource.ps1 to enforce the same rules plus forbidden sensitive log parameter names, unapproved absolute URLs, missing Option Explicit, unsafe Kill/RmDir calls, and output paths outside LocalAppData or an employee-chosen export path.
 
-- [ ] **Step 6: Write and run the failing full COM smoke workflow**
+- [ ] **Step 7: Write and run the failing full COM smoke workflow**
 
 InvokeAccessSmokeTests.ps1 launches only the specified database and calls public test hooks through Access.Application.Run. It returns JSON and always closes its own Application instance:
 
@@ -2762,7 +2870,7 @@ try {
 }
 ~~~
 
-The smoke hook performs temporary-PIN sign-in, persistent renewal, profile/client policy, own-plus-other officer incident, field notes, classification, extraction, fact/gap confirmation, report tabs, manual save, autosave, owned/prepared history, revision conflict/recovery, Policy Expert citations, saved-revision Word bytes, session revoke, logout, and required-update read-only behavior.
+The smoke hook performs temporary-PIN sign-in, persistent renewal, profile/client policy, own-plus-other officer incident, field notes, classification, extraction, fact/gap confirmation, report tabs, manual save, autosave, owned/prepared history, revision conflict/recovery, Policy Expert citations, saved-revision Word bytes, session revoke, logout, required-update read-only behavior, employee-accepted update through `CFakeUpdaterLauncher`, and safe `ValidateRelease` success/failure results. It never starts a real updater or connects to a non-loopback endpoint.
 
 Run before finishing implementation:
 
@@ -2772,7 +2880,7 @@ powershell.exe -NoProfile -File access-client/build/InvokeAccessSmokeTests.ps1 -
 
 Expected initial result: FAIL at the Word-export stage because ExportSavedRevision is undefined.
 
-- [ ] **Step 7: Complete keyboard, high-contrast, and scaling behavior**
+- [ ] **Step 8: Complete keyboard, high-contrast, and scaling behavior**
 
 For every form:
 
@@ -2789,7 +2897,7 @@ For every form:
 
 Run keyboard-only manual traversal from startup through all six workflow steps, histories, Policy Expert, Account, and export. Stop acceptance on a focus trap, clipped required control, color-only state, or unlabeled input.
 
-- [ ] **Step 8: Build matrix artifacts without signing or publishing**
+- [ ] **Step 9: Build matrix artifacts without signing or publishing**
 
 build-matrix.example.json defines the evidence schema, not claimed workstation support:
 
@@ -2838,7 +2946,7 @@ Hard stop a row for:
 
 Signing, trusted-location deployment, update packaging, and rollout remain external tasks.
 
-- [ ] **Step 9: Run the complete automated verification**
+- [ ] **Step 10: Run the complete automated verification**
 
 ~~~powershell
 python -m pytest -q
@@ -2851,7 +2959,7 @@ powershell.exe -NoProfile -File access-client/build/ValidateAccessBuild.ps1 -Dat
 
 Expected: complete credential-free Python suite PASS; static scan PASS; every VBA test PASS; all COM workflows PASS; source round-trip clean; no Access business tables; no sensitive fixture value in source/log/recovery bytes; no legacy/direct-cloud route.
 
-- [ ] **Step 10: Run manual Windows acceptance on every supported inventory row**
+- [ ] **Step 11: Run manual Windows acceptance on every supported inventory row**
 
 Use fictional scenarios only and record exact observed results for:
 
@@ -2865,12 +2973,13 @@ Use fictional scenarios only and record exact observed results for:
 8. Policy answer citations and session-only clearing;
 9. saved-revision DOCX save, optional Word open, and print under agency policy;
 10. token revocation and logout scopes;
-11. optional update and minimum-client read-only behavior;
+11. optional update, minimum-client read-only behavior, accepted-update fake
+    launcher handoff, and safe `ValidateRelease` output;
 12. keyboard-only, high contrast, 1366 by 768, and 100%/125%/150% scaling.
 
 Expected: each supported matrix row passes all twelve. Any failed row remains unsupported until fixed and rerun; it is not averaged with passing rows.
 
-- [ ] **Step 11: Update Access documentation and commit AC-09**
+- [ ] **Step 12: Update Access documentation and commit AC-09**
 
 Update access-client/README.md with final source commands, fake API test commands, supported evidence procedure, LocalAppData paths, safe troubleshooting/request IDs, and explicit signing/deployment exclusions.
 

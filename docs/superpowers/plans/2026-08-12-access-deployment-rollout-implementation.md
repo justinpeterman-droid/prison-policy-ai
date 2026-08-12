@@ -54,13 +54,14 @@
 | `alembic.ini`, `migrations/env.py`, `migrations/script.py.mako` | Identity foundation task ID-01 | OP-06 consumes and packages these files; it does not recreate or change Alembic transaction/model-loading behavior. |
 | `migrations/versions/*.py` | The ID or RP task that introduces the corresponding model/schema change | OP-06 consumes all reviewed migration files and tests the combined graph; it creates no schema revision. A later schema task owns its new revision and must update the migration register in the same commit. |
 | `migrations/MIGRATION_REGISTER.md` | OP-06 | OP-06 creates the register and records every existing revision. Later migration-owning tasks append their exact duration, lock, compatibility, rollback, and verification contract. |
-| `backend/jobs/migration.py`, `backend/jobs/roster_import.py`, `scripts/verify_migration.py` | OP-06 | Delivery workflows call these stable entry points and do not duplicate migration/import logic. |
+| `backend/jobs/migration.py`, `backend/jobs/roster_import.py`, `backend/jobs/admin_bootstrap.py`, `scripts/verify_migration.py` | OP-06 | Delivery workflows call these stable entry points and do not duplicate migration/import/bootstrap logic. |
 | `scripts/import_roster_to_postgres.py` | Identity foundation creates the database-aware import CLI; OP-06 takes ownership of its deployment wrapper contract | OP-06 may modify it only after the identity import service is reviewed; later callers consume its validation-first CLI. |
 | `release/version.schema.json`, `release/version.json` | OP-08 | OP-08 creates the central compatibility registry with a non-production development sentinel. OP-09 reads it but does not modify it. A separately authorized, reviewed release-version commit replaces the sentinel; production workflows reject development values. |
 | `release/backend-release.schema.json`, `scripts/deploy/*` | OP-08 | OP-09 and OP-10 consume backend descriptor hashes/versions and never rewrite backend provenance. |
 | `release/access-release.schema.json`, `scripts/release/*`, `access-updater/**` | OP-09 | AC tasks own the Access database/source/build output; OP-09 consumes those outputs and owns packaging, verification, updater, signing-service integration, and publication contracts. |
 | `access-client/SLUT-Client.accdb`, `access-client/src/**`, `access-client/build/**`, `access-client/tests/**` | AC-01 through AC-09 | OP-09 does not edit Access source or build automation; it stops if their signed-build interfaces are absent. |
-| `backend/webapp/api_v1/client_policy.py`, `openapi/access-v1.yaml` | ID-02 creates the bootstrap endpoint/contract; RP-10 adds build/production validation; OP-09 owns the authenticated release-manifest projection it adds | Any compatibility field change updates Python, OpenAPI, Access contract tests, and manifest schema in one reviewed task. |
+| `backend/webapp/api_v1/client_policy.py` | ID-02 creates the exact nine-field public safe endpoint; RP-10 adds build/production validation | OP-09 consumes it without modification. Package/hash/signer/grant metadata is prohibited from this response. |
+| `backend/identity/update_grants.py`, `backend/webapp/api_v1/client_updates.py`, `openapi/access-v1.yaml` update routes | OP-09 | OP-09 owns the five-minute grant and protected manifest/signature/package delivery contract while preserving ID-02's exact client-policy schema. Any later change updates Python, OpenAPI, Access contract tests, and manifest schema together. |
 
 `release/version.json` has this exact source-controlled development shape:
 
@@ -118,7 +119,7 @@ For every OP task:
 
 - Consumes: approved deployment specification; agency-supplied decisions delivered outside Git.
 - Produces: gate IDs `EXT-01` through `EXT-16`; workstation-class record fields; named-owner roles; environment isolation fields; explicit `CLOSED`, `READY_FOR_TEST`, and `READY_FOR_PRODUCTION` gate states consumed by OP-02, OP-03, OP-05, OP-08, OP-09, and OP-10.
-- Produces the external GitHub-environment policy for exact names `test`, `production-plan`, `production-apply`, `production-deploy`, `production-rollback`, and `access-release`; repository code validates names and workflow references but does not create environments, reviewers, branch policies, or approvals.
+- Produces the external GitHub-environment policy for exact names `test`, `production-plan`, `production-apply`, `production-deploy`, `production-rollback`, and `access-release`; repository code validates names and workflow references but does not create environments, reviewers, branch policies, or approvals. `bootstrap-first-admin.yml` uses `test` with the test `admin-bootstrap` WIF identity and `production-deploy` with the production `admin-bootstrap` identity; no seventh environment is created.
 - Produces the preimplementation invariant that no ordinary push deploys Cloud Run, no local helper merges/pushes/deploys, and GitHub Pages publishes only `frontend/forms` rather than the repository root.
 - Produces no cloud identifiers, credentials, names, or inventory records in Git.
 
@@ -146,7 +147,7 @@ OPERATIONS = ROOT / "docs" / "operations"
 REQUIRED = {
     "external-prerequisites.md": {
         "EXT-01 Separate cloud environments",
-        "EXT-08 Managed signing proof",
+        "EXT-08 Managed signing policy",
         "EXT-15 Written production acceptance",
         "EXT-16 GitHub protected environments",
     },
@@ -167,10 +168,10 @@ REQUIRED = {
         "Secret Manager namespace",
     },
     "github-environment-policy.md": {
-        "test | deploy-test.yml, terraform-plan.yml, terraform-apply.yml | terraform-plan, terraform-apply, deploy, rollback | 1 | refs/heads/main | CLOSED",
+        "test | deploy-test.yml, terraform-plan.yml, terraform-apply.yml, bootstrap-first-admin.yml | terraform-plan, terraform-apply, deploy, rollback, admin-bootstrap | 1 | refs/heads/main | CLOSED",
         "production-plan | terraform-plan.yml | terraform-plan | 2 | refs/heads/main | CLOSED",
         "production-apply | terraform-apply.yml | terraform-apply | 2 | refs/heads/main | CLOSED",
-        "production-deploy | deploy-production.yml | deploy | 2 | refs/heads/main | CLOSED",
+        "production-deploy | deploy-production.yml, bootstrap-first-admin.yml | deploy, admin-bootstrap | 2 | refs/heads/main | CLOSED",
         "production-rollback | rollback-production.yml | rollback | 2 | refs/heads/main | CLOSED",
         "access-release | access-release.yml | access-release | 2 | refs/heads/main | CLOSED",
     },
@@ -265,11 +266,11 @@ Create `docs/operations/external-prerequisites.md` with one row for each exact g
 | EXT-05 WIF trust | Repository, branch/ref, provider, and environment trust conditions | CLOSED |
 | EXT-06 Runtime secrets | Named human custodian and approved Secret Manager population procedure | CLOSED |
 | EXT-07 Access trusted location | Narrow managed local installation directory and ACL policy | CLOSED |
-| EXT-08 Managed signing proof | Test .accde and .NET helper accepted by Access, Windows, and endpoint protection | CLOSED |
+| EXT-08 Managed signing policy | Agency-approved `.accde` trust mechanism and managed-signing service interface/policy that never exports private key material | CLOSED |
 | EXT-09 Workstation matrix | Every supported or excluded workstation class recorded | CLOSED |
 | EXT-10 Network allowlist | Proxy, firewall, TLS inspection, DNS, and Google endpoint decisions | CLOSED |
 | EXT-11 Initial roster correction | Approved duplicate, missing-ID, invalid-shift, and ambiguous-name mapping | CLOSED |
-| EXT-12 Initial Admin enrollment | Approved first-Admin bootstrap and one-time PIN communication procedure | CLOSED |
+| EXT-12 Initial Admin enrollment | Approved private request creation/hash, protected zero-account bootstrap, authorized PIN custodian communication, and secret-version disable/destruction procedure | CLOSED |
 | EXT-13 Security and records review | Data classification, retention, export, printing, and incident requirements | CLOSED |
 | EXT-14 Pilot authorization | Named 5-10 employees, two administrators, training, support, and real-data approval | CLOSED |
 | EXT-15 Written production acceptance | Business, IT/security, and records-management sign-off | CLOSED |
@@ -289,10 +290,10 @@ Create the remaining four documents. Use role names rather than personal names i
 ```markdown
 | Environment | Permitted workflows | WIF identities | Minimum reviewers | Allowed ref | Repository state |
 |---|---|---|---:|---|---|
-| test | deploy-test.yml, terraform-plan.yml, terraform-apply.yml | terraform-plan, terraform-apply, deploy, rollback | 1 | refs/heads/main | CLOSED |
+| test | deploy-test.yml, terraform-plan.yml, terraform-apply.yml, bootstrap-first-admin.yml | terraform-plan, terraform-apply, deploy, rollback, admin-bootstrap | 1 | refs/heads/main | CLOSED |
 | production-plan | terraform-plan.yml | terraform-plan | 2 | refs/heads/main | CLOSED |
 | production-apply | terraform-apply.yml | terraform-apply | 2 | refs/heads/main | CLOSED |
-| production-deploy | deploy-production.yml | deploy | 2 | refs/heads/main | CLOSED |
+| production-deploy | deploy-production.yml, bootstrap-first-admin.yml | deploy, admin-bootstrap | 2 | refs/heads/main | CLOSED |
 | production-rollback | rollback-production.yml | rollback | 2 | refs/heads/main | CLOSED |
 | access-release | access-release.yml | access-release | 2 | refs/heads/main | CLOSED |
 ```
@@ -506,9 +507,10 @@ git commit -m "infra: establish isolated terraform state roots"
 **Interfaces:**
 
 - Consumes: OP-02 provider/environment roots; OP-01 EXT-05 and EXT-16 evidence; externally approved `project_id`, `source_repository`, WIF issuer inputs, Cloud SQL tier, and secret custodians.
-- Produces: module inputs `environment`, `project_id`, `region`, `network_name`, `database_instance_name`, `database_name`, `sql_tier`, `github_repository`, `github_ref_pattern`, `enable_access_release_identity`, and `wif_trust`. `wif_trust` is a map keyed exactly by `terraform-plan`, `terraform-apply`, `deploy`, `rollback`, and `access-release`; each value contains `github_environment`, `workflow_refs`, and `ref_pattern` and must agree with `docs/operations/github-environment-policy.md`.
-- Produces runtime identity outputs `api_service_account_email`, `worker_service_account_email`, `task_invoker_service_account_email`, and `migration_service_account_email`; workflow identity outputs `terraform_plan_service_account_email`, `terraform_apply_service_account_email`, `deploy_service_account_email`, `rollback_service_account_email`, and nullable `access_release_service_account_email`; and WIF outputs `terraform_plan_wif_provider_name`, `terraform_apply_wif_provider_name`, `deploy_wif_provider_name`, `rollback_wif_provider_name`, and nullable `access_release_wif_provider_name`, in addition to `network_id`, `private_subnet_id`, `database_instance_connection_name`, `database_private_ip`, `database_name`, and `secret_resource_ids`.
-- Produces Secret Manager containers named `access-database-url`, `identity-hash-pepper`, `cursor-signing-key`, `legacy-access-code`, `legacy-admin-code`, `github-feedback-token`, and `flask-session-secret`; no `google_secret_manager_secret_version` resource is permitted.
+- Produces: module inputs `environment`, `project_id`, `region`, `network_name`, `database_instance_name`, `database_name`, `sql_tier`, `github_repository`, `github_ref_pattern`, `enable_access_release_identity`, and `wif_trust`. `wif_trust` is a map keyed exactly by `terraform-plan`, `terraform-apply`, `deploy`, `rollback`, `admin-bootstrap`, and `access-release`; each value contains `github_environment`, `workflow_refs`, and `ref_pattern` and must agree with `docs/operations/github-environment-policy.md`.
+- Produces runtime identity outputs `api_service_account_email`, `worker_service_account_email`, `task_invoker_service_account_email`, `migration_service_account_email`, and `bootstrap_service_account_email`; workflow identity outputs `terraform_plan_service_account_email`, `terraform_apply_service_account_email`, `deploy_service_account_email`, `rollback_service_account_email`, `admin_bootstrap_service_account_email`, and nullable `access_release_service_account_email`; and WIF outputs `terraform_plan_wif_provider_name`, `terraform_apply_wif_provider_name`, `deploy_wif_provider_name`, `rollback_wif_provider_name`, `admin_bootstrap_wif_provider_name`, and nullable `access_release_wif_provider_name`, in addition to `network_id`, `private_subnet_id`, `database_instance_connection_name`, `database_private_ip`, `database_name`, and `secret_resource_ids`.
+- Produces Secret Manager containers named `access-database-url`, `identity-hash-pepper`, `cursor-signing-key`, `client-update-grant-key`, `legacy-access-code`, `legacy-admin-code`, `github-feedback-token`, `flask-session-secret`, and `initial-admin-pin`; no `google_secret_manager_secret_version` resource is permitted.
+- Produces the bootstrap-runtime IAM boundary: Cloud SQL Client, accessor on `access-database-url`, and `roles/secretmanager.secretVersionAdder` on `initial-admin-pin`, with no secret-version access. OP-04 adds only the exact private `admin-bootstrap-requests/` configuration-bucket object-read binding; OP-06 adds only exact invocation of `access-{environment}-bootstrap-admin` to the `admin-bootstrap` workflow identity. The API alone receives accessor on `client-update-grant-key`.
 - Produces no GitHub environment, GitHub reviewer/branch policy, database password, connection string, WIF credential, service-account key, or secret value.
 
 **Stop conditions:**
@@ -519,12 +521,14 @@ git commit -m "infra: establish isolated terraform state roots"
 - Stop if `terraform-plan` can mutate cloud resources or read secret payloads/state writes; if `rollback` can build/push images, apply Terraform, invoke migrations, or read secrets; or if `access-release` can access Cloud Run, Cloud SQL, application secrets, or signing private material.
 - Stop if Terraform contains a GitHub provider or `github_repository_environment`; GitHub environment protection is externally owned under EXT-16.
 - Stop if secret population would put a value in Terraform configuration, Terraform state, a GitHub variable, command history, logs, or this repository.
+- Stop if bootstrap can read `initial-admin-pin`, write any other secret, read outside the private request prefix, invoke any other job, or if the workflow identity can connect to SQL/read secrets. Stop if any identity other than API can access `client-update-grant-key` versions.
 
 - [ ] **Step 1: Write failing security-contract tests**
 
 Create `infra/terraform/tests/test_security_contract.py`:
 
 ```python
+import re
 from pathlib import Path
 
 
@@ -562,10 +566,12 @@ def test_runtime_identities_are_single_purpose():
         "worker",
         "task-invoker",
         "migration",
+        "bootstrap",
         "terraform-plan",
         "terraform-apply",
         "deploy",
         "rollback",
+        "admin-bootstrap",
         "access-release",
     ]:
         assert f'account_id   = "access-${{var.environment}}-{account_id}"' in identities
@@ -574,7 +580,7 @@ def test_runtime_identities_are_single_purpose():
 def test_workflow_identities_have_distinct_wif_and_secret_boundaries():
     identities = read("identities.tf")
     outputs = read("outputs.tf")
-    for identity in ("terraform_plan", "terraform_apply", "deploy", "rollback", "access_release"):
+    for identity in ("terraform_plan", "terraform_apply", "deploy", "rollback", "admin_bootstrap", "access_release"):
         assert f'output "{identity}_service_account_email"' in outputs
         assert f'output "{identity}_wif_provider_name"' in outputs
     secret_bindings = "\n".join(re.findall(
@@ -582,10 +588,31 @@ def test_workflow_identities_have_distinct_wif_and_secret_boundaries():
         identities,
         flags=re.DOTALL,
     ))
-    for identity in ("terraform_plan", "terraform_apply", "deploy", "rollback", "access_release"):
+    for identity in ("terraform_plan", "terraform_apply", "deploy", "rollback", "admin_bootstrap", "access_release"):
         assert f"google_service_account.{identity}.member" not in secret_bindings
     assert 'role = "roles/viewer"' in identities
     assert 'role = google_project_iam_custom_role.rollback_traffic.name' in identities
+
+
+def test_bootstrap_and_update_grant_secrets_are_separated():
+    identities = read("identities.tf")
+    secrets = read("secrets.tf")
+    assert 'secret_id = "initial-admin-pin"' in secrets
+    assert 'secret_id = "client-update-grant-key"' in secrets
+    bindings = re.findall(
+        r'resource "google_secret_manager_secret_iam_member" "[^"]+" \{.*?\n\}',
+        identities,
+        flags=re.DOTALL,
+    )
+    initial_pin = next(block for block in bindings if "initial_admin_pin.id" in block)
+    update_key = next(block for block in bindings if "client_update_grant_key.id" in block)
+    assert 'role = "roles/secretmanager.secretVersionAdder"' in initial_pin
+    assert "google_service_account.bootstrap.member" in initial_pin
+    assert "secretAccessor" not in initial_pin
+    assert 'role = "roles/secretmanager.secretAccessor"' in update_key
+    assert "google_service_account.api.member" in update_key
+    assert "google_service_account.bootstrap.member" not in update_key
+    assert "google_service_account.admin_bootstrap.member" not in update_key
 ```
 
 - [ ] **Step 2: Run the focused tests and observe failure**
@@ -650,7 +677,7 @@ Create the application database but not a password-bearing SQL user. The human d
 
 - [ ] **Step 6: Create single-purpose service accounts and WIF conditions**
 
-Create eight service accounts in test and nine in production. Both environments create `api`, `worker`, `task-invoker`, `migration`, `terraform-plan`, `terraform-apply`, `deploy`, and `rollback`; only production sets `enable_access_release_identity=true` and creates `access-release`. The four runtime identities retain the existing narrow boundaries: API connects to Cloud SQL, enqueues tasks, and reads only its named secrets/buckets; worker connects to Cloud SQL and approved AI/search services; task-invoker invokes only the worker; migration connects to Cloud SQL and reads only the roster-import object.
+Create ten service accounts in test and eleven in production. Both environments create runtime identities `api`, `worker`, `task-invoker`, `migration`, and `bootstrap`, plus workflow identities `terraform-plan`, `terraform-apply`, `deploy`, `rollback`, and `admin-bootstrap`; only production sets `enable_access_release_identity=true` and creates `access-release`. API connects to Cloud SQL, enqueues tasks, and reads only its named secrets/buckets; worker connects to Cloud SQL and approved AI/search services; task-invoker invokes only the worker; migration connects to Cloud SQL and reads only the roster-import object. Bootstrap may connect to SQL, read only `access-database-url`, read only private request objects under OP-04's exact `admin-bootstrap-requests/` prefix, and add a version only to `initial-admin-pin`; it cannot access any secret version including the version it writes. The `admin-bootstrap` workflow identity receives no application/database/secret permission and, when OP-06 creates the job, may invoke only `access-{environment}-bootstrap-admin`.
 
 Implement these workflow boundaries exactly:
 
@@ -659,12 +686,13 @@ Implement these workflow boundaries exactly:
 - `deploy`: `roles/artifactregistry.writer` on the environment repository, Cloud Run revision/job deployment permissions, and `roles/iam.serviceAccountUser` only on API, worker, and migration identities. It can invoke the reviewed migration/verification jobs but cannot read application secrets or Terraform state.
 - `rollback`: a custom `accessRollbackTraffic` role containing only `run.services.get`, `run.services.update`, `run.operations.get`, `run.revisions.get`, and `run.revisions.list`, scoped to the API and worker services. It has no Artifact Registry, build, job-invocation, secret, database, or Terraform-state permission.
 - `access-release`: production only, with object-create/read permission on immutable versioned paths in the release bucket and the agency-managed signing service's submit-and-read-result role. It cannot overwrite/delete prior releases, read signing keys, access application secrets/state/database, or administer Cloud Run.
+- `admin-bootstrap`: WIF-only workflow identity. OP-06 binds it as invoker only on `access-{environment}-bootstrap-admin`; it cannot invoke API/worker/migration/roster jobs, connect to SQL, access buckets or secrets, build/push, deploy, apply Terraform, or administer Cloud Run.
 
-Create a distinct service-account IAM binding and WIF provider for each workflow identity. Every provider condition includes the exact GitHub repository, `refs/heads/main`, the matching `job_workflow_ref`, and the exact environment claim from the OP-01 policy. `terraform-plan.yml` is allowed in `test` and `production-plan`; `terraform-apply.yml` in `test` and `production-apply`; test deploy and rollback-verification jobs in `deploy-test.yml` use their distinct identities under `test`; `deploy-production.yml` uses `deploy` in `production-deploy`; `rollback-production.yml` uses `rollback` in `production-rollback`; and `access-release.yml` uses `access-release` in `access-release`. No provider accepts a fork pull request, an unprotected environment, or another workflow. Do not issue or download a service-account key.
+Create a distinct service-account IAM binding and WIF provider for each workflow identity. Every provider condition includes the exact GitHub repository, `refs/heads/main`, the matching `job_workflow_ref`, and the exact environment claim from the OP-01 policy. `terraform-plan.yml` is allowed in `test` and `production-plan`; `terraform-apply.yml` in `test` and `production-apply`; test deploy and rollback-verification jobs in `deploy-test.yml` use their distinct identities under `test`; `deploy-production.yml` uses `deploy` in `production-deploy`; `rollback-production.yml` uses `rollback` in `production-rollback`; `bootstrap-first-admin.yml` uses `admin-bootstrap` under `test` in test and under `production-deploy` in production; and `access-release.yml` uses `access-release` in `access-release`. No provider accepts a fork pull request, an unprotected environment, or another workflow. Do not issue or download a service-account key.
 
 - [ ] **Step 7: Create secret containers and per-secret IAM**
 
-Implement only `google_secret_manager_secret` resources with automatic replication and environment labels. Bind `roles/secretmanager.secretAccessor` at the individual secret resource, not the project. The API receives database, identity pepper, cursor signing, session, legacy, and feedback secrets only when required. The worker receives the database secret only. The migration identity receives the database secret only. Document independent generation/population/rotation of `identity-hash-pepper` and `cursor-signing-key`, revision pinning, rollback, and audit verification in `docs/runbooks/secret-population-and-rotation.md`.
+Implement only `google_secret_manager_secret` resources with automatic replication and environment labels. Bind `roles/secretmanager.secretAccessor` at the individual secret resource, not the project. The API receives database, identity pepper, cursor signing, client-update-grant, session, legacy, and feedback secrets only when required; it is the only accessor on `client-update-grant-key`. The worker and migration identity receive the database secret only. Bootstrap receives database-secret accessor and `roles/secretmanager.secretVersionAdder` (not accessor/viewer) only on `initial-admin-pin`. The `admin-bootstrap` workflow receives no secret role. Document independent generation/population/version pinning/rotation/rollback/audit verification of `identity-hash-pepper`, `cursor-signing-key`, and `client-update-grant-key`; document that `initial-admin-pin` versions are created only by the bootstrap runtime and retrieved/disabled/destroyed only by the external authorized custodian. Terraform creates no versions.
 
 - [ ] **Step 8: Wire isolated environment roots**
 
@@ -672,7 +700,7 @@ Add `module "access_platform"` to both environment `main.tf` files. Test and pro
 
 - [ ] **Step 9: Add native Terraform safety assertions**
 
-Create `infra/terraform/tests/access_platform.tftest.hcl` with a mocked Google provider and separate test/production plan runs. Assert `POSTGRES_17`, regional production availability, deletion protection, eight distinct test service-account emails, nine distinct production service-account emails, four non-null test workflow-provider outputs, five non-null production workflow-provider outputs, and exactly seven secret resource IDs including `identity-hash-pepper` and `cursor-signing-key`. Assert plan/rollback/release identities have the exact permissions above and no application-secret accessor binding. Use fictional input values `slut-access-production-fixture` and `example.invalid/agency/prison-policy-ai`.
+Create `infra/terraform/tests/access_platform.tftest.hcl` with a mocked Google provider and separate test/production plan runs. Assert `POSTGRES_17`, regional production availability, deletion protection, ten distinct test service-account emails, eleven distinct production service-account emails, five non-null test workflow-provider outputs, six non-null production workflow-provider outputs, and exactly nine secret resource IDs including `identity-hash-pepper`, `cursor-signing-key`, `client-update-grant-key`, and `initial-admin-pin`. Assert plan/rollback/release/bootstrap-workflow identities have the exact permissions above, bootstrap runtime has only its declared secret roles, and API alone can access the update-grant secret. Assert the `admin-bootstrap` WIF environment claim is `test` for test and `production-deploy` for production. Use fictional input values `slut-access-production-fixture` and `example.invalid/agency/prison-policy-ai`.
 
 - [ ] **Step 10: Run local Terraform and Python validation**
 
@@ -722,9 +750,11 @@ git commit -m "infra: define private sql and least privilege identities"
 **Interfaces:**
 
 - Consumes: OP-03 network, identities, database connection name, and secret resource IDs; backend entry points `backend.webapp.app:create_app()` and `backend.worker.app:create_worker_app()`; worker task endpoint produced by RP-07; immutable `image_digest` in Artifact Registry.
-- Consumes exact runtime configuration names: `ACCESS_API_ENABLED`, `GCP_PROJECT_ID`, `GCP_LOCATION`, `GCP_MODEL_LOCATION`, `AGENT_BUILDER_LOCATION`, `AGENT_BUILDER_COLLECTION`, `AGENT_BUILDER_ENGINE_ID`, `AGENT_BUILDER_SERVING_CONFIG`, `FAST_MODEL`, `PRO_MODEL`, `DATABASE_URL`, `IDENTITY_HASH_PEPPER`, `CURSOR_SIGNING_KEY`, `CLOUD_TASKS_PROJECT`, `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_QUEUE`, `AI_WORKER_URL`, `CLOUD_TASKS_OIDC_SERVICE_ACCOUNT`, `SOURCE_COMMIT`, `RELEASE_VERSION`, `API_VERSION`, `LATEST_CLIENT_VERSION`, `MINIMUM_CLIENT_VERSION`, `MINIMUM_SERVER_VERSION`, `RELEASE_NOTES`, `PUBLIC_BASE_URL`, `LEGACY_REPORT_MODE`, `ROSTER_BUCKET`, `REVIEW_BUCKET`, `REVIEW_OBJECT_PREFIX`, `ACCESS_CODE`, `ADMIN_CODE`, `GITHUB_TOKEN`, and `LOG_LEVEL`.
+- Consumes exact runtime configuration names: `ACCESS_API_ENABLED`, `GCP_PROJECT_ID`, `GCP_LOCATION`, `GCP_MODEL_LOCATION`, `AGENT_BUILDER_LOCATION`, `AGENT_BUILDER_COLLECTION`, `AGENT_BUILDER_ENGINE_ID`, `AGENT_BUILDER_SERVING_CONFIG`, `FAST_MODEL`, `PRO_MODEL`, `DATABASE_URL`, `IDENTITY_HASH_PEPPER`, `CURSOR_SIGNING_KEY`, `CLIENT_UPDATE_GRANT_KEY`, `CLOUD_TASKS_PROJECT`, `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_QUEUE`, `AI_WORKER_URL`, `CLOUD_TASKS_OIDC_SERVICE_ACCOUNT`, `SOURCE_COMMIT`, `RELEASE_VERSION`, `API_VERSION`, `LATEST_CLIENT_VERSION`, `MINIMUM_CLIENT_VERSION`, `MINIMUM_SERVER_VERSION`, `RELEASE_NOTES`, `PUBLIC_BASE_URL`, `LEGACY_REPORT_MODE`, `ACCESS_RELEASE_BUCKET`, `ROSTER_BUCKET`, `REVIEW_BUCKET`, `REVIEW_OBJECT_PREFIX`, `ADMIN_BOOTSTRAP_REQUEST_BUCKET`, `ADMIN_BOOTSTRAP_REQUEST_PREFIX`, `ACCESS_CODE`, `ADMIN_CODE`, `GITHUB_TOKEN`, and `LOG_LEVEL`.
 - Produces: `api_service_name`, `worker_service_name`, `api_revision_uri`, `worker_uri`, `queue_name`, `managed_hostname`, `load_balancer_ip`, `release_bucket_name`, `configuration_bucket_name`, `logical_backup_bucket_name`, `roster_bucket_name`, and `review_bucket_name`.
 - Produces API ingress `INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER`; worker ingress `INGRESS_TRAFFIC_INTERNAL_ONLY`; only the task-invoker identity receives worker invocation permission.
+- Produces release-bucket `roles/storage.objectViewer` for the API only, with no object-create/overwrite/delete permission; worker identities and Access workstations receive no release-bucket access.
+- Produces one conditional `roles/storage.objectViewer` binding for `google_service_account.bootstrap.member` on only configuration-bucket object names beginning with the exact `admin-bootstrap-requests/` prefix. The non-secret `ADMIN_BOOTSTRAP_REQUEST_BUCKET` and `ADMIN_BOOTSTRAP_REQUEST_PREFIX=admin-bootstrap-requests/` values are exposed for OP-06's `access-{environment}-bootstrap-admin` job; no list-all, write, delete, or other configuration-object permission is granted.
 
 **Stop conditions:**
 
@@ -733,6 +763,7 @@ git commit -m "infra: define private sql and least privilege identities"
 - Stop if test and production share a queue, bucket, hostname, service account, database, Discovery Engine resource, or audit data.
 - Stop if Cloud Tasks OIDC audience and the worker's expected audience are not the same reviewed worker URL.
 - Stop if a source deployment, mutable model alias, or secret literal appears in Terraform.
+- Stop if the API can create/overwrite/delete release objects, if worker/workstation identities can read them, or if the bootstrap runtime can read outside the exact `admin-bootstrap-requests/` prefix.
 
 - [ ] **Step 1: Write failing serverless-contract tests**
 
@@ -779,6 +810,17 @@ def test_storage_is_private_versioned_and_uniform():
     assert storage.count("versioning") >= 5
 
 
+def test_release_and_bootstrap_object_read_boundaries_are_narrow():
+    storage = read("storage.tf")
+    assert "google_service_account.api.member" in storage
+    assert 'role   = "roles/storage.objectViewer"' in storage
+    assert "google_service_account.bootstrap.member" in storage
+    assert "admin-bootstrap-requests/" in storage
+    assert "resource.name.startsWith" in storage
+    for forbidden in ("roles/storage.objectAdmin", "roles/storage.admin", "allUsers"):
+        assert forbidden not in storage
+
+
 def test_compatibility_environment_projection_is_complete():
     serverless = read("serverless.tf")
     for name, variable in {
@@ -823,7 +865,9 @@ Add non-secret variables `source_commit`, `release_version`, `api_version`, `lat
 
 - [ ] **Step 4: Create private versioned buckets**
 
-In `storage.tf`, create exactly five buckets: controlled release artifacts, configuration/templates, scheduled logical backups, legacy roster persistence, and immutable Review Lab submissions. All use uniform bucket-level access, public-access prevention, versioning, environment labels, and lifecycle rules. Release artifacts retain the current and immediately previous known-good client package. Backup objects use retention and lifecycle controls that cannot undercut the approved restore window. Roster and Review Lab access is limited to the API identity and migration/backup identities that require it. Access workstations never receive bucket credentials or direct bucket URLs.
+In `storage.tf`, create exactly five buckets: controlled release artifacts, configuration/templates, scheduled logical backups, legacy roster persistence, and immutable Review Lab submissions. All use uniform bucket-level access, public-access prevention, versioning, environment labels, and lifecycle rules. Release artifacts retain the current and immediately previous known-good client package. Grant only the API identity `roles/storage.objectViewer` on the release bucket; it receives no create, overwrite, or delete permission, and the worker and Access workstations receive none. The API mediates every manifest/signature/package byte and never discloses a bucket URL or credential.
+
+On the configuration bucket, grant `google_service_account.bootstrap.member` only conditional `roles/storage.objectViewer` where the object resource name starts with the exact `admin-bootstrap-requests/` prefix. No other runtime identity receives this bootstrap request access, and bootstrap receives no write/delete or read outside the prefix. Expose the non-secret bucket name and exact prefix as `ADMIN_BOOTSTRAP_REQUEST_BUCKET` and `ADMIN_BOOTSTRAP_REQUEST_PREFIX` for OP-06; its opaque request URI identifies the exact object, so broad bucket listing is not required. Backup objects use retention and lifecycle controls that cannot undercut the approved restore window. Roster and Review Lab access is limited to the API identity and migration/backup identities that require it.
 
 - [ ] **Step 5: Define API and worker services from one digest**
 
@@ -863,7 +907,7 @@ resource "google_cloud_run_v2_service" "worker" {
 }
 ```
 
-Add Cloud SQL connectivity, secret references, startup/liveness probes, request timeouts, explicit scaling, CPU/memory, execution environment, and all reviewed non-secret environment values. Set `ACCESS_API_ENABLED=true`; project `DATABASE_URL`, `IDENTITY_HASH_PEPPER`, and `CURSOR_SIGNING_KEY` from their exact Secret Manager containers; map `release_version`, `api_version`, `latest_client_version`, `minimum_client_version`, `minimum_server_version`, and `release_notes` to `RELEASE_VERSION`, `API_VERSION`, `LATEST_CLIENT_VERSION`, `MINIMUM_CLIENT_VERSION`, `MINIMUM_SERVER_VERSION`, and `RELEASE_NOTES`; set `PUBLIC_BASE_URL` to the managed HTTPS origin; and set the reviewed `LEGACY_REPORT_MODE`. Secret references use Secret Manager resource IDs, never values. Stamp both services with identical `SOURCE_COMMIT`, `RELEASE_VERSION`, and digest labels.
+Add Cloud SQL connectivity, secret references, startup/liveness probes, request timeouts, explicit scaling, CPU/memory, execution environment, and all reviewed non-secret environment values. Set `ACCESS_API_ENABLED=true`; project `DATABASE_URL`, `IDENTITY_HASH_PEPPER`, `CURSOR_SIGNING_KEY`, and `CLIENT_UPDATE_GRANT_KEY` into the API from their exact Secret Manager containers; the worker receives no client-update key. Set API-only `ACCESS_RELEASE_BUCKET` to the controlled release bucket name. Map `release_version`, `api_version`, `latest_client_version`, `minimum_client_version`, `minimum_server_version`, and `release_notes` to `RELEASE_VERSION`, `API_VERSION`, `LATEST_CLIENT_VERSION`, `MINIMUM_CLIENT_VERSION`, `MINIMUM_SERVER_VERSION`, and `RELEASE_NOTES`; set `PUBLIC_BASE_URL` to the managed HTTPS origin; and set the reviewed `LEGACY_REPORT_MODE`. Reserve the non-secret configuration bucket/prefix values for OP-06's bootstrap job rather than projecting them into API/worker. Secret references use Secret Manager resource IDs, never values. Stamp both services with identical `SOURCE_COMMIT`, `RELEASE_VERSION`, and digest labels.
 
 - [ ] **Step 6: Create authenticated Cloud Tasks delivery**
 
@@ -875,7 +919,7 @@ In `edge.tf`, create a serverless NEG for the API, backend service with attached
 
 - [ ] **Step 8: Extend native Terraform tests**
 
-Add assertions that API/worker images equal the same fixture digest, API and worker ingress values differ exactly as required, only the task-invoker can invoke the worker, Cloud Armor is attached, all five buckets prevent public access, and test/production names include their environment.
+Add assertions that API/worker images equal the same fixture digest, API and worker ingress values differ exactly as required, only the task-invoker can invoke the worker, Cloud Armor is attached, all five buckets prevent public access, and test/production names include their environment. Assert API-only release-object read with no write permission, no worker/workstation release binding, the exact conditional bootstrap request prefix/read-only identity, API-only `CLIENT_UPDATE_GRANT_KEY` and `ACCESS_RELEASE_BUCKET`, and no secret literal or bucket credential.
 
 - [ ] **Step 9: Document non-mutating edge/service verification**
 
@@ -933,9 +977,9 @@ git commit -m "infra: define private api worker and managed edge"
 
 **Interfaces:**
 
-- Consumes: OP-03 database and identities; OP-04 services, queue, buckets, and managed hostname; RP-09 safe health/metrics fields; approved external notification-channel IDs, billing account ID, monthly budget amount, and budget Pub/Sub topic.
-- Consumes safe metric labels only: environment, release version, API version, Cloud Run revision, HTTP status class, stable error code, job type/stage/result, client version, migration revision, dependency name, and request ID.
-- Produces: dashboards `api`, `database`, `jobs-and-ai`, and `client-versions`; alerts for API availability/latency/5xx, auth lockouts and denials, Cloud SQL saturation/storage/connection/backup state, queue depth/age, AI job failure/latency, policy search, export failure, client-upgrade-required, sensitive-log scanner failure, and budget thresholds.
+- Consumes: OP-03 database and identities; OP-04 services, queue, buckets, and managed hostname; ID-02's exact safe structured request event; RP-07 `ai_provider_repeat_risk_total`; RP-10 sanitized dependency-health, queue, backup/restore-recency, and client-upgrade-required signals; platform-native Cloud Run, Cloud SQL, Cloud Tasks, and Cloud Billing metrics; approved external notification-channel IDs, billing account ID, monthly budget amount, and budget Pub/Sub topic.
+- The ID-02 event fields are exactly request ID, stable action/result, latency milliseconds and stable bucket, HTTP status class, stable error code, parsed client version, and dependency name. Log-based metric labels may use only bounded stable fields such as environment, release/API/client/migration version, status class, error code, action/result/bucket, job type/stage/result, and dependency name. Never promote request ID, raw latency, Cloud Run request/trace identifiers, path/query values, or any person/device/record identifier to a metric label.
+- Produces: dashboards `api`, `database`, `jobs-and-ai`, and `client-versions`; alerts for API availability/latency/5xx, auth lockouts and denials, Cloud SQL saturation/storage/connection/backup state, queue depth/age, AI job failure/latency buckets, policy search, export failure, client-upgrade-required, sensitive-log scanner failure, and budget thresholds. It does not claim a per-model call-count/cost telemetry source; provider-repeat risk comes only from RP-07 and cost/spend comes from Cloud Billing.
 - Produces: nightly logical export workflow output under the private logical-backup bucket; restore exercise evidence fields `exercise_id`, `started_at`, `completed_at`, `source_backup_time`, `target_isolated_instance`, `achieved_rpo_minutes`, `achieved_rto_minutes`, `verification_summary`, `owner_role`, and `corrective_actions_reference`.
 
 **Stop conditions:**
@@ -944,6 +988,7 @@ git commit -m "infra: define private api worker and managed edge"
 - Stop if production has no verified notification channel, budget owner, billing account authorization, automated backups, PITR, or isolated restore target.
 - Stop if a logical export identity can modify Cloud SQL data, read application secrets, or overwrite/delete existing backups.
 - Stop if retention values conflict with agency records requirements or reduce the approved five-minute RPO/four-hour RTO acceptance targets without written revision.
+- Stop and hand the gap to ID-02, RP-07, or RP-10 if an application signal required by an approved widget/alert is absent or does not match its declared safe contract. OP-05 must not edit backend application telemetry, infer an RP-09 health producer, or synthesize a success signal from missing data.
 
 - [ ] **Step 1: Write the failing observability privacy test**
 
@@ -987,7 +1032,30 @@ def test_backup_workflow_cannot_overwrite_a_fixed_object():
     assert "time.format(sys.now()" in workflow
     assert "logical-exports/" in workflow
     assert "offload" in workflow
+
+
+def test_observability_uses_only_declared_application_producers():
+    sources = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in [MODULE / "observability.tf", *DASHBOARDS.glob("*.json")]
+    ).lower()
+    assert "request_event" in sources
+    assert "ai_provider_repeat_risk_total" in sources
+    assert "dependency_health" in sources
+    assert "queue_health" in sources
+    assert "backup_restore_health" in sources
+    assert "client_upgrade_required" in sources
+    assert "rp-09" not in sources
 ```
+
+The test markers name producer contracts, not task comments added merely to
+satisfy the test: `request_event` is the ID-02 structured-log event type;
+`ai_provider_repeat_risk_total` is RP-07's metric; and
+`dependency_health`, `queue_health`, `backup_restore_health`, and
+`client_upgrade_required` are RP-10 sanitized signals. Queue and
+backup/restore widgets may additionally consume platform-native Cloud Tasks or
+Cloud SQL metric types. Infrastructure widgets use
+native Cloud Run/SQL/Tasks/Billing types and never scrape Admin endpoints.
 
 - [ ] **Step 2: Run the focused test and observe failure**
 
@@ -1001,11 +1069,11 @@ Expected: FAIL because `infra/monitoring/dashboards/api.json` does not exist.
 
 - [ ] **Step 3: Create safe dashboards**
 
-Create four valid Google Monitoring dashboard JSON documents. Every widget uses resource metrics or explicitly approved stable labels. API widgets show request count, latency percentiles, status classes, and availability. Database widgets show CPU, memory, storage, connections, instance availability, backup/PITR state, and migration revision. Jobs/AI widgets show queue depth/oldest age, stage duration, safe result codes, model-call count/cost estimate, idempotency conflicts, search health, and export failures. Client widgets show version counts and upgrade-required events only; they do not show employee or device identity.
+Create four valid Google Monitoring dashboard JSON documents. Every widget maps to one declared producer: API request count/latency/status/error/client/dependency widgets use ID-02 `request_event` log-based metrics and Cloud Run native availability/latency; the provider-repeat-risk widget uses RP-07 `ai_provider_repeat_risk_total`; application dependency/search, queue/job-stage/result/latency, backup/restore-recency, and upgrade-required widgets use RP-10 sanitized signals; Cloud SQL, Cloud Tasks, and spend/capacity widgets use platform-native Cloud SQL, Cloud Tasks, Cloud Run, and Cloud Billing metrics. Database widgets show CPU, memory, storage, connections, instance availability, backup/PITR state, and migration revision. Jobs/AI widgets show queue depth/oldest age, stage duration bucket, safe result codes, provider-repeat risk, idempotency conflicts, search health, and export failures; cost is shown only as Cloud Billing spend, not an invented per-model estimate or unsupported call count. Client widgets show version counts and upgrade-required events only; they do not show employee or device identity. No widget or alert claims RP-09 emits health fields.
 
 - [ ] **Step 4: Manage dashboards, log-based metrics, and alerts**
 
-In `observability.tf`, load the four JSON documents with `file()` and create the required alert policies. Alert documentation must name an owner role and repository runbook path. Use externally supplied notification-channel IDs; Terraform does not embed email addresses, phone numbers, webhooks, or pager tokens. Disable alert autoclose behavior that could conceal an ongoing database or backup fault.
+In `observability.tf`, load the four JSON documents with `file()` and create the required alert policies. Define log-based metrics only over the exact ID-02/RP-10 safe event names and bounded fields; request ID remains searchable correlation data but is not a metric label. Consume RP-07 and platform-native metric types directly. Do not modify application files or create a competing telemetry shape in Terraform. Alert documentation must name an owner role and repository runbook path. Use externally supplied notification-channel IDs; Terraform does not embed email addresses, phone numbers, webhooks, or pager tokens. Disable alert autoclose behavior that could conceal an ongoing database or backup fault.
 
 - [ ] **Step 5: Implement scheduled unique logical exports**
 
@@ -1040,7 +1108,7 @@ python -m pytest infra/terraform/tests/test_observability_contract.py -q
 git diff --check
 ```
 
-Expected: dashboard JSON, Terraform validation/tests, privacy assertions, and whitespace checks pass locally. No cloud backup, notification, or budget is created.
+Expected: dashboard JSON, Terraform validation/tests, privacy assertions, declared-producer mapping, and whitespace checks pass locally. No application telemetry file changes; no RP-09 health dependency; no cloud backup, notification, or budget is created.
 
 - [ ] **Step 10: Commit observability and recovery controls**
 
@@ -1053,12 +1121,13 @@ git commit -m "infra: add monitored backup and budget controls"
 
 ### Task OP-06: Package Alembic Migration and Roster Import as Dedicated Cloud Run Jobs
 
-**Objective:** Add locally testable, noninteractive migration and roster-import entry points and Terraform job definitions that run before dependent traffic without logging sensitive roster data.
+**Objective:** Add locally testable, noninteractive migration, roster-import, and one-time initial-Admin bootstrap entry points plus Terraform job definitions that run before dependent traffic without logging sensitive roster or PIN data.
 
 **Files:**
 
 - Create: `backend/jobs/migration.py`
 - Create: `backend/jobs/roster_import.py`
+- Create: `backend/jobs/admin_bootstrap.py`
 - Modify: `scripts/import_roster_to_postgres.py`
 - Create: `scripts/verify_migration.py`
 - Create: `migrations/MIGRATION_REGISTER.md`
@@ -1070,23 +1139,31 @@ git commit -m "infra: add monitored backup and budget controls"
 - Modify: `infra/terraform/environments/production/main.tf`
 - Modify: `infra/terraform/tests/access_platform.tftest.hcl`
 - Create: `tests/unit/test_roster_import_job.py`
+- Create: `tests/unit/test_admin_bootstrap_job.py`
 - Create: `tests/integration/test_deployment_migrations.py`
+- Create: `tests/integration/test_admin_bootstrap_job.py`
 - Create: `docs/runbooks/database-migration-and-roster-import.md`
+- Create: `docs/runbooks/initial-admin-enrollment.md`
 
 **Interfaces:**
 
-- Consumes: identity/report workstream `alembic.ini`, `migrations/env.py`, committed migration heads, `backend.persistence.database.session_scope()`, `backend.identity.config.normalize_employee_number()`, identity staff models/services, OP-03 migration identity/database secret, and OP-04 immutable image digest.
-- Produces: `python -m backend.jobs.migration upgrade` and `python -m backend.jobs.migration verify`; `RosterImportPlan`, `RosterFinding`, `RosterImportResult`, `build_roster_plan()`, and `apply_roster_plan()`; Cloud Run jobs `access-{environment}-migrate` and `access-{environment}-roster-import` using the same image digest as API/worker.
+- Consumes: identity/report workstream `alembic.ini`, `migrations/env.py`, committed migration heads, `backend.persistence.database.session_scope()`, `backend.identity.normalization.normalize_employee_number()`, identity staff models/services, ID-04 `bootstrap_first_admin()`, OP-03 migration/bootstrap identities plus database/initial-PIN secret resources and `admin-bootstrap` WIF identity, OP-04 immutable image digest plus private configuration-bucket `admin-bootstrap-requests/` read binding.
+- Produces: `python -m backend.jobs.migration upgrade` and `python -m backend.jobs.migration verify`; `RosterImportPlan`, `RosterFinding`, `RosterImportResult`, `build_roster_plan()`, and `apply_roster_plan()`; `AdminBootstrapRequest`, `AdminBootstrapResult`, `load_bootstrap_request()`, `execute_admin_bootstrap()`, and `main()` in `backend.jobs.admin_bootstrap`; Cloud Run jobs `access-{environment}-migrate`, `access-{environment}-roster-import`, and `access-{environment}-bootstrap-admin` using the same image digest as API/worker.
 - Produces roster-import CLI inputs `--source-uri`, `--corrections-uri`, `--report-uri`, `--expected-sha256`, and opt-in `--apply`; omission of `--apply` is always validation-only.
-- Produces safe job output containing counts, source hash, import run UUID, migration revision, and request/operation ID only.
+- Produces bootstrap CLI inputs `--request-uri` and `--expected-sha256` only. The URI must identify an opaque object under `gs://<private-configuration-bucket>/admin-bootstrap-requests/<operation-uuid>.json`; the CLI/path contains no staff UUID, name, employee number, approval reference, or PIN.
+- Produces safe migration/roster output containing counts, source hash, import run UUID, migration revision, and request/operation ID only. Bootstrap output is a closed JSON object with exactly `operation_id`, `status`, `expires_at`, and `secret_version_reference`; the reference is resource-relative `initial-admin-pin/versions/<numeric-version>`, never a PIN or project identifier. Nullable fields remain explicit on failure.
+- Produces protocols `BootstrapRequestReader.read_exact(*, bucket: str, object_name: str, max_bytes: int) -> bytes` and `SecretVersionAdder.add_version(*, parent: str, payload: bytes) -> str`; exact signatures `load_bootstrap_request(storage_client: BootstrapRequestReader, *, request_uri: str, expected_sha256: str, expected_bucket: str, expected_prefix: str = "admin-bootstrap-requests/") -> AdminBootstrapRequest`, `execute_admin_bootstrap(session_factory: Callable[[], Session], secret_client: SecretVersionAdder, *, request: AdminBootstrapRequest, initial_admin_pin_secret: str, now: datetime) -> AdminBootstrapResult`, and `main(argv: list[str] | None = None) -> int`. `AdminBootstrapResult.status` is exactly one of `bootstrapped`, `bootstrap_refused`, `pin_version_add_failed`, `pin_version_outcome_unknown_cleanup_required`, or `orphan_pin_version_cleanup_required`.
 
 **Stop conditions:**
 
 - Stop if upstream migrations are not one reviewed linear head, fail on empty or populated PostgreSQL 17, or require destructive production downgrade for rollback.
 - Stop if a migration lacks expected duration, locking risk, compatibility phase, rollback behavior, and verification query in `migrations/MIGRATION_REGISTER.md`.
 - Stop if the roster contains duplicate normalized employee numbers, missing employee IDs, invalid shifts outside `A/B/C/D/U/F`, ambiguous identities, an unapproved correction, or a source hash different from the approved value.
-- Stop if initial Admin bootstrap has no approved one-time PIN delivery method. Never print a temporary PIN to Cloud Run logs.
+- Stop if EXT-12 lacks approved private request creation/hash, protected invocation, authorized one-time PIN retrieval/communication, and secret-version disable/destruction procedures. Never print, return, log, persist to disk, or attach a temporary PIN to an exception/trace/workflow output.
 - Stop if a job command can run against production without protected-environment approval or can emit names/employee numbers in ordinary logs.
+- Stop if the bootstrap request object is outside the exact private prefix, mutable after approval, has a hash mismatch, has unknown/extra fields, lacks one active staff UUID/opaque operation UUID/nonempty bounded approval reference, or if any account already exists.
+- Stop if bootstrap runtime can read the PIN secret, write another secret, read request objects outside the prefix, or if the workflow identity can do anything except invoke the exact bootstrap job.
+- Stop if implementation can commit the Account/audit before Secret Manager accepts the PIN version. A definitive version-add rejection must roll back Account/audit and return `pin_version_add_failed`. An ambiguous timeout must roll back Account/audit and return `pin_version_outcome_unknown_cleanup_required` without a version reference; it blocks retry until custodian metadata reconciliation and cleanup are externally recorded. If database commit fails after a version was definitively returned, return only `orphan_pin_version_cleanup_required` and its safe version resource name, require custodian disable/destruction before retry, and never treat the orphan PIN as usable.
 
 - [ ] **Step 1: Write failing roster-plan tests**
 
@@ -1121,18 +1198,25 @@ def test_roster_plan_requires_source_hash_match_before_apply():
 
 Create `tests/integration/test_deployment_migrations.py` to start from the PostgreSQL 17 integration fixture, run `alembic upgrade head`, assert exactly one head and expected core tables, insert fictional staff/account/report rows through upstream services, rerun upgrade idempotently, and perform only the explicitly supported non-destructive downgrade in an isolated transaction/database. Assert production runner code exposes no downgrade subcommand.
 
-- [ ] **Step 3: Run focused tests and observe failure**
+- [ ] **Step 3: Write failing initial-Admin bootstrap unit and integration tests**
+
+Create `tests/unit/test_admin_bootstrap_job.py` with a private-storage fake, Secret Manager fake, recording logger, and fictional UUID/reference. Test exact request bytes and SHA-256, reject a hash mismatch/extra field/non-`gs` URI/non-opaque basename/wrong prefix, and prove command arguments never contain request body fields. Assert success output keys are exactly `operation_id`, `status`, `expires_at`, and `secret_version_reference`, and no output/log/exception contains staff UUID, approval reference, employee data, or PIN.
+
+Create `tests/integration/test_admin_bootstrap_job.py` against PostgreSQL 17. Cover: one active fictional staff record creates one forced-change Admin; any existing Account refuses bootstrap; inactive/missing staff refuses; concurrent attempts produce one success; a deterministic definitive PIN-version rejection rolls back Account/audit and returns `pin_version_add_failed`; an injected outcome-ambiguous timeout rolls back Account/audit and returns `pin_version_outcome_unknown_cleanup_required` with `secret_version_reference: null`; and DB commit failure after a known returned version produces `orphan_pin_version_cleanup_required` with only the safe version resource name while leaving zero Account/audit rows. Verify no failure output/log contains request data/PIN, orphan/unknown PINs cannot authenticate, and both ambiguous/known-orphan cases block retry until the custodian's reconciliation/cleanup evidence is approved.
+
+- [ ] **Step 4: Run focused tests and observe failure**
 
 Run:
 
 ```powershell
 python -m pytest tests/unit/test_roster_import_job.py -q
 python -m pytest tests/integration/test_deployment_migrations.py -q
+python -m pytest tests/unit/test_admin_bootstrap_job.py tests/integration/test_admin_bootstrap_job.py -q
 ```
 
-Expected: unit test collection fails because `backend.jobs.roster_import` does not exist; integration test fails because deployment migration entry points are absent.
+Expected: unit test collection fails because `backend.jobs.roster_import` and `backend.jobs.admin_bootstrap` do not exist; integration tests fail because deployment migration/bootstrap entry points are absent.
 
-- [ ] **Step 4: Implement the migration runner**
+- [ ] **Step 5: Implement the migration runner**
 
 Create `backend/jobs/migration.py` with this public interface:
 
@@ -1151,39 +1235,80 @@ def main(argv: list[str] | None = None) -> int:
 
 Use Alembic's Python API, reject multiple heads, emit structured JSON containing only status/revision/duration, and return nonzero on failure. Do not expose `downgrade` in the production entry point.
 
-- [ ] **Step 5: Implement deterministic roster validation and import**
+- [ ] **Step 6: Implement deterministic roster validation and import**
 
-Create immutable dataclasses `RosterFinding`, `RosterImportPlan`, and `RosterImportResult`. Normalize employee numbers through the identity module; validate required IDs, shifts, names, duplicate IDs, ambiguous name mappings, and correction authorization. Existing staff keep their UUID when an employee number or name is corrected. New rows receive server-generated UUIDs through the identity service. `apply_roster_plan()` runs one database transaction and refuses any plan with findings or a source-hash mismatch.
+Create immutable dataclasses `RosterFinding`, `RosterImportPlan`, and `RosterImportResult`. Normalize employee numbers through `backend.identity.normalization.normalize_employee_number`; validate required IDs, shifts, names, duplicate IDs, ambiguous name mappings, and correction authorization. Existing staff keep their UUID when an employee number or name is corrected. New rows receive server-generated UUIDs through the identity service. `apply_roster_plan()` runs one database transaction and refuses any plan with findings or a source-hash mismatch.
 
 The command writes detailed findings only to the explicitly supplied private `--report-uri`; logs contain counts and opaque finding codes, never roster values. `scripts/import_roster_to_postgres.py` becomes a thin wrapper over `backend.jobs.roster_import.main()`.
 
-- [ ] **Step 6: Register migration operational metadata**
+- [ ] **Step 7: Implement the fail-closed initial-Admin job**
+
+`AdminBootstrapRequest` is immutable and accepts exactly:
+
+```json
+{
+  "schema_version": 1,
+  "operation_id": "00000000-0000-4000-8000-000000000001",
+  "staff_member_id": "00000000-0000-4000-8000-000000000002",
+  "approval_reference": "fictional-approval-reference"
+}
+```
+
+Define the closed immutable result as:
+
+```python
+@dataclass(frozen=True)
+class AdminBootstrapResult:
+    operation_id: UUID
+    status: Literal[
+        "bootstrapped",
+        "bootstrap_refused",
+        "pin_version_add_failed",
+        "pin_version_outcome_unknown_cleanup_required",
+        "orphan_pin_version_cleanup_required",
+    ]
+    expires_at: datetime | None
+    secret_version_reference: str | None
+```
+
+Reject additional fields, non-v4 UUIDs, control characters, and approval references outside 1–200 visible ASCII characters. `load_bootstrap_request()` accepts only the two CLI values, checks a lowercase 64-hex expected hash, enforces the exact private configuration bucket and `admin-bootstrap-requests/<operation-uuid>.json` key configured for the environment, downloads at most 4 KiB, verifies SHA-256 over the exact bytes before JSON parsing, requires the path UUID to equal `operation_id`, and computes `approval_reference_sha256 = sha256(approval_reference.encode("utf-8")).hexdigest()` without logging either value. No request field is an environment variable or command argument.
+
+`execute_admin_bootstrap()` opens an explicit PostgreSQL transaction, calls ID-04 `bootstrap_first_admin()` so the Account/audit are flushed but uncommitted, and while that transaction remains open immediately passes the returned plaintext PIN bytes to Secret Manager `add_secret_version(parent=initial_admin_pin_secret, payload=...)`. It retains no file/cache/result copy and clears local references as soon as the client call returns. Only after a version reference is accepted does it commit the database transaction. This order is mandatory: Account/audit must never commit before a retrievable one-time PIN version exists.
+
+The concrete Secret Manager adapter makes exactly one add-version RPC with automatic client retries disabled (`retry=None`) and `timeout=10.0` seconds. It validates that a successful response name belongs to the configured `initial-admin-pin` parent and ends in `/versions/<positive integer>` before deriving the resource-relative safe reference. Any transport-level uncertainty is the outcome-unknown branch; the application never repeats the non-idempotent add itself.
+
+If Secret Manager definitively rejects the add before creating a version, roll back PostgreSQL and return nonzero `pin_version_add_failed`; zero Account/bootstrap-audit rows remain and no version reference is emitted. Treat timeout/cancellation/transport loss after submission as outcome-ambiguous even when the client exposes no response: roll back PostgreSQL and return nonzero `pin_version_outcome_unknown_cleanup_required` with `secret_version_reference: null`. Do not retry until the authorized custodian performs metadata-only reconciliation for versions created in the operation window, disables/destroys any candidate version, and records external cleanup evidence. If database commit fails after Secret Manager definitively returned a version resource name, roll back/close the database session and return nonzero `orphan_pin_version_cleanup_required`, the operation ID, original PIN expiry, and only resource-relative `initial-admin-pin/versions/<numeric-version>`. The orphan/unknown PIN cannot authenticate because no Account committed. Do not retry automatically. On success return status `bootstrapped` and the same four safe fields. Every response/log exposes only status plus operation ID and, only when the API definitively returned it, the non-secret resource-relative version name; the closed output uses null unavailable fields and never includes request URI/body, staff/account ID, approval reference/hash, PIN/secret bytes, project, bucket, or stack trace.
+
+- [ ] **Step 8: Register migration operational metadata**
 
 Create `migrations/MIGRATION_REGISTER.md` with one section for every revision reported by `alembic history`. Each section records revision ID, phase (`expand`, `migrate`, or `contract`), expected duration, locking risk, old/new application compatibility, rollback behavior, verification query, and production owner role. A contract migration cannot be scheduled in the same release that raises the minimum client version.
 
-- [ ] **Step 7: Package migration assets in the backend image**
+- [ ] **Step 9: Package migration assets in the backend image**
 
 Modify `Dockerfile` to copy `alembic.ini` and `migrations/` into `/app` in addition to existing backend/templates content. Run the image as a non-root user and preserve API/worker command override support. Do not copy test fixtures, Access sources, Terraform, release output, `.git`, or operational records.
 
-- [ ] **Step 8: Define dedicated Cloud Run jobs**
+- [ ] **Step 10: Define dedicated Cloud Run jobs**
 
-In `jobs.tf`, create migration and roster-import `google_cloud_run_v2_job` resources using `var.image_digest` and the migration service account. Migration command is `python -m backend.jobs.migration upgrade`; roster import defaults to validation-only and receives private GCS URIs plus the approved source hash through non-secret operator inputs. Bind database and source/report bucket access narrowly. Neither job is scheduled, public, nor invoked by the application runtime.
+In `jobs.tf`, create migration and roster-import `google_cloud_run_v2_job` resources using `var.image_digest` and the migration service account. Migration command is `python -m backend.jobs.migration upgrade`; roster import defaults to validation-only and receives private GCS URIs plus the approved source hash through non-secret operator inputs. Add `google_cloud_run_v2_job.bootstrap_admin` named exactly `access-${var.environment}-bootstrap-admin`, using the same digest, the OP-03 bootstrap runtime identity, and command `python -m backend.jobs.admin_bootstrap`; its only execution arguments are the opaque request URI and expected SHA. Bind `roles/run.invoker` on this job only to OP-03's `admin_bootstrap_service_account_email`. Do not grant that workflow identity another job/service permission, and do not grant deploy/migration/API identities bootstrap invocation. All three jobs are unscheduled, nonpublic, and never invoked by application runtime.
 
-- [ ] **Step 9: Implement safe post-migration verification**
+- [ ] **Step 11: Implement safe post-migration verification**
 
 Create `scripts/verify_migration.py` to call `backend.jobs.migration.verify()`, compare the current revision to the single code head, verify expected tables/indexes/constraints through SQLAlchemy inspection, and print only safe names/counts. It exits nonzero on revision mismatch, multiple heads, missing constraints, or database unavailability.
 
-- [ ] **Step 10: Write the human migration/import runbook**
+- [ ] **Step 12: Write the migration/import and initial-Admin runbooks**
 
 Document preflight backup checks, reviewed migration metadata, expected duration/lock budget, validation-only roster pass, correction approval, source SHA-256 confirmation, migration job execution, verification job execution, API compatibility check, roster count/checksum comparison, and application-revision rollback. Explicitly prohibit production `alembic downgrade`, deletion, and automatic historical Word import.
 
-- [ ] **Step 11: Run focused and regression checks**
+Create `docs/runbooks/initial-admin-enrollment.md` with the exact request schema, encrypted/private creation and upload, opaque object naming, immutable generation/hash capture, active-staff and zero-account prechecks, test-first protected invocation, production `production-deploy` approval, safe four-field output, and no-retry rules. The authorized PIN custodian—not GitHub, Terraform, the bootstrap job, or an agent—retrieves the exact new `initial-admin-pin` version through an agency-approved non-recorded channel, communicates it to the approved initial Admin, confirms receipt, immediately disables the version, and destroys it after the successful forced PIN change under the approved short enrollment window; only external evidence is retained. If safe result delivery is lost after a successful execution, stop rather than rerun and use a separately approved metadata-only reconciliation on this dedicated secret; never access another version's payload. For `orphan_pin_version_cleanup_required`, disable/destroy the exact returned resource; for `pin_version_outcome_unknown_cleanup_required`, perform metadata-only reconciliation over the exact operation window and disable/destroy every candidate new version without reading payloads. Both require externally reviewed cleanup evidence before retry; neither PIN can authenticate because Account/audit rolled back. Prohibit copying a PIN to workflow/log/terminal capture, tickets/chat/email/clipboard history, reusing the workflow after any account exists, automatic retry, and creation of further accounts through this job. If the committed first-Admin PIN becomes unavailable before forced change, stop and invoke the separately approved enrollment-incident process; never bypass the zero-account invariant.
+
+- [ ] **Step 13: Run focused and regression checks**
 
 Run:
 
 ```powershell
 python -m pytest tests/unit/test_roster_import_job.py -q
 python -m pytest tests/integration/test_deployment_migrations.py -q
+python -m pytest tests/unit/test_admin_bootstrap_job.py tests/integration/test_admin_bootstrap_job.py -q
 python -m pytest tests/unit tests/integration -q
 docker build --tag prison-policy-ai:op06-local .
 docker run --rm --entrypoint python prison-policy-ai:op06-local -m backend.jobs.migration --help
@@ -1194,12 +1319,12 @@ terraform -chdir=infra/terraform/environments/test test -test-directory=../../te
 git diff --check
 ```
 
-Expected: unit/integration tests pass against PostgreSQL 17; the local image contains Alembic assets and prints safe help; Terraform job assertions pass; no job is executed against Google Cloud.
+Expected: unit/integration tests pass against PostgreSQL 17, including secret-add/database-commit failure ordering and orphan cleanup status; the local image contains Alembic/bootstrap assets and prints safe help; Terraform job assertions pass; no job or secret operation is executed against Google Cloud.
 
-- [ ] **Step 12: Commit migration and import jobs**
+- [ ] **Step 14: Commit migration, import, and bootstrap jobs**
 
 ```powershell
-git add backend/jobs scripts/import_roster_to_postgres.py scripts/verify_migration.py migrations/MIGRATION_REGISTER.md Dockerfile infra/terraform tests/unit/test_roster_import_job.py tests/integration/test_deployment_migrations.py docs/runbooks/database-migration-and-roster-import.md
+git add backend/jobs scripts/import_roster_to_postgres.py scripts/verify_migration.py migrations/MIGRATION_REGISTER.md Dockerfile infra/terraform tests/unit/test_roster_import_job.py tests/unit/test_admin_bootstrap_job.py tests/integration/test_deployment_migrations.py tests/integration/test_admin_bootstrap_job.py docs/runbooks/database-migration-and-roster-import.md docs/runbooks/initial-admin-enrollment.md
 git commit -m "feat: add controlled migration and roster import jobs"
 ```
 
@@ -1360,6 +1485,7 @@ git commit -m "ci: enforce backend container and pages release gates"
 - Create: `.github/workflows/deploy-test.yml`
 - Create: `.github/workflows/deploy-production.yml`
 - Create: `.github/workflows/rollback-production.yml`
+- Create: `.github/workflows/bootstrap-first-admin.yml`
 - Create: `release/backend-release.schema.json`
 - Create: `release/version.schema.json`
 - Create: `release/version.json`
@@ -1377,13 +1503,14 @@ git commit -m "ci: enforce backend container and pages release gates"
 
 **Interfaces:**
 
-- Consumes: OP-01 gate states and external `docs/operations/github-environment-policy.md`; OP-02 remote state; OP-03 `terraform-plan`, `terraform-apply`, `deploy`, and `rollback` WIF providers/service accounts; OP-04 services/edge; OP-06 jobs; OP-07 required checks/SBOM/provenance; and the exact upstream Alembic head.
+- Consumes: OP-01 gate states and external `docs/operations/github-environment-policy.md`; OP-02 remote state; OP-03 `terraform-plan`, `terraform-apply`, `deploy`, `rollback`, and `admin-bootstrap` WIF providers/service accounts; OP-04 services/edge/private bootstrap-request prefix; OP-06 jobs and initial-Admin runbook; OP-07 required checks/SBOM/provenance; and the exact upstream Alembic head.
 - Produces immutable `release/backend-release.json` artifacts validated by `release/backend-release.schema.json` with fields `schema_version`, `source_commit`, `image_digest`, `sbom_sha256`, `provenance_id`, `migration_head`, `api_version`, `release_version`, `version_registry_sha256`, `test_workflow_run`, `test_environment`, `created_at`, and `creator_workflow`.
 - Produces central source-controlled compatibility metadata in `release/version.json`; development values are accepted by local/test validation and rejected by every production workflow.
 - References externally configured GitHub environments `test`, `production-plan`, `production-apply`, `production-deploy`, and `production-rollback`. Workflows do not create, modify, or weaken those environments, reviewers, allowed refs, secrets, or variables.
 - Produces reusable `terraform-plan.yml` inputs `environment`, `terraform_root`, `image_digest`, `source_commit`, `version_registry_sha256`, and `plan_purpose`, with outputs `plan_workflow_run_id`, `plan_workflow_name`, `plan_workflow_id`, `plan_artifact_id`, `plan_artifact_name`, and `plan_sha256`. Reusable `terraform-apply.yml` consumes those exact inputs/outputs plus `approval_reference`; artifact name alone is never sufficient authority.
 - Produces deployment order: plan, explicit apply, migration, verification, worker revision, API no-traffic revision, 1% canary, smoke/monitor, 10%, 50%, 100%, post-deploy verification.
 - Produces rollback inputs `release_descriptor_sha256`, `prior_api_revision`, `prior_worker_revision`, `expected_migration_head`, and `incident_reference`; rollback never changes schema or deletes data.
+- Produces manual `bootstrap-first-admin.yml` inputs exactly `target_environment`, `request_uri`, and `expected_sha256`. It maps `test` to protected environment `test` and `production` to protected environment `production-deploy`, authenticates only as that environment's OP-03 `admin-bootstrap` identity, and invokes only `access-{target_environment}-bootstrap-admin` with the opaque URI/hash. It never creates/reads a request object or secret version and exposes no PIN.
 
 **Stop conditions:**
 
@@ -1394,6 +1521,7 @@ git commit -m "ci: enforce backend container and pages release gates"
 - Stop if the database head is incompatible with either the candidate or prior application revision.
 - Stop if smoke/health checks expose sensitive content, if canary error/latency thresholds fail, or if a traffic command would target an unverified revision.
 - Stop if a workflow could auto-merge, push, deploy on ordinary `main` push, use a service-account key, apply an unreviewed plan, invoke a production job without approval, or run destructive Terraform/Alembic commands.
+- Stop if first-Admin bootstrap can run from a ref other than `refs/heads/main`, use an environment other than exact `test`/`production-deploy`, invoke a job other than exact `access-test-bootstrap-admin`/`access-production-bootstrap-admin`, accept staff/approval/PIN inputs, read logs/secrets/request bodies, retry automatically, or obscure the exact request SHA/workflow provenance.
 
 - [ ] **Step 1: Write failing deployment-workflow tests**
 
@@ -1492,6 +1620,30 @@ def test_no_workflow_uses_long_lived_keys_or_destructive_commands():
     combined = "\n".join(path.read_text(encoding="utf-8") for path in WORKFLOWS.glob("*.yml"))
     for forbidden in ["GCP_SA_KEY", "service_account_key", "terraform destroy", "alembic downgrade", "git push", "git merge"]:
         assert forbidden not in combined
+
+
+def test_first_admin_bootstrap_is_manual_protected_and_pin_blind():
+    text = workflow("bootstrap-first-admin.yml")
+    assert "workflow_dispatch:" in text
+    assert "target_environment:" in text
+    assert "request_uri:" in text
+    assert "expected_sha256:" in text
+    assert "environment: test" in text
+    assert "environment: production-deploy" in text
+    assert "access-test-bootstrap-admin" in text
+    assert "access-production-bootstrap-admin" in text
+    assert "GCP_ADMIN_BOOTSTRAP_WIF_PROVIDER" in text
+    assert "GCP_ADMIN_BOOTSTRAP_SERVICE_ACCOUNT" in text
+    assert "--wait" in text
+    for forbidden in (
+        "push:",
+        "staff_member_id",
+        "approval_reference",
+        "temporary_pin",
+        "gcloud secrets versions access",
+        "continue-on-error",
+    ):
+        assert forbidden not in text
 ```
 
 - [ ] **Step 2: Run focused tests and observe failure**
@@ -1538,15 +1690,23 @@ Modify `serverless.tf` so Terraform owns service configuration, IAM, ingress, sc
 
 `rollback-production.yml` requires `production-rollback` approval and the exact rollback inputs. It verifies both revisions exist, both use approved digests, current schema is compatible, and the incident reference is present. It shifts API and worker traffic without rebuilding, changing secrets, applying Terraform, downgrading Alembic, or deleting data. It runs read-only health and representative saved-record checks after rollback.
 
-- [ ] **Step 9: Preserve bypass retirement and correct documentation**
+- [ ] **Step 9: Add protected one-time first-Admin bootstrap workflow**
+
+Create `bootstrap-first-admin.yml` with `workflow_dispatch` only and exact inputs `target_environment` (`test|production` choice), `request_uri` (opaque private `gs://` object), and `expected_sha256` (lowercase 64-hex). Reject any ref except `refs/heads/main`, malformed hash, non-`gs` URI, object key outside `admin-bootstrap-requests/<v4-operation-uuid>.json`, or attempt to supply staff/account/approval/PIN fields. Do not check out, upload, download, cat, echo, inspect, or log the request object.
+
+Use two mutually exclusive jobs so protected environment names are static: `bootstrap_test` runs only for `test` with `environment: test` and invokes only `access-test-bootstrap-admin`; `bootstrap_production` runs only for `production` with `environment: production-deploy` and invokes only `access-production-bootstrap-admin`. Each has only `contents: read` and `id-token: write`, authenticates through environment-scoped `GCP_ADMIN_BOOTSTRAP_WIF_PROVIDER`/`GCP_ADMIN_BOOTSTRAP_SERVICE_ACCOUNT`, verifies they match the OP-03 outputs supplied externally, and calls the exact Cloud Run job once with `--wait` and only `--request-uri`/`--expected-sha256` arguments. No retry matrix, `continue-on-error`, secret/log read, request-object read, other job/service invocation, build, deploy, Terraform, migration, or production data access is permitted.
+
+Record only safe provenance in the GitHub step summary: target environment, `github.repository`, exact workflow ref, `refs/heads/main`, `github.sha`, `github.run_id`, expected request SHA-256, Cloud Run execution name, and success/failure. Never record the request URI, object body, staff/account identity, approval reference/hash, PIN, secret payload, or project/bucket identity. The workflow does not retrieve a PIN or secret version. After a successful job, an authorized custodian follows `docs/runbooks/initial-admin-enrollment.md` to read exactly the safe job result/version reference in the restricted operations channel, retrieve/communicate the PIN, then disable/destroy the version. If the job reports `orphan_pin_version_cleanup_required`, the workflow fails and no retry is permitted until external disable/destruction evidence is reviewed.
+
+- [ ] **Step 10: Preserve bypass retirement and correct documentation**
 
 Assert the OP-01-retired automatic source deployment workflow, broken backend deploy helper, and direct merge/push/deploy helper remain absent. Update deployment tests and docs so the only supported path is protected workflows using WIF and immutable digests. Remove stale `GCP_SA_KEY`, mutable-source deploy, outdated model-default, and manual secret-in-env guidance from `HANDOFF.md`; preserve historical context only when clearly marked obsolete.
 
-- [ ] **Step 10: Write the cloud deploy/migration/rollback runbook**
+- [ ] **Step 11: Write the cloud deploy/migration/rollback runbook**
 
-Document the exact plan receipt fields, read-only GitHub API provenance checks, numeric artifact-ID download, binary hash verification, external environment-policy evidence, reviewer roles, migration metadata, prior-revision capture, staged traffic, smoke thresholds, rollback decision matrix for client/API/worker, compatibility verification, incident recording, and Terraform reconciliation after an emergency exception. Mark every mutating command as human/workflow-only and prohibited to agents.
+Document the exact plan receipt fields, read-only GitHub API provenance checks, numeric artifact-ID download, binary hash verification, external environment-policy evidence, reviewer roles, migration metadata, prior-revision capture, staged traffic, smoke thresholds, rollback decision matrix for client/API/worker, compatibility verification, incident recording, Terraform reconciliation after an emergency exception, and the separation between bootstrap workflow invocation and external PIN custody. Mark every mutating command as human/workflow-only and prohibited to agents.
 
-- [ ] **Step 11: Run workflow, schema, and regression validation**
+- [ ] **Step 12: Run workflow, schema, and regression validation**
 
 Run:
 
@@ -1566,7 +1726,7 @@ git diff --check
 
 Expected: workflow/static tests pass, old deployers are absent, schemas are valid, full tests pass, and no workflow is invoked.
 
-- [ ] **Step 12: Commit controlled delivery workflows**
+- [ ] **Step 13: Commit controlled delivery workflows**
 
 ```powershell
 git add .github/workflows release/backend-release.schema.json release/version.schema.json release/version.json scripts/deploy tests/unit/test_deployment_workflows.py tests/unit/test_deploy_config.py infra/terraform/modules/access_platform/serverless.tf README.md CLAUDE.md HANDOFF.md docs/runbooks/cloud-deploy-migration-rollback.md
@@ -1586,6 +1746,8 @@ git commit -m "ci: add approved digest promotion and rollback"
 - Create: `access-updater/src/SLUT.AccessUpdater/packages.lock.json`
 - Create: `access-updater/src/SLUT.AccessUpdater/Program.cs`
 - Create: `access-updater/src/SLUT.AccessUpdater/Configuration/UpdateRequest.cs`
+- Create: `access-updater/src/SLUT.AccessUpdater/Configuration/UpdateRequestPipe.cs`
+- Create: `access-updater/src/SLUT.AccessUpdater/Download/ProtectedReleaseClient.cs`
 - Create: `access-updater/src/SLUT.AccessUpdater/Manifest/ReleaseManifest.cs`
 - Create: `access-updater/src/SLUT.AccessUpdater/Manifest/ManifestVerifier.cs`
 - Create: `access-updater/src/SLUT.AccessUpdater/Security/HashVerifier.cs`
@@ -1604,6 +1766,8 @@ git commit -m "ci: add approved digest promotion and rollback"
 - Create: `access-updater/tests/SLUT.AccessUpdater.Tests/RollbackManagerTests.cs`
 - Create: `access-updater/tests/SLUT.AccessUpdater.Tests/ClientValidatorTests.cs`
 - Create: `access-updater/tests/SLUT.AccessUpdater.Tests/SafeUpdateLogTests.cs`
+- Create: `access-updater/tests/SLUT.AccessUpdater.Tests/UpdateRequestPipeTests.cs`
+- Create: `access-updater/tests/SLUT.AccessUpdater.Tests/ProtectedReleaseClientTests.cs`
 - Create: `release/access-release.schema.json`
 - Create: `release/fixtures/access-release.fixture.json`
 - Create: `scripts/release/New-AccessReleaseManifest.ps1`
@@ -1614,28 +1778,37 @@ git commit -m "ci: add approved digest promotion and rollback"
 - Create: `.github/workflows/access-validate.yml`
 - Create: `.github/workflows/access-release.yml`
 - Modify: `.gitignore`
-- Modify: `backend/webapp/api_v1/client_policy.py`
+- Create: `backend/identity/update_grants.py`
+- Create: `backend/webapp/api_v1/client_updates.py`
+- Modify: `backend/webapp/api_v1/__init__.py`
 - Modify: `openapi/access-v1.yaml`
+- Create: `tests/unit/test_update_grants.py`
+- Create: `tests/integration/test_client_update_api.py`
+- Create: `tests/contract/test_client_update_contract.py`
 - Create: `tests/contract/test_client_release_policy.py`
 - Create: `tests/unit/test_access_release_workflow.py`
 - Create: `docs/runbooks/access-deploy-update-rollback.md`
+- Consume without modifying: `backend/webapp/api_v1/client_policy.py`
 
 **Interfaces:**
 
-- Consumes: OP-01 supported Access version/bitness/Windows architecture matrix, managed-signing proof, and externally verified EXT-16 `access-release` environment policy; OP-03 production `access_release_service_account_email` and `access_release_wif_provider_name`; AC-01/AC-09 `access-client/SLUT-Client.accdb`, exported sources, build scripts, `ValidateRelease` startup hook, and compiled `.accde`; OP-04 private release bucket/managed hostname; OP-08 read-only `release/version.json`, its `version_registry_sha256`, backend descriptor, and exact compatibility projection; `/api/v1/client-policy`.
+- Consumes: OP-01 supported Access version/bitness/Windows architecture matrix and approved `.accde` trust mechanism; the approved managed-signing service interface/policy and externally verified EXT-16 `access-release` environment policy; OP-03 production `access_release_service_account_email`, `access_release_wif_provider_name`, and dedicated `client-update-grant-key`; AC-01/AC-09 `access-client/SLUT-Client.accdb`, exported sources, build scripts, current-user named-pipe request contract, `ValidateRelease` startup hook, and locally compiled unsigned `.accde`; OP-04 API-only read access to the private release bucket plus managed hostname; OP-08 read-only `release/version.json`, its `version_registry_sha256`, backend descriptor, and exact compatibility projection; the exact nine-field `/api/v1/client-policy` contract.
 - Produces: .NET target `net8.0-windows`, self-contained baseline RID `win-x64`, optional `win-arm64` only when OP-01 inventory requires it; Access artifacts `SLUT-Client-access32.accde` and/or `SLUT-Client-access64.accde` only for inventoried supported classes.
-- Produces: `release/access-release.schema.json` fields `schema_version`, `release_version`, `api_version`, `minimum_server_version`, `minimum_client_version`, `source_commit`, `version_registry_sha256`, `released_at`, `channel`, `release_notes_url`, `rollback_notes_url`, `manifest_signature`, `updater`, and `packages`; every updater/package entry contains file name, byte size, SHA-256, signer subject, signer thumbprint, Windows architecture, Access bitness, and protected package path.
+- Produces: `release/access-release.schema.json` fields `schema_version`, `release_version`, `api_version`, `minimum_server_version`, `minimum_client_version`, `source_commit`, `version_registry_sha256`, `released_at`, `channel`, `release_notes_url`, `rollback_notes_url`, `manifest_signature`, `updater`, and `packages`; every updater/package entry contains `package_id`, file name, byte size, SHA-256, signer subject, signer thumbprint, Windows architecture, and Access bitness. Client-visible artifacts contain no bucket/object path, credential, or signed URL.
 - Produces: detached CMS signature `access-release.json.p7s`; Authenticode validation for the updater and the agency-approved Access signing verification for `.accde` established by OP-01 evidence.
+- Produces: `issue_update_grant(...)`, `verify_update_grant(...)`, bearer-authenticated `POST /api/v1/client-updates/grants`, and UpdateGrant-authenticated `GET /api/v1/client-updates/manifest`, `GET /api/v1/client-updates/manifest-signature`, and `GET /api/v1/client-updates/packages/{package_id}` through one registered `client_updates` blueprint.
+- Exact service signatures are `issue_update_grant(*, key: bytes, session_id: UUID, account_auth_version: int, release_version: str, package_id: str, manifest_sha256: str, now: datetime, nonce: UUID) -> str` and `verify_update_grant(raw_grant: str, *, key: bytes, now: datetime) -> UpdateGrantClaims`; route code separately reloads and revalidates the referenced session/account and selected immutable release.
+- Produces: a five-minute HMAC grant containing only session ID, account auth version, release version, package ID, manifest SHA-256, issued/expiry times, and nonce; a closed one-time response containing `update_grant`, `expires_at`, `release_version`, `package_id`, `manifest_sha256`, `manifest_size_bytes`, `signer_thumbprint`, and `one_time_value_unavailable`; and no persisted/logged readable grant.
 - Produces updater exit codes `0` success, `10` optional update deferred, `20` download failure, `21` manifest failure, `22` hash/size failure, `23` signer failure, `24` Access close failure, `25` install failure with successful rollback, `26` install and rollback failure, and `27` post-install validation failure with successful rollback.
 - Produces no editable `.accdb`, source export, fixture, signing key, certificate private material, or build intermediate in a user package.
 
 **Stop conditions:**
 
-- Stop if OP-01 has not proven the actual `.accde` signing/trust mechanism on every supported Access class. Do not substitute an assumed Authenticode command for demonstrated Access Trust Center behavior.
-- Stop if the managed signing service requires exporting a private key, if CI can read key material, or if an agent would need to invoke signing/publishing.
+- Before editing, stop unless OP-01 records the agency-approved `.accde` trust mechanism, the managed-signing service interface/policy is approved, and EXT-16 records the protected `access-release` environment. Actual signed helper/ACCDE artifacts, completed workstation matrix, and endpoint-protection evidence are release-readiness gates rather than prerequisites for local unsigned helper/API/fixture implementation.
+- Stop if the managed signing service design requires exporting a private key, if CI can read key material, or if an agent would need to invoke signing/publishing.
 - Stop if the external `access-release` environment is absent or permits fewer than two reviewers, a ref other than `refs/heads/main`, another workflow, or a WIF identity other than OP-03's production `access-release` identity.
-- Stop if Access and updater bitness/architecture combinations are not derived from inventory, if antivirus/endpoint protection blocks them, or if the narrow trusted location/ACL is not approved.
-- Stop if package delivery is public, if Access credentials/tokens must be passed on a command line or written unencrypted, or if the manifest/package endpoint is not protected by the approved server contract.
+- Stop release/publication readiness—not local implementation—until actual signed helper and `.accde`, every required bitness/architecture matrix result, endpoint-protection result, and narrow trusted-location/ACL evidence pass. Local work may build unsigned helper/fixture artifacts only and must label them unusable for release.
+- Stop if package delivery would be public, if Access credentials/tokens must be passed on a command line or written anywhere, or if the task's protected API cannot mediate exact private objects without a redirect, bucket credential, signed URL, or object path.
 - Stop if minimum-client enforcement would prevent authentication, saved-work recovery/view, or export of existing revisions from a below-minimum client.
 
 - [ ] **Step 1: Write the failing release-policy contract test**
@@ -1690,9 +1863,54 @@ def test_access_release_uses_only_external_protected_environment_and_dedicated_w
         assert forbidden not in workflow
 ```
 
+Also create `tests/contract/test_client_update_contract.py`. Parse OpenAPI and
+assert that `/api/v1/client-policy` still has exactly its nine required public
+safe fields for every caller and no package/hash/signer field. Assert the grant
+POST requires bearer authentication, `X-Client-Version`, `X-Request-ID`, and
+`Idempotency-Key`, rejects additional body properties, and accepts exactly
+`access_bitness` plus `windows_architecture`. Assert release-one enums include
+Access `x86|x64` and Windows `x64`; another architecture requires OP-01 inventory
+approval plus a same-task schema/test update. Assert unsupported combinations
+fail before grant issue. Assert its first response is closed
+to `update_grant`, `expires_at`, `release_version`, `package_id`,
+`manifest_sha256`, `manifest_size_bytes`, `signer_thumbprint`, and
+`one_time_value_unavailable`. Assert the three GET routes use only the distinct
+`UpdateGrant` authorization scheme and define no redirect or storage URL.
+
 - [ ] **Step 2: Write failing updater unit tests**
 
-In the C# test project, create tests that reject a changed manifest byte, wrong package size/hash, untrusted signer, signer-thumbprint mismatch, expired package URL, path traversal, non-HTTPS URL, and extra manifest properties. Atomic-install tests use a temporary directory to preserve `current`, move it to `previous`, install `candidate`, validate, and restore `previous` after injected failure. Safe-log tests assert that bearer tokens, signed URL query strings, local user names, and file contents are redacted.
+Write `tests/unit/test_update_grants.py` first. Prove a grant expires at exactly
+five minutes; altered signature/claims, future-issued token, expiry, wrong
+key/session/auth version/release/package/manifest, malformed base64, unknown
+claim, and noncanonical time fail closed; and neither token nor claims contain
+PII. Prove `issue_update_grant` and `verify_update_grant` never log or persist the
+readable value.
+
+Write `tests/integration/test_client_update_api.py` against PostgreSQL with fake
+immutable release storage. Prove the exact closed grant request; one-time first
+response; identical-key replay with the same selected metadata,
+`one_time_value_unavailable: true`, and no grant; conflicting-key payload;
+prove the raw grant is absent from idempotency response storage and all database
+text/binary values;
+expired/revoked session; account auth-version change; wrong authorization
+scheme; wrong release/package; altered grant; immutable-object byte range/resume;
+exact content type/hash/size; and no redirect, bucket credential, signed URL,
+object path, grant, bearer, or identity in response/log output.
+
+In the C# test project, create tests that reject a changed manifest byte, wrong
+package size/hash, untrusted signer, signer-thumbprint mismatch, API-origin/path
+substitution, traversal, non-HTTPS origin, and extra manifest/request properties.
+`UpdateRequestPipeTests` prove the helper creates a random named-pipe server with
+`PipeOptions.CurrentUserOnly`, accepts one length-prefixed UTF-8 closed JSON
+message no larger than 64 KiB, times out safely, rejects a second connection and
+trailing/oversized/invalid data, and exposes only pipe name and request ID in
+process arguments. `ProtectedReleaseClientTests` prove it uses only the three
+fixed routes and `Authorization: UpdateGrant <grant>`, permits bounded identical-
+object resume, clears the grant after download, and follows no redirect.
+Atomic-install tests use a temporary directory to preserve `current`, move it to
+`previous`, install `candidate`, validate, and restore `previous` after injected
+failure. Safe-log tests assert that bearer/update grants, URL query strings,
+local user names/paths, person/report data, and file contents are redacted.
 
 - [ ] **Step 3: Run focused tests and observe failure**
 
@@ -1700,14 +1918,17 @@ Run:
 
 ```powershell
 python -m pytest tests/contract/test_client_release_policy.py -q
+python -m pytest tests/unit/test_update_grants.py tests/integration/test_client_update_api.py tests/contract/test_client_update_contract.py -q
 dotnet test access-updater/SLUT.AccessUpdater.sln --configuration Release
 ```
 
-Expected: Python fails because the schema/fixture is absent; .NET fails because the solution is absent.
+Expected: release Python fails because the schema/fixture is absent; update
+Python fails because `backend.identity.update_grants` and client-update routes
+are absent; .NET fails because the solution is absent.
 
 - [ ] **Step 4: Define the strict release-manifest schema and fixture**
 
-Set `additionalProperties` to `false` at every object level. Require SemVer release/minimum versions, `api_version = v1`, a 40-hex source commit, 64-hex `version_registry_sha256`, UTC timestamp, HTTPS documentation URLs, detached signature metadata, at least one package, positive sizes, and 64-hex artifact hashes/thumbprints. Use a fully fictional `0.0.0-test` fixture with `https://example.invalid/` URLs and zero-valued test hashes clearly marked fixture-only.
+Set `additionalProperties` to `false` at every object level. Require SemVer release/minimum versions, `api_version = v1`, a 40-hex source commit, 64-hex `version_registry_sha256`, UTC timestamp, HTTPS documentation URLs, detached signature metadata, at least one package, stable `package_id`, positive sizes, and 64-hex artifact hashes/thumbprints. No client-visible descriptor may contain a storage object path, bucket name, signed URL, or credential. Use a fully fictional `0.0.0-test` fixture with `https://example.invalid/` documentation URLs and zero-valued test hashes clearly marked fixture-only.
 
 - [ ] **Step 5: Implement typed manifest and verification boundaries**
 
@@ -1742,22 +1963,89 @@ public sealed record ArtifactDescriptor(
     string SignerThumbprint,
     string WindowsArchitecture,
     string AccessBitness,
-    string PackagePath);
+    string PackageId);
 ```
 
-`ManifestVerifier` performs strict JSON deserialization, detached CMS verification, signer-chain trust, expected signer matching, schema/version bounds, HTTPS/path validation, and constant-time hash comparison. It accepts a test trust provider through dependency injection; production uses the Windows trust store.
+`ManifestVerifier` performs strict JSON deserialization, detached CMS
+verification, signer-chain trust, expected publisher matching, schema/version
+bounds, HTTPS documentation-URL validation, stable package-ID validation, and
+constant-time hash comparison. The manifest signer subject/thumbprint is
+descriptive signed metadata and never selects the trust anchor. It accepts a test
+trust provider through dependency injection; production uses only the
+preapproved Windows/managed-signing trust policy and expected publisher identity.
 
-- [ ] **Step 6: Implement secure update request and download behavior**
+- [ ] **Step 6: Implement update grants, protected delivery, and named-pipe request handling**
 
-`UpdateRequest` arrives through the AC-09 approved in-memory IPC contract, never command-line secret text or plaintext disk. It contains the protected package endpoint, short-lived access material, selected Access bitness, install path, current version, expected manifest hash, and request ID. Download to a unique LocalAppData temporary directory over HTTPS, enforce redirect/domain policy, byte limits, timeout, and content length, then clear access material from managed references before install logging.
+In `backend/identity/update_grants.py`, implement the roadmap's exact
+`issue_update_grant(...)` and `verify_update_grant(...)` interfaces with the
+dedicated `CLIENT_UPDATE_GRANT_KEY`. Use canonical serialization plus HMAC with
+constant-time verification. The token expires exactly five minutes after issue
+and contains only session ID, account auth version, release version, package ID,
+manifest SHA-256, issued/expiry times, and nonce. The readable token is returned
+once and is never persisted, hashed into an audit field, or logged.
+
+Register `client_updates` in `backend/webapp/api_v1/__init__.py`. Implement:
+
+- `POST /api/v1/client-updates/grants` with normal bearer authentication,
+  `X-Client-Version`, `X-Request-ID`, `Idempotency-Key`, and a body closed to
+  exactly `access_bitness` plus `windows_architecture`. Release-one enums include
+  Access `x86|x64` and Windows `x64`; another Windows architecture requires
+  explicit OP-01 inventory approval and reviewed schema/tests. Use
+  `{"access_bitness":"x64","windows_architecture":"x64"}` as the exact
+  fictional example and reject unsupported combinations before grant issue.
+  Select the one compatible package from the current protected immutable signed
+  manifest on the server, require its release/API/minimum-version projection to
+  match the runtime `release/version.json` projection, and never accept a
+  manifest hash, package ID, release version, or signer from the request. The
+  first closed response contains
+  exactly `update_grant`, `expires_at`, `release_version`, `package_id`,
+  `manifest_sha256`, `manifest_size_bytes`, `signer_thumbprint`, and
+  `one_time_value_unavailable: false`. An identical-key replay returns the same
+  expiry/metadata, omits `update_grant`, and sets
+  `one_time_value_unavailable: true`; a different request under the key conflicts.
+- `GET /api/v1/client-updates/manifest`,
+  `GET /api/v1/client-updates/manifest-signature`, and
+  `GET /api/v1/client-updates/packages/{package_id}` with
+  `Authorization: UpdateGrant <grant>` as the only authentication scheme. Verify
+  HMAC/expiry, reload the session/account, compare auth version, and authorize
+  only the exact immutable release/package/hash. The same grant may replay within
+  five minutes only for those identical objects and bounded byte-range resume.
+  Read bytes through API-only release-bucket access; return exact MIME type,
+  length, hash/ETag, and safe request ID. Never redirect or return a bucket name,
+  object path, signed URL, storage credential, grant, bearer, session/account ID,
+  or PII.
+
+The response `signer_thumbprint` and matching signed-manifest field are
+descriptive metadata bound to the server-selected release, not trust anchors.
+The updater trusts only the preapproved managed-signing/Windows trust policy and
+expected publisher identity.
+
+The helper starts with exactly two positional arguments: a cryptographically
+random pipe name and request ID. `UpdateRequestPipe` creates the server with .NET
+`PipeOptions.CurrentUserOnly`, accepts one connection, reads one four-byte
+length-prefixed UTF-8 closed JSON object of at most 64 KiB, rejects trailing data,
+and closes. The exact `UpdateRequest` keys are `schema_version`, `api_base_url`,
+`update_grant`, `expires_at`, `release_version`, `package_id`,
+`manifest_sha256`, `manifest_size_bytes`, `signer_thumbprint`,
+`access_bitness`, `windows_architecture`, `current_client_version`,
+`install_path`, and `request_id`. No bearer/update grant, endpoint, install path,
+person/report value, or other sensitive material may enter arguments,
+environment variables, registry, clipboard, disk, or logs.
+
+`ProtectedReleaseClient` derives only the three fixed relative routes above from
+the validated HTTPS `api_base_url`, disables redirects, sends only
+`Authorization: UpdateGrant <grant>` for authentication, enforces expiry,
+timeouts, content type/length/hash and bounded resume, downloads into a unique
+LocalAppData temporary directory, and clears managed grant references before any
+install logging.
 
 - [ ] **Step 7: Implement signature, atomic install, validation, and rollback**
 
-Verify detached manifest signature, exact size/SHA-256, Windows chain trust, and expected signer before touching the installation. `AccessProcessCoordinator` asks Access to save/close and enforces a bounded wait without killing it silently. `AtomicInstaller` requires candidate/current/previous on the same volume, moves current to previous, atomically moves candidate to current, and never deletes previous until the next release is accepted. `ClientValidator` launches the signed client in `ValidateRelease` mode and checks client version, signer, source commit, API reachability, and startup form. Any validation failure invokes `RollbackManager`, revalidates previous, and returns the defined exit code.
+Verify detached manifest signature, exact size/SHA-256, Windows chain trust, and expected publisher before touching the installation. `AccessProcessCoordinator` asks Access to save/close and enforces a bounded wait without killing it silently. `AtomicInstaller` requires candidate/current/previous on the same volume, moves current to previous, atomically moves candidate to current, and never deletes previous until the next release is accepted. `ClientValidator` opens the installed Access client through COM, calls the AC-09 public `ValidateRelease()` hook, strictly parses its safe closed JSON, and checks client version, signature, source commit, API compatibility/reachability, and startup form. It receives no credential/path from that hook. Any validation failure invokes `RollbackManager`, revalidates previous, and returns the defined exit code.
 
 - [ ] **Step 8: Implement safe local update telemetry**
 
-`SafeUpdateLog` records UTC time, release/current version, stage, exit code, request ID, file hash prefix, and elapsed time. It never records package URL query/fragment, bearer material, report data, employee identity, user profile path, machine name, or signature private data. Log files are bounded and stored under the current user's LocalAppData outside the trusted application directory.
+`SafeUpdateLog` records UTC time, release/current version, stage, exit code, request ID, file hash prefix, and elapsed time. It never records update grant/bearer material, URL query/fragment, bucket/object identifiers, report/person data, employee/session/account identity, user profile/install path, machine name, pipe name, IPC payload, or signature private data. Log files are bounded and stored under the current user's LocalAppData outside the trusted application directory.
 
 - [ ] **Step 9: Implement manifest generation, verification, managed signing, and publication scripts**
 
@@ -1767,13 +2055,31 @@ Agents may implement and unit-test these scripts with fictional self-signed fixt
 
 - [ ] **Step 10: Implement protected Access validation and release workflows**
 
-`access-validate.yml` runs on Windows runners with Access installed, checks exported-source consistency, compiles VBA/missing references, scans forbidden URLs/secrets/unsafe declarations, builds supported `.accde` files, runs fake-API VBA and COM smoke tests, builds/tests/publishes the updater locally for required RIDs, and uploads unsigned test artifacts only.
+`access-validate.yml` runs on Windows runners with Access installed, checks
+exported-source consistency, compiles VBA/missing references, scans forbidden
+URLs/secrets/unsafe declarations, builds supported local unsigned `.accde` files,
+runs fake-API VBA/COM smoke plus named-pipe/`ValidateRelease` tests, and
+builds/tests/publishes the updater only to a runner-local output for required
+RIDs. If it uploads test evidence, the artifacts are conspicuously unsigned,
+fictional, short-lived, and unusable as a release.
 
-`access-release.yml` is manual and references—but never creates or configures—the externally protected `access-release` environment. It fails unless EXT-16 is verified and the environment supplies `GCP_ACCESS_RELEASE_WIF_PROVIDER` and `GCP_ACCESS_RELEASE_SERVICE_ACCOUNT` identifiers matching OP-03 outputs. After two-reviewer approval it authenticates only as the dedicated production access-release identity, consumes approved backend/client evidence plus the exact version-registry hash, rebuilds from the reviewed commit, repeats all tests, requests managed signatures without accessing key material, builds/signs the CMS manifest, validates all artifacts, and publishes only immutable versioned objects. It never runs for a normal push, uses deploy/apply/rollback identities, changes environment protection, or reads application secrets.
+`access-release.yml` is manual and references—but never creates or configures—the externally protected `access-release` environment. It fails unless EXT-16 is verified and the environment supplies `GCP_ACCESS_RELEASE_WIF_PROVIDER` and `GCP_ACCESS_RELEASE_SERVICE_ACCOUNT` identifiers matching OP-03 outputs. Before any signing/publication step it requires reviewed evidence for the actual signed helper and `.accde`, complete supported workstation/bitness matrix, endpoint-protection result, trusted-location/ACL, protected API checks, and managed-signing approval. After two-reviewer approval it authenticates only as the dedicated production access-release identity, consumes approved backend/client evidence plus the exact version-registry hash, rebuilds from the reviewed commit, repeats all tests, requests managed signatures without accessing key material, builds/signs the CMS manifest, validates all artifacts, and publishes only immutable versioned objects. It never runs for a normal push, uses deploy/apply/rollback identities, changes environment protection, or reads application secrets.
 
-- [ ] **Step 11: Project release policy through `/api/v1/client-policy`**
+- [ ] **Step 11: Preserve client policy and publish the protected update API contract**
 
-Modify the endpoint/OpenAPI so authenticated clients receive latest/minimum client version, API/server compatibility, release notes, selected package metadata, expected hash/signer, and read-only requirement. A client below minimum can authenticate, read/recover saved work, and export existing revisions, but mutation endpoints return `client_upgrade_required`. Protected package delivery stays behind the managed hostname and private bucket service boundary.
+Do not modify `backend/webapp/api_v1/client_policy.py`. In OpenAPI, preserve
+`/api/v1/client-policy` as exactly the nine public safe fields and no package,
+hash, signer, grant, URL, bucket, or object-path metadata. A client below minimum
+can authenticate, read/recover saved work, and export existing revisions, but
+mutation endpoints return `client_upgrade_required`.
+
+Document the exact grant request/one-time response and three protected GET routes
+from Step 6, including closed schemas, bearer versus UpdateGrant security,
+required headers, five-minute expiry, immutable-object resume, stable failure
+codes, content types/range rules, and nonredirect responses. Selected package
+metadata exists only in the authenticated grant response and signed manifest;
+private-object delivery stays behind the managed hostname and API service
+boundary.
 
 - [ ] **Step 12: Write the Access deployment/update/rollback runbook**
 
@@ -1791,18 +2097,22 @@ dotnet publish access-updater/src/SLUT.AccessUpdater/SLUT.AccessUpdater.csproj -
 python -m json.tool release/access-release.schema.json | Out-Null
 python -m json.tool release/fixtures/access-release.fixture.json | Out-Null
 python -m pytest tests/contract/test_client_release_policy.py tests/unit/test_access_release_workflow.py -q
+python -m pytest tests/unit/test_update_grants.py tests/integration/test_client_update_api.py tests/contract/test_client_update_contract.py -q
 powershell -File scripts/release/New-AccessReleaseManifest.ps1 -FixtureMode
 powershell -File scripts/release/Test-AccessReleaseManifest.ps1 -FixtureMode
 python scripts/ci/check_workflow_pins.py
 git diff --check
 ```
 
-Expected: .NET unit/build/publish tests pass for `win-x64`; fixture-only manifest/signature checks pass; contract/workflow tests pass; no `.accde` is distributed, no organization signing call occurs, and no artifact is published.
+Expected: .NET unit/build/publish-to-local-output tests pass for `win-x64`;
+fixture-only manifest/signature checks, grant/API/OpenAPI contracts, and workflow
+tests pass; client policy remains exactly nine fields; no `.accde` is distributed,
+no organization signing call occurs, and no artifact is published or uploaded.
 
 - [ ] **Step 14: Commit updater and release pipeline**
 
 ```powershell
-git add access-updater release/access-release.schema.json release/fixtures scripts/release .github/workflows/access-validate.yml .github/workflows/access-release.yml .gitignore backend/webapp/api_v1/client_policy.py openapi/access-v1.yaml tests/contract/test_client_release_policy.py tests/unit/test_access_release_workflow.py docs/runbooks/access-deploy-update-rollback.md
+git add access-updater release/access-release.schema.json release/fixtures scripts/release .github/workflows/access-validate.yml .github/workflows/access-release.yml .gitignore backend/identity/update_grants.py backend/webapp/api_v1/client_updates.py backend/webapp/api_v1/__init__.py openapi/access-v1.yaml tests/unit/test_update_grants.py tests/integration/test_client_update_api.py tests/contract/test_client_update_contract.py tests/contract/test_client_release_policy.py tests/unit/test_access_release_workflow.py docs/runbooks/access-deploy-update-rollback.md
 git commit -m "feat: add signed access update and release pipeline"
 ```
 

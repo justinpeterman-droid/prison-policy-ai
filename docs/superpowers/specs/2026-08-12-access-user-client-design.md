@@ -149,6 +149,59 @@ other screens until change succeeds.
 The profile returned by `/me` supplies staff UUID, employee number for display,
 name, rank, shift, role, and status. A local field cannot override that identity.
 
+### Accepted client update handoff
+
+Client policy remains the exact nine-field public safe response. It contains no
+package selection, hash, signer, bucket credential, storage object path, signed
+URL, or reusable download credential. Package selection occurs only after the
+employee accepts the update.
+
+When an employee explicitly accepts an available update, Access:
+
+1. sends `POST /api/v1/client-updates/grants` with the live bearer session,
+   `X-Client-Version`, `X-Request-ID`, `Idempotency-Key`, and a closed body with
+   exactly `access_bitness` and `windows_architecture`; the fictional x64 example
+   is `{"access_bitness":"x64","windows_architecture":"x64"}`;
+2. retains the returned five-minute update grant in memory only;
+3. creates a cryptographically random named-pipe name and launches the installed,
+   trusted .NET updater with only that pipe name and the request ID as command-line
+   arguments; and
+4. sends one closed, length-prefixed UTF-8 JSON `UpdateRequest` of at most 64 KiB
+   over the pipe after the helper creates it with .NET
+   `PipeOptions.CurrentUserOnly`.
+
+The first grant response is a closed object containing `update_grant`,
+`expires_at`, `release_version`, `package_id`, `manifest_sha256`,
+`manifest_size_bytes`, `signer_thumbprint`, and
+`one_time_value_unavailable: false`. An identical idempotent replay returns the
+same expiry and selected non-secret metadata with
+`one_time_value_unavailable: true` and omits `update_grant`. The returned signer
+thumbprint is descriptive grant-bound metadata, never a trust anchor; the helper
+accepts a signature only under the preapproved managed-signing and Windows trust
+policy and expected publisher identity.
+
+Release-one `access_bitness` permits `x86` or `x64`; release-one
+`windows_architecture` permits `x64` unless the OP-01 inventory explicitly
+approves another architecture and the schema/tests are reviewed together.
+Access derives these values from its real build/runtime, and the server rejects
+every combination outside the approved support matrix before issuing a grant.
+
+The update grant, bearer credential, report/person data, install paths, and other
+sensitive values never enter command-line arguments, environment variables, the
+registry, clipboard, disk, or logs. The helper accepts one connection and the
+request is closed to exactly `schema_version`, `api_base_url`, `update_grant`,
+`expires_at`, `release_version`, `package_id`, `manifest_sha256`,
+`manifest_size_bytes`, `signer_thumbprint`, `access_bitness`,
+`windows_architecture`, `current_client_version`, `install_path`, and
+`request_id`. The helper derives only the fixed protected relative routes from
+the validated HTTPS API origin; the request contains no person/report data.
+
+Access also exposes a public COM-safe `ValidateRelease` test/validation hook. It
+returns bounded JSON containing only version, source-commit, API-compatibility,
+signature, and startup checks. It never returns a credential, URL query, bucket
+or object path, user/profile path, employee identity, report content, or raw
+exception.
+
 ## User dashboard
 
 `frmDashboard` shows:
@@ -184,7 +237,12 @@ The server returns stable staff UUIDs and is authoritative for active status.
 `frmFieldNotes` provides a large plain-text editor using the established term
 **field notes**. It shows character bounds, connection/save state, incident ID,
 and created-by identity. It does not run AI until the employee explicitly
-continues.
+continues. Startup validates the required integer
+`field_notes_max_characters` from client policy, which is exactly `30000` in
+release one, and stores it only in memory. `SetFieldNotes` consumes that
+validated policy value, counts Unicode code points with valid UTF-16 surrogate
+pairs counting as one and rejects unpaired surrogates, accepts 30,000, and
+rejects 30,001 locally; the server repeats the same authoritative validation.
 
 ### Step 3: Review Facts
 
@@ -343,6 +401,11 @@ them through the Admin Center.
 - Revision conflict and recovery-decision state machine.
 - AI idempotency key/job polling/backoff/resume behavior.
 - Stable error-code mapping and sensitive-log redaction.
+- Update-grant request validation, one-time in-memory retention, employee cancel,
+  fake-launcher behavior, random pipe naming, exact closed `UpdateRequest`
+  serialization, 64 KiB rejection, and zero secret command-line/disk/log output.
+- `ValidateRelease` returns only the approved safe JSON fields and fails closed on
+  version, source, API, signature, or startup mismatch.
 
 ### Automated Access integration tests
 
@@ -353,7 +416,8 @@ verifies navigation and state transitions without Google credentials.
 Tests cover temporary-PIN sign-in, persistent renewal, new incident, multiple
 officers, field notes, fact/gap review, report tabs, autosave, history,
 revisions, conflicts, Policy Expert display, Word download, logout, update
-policy, and recovery after forced termination.
+policy, accepted-update fake-launcher handoff, `ValidateRelease`, and recovery
+after forced termination.
 
 ### Manual Windows acceptance
 
@@ -387,3 +451,8 @@ policy, and recovery after forced termination.
     payload is stored in the Access project.
 12. Exported text sources reconstruct and validate the `.accdb`, and the signed
     `.accde` passes automated and manual acceptance tests.
+13. An accepted update obtains a five-minute server grant, keeps all credentials
+    in memory, and hands one bounded request to the current-user-only updater pipe
+    without exposing secrets through process or local persistence surfaces.
+14. `ValidateRelease` is COM-safe, deterministic, and returns only the approved
+    non-sensitive validation result.

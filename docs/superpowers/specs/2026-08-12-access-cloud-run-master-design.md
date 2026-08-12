@@ -197,11 +197,23 @@ the matrix for every endpoint and record.
 - PIN/passcodes contain 4 through 8 ASCII letters or digits. Letters are
   case-insensitive and normalized before hashing.
 - Six through eight characters are recommended; four remains supported.
-- PINs use Argon2id one-way hashes with per-hash salts. Readable PINs are never
-  stored, returned, or logged.
+- PINs use Argon2id one-way hashes with per-hash salts. Readable current PINs
+  are never stored, returned, or logged. Ordinary temporary PINs are returned
+  once to an authorized administrator; the initial-Admin temporary PIN is
+  written once only to a dedicated Secret Manager version for custodian
+  retrieval and prompt version disable/destruction.
 - Administrators create accounts and issue temporary PINs but cannot view a
   current PIN.
 - Temporary PINs expire after 24 hours and require replacement at first use.
+- A dedicated, approval-bound bootstrap creates exactly one initial Admin only
+  when the account table is empty and the target staff row is active. It is
+  transaction-serialized, emits `system.initial_admin_bootstrapped`, and fails
+  after any account exists; all later accounts use authenticated Admin flows.
+- Bootstrap adds the dedicated PIN secret version before committing Account and
+  audit. Secret-add failure rolls both back; an outcome-ambiguous timeout blocks
+  retry pending custodian metadata reconciliation/cleanup; commit-after-known-
+  version failure leaves only a non-authenticating orphan version to disable
+  and destroy before retry.
 - Five consecutive failed attempts create a 15-minute account lock. Repeated
   lock cycles double to 30 and then 60 minutes, capped at 24 hours. A successful
   sign-in resets the failure state.
@@ -264,6 +276,15 @@ Policy Expert, and Account. A six-step report workflow guides the employee:
 5. Review and edit every generated report.
 6. Generate the Word document when needed.
 
+Release one limits field notes to exactly 30,000 characters. Cloud Run owns
+that value as one backend constant, validates it on every incident create/save,
+and returns it as the required integer `field_notes_max_characters` in the
+public client policy. Access validates and keeps the policy value in memory; it
+does not source the limit from an environment variable, local setting, or the
+release-version registry. "Character" means a Unicode code point after JSON
+decoding, with no client-side normalization; Access uses a surrogate-pair-aware
+counter so its local boundary matches Pydantic string `max_length` behavior.
+
 The interface continuously shows connection and save state. AI output remains
 a draft. Nothing files itself.
 
@@ -323,9 +344,15 @@ the binary document centrally in the first release.
 - The worker accepts only authenticated Cloud Tasks invocations.
 - Service accounts are single-purpose and least-privileged.
 - Secret Manager holds application secrets.
+- Initial-Admin bootstrap has separate runtime/workflow identities and a
+  dedicated one-time-PIN secret; neither identity can read that PIN version.
 - Production and test use isolated databases and cloud environments.
 - Ordinary logs exclude PINs, renewal tokens, names, employee numbers, inmate
   identifiers, field notes, and narratives.
+- The common API request event contains only request ID, stable action/result,
+  bounded latency and latency bucket, HTTP status class, stable error code,
+  client version, and dependency name. It never contains request/response
+  content, identity, credentials, headers, query values, or path identifiers.
 - Protected audit records contain actor/action/target/result metadata rather
   than duplicate report content.
 - Access recovery payloads and persistent renewal tokens are DPAPI-encrypted.
@@ -425,3 +452,6 @@ specification and tests before dependent work begins.
     and pilot acceptance all pass before general rollout.
 17. The existing website remains available as a controlled fallback until the
     Access release receives written production acceptance.
+18. The protected first-Admin workflow creates one approved Admin only from an
+    active imported staff record, exposes no PIN in output, and cannot be reused
+    after any account exists.

@@ -46,7 +46,8 @@ reusing the current report and Policy Expert engines.
 - `status`: `in_progress`, `completed`, or `archived`.
 - `current_revision_number`: integer used for conflict detection.
 - Searchable incident date/time, facility, shift, location, and category fields.
-- `field_notes`: current text.
+- `field_notes`: current text, with an authoritative maximum of exactly 30,000
+  Unicode code points after JSON decoding in release one.
 - `classification`, `extracted_facts`, `gap_answers`, `charges`, `validation`:
   validated JSONB values using versioned schemas.
 - `created_at`, `updated_at`, `archived_at`.
@@ -207,10 +208,15 @@ optional safe `error.details`, `request_id`, and `server_time`.
 ### Compatibility
 
 `GET /api/v1/client-policy` returns latest and minimum compatible Access
-versions, API version, release notes, package metadata, and whether the client
-must become read-only. The server rejects writes from clients below the minimum
-with `client_upgrade_required` while allowing sign-in, reads, and export of
-already saved content.
+versions, API version, release notes, and whether the client must become
+read-only. Its closed nine-field response also includes the required integer
+`field_notes_max_characters: 30000`, sourced from the same backend constant used
+by `IncidentSnapshotV1` and `SaveIncidentRequest`, not from an environment or
+version-registry value. Package selection/hash/signer metadata belongs only to
+the authenticated update-grant response, never this public policy. The server
+rejects writes from clients below the
+minimum with `client_upgrade_required` while allowing sign-in, reads, and export
+of already saved content.
 
 ### Pagination and search
 
@@ -294,6 +300,11 @@ behavior remains bounded by `backend/pipeline/retry.py`. Validation,
 authorization, or deterministic content failures are terminal. A job cannot
 apply results if its incident base revision became stale; it returns a
 `result_conflict` requiring employee review.
+
+When a worker recovery attempt follows possible provider acceptance without a
+committed result, RP-07 increments `ai_provider_repeat_risk_total`. That metric
+is the sole release-one application producer for this residual repeat-billing
+risk; it never includes report content or actor identity.
 
 ## Word generation
 
@@ -388,6 +399,8 @@ values. Search input never becomes SQL text.
 - Pagination bounds and authorization filtering.
 - Error envelopes and request IDs.
 - Minimum-client read-only enforcement.
+- Field notes accept exactly 30,000 characters and reject 30,001 at both the
+  schema and incident-route/OpenAPI boundaries.
 - Payload, string, collection, and JSON depth limits.
 - Sensitive content does not enter ordinary logs.
 

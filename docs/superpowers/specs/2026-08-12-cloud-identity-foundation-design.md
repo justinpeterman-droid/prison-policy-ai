@@ -141,8 +141,9 @@ used by this flow.
 
 - `id`: UUID primary key.
 - `occurred_at` UTC.
-- `actor_account_id` and `actor_staff_member_id`: nullable only for an unknown
-  failed-login actor.
+- `actor_account_id` and `actor_staff_member_id`: both nullable only for an
+  unknown failed-login actor or the one-time `system.initial_admin_bootstrapped`
+  event. Every other event requires both actor IDs.
 - `action`: stable action code.
 - `target_type`, `target_id`: bounded identifiers.
 - `result`: `success`, `denied`, or `failed`.
@@ -165,8 +166,11 @@ database pathway writes them.
   receive the same permitted range.
 - PINs are rejected when equal to the employee number or obvious repeated and
   sequential values such as `0000`, `1111`, `1234`, or `ABCD`.
-- PIN text is accepted only over HTTPS, held for the duration of verification,
-  and never logged or returned.
+- Submitted current/new PIN text is accepted only over HTTPS, held for the
+  duration of verification, and never logged or reflected. The only readable
+  outputs are newly generated temporary PINs: ordinary Admin creation/reset
+  returns one once, while initial-Admin bootstrap writes one directly to its
+  dedicated Secret Manager version and never returns it from the job/workflow.
 
 Argon2id uses 64 MiB memory, three iterations, parallelism 1, a 16-byte random
 salt, and a 32-byte hash. The implementation benchmark must verify that one
@@ -186,6 +190,17 @@ the readable temporary value exactly once to the administrator.
 The administrator communicates it through an agency-approved channel. The
 employee must replace it on first successful sign-in before any other API is
 available.
+
+The initial Admin is the sole system-created account. A dedicated bootstrap
+service acquires a PostgreSQL transaction-scoped advisory lock, verifies that
+the `accounts` table contains zero rows and that the approved target staff row
+is active, then creates exactly one Admin account with a random temporary PIN,
+24-hour expiry, and mandatory first-use change. The account insert and distinct
+`system.initial_admin_bootstrapped` audit insert are one transaction and roll
+back together. The audit actor IDs are null only for this system operation and
+its details contain only an opaque operation UUID and the SHA-256 of the
+external approval reference. Bootstrap fails permanently once any account row
+exists; it never becomes an alternate account-creation or recovery path.
 
 ### PIN change
 
@@ -272,6 +287,15 @@ changes additionally require a step-up token issued within five minutes.
 
 ## API surface
 
+`GET /api/v1/client-policy` is the public bootstrap operation. Its closed
+release-one data object has exactly nine required safe fields:
+`release_version`, `latest_client_version`, `minimum_client_version`,
+`minimum_server_version`, `api_version`, `release_notes`,
+`read_only_required`, `review_lab_origin`, and
+`field_notes_max_characters`. The last field is the integer `30000`, sourced
+from one backend constant rather than an environment variable or the canonical
+release-version projection.
+
 ### Employee authentication
 
 - `POST /api/v1/auth/login`
@@ -327,8 +351,13 @@ not authenticate legacy browser pages.
 - Cloud Armor provides broad abuse controls; Flask owns identity-aware limits.
 - Unknown employee, wrong PIN, deactivated, and locked responses use one safe
   external message and code.
-- Server logs record request ID and result category without employee number or
-  PIN.
+- The common structured request event contains exactly `request_id`, `action`,
+  `result`, `latency_ms`, `latency_bucket`, `http_status_class`, `error_code`,
+  `client_version`, and `dependency`. Action, result, bucket, error, and
+  dependency values are bounded stable codes; client version is parsed rather
+  than copied from a raw header. The event never contains employee/staff/account
+  identity, names, PINs, tokens, device/network identity, headers, query/path
+  values, request/response bodies, field notes, or report content.
 - Authentication endpoints never reflect submitted values.
 
 ## Audit action codes
@@ -345,6 +374,7 @@ At minimum:
   `admin.account_unlocked`
 - `admin.review_lab_handoff_issued`,
   `admin.review_lab_handoff_redeemed`
+- `system.initial_admin_bootstrapped`
 
 ## Failure behavior
 
@@ -353,11 +383,18 @@ At minimum:
 - Audit insert failure causes a protected mutation to roll back. A successful
   login may proceed only when its required audit event commits in the same
   transaction or a guaranteed outbox record commits with it.
+- Initial-Admin bootstrap uses transaction-scoped advisory locking. Concurrent
+  attempts produce at most one account, and any account/audit failure leaves
+  both absent so the operation may be safely retried while the account count is
+  still zero.
 - Renewal races allow one rotation winner; the losing/reused token triggers the
   defined family-revocation behavior.
-- Temporary PIN output is returned once. If the response is lost, the
-  administrator performs another reset; the server never retrieves the prior
-  value.
+- An ordinary Admin-created/reset temporary PIN is returned once. If that
+  response is lost, an authenticated administrator performs another reset; the
+  server never retrieves the prior value. Initial-Admin bootstrap never returns
+  its PIN in a response: the authorized custodian retrieves only the dedicated
+  secret version. Once the first Account commits, loss of that version is an
+  enrollment incident and never authorizes a second bootstrap.
 
 ## Testing
 
@@ -366,6 +403,8 @@ At minimum:
 - Employee-number and PIN normalization.
 - PIN policy, obvious-value rejection, Argon2id verification, and rehash.
 - Temporary PIN generation and 24-hour expiry.
+- Zero-account first-Admin bootstrap, active-staff enforcement, advisory-lock
+  concurrency, approval-reference hashing, and null-actor audit exception.
 - Lock cycles, durations, success reset, and safe external errors.
 - Opaque token hashing, access expiry, renewal rotation, reuse detection, and
   auth-version revocation.
@@ -376,6 +415,8 @@ At minimum:
 
 - Alembic upgrade and downgrade on an empty and populated PostgreSQL database.
 - Account creation through first sign-in and mandatory PIN change.
+- Concurrent first-Admin attempts create exactly one Admin; any later attempt
+  fails after any account exists, and audit failure rolls back the account.
 - Persistent/nonpersistent User and Admin session flows.
 - PIN change/reset/deactivation/role change revokes the expected sessions.
 - Admin Center lock and five-minute sensitive-action step-up.
@@ -389,10 +430,15 @@ At minimum:
 ### Security verification
 
 - No readable PIN or token in Cloud SQL, Flask logs, Cloud Logging, exceptions,
-  API responses, or test artifacts.
+  or test artifacts. API responses never contain an existing credential; the
+  sole PIN-response exception is an ordinary newly generated Admin
+  create/reset temporary PIN returned once. Initial-Admin bootstrap responses
+  never contain a PIN.
 - Brute-force and account-enumeration behavior.
 - Session theft/replay, rotation, and revocation behavior.
 - Authorization bypass attempts using modified employee/account/role fields.
+- Attempts to reuse bootstrap for a second account, inactive staff, a User
+  role, or an unapproved/plaintext approval reference.
 
 ## Acceptance criteria
 
@@ -415,4 +461,8 @@ At minimum:
    single-use, expires in 60 seconds, and creates an attributable nonpersistent
    browser session.
 10. Authorization helpers derive the actor from the server session and pass the
-   complete focused and regression test suites.
+    complete focused and regression test suites.
+11. A fail-closed, transaction-serialized bootstrap creates the first Admin
+    only while zero accounts exist, forces PIN change within 24 hours, records
+    the dedicated null-actor system audit event, and cannot create any later
+    account.

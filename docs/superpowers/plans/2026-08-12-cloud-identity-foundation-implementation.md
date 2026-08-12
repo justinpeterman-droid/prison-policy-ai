@@ -31,7 +31,7 @@
 - Access never receives Windows credentials and never receives DPAPI material. It receives only the random Access installation ID and the renewal credential chosen for in-memory or client-side DPAPI storage.
 - Account records are deactivated, never hard-deleted. Deactivation, role change, PIN reset, PIN change, and logout-all revoke sessions through `auth_version` and explicit revocation timestamps.
 - The last active Admin account cannot be deactivated or changed to User.
-- Server logs contain request ID, stable action code, result category, latency, and exception class only. They do not contain employee number, PIN, token, device ID, field notes, report narrative, or raw request bodies.
+- ID-02 owns one structured request-event contract with exactly `request_id`, `action`, `result`, `latency_ms`, `latency_bucket`, `http_status_class`, `error_code`, `client_version`, and `dependency`. Stable code fields are bounded; the parsed client version is used instead of a raw header. It never contains employee/staff/account identity, PIN, token, device/network identity, field notes, report narrative, request/response content, headers, query values, or path identifiers. Later tasks reuse this contract rather than adding competing request logs.
 - The default Cloud Run process has one Gunicorn worker, eight threads, and a 300-second timeout. Limit concurrent Argon2 work or increase memory so eight simultaneous 64 MiB hashes cannot exhaust the instance.
 
 ## File Ownership Map
@@ -615,7 +615,7 @@ git commit -m "chore(identity): add database and migration foundation"
 
 **Interfaces:**
 - Consumes: `IdentitySettings`, `init_database()`, Flask `create_app()`.
-- Produces: `api_v1_bp`; `request_id() -> str`; `client_version() -> Version`; `ApiError`; `success(data: object, status: int = 200) -> Response`; `failure(code: str, message: str, status: int, retryable: bool = False, details: dict[str, object] | None = None) -> Response`; `require_compatible_write(view)`; signed opaque cursor helpers.
+- Produces: `api_v1_bp`; `FIELD_NOTES_MAX_CHARACTERS: Final[int] = 30_000`; `request_id() -> str`; `client_version() -> Version`; `request_event(*, action: str, result: str, status_code: int, error_code: str | None = None, dependency: str = "none") -> dict[str, object]`; `ApiError`; `success(data: object, status: int = 200) -> Response`; `failure(code: str, message: str, status: int, retryable: bool = False, details: dict[str, object] | None = None) -> Response`; `require_compatible_write(view)`; signed opaque cursor helpers.
 
 **Contract decisions:**
 - Every `/api/v1` request requires a syntactically valid `X-Client-Version` header. `GET /api/v1/client-policy` is the bootstrap exception and may omit it.
@@ -625,6 +625,8 @@ git commit -m "chore(identity): add database and migration foundation"
 - Responses include `X-Request-ID` and `Cache-Control: no-store`.
 - Writes below `MINIMUM_CLIENT_VERSION` return `409 client_upgrade_required`; login, renewal, reads, and export remain eligible for later endpoint-specific exemptions.
 - Pagination cursors are HMAC-signed JSON containing `created_at` and `id`; page sizes are integers from 1 through 100.
+- Release-one field notes are capped by the single code constant `FIELD_NOTES_MAX_CHARACTERS = 30_000` in `backend/webapp/api_v1/client_policy.py`. It is neither an environment setting nor part of `release/version.json` or its deployment projection.
+- One common after-request path emits `request_event()` with exactly `request_id`, `action`, `result`, `latency_ms`, `latency_bucket`, `http_status_class`, `error_code`, `client_version`, and `dependency`. Action/result/error/dependency are bounded stable codes, latency is a nonnegative bounded integer plus a stable bucket, status class is derived from the response, and client version is parsed/sanitized. The event contains no raw URL, route values, query, headers, bodies, content, identity, or credentials.
 
 - [ ] **Step 1: Add failing envelope, contract, and isolation tests**
 
@@ -674,6 +676,14 @@ def test_access_openapi_is_valid():
     assert document["info"]["version"] == "1.0.0"
 ```
 
+In `tests/unit/test_client_policy.py`, assert that the public data object has
+exactly the nine required keys and that
+`field_notes_max_characters == 30_000` with JSON/OpenAPI integer type. In
+`tests/unit/test_api_v1_responses.py`, capture one success and one `ApiError`
+request event, assert the exact nine event keys and stable derived status/error
+values, and assert supplied fictional body, identity, token, header, query, and
+path markers are absent from the serialized event and captured logs.
+
 - [ ] **Step 2: Run focused tests and verify the expected failure**
 
 Run:
@@ -720,6 +730,15 @@ def request_id() -> str:
 def server_time() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 ```
+
+Store a monotonic request start in `begin_request()`. Implement
+`request_event()` in `context.py` and one JSON structured-log emission path in
+the versioned API lifecycle. It must construct values only from the validated
+request context, response status, `ApiError` stable code, and a static
+call-site dependency code. Use stable latency buckets and never serialize
+`request`, headers, route/query values, actor/session objects, response data, or
+exception text. A request ID is for log correlation only and must not become a
+metric label.
 
 ```python
 # backend/webapp/api_v1/responses.py
@@ -804,7 +823,7 @@ Add a temporary `GET /api/v1/me` route returning `authentication_required`; ID-0
 
 - [ ] **Step 5: Implement client policy, version checks, and signed cursors**
 
-`GET /api/v1/client-policy` is a public bootstrap endpoint that returns configured `release_version`, `latest_client_version`, `minimum_client_version`, `minimum_server_version`, `api_version`, safe `release_notes`, `read_only_required`, and `review_lab_origin`. `review_lab_origin` is the scheme/host/optional-port origin derived by `IdentitySettings` from the validated HTTPS `PUBLIC_BASE_URL`; it contains no path, query, fragment, credential, or handoff token. Unauthenticated responses contain no package URL, signer, bucket, or other protected package metadata. ID-02 reads `RELEASE_VERSION`, `LATEST_CLIENT_VERSION`, `MINIMUM_CLIENT_VERSION`, `MINIMUM_SERVER_VERSION`, `API_VERSION`, `RELEASE_NOTES`, and `PUBLIC_BASE_URL`, using the exact local/test version sentinel `0.0.0-development` until OP-08 creates the canonical registry/projection. RP-10 makes production reject every version sentinel, and OP-09 adds authenticated protected package metadata. `require_compatible_write` returns `client_upgrade_required` when `g.client_version` is missing or below the configured minimum. Cursor decoding must verify HMAC with `hmac.compare_digest`, validate exact keys, parse RFC 3339 UTC and UUID, and reject invalid cursors as `400 validation_failed`.
+`GET /api/v1/client-policy` is a public bootstrap endpoint that returns configured `release_version`, `latest_client_version`, `minimum_client_version`, `minimum_server_version`, `api_version`, safe `release_notes`, `read_only_required`, `review_lab_origin`, and integer `field_notes_max_characters`. The last value is always the code constant `FIELD_NOTES_MAX_CHARACTERS`, exactly `30000` in release one. `review_lab_origin` is the scheme/host/optional-port origin derived by `IdentitySettings` from the validated HTTPS `PUBLIC_BASE_URL`; it contains no path, query, fragment, credential, or handoff token. The response remains exactly those nine fields for every caller and contains no package URL, package selection, expected hash, signer, bucket, or other protected package metadata; OP-09's authenticated update-grant operation owns that metadata. ID-02 reads `RELEASE_VERSION`, `LATEST_CLIENT_VERSION`, `MINIMUM_CLIENT_VERSION`, `MINIMUM_SERVER_VERSION`, `API_VERSION`, `RELEASE_NOTES`, and `PUBLIC_BASE_URL`, using the exact local/test version sentinel `0.0.0-development` until OP-08 creates the canonical registry/projection. `field_notes_max_characters` is deliberately not read from those settings and is not added to the canonical version registry. RP-10 makes production reject every version sentinel. `require_compatible_write` returns `client_upgrade_required` when `g.client_version` is missing or below the configured minimum. Cursor decoding must verify HMAC with `hmac.compare_digest`, validate exact keys, parse RFC 3339 UTC and UUID, and reject invalid cursors as `400 validation_failed`.
 
 Add `test_public_client_policy_exposes_only_safe_origin()` to `tests/unit/test_client_policy.py`. It requests the endpoint without bearer or `X-Client-Version`, asserts `minimum_server_version == "1.2.0"`, `api_version == "v1"`, and `review_lab_origin == "https://review.example.gov"`; asserts the origin has no `/access-handoff`, `#`, or `?`; and asserts package URL, signer, bucket, token, and credential keys are absent.
 
@@ -886,7 +905,7 @@ components:
           const: "v1"
 ```
 
-Define a concrete `ClientPolicy` schema whose required properties are exactly `release_version`, `latest_client_version`, `minimum_client_version`, `minimum_server_version`, `api_version`, `release_notes`, `read_only_required`, and `review_lab_origin`; set `api_version` to enum `[v1]`, `review_lab_origin` to `type: string`, `format: uri`, and example `https://review.example.gov`. The public operation's success envelope uses `ClientPolicy` for `data` and has `additionalProperties: false` on that object.
+Define a concrete `ClientPolicy` schema whose required properties are exactly `release_version`, `latest_client_version`, `minimum_client_version`, `minimum_server_version`, `api_version`, `release_notes`, `read_only_required`, `review_lab_origin`, and `field_notes_max_characters`; set `api_version` to enum `[v1]`, `review_lab_origin` to `type: string`, `format: uri`, and example `https://review.example.gov`, and `field_notes_max_characters` to `type: integer`, `const: 30000`, and example `30000`. The public operation's success envelope uses `ClientPolicy` for `data` and has `additionalProperties: false` on that object.
 
 - [ ] **Step 7: Run contract, isolation, and legacy regressions**
 
@@ -897,7 +916,7 @@ python -m pytest tests/unit/test_api_v1_responses.py tests/unit/test_api_v1_isol
 python -m pytest tests/unit/test_access_code_config.py tests/unit/test_admin_tier.py tests/unit/test_safe_next.py -q
 ```
 
-Expected: all tests pass. An `access_code` cookie receives `401 authentication_required` from `/api/v1/me`; a bearer header without the legacy cookie receives the unchanged legacy login redirect from `/reports`.
+Expected: all tests pass. The policy contains exactly nine safe fields with integer `field_notes_max_characters: 30000`; structured request events have exactly the safe nine-key contract and contain none of the supplied sensitive markers. An `access_code` cookie receives `401 authentication_required` from `/api/v1/me`; a bearer header without the legacy cookie receives the unchanged legacy login redirect from `/reports`.
 
 - [ ] **Step 8: Commit ID-02**
 
@@ -1228,6 +1247,7 @@ git commit -m "feat(identity): add identity schema and roster import"
 
 **Files:**
 - Modify: `backend/persistence/models/identity.py`
+- Modify: `backend/identity/audit.py`
 - Create: `backend/identity/errors.py`
 - Create: `backend/identity/pins.py`
 - Create: `backend/identity/accounts.py`
@@ -1238,7 +1258,7 @@ git commit -m "feat(identity): add identity schema and roster import"
 
 **Interfaces:**
 - Consumes: `StaffMember`, `Account`, `normalize_employee_number()`, `AuditWriter`, SQLAlchemy `Session`, UTC clock injection.
-- Produces: `PinPolicyError`; `InvalidCredentials`; `TemporaryPinResult`; `normalize_pin()`; `validate_new_pin()`; `hash_pin()`; `verify_pin()`; `needs_rehash()`; `generate_temporary_pin()`; `create_account()`; `verify_login_pin()`; `reset_failed_attempts()`; `unlock_account()`.
+- Produces: `PinPolicyError`; `InvalidCredentials`; `InitialAdminBootstrapRefused`; `TemporaryPinResult`; `normalize_pin()`; `validate_new_pin()`; `hash_pin()`; `verify_pin()`; `needs_rehash()`; `generate_temporary_pin()`; `create_account()`; `bootstrap_first_admin(session: Session, *, staff_member_id: UUID, now: datetime, audit_writer: AuditWriter, operation_id: UUID, approval_reference_sha256: str) -> TemporaryPinResult`; `verify_login_pin()`; `reset_failed_attempts()`; `unlock_account()`.
 
 **Behavioral decisions:**
 - All credential failures exposed to routes are `InvalidCredentials("The employee number or PIN is invalid.")` with code `invalid_credentials`.
@@ -1247,6 +1267,9 @@ git commit -m "feat(identity): add identity schema and roster import"
 - Expired locks permit a new five-attempt cycle but retain `lock_cycle`; successful verification resets both `failed_attempts` and `lock_cycle`.
 - A correct expired temporary PIN fails with the generic credential shape and never returns a special enumeration signal.
 - Temporary PIN plaintext exists only in `TemporaryPinResult` and is returned once. No database method can retrieve it later.
+- `bootstrap_first_admin()` is the only null-actor account path. It acquires PostgreSQL transaction-scoped advisory lock `6002266223756136276`, succeeds only when the complete `accounts` table has zero rows and the selected staff row is active, always creates role `admin`, and sets `must_change_pin=True` with an expiry exactly 24 hours after `now`.
+- The bootstrap event is exactly `system.initial_admin_bootstrapped`; both actor IDs are null and its detail object contains exactly `operation_id` and lowercase 64-hex `approval_reference_sha256`. Every other audit event requires both actor IDs except an unknown `auth.login_failed` event. Account creation and audit insertion flush in the caller's transaction and roll back atomically.
+- Once any account row exists, bootstrap raises `InitialAdminBootstrapRefused` without generating a PIN, changing data, or writing a success audit. Concurrency must create at most one account.
 
 - [ ] **Step 1: Add failing PIN policy and Argon2 tests**
 
@@ -1296,10 +1319,15 @@ def test_argon2_hash_uses_required_parameters_and_verifies():
 ```python
 # tests/unit/test_lockout.py
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import pytest
 
-from backend.identity.accounts import InvalidCredentials, verify_login_pin
+from backend.identity.accounts import (
+    InvalidCredentials,
+    bootstrap_first_admin,
+    verify_login_pin,
+)
 
 
 def test_fifth_failure_locks_for_fifteen_minutes(account, session, audit_writer):
@@ -1342,6 +1370,18 @@ def test_later_lock_cycles_double_with_twenty_four_hour_cap(
             request_id="request-lock-2",
         )
     assert account.locked_until == now + timedelta(minutes=minutes)
+
+
+def test_bootstrap_rejects_non_hash_approval_reference():
+    with pytest.raises(ValueError, match="approval reference SHA-256"):
+        bootstrap_first_admin(
+            object(),
+            staff_member_id=uuid4(),
+            now=datetime(2026, 8, 12, 15, 0, tzinfo=UTC),
+            audit_writer=object(),
+            operation_id=uuid4(),
+            approval_reference_sha256="approval-ticket-123",
+        )
 ```
 
 - [ ] **Step 3: Run focused tests and verify the expected failure**
@@ -1439,7 +1479,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select
+import re
+
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from backend.identity.audit import AuditEventInput, AuditWriter
@@ -1453,6 +1495,10 @@ GENERIC_CREDENTIAL_MESSAGE = "The employee number or PIN is invalid."
 
 class InvalidCredentials(ValueError):
     code = "invalid_credentials"
+
+
+class InitialAdminBootstrapRefused(RuntimeError):
+    """The one-time zero-account bootstrap precondition is not satisfied."""
 
 
 @dataclass(frozen=True)
@@ -1502,7 +1548,68 @@ def create_account(
         details={"target_account_id": str(account.id), "role": role},
     ))
     return TemporaryPinResult(account.id, temporary_pin, expires_at)
+
+
+BOOTSTRAP_ADVISORY_LOCK_KEY = 6002266223756136276
+
+
+def bootstrap_first_admin(
+    session: Session,
+    *,
+    staff_member_id: UUID,
+    now: datetime,
+    audit_writer: AuditWriter,
+    operation_id: UUID,
+    approval_reference_sha256: str,
+) -> TemporaryPinResult:
+    if not re.fullmatch(r"[0-9a-f]{64}", approval_reference_sha256):
+        raise ValueError("approval reference SHA-256 must be lowercase 64-hex")
+    session.execute(
+        text("SELECT pg_advisory_xact_lock(:lock_key)"),
+        {"lock_key": BOOTSTRAP_ADVISORY_LOCK_KEY},
+    )
+    if session.scalar(select(func.count(Account.id))) != 0:
+        raise InitialAdminBootstrapRefused("initial Admin bootstrap is closed")
+    staff_member = session.scalar(
+        select(StaffMember)
+        .where(StaffMember.id == staff_member_id)
+        .with_for_update()
+    )
+    if staff_member is None or not staff_member.is_active:
+        raise InitialAdminBootstrapRefused("approved active staff member is required")
+
+    temporary_pin = generate_temporary_pin(staff_member.employee_number)
+    expires_at = now + timedelta(hours=24)
+    account = Account(
+        staff_member_id=staff_member.id,
+        role="admin",
+        status="active",
+        pin_hash=hash_pin(temporary_pin),
+        must_change_pin=True,
+        temporary_pin_expires_at=expires_at,
+        failed_attempts=0,
+        lock_cycle=0,
+        auth_version=1,
+    )
+    session.add(account)
+    session.flush()
+    audit_writer.append(session, AuditEventInput(
+        actor_account_id=None,
+        actor_staff_member_id=None,
+        action="system.initial_admin_bootstrapped",
+        result="success",
+        request_id=str(operation_id),
+        target_type="account",
+        target_id=account.id,
+        details={
+            "operation_id": str(operation_id),
+            "approval_reference_sha256": approval_reference_sha256,
+        },
+    ))
+    return TemporaryPinResult(account.id, temporary_pin, expires_at)
 ```
+
+In `backend/identity/audit.py`, add `system.initial_admin_bootstrapped` with the exact detail allowlist `{"operation_id", "approval_reference_sha256"}`. Add `validate_actor_attribution(event)` so actor IDs must be both present or both absent, both must be absent for this system action, and null actors on any other action are accepted only for `auth.login_failed`. Add unit cases to `tests/unit/test_account_lifecycle.py` for the bootstrap null-actor success, one-null rejection, null actors on ordinary actions, and present actors on the bootstrap action. ID-06's `PostgresAuditWriter.append()` must call this validator before `validate_details()` and before executing SQL.
 
 `verify_login_pin()` must `SELECT` the account and staff row `FOR UPDATE`, run a dummy hash check for unknown accounts, auto-release an expired timed lock into the next attempt cycle, reject deactivated/currently locked/expired temporary credentials with the generic exception, and call `record_failed_attempt()` for a wrong PIN. A successful check resets failure counters and lock cycle, updates `last_login_at`, and optionally replaces a hash only when `needs_rehash()` is true and the reviewed parameters remain approved. It does not append `auth.login_succeeded`; the higher-level `login()` orchestration appends that event exactly once after the session row exists.
 
@@ -1510,7 +1617,18 @@ def create_account(
 
 ```python
 # tests/integration/test_account_creation.py
+from datetime import timedelta
 from uuid import uuid4
+
+import pytest
+from sqlalchemy import func, select
+
+from backend.identity.accounts import (
+    InitialAdminBootstrapRefused,
+    bootstrap_first_admin,
+    create_account,
+)
+from backend.persistence.models.identity import Account
 
 
 def test_temporary_pin_is_returned_once_and_audit_is_attributed(
@@ -1557,7 +1675,44 @@ def test_audit_failure_rolls_back_account_creation(
             )
     with db_session_factory() as session:
         assert session.scalar(select(func.count(Account.id))) == 0
+
+
+def test_bootstrap_creates_only_one_admin_with_safe_system_audit(
+    db_session, active_staff_member, audit_writer, fixed_now
+):
+    operation_id = uuid4()
+    result = bootstrap_first_admin(
+        db_session,
+        staff_member_id=active_staff_member.id,
+        now=fixed_now,
+        audit_writer=audit_writer,
+        operation_id=operation_id,
+        approval_reference_sha256="a" * 64,
+    )
+    stored = db_session.get(Account, result.account_id)
+    event = audit_writer.events[-1]
+    assert stored.role == "admin"
+    assert stored.must_change_pin is True
+    assert result.expires_at == fixed_now + timedelta(hours=24)
+    assert event.action == "system.initial_admin_bootstrapped"
+    assert event.actor_account_id is None
+    assert event.actor_staff_member_id is None
+    assert event.details == {
+        "operation_id": str(operation_id),
+        "approval_reference_sha256": "a" * 64,
+    }
+    with pytest.raises(InitialAdminBootstrapRefused):
+        bootstrap_first_admin(
+            db_session,
+            staff_member_id=active_staff_member.id,
+            now=fixed_now,
+            audit_writer=audit_writer,
+            operation_id=uuid4(),
+            approval_reference_sha256="b" * 64,
+        )
 ```
+
+Also use two independent PostgreSQL sessions synchronized before the call to prove the advisory lock allows exactly one concurrent `bootstrap_first_admin()` success and one refusal. Add an inactive-staff case and a bootstrap audit-failure case; after failure and rollback, assert both `Account` and `system.initial_admin_bootstrapped` counts are zero. These are PostgreSQL integration tests, not SQLite substitutes.
 
 Run:
 
@@ -1566,7 +1721,7 @@ $env:DATABASE_URL=$env:TEST_DATABASE_URL
 python -m pytest tests/integration/test_account_creation.py -q
 ```
 
-Expected: account creation, audit insertion, lock transitions, and rollback tests pass; no plaintext PIN is selected from PostgreSQL.
+Expected: ordinary and first-Admin account creation, audit insertion, advisory-lock concurrency, lock transitions, and rollback tests pass; no plaintext PIN is selected from PostgreSQL, and bootstrap is permanently refused after the first account exists.
 
 - [ ] **Step 7: Run focused and existing account-independent regressions**
 
@@ -1582,7 +1737,7 @@ Expected: all tests pass; legacy shared codes and routes are unchanged.
 - [ ] **Step 8: Commit ID-04**
 
 ```powershell
-git add backend/persistence/models/identity.py backend/identity/errors.py backend/identity/pins.py backend/identity/accounts.py tests/unit/test_pin_policy.py tests/unit/test_account_lifecycle.py tests/unit/test_lockout.py tests/integration/test_account_creation.py
+git add backend/persistence/models/identity.py backend/identity/audit.py backend/identity/errors.py backend/identity/pins.py backend/identity/accounts.py tests/unit/test_pin_policy.py tests/unit/test_account_lifecycle.py tests/unit/test_lockout.py tests/integration/test_account_creation.py
 git commit -m "feat(identity): enforce pin and account lifecycle"
 ```
 
@@ -1942,6 +2097,7 @@ from sqlalchemy import text
 
 class PostgresAuditWriter:
     def append(self, session, event: AuditEventInput) -> UUID:
+        validate_actor_attribution(event)
         details = validate_details(event.action, event.details)
         statement = text(
             "SELECT append_audit_event("

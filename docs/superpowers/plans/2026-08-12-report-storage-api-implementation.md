@@ -179,6 +179,7 @@ git commit -m "feat: add incident and report revision schema"
 - Create: `tests/integration/test_revision_service.py`
 
 **Interfaces:**
+- Consumes: ID-02 `FIELD_NOTES_MAX_CHARACTERS`, whose release-one value is exactly `30_000`.
 - Produces: `IncidentSnapshotV1`, `ReportContentV1`, `SaveIncidentRequest`, `SaveReportRequest`, `RevisionSummary`, the bounded report audit-action allowlist, `collect_provenance() -> dict[str, str | None]`, `save_incident()`, `save_report()`, `restore_report()`, and `create_recovery_revision()`.
 - Consumed by: every incident/report route, AI result application, exports, and Access conflict handling.
 
@@ -206,6 +207,14 @@ def test_two_saves_from_same_revision_yield_success_and_conflict(
     assert caught.value.current_revision_number == 2
 ```
 
+Add direct strict-model boundary tests proving both `IncidentSnapshotV1` and
+`SaveIncidentRequest` accept a `field_notes` string of exactly 30,000
+characters and reject 30,001. Assert the field constraint is sourced from
+`FIELD_NOTES_MAX_CHARACTERS`, not a duplicate literal, environment lookup, or
+version metadata. Add the same acceptance/rejection with one non-BMP fictional
+Unicode character repeated 30,000/30,001 times, establishing that Pydantic
+counts decoded Unicode code points rather than UTF-8 bytes or UTF-16 code units.
+
 - [ ] **Step 2: Run and confirm missing-schema/service failures**
 
 Run: `python -m pytest tests/unit/test_reporting_schemas.py tests/unit/test_report_provenance.py tests/unit/test_report_audit_schemas.py tests/integration/test_revision_service.py -v`
@@ -226,7 +235,7 @@ class ReportContentV1(StrictApiModel):
     warnings: list[str] = Field(default_factory=list, max_length=100)
 ```
 
-Define bounded incident classification, extracted facts, gap answers, charges, validation, searchable date/location/category fields, and report editable fields. Reject non-finite numbers, oversized JSON, unknown fields, client-supplied fingerprints, and client-supplied actor/owner/preparer IDs.
+Define `field_notes: str = Field(max_length=FIELD_NOTES_MAX_CHARACTERS)` on both `IncidentSnapshotV1` and `SaveIncidentRequest`, importing the one ID-02 backend constant. Define bounded incident classification, extracted facts, gap answers, charges, validation, searchable date/location/category fields, and report editable fields. Reject non-finite numbers, oversized JSON, unknown fields, client-supplied fingerprints, and client-supplied actor/owner/preparer IDs. Do not add a second limit constant or read this contract from an environment/version source.
 
 - [ ] **Step 4: Centralize provenance fingerprints**
 
@@ -296,6 +305,11 @@ def test_unrelated_user_cannot_read_incident(api_client, unrelated_bearer_header
     assert response.status_code == 404
 ```
 
+Add an integration boundary case that sends 30,001 fictional Unicode code points to
+`POST /api/v1/incidents` and receives `400 validation_failed` without a row,
+revision, idempotent success, or audit write. Keep the exact-30,000 acceptance
+case in RP-02's schema tests and validate that this route uses the same model.
+
 - [ ] **Step 2: Run and observe missing routes/services**
 
 Run: `python -m pytest tests/unit/test_report_service.py tests/unit/test_report_policy.py tests/integration/test_incident_api.py -v`
@@ -308,11 +322,11 @@ Move orchestration from `reports.py` functions `reports_classify`, `reports_extr
 
 - [ ] **Step 4: Implement record policies and transactional incident creation**
 
-`create_incident()` accepts stable active staff UUIDs, derives the authenticated preparer from `Actor`, claims/completes `Idempotency-Key` in the same transaction, creates revision 1, creates per-owner report shells only at the generation stage, and audits `incident.created`. `get_incident()` returns only the fields required by a report the actor may access. Unrelated records are concealed as 404.
+`create_incident()` accepts stable active staff UUIDs, validates `field_notes` through RP-02 `SaveIncidentRequest` with the exact 30,000-Unicode-code-point maximum, derives the authenticated preparer from `Actor`, claims/completes `Idempotency-Key` in the same transaction, creates revision 1, creates per-owner report shells only at the generation stage, and audits `incident.created`. `get_incident()` returns only the fields required by a report the actor may access. Unrelated records are concealed as 404.
 
 - [ ] **Step 5: Add staff and incident OpenAPI paths**
 
-Document `GET /api/v1/staff`, `POST /api/v1/incidents`, `GET/PATCH /api/v1/incidents/{incident_id}`, revision list/detail, and restore. Include bounded examples, pagination cursors, required headers, `422 blocking_information_required`, and all approved error envelopes.
+Document `GET /api/v1/staff`, `POST /api/v1/incidents`, `GET/PATCH /api/v1/incidents/{incident_id}`, revision list/detail, and restore. Incident create/save examples use fictional field notes and the schema sets `field_notes` `type: string` with `maxLength: 30000`; contract tests assert that exact value and the documented `400 validation_failed` over-limit response. Include bounded examples, pagination cursors, required headers, `422 blocking_information_required`, and all approved error envelopes.
 
 - [ ] **Step 6: Run focused, legacy, and contract tests**
 
@@ -816,7 +830,7 @@ git commit -m "feat: export audited report revisions"
 - Create: `tests/security/test_sensitive_logging.py`
 
 **Interfaces:**
-- Produces: public `GET /api/v1/client-policy`; elevated-Admin `GET /api/v1/admin/overview`, `GET /api/v1/admin/audit-events`, and `GET /api/v1/admin/health`; stepped-up `POST /api/v1/admin/audit-events/export`; build metadata; and the `LEGACY_REPORT_MODE` pilot/restriction control.
+- Produces: public `GET /api/v1/client-policy`; elevated-Admin `GET /api/v1/admin/overview`, `GET /api/v1/admin/audit-events`, and `GET /api/v1/admin/health`; stepped-up `POST /api/v1/admin/audit-events/export`; sanitized dependency-health, queue, backup/restore-recency, and client-upgrade-required observability signals; build metadata; and the `LEGACY_REPORT_MODE` pilot/restriction control.
 - Completes: report/API acceptance and Access contract fixture baseline.
 
 - [ ] **Step 1: Write failing compatibility, safe-health, and legacy-control tests**
@@ -861,7 +875,7 @@ Expected: FAIL because the policy, Admin operational routes, and pilot write gat
 
 - [ ] **Step 3: Add reviewed release compatibility metadata**
 
-`backend/build_info.py` adds `SOURCE_COMMIT`, `K_REVISION`, and current Alembic revision. Extend the ID-02 public bootstrap response to read validated runtime settings for `RELEASE_VERSION`, `LATEST_CLIENT_VERSION`, `MINIMUM_CLIENT_VERSION`, `MINIMUM_SERVER_VERSION`, `RELEASE_NOTES`, and `PUBLIC_BASE_URL`. Its closed safe response contains exactly `release_version`, `latest_client_version`, `minimum_client_version`, `minimum_server_version`, `api_version`, `release_notes`, `read_only_required`, and the validated HTTPS origin-only `review_lab_origin`; it contains no package URL, signer, bucket, token, credential, internal host, or handoff path. An authenticated caller may additionally receive OP-09 protected package metadata, still without a secret URL. Until OP-08 creates the authoritative source-controlled `release/version.json` registry and deployment projection, local/test defaults are explicit development sentinels and production startup fails if any version sentinel remains, if release notes are empty/over 500 characters, or if `PUBLIC_BASE_URL` is not a pathless HTTPS origin. Middleware rejects writes below minimum while allowing sign-in/read/export.
+`backend/build_info.py` adds `SOURCE_COMMIT`, `K_REVISION`, and current Alembic revision. Extend the ID-02 public bootstrap response to read validated runtime settings for `RELEASE_VERSION`, `LATEST_CLIENT_VERSION`, `MINIMUM_CLIENT_VERSION`, `MINIMUM_SERVER_VERSION`, `RELEASE_NOTES`, and `PUBLIC_BASE_URL`. Its closed safe response contains exactly `release_version`, `latest_client_version`, `minimum_client_version`, `minimum_server_version`, `api_version`, `release_notes`, `read_only_required`, the validated HTTPS origin-only `review_lab_origin`, and integer `field_notes_max_characters` equal to the ID-02 constant `30000`; it contains no package URL, package selection, expected hash, signer, bucket, token, credential, internal host, or handoff path for any caller. OP-09's authenticated update-grant response, not client policy, owns release/package selection metadata. Until OP-08 creates the authoritative source-controlled `release/version.json` registry and deployment projection, local/test defaults are explicit development sentinels and production startup fails if any version sentinel remains, if release notes are empty/over 500 characters, or if `PUBLIC_BASE_URL` is not a pathless HTTPS origin. `field_notes_max_characters` is not added to `release/version.json`, an environment setting, or that deployment projection. Middleware rejects writes below minimum while allowing sign-in/read/export.
 
 - [ ] **Step 4: Implement bounded Admin overview, audit, and health**
 
@@ -869,7 +883,7 @@ Overview returns counts/recent safe actions. `GET /api/v1/admin/audit-events` su
 
 `POST /api/v1/admin/audit-events/export` requires purpose `audit_export`, `Idempotency-Key`, and the closed body `filters` using that same filter schema, `format` with sole release-1 value `csv`, and nonblank `reason` up to 500 characters. Resolve a maximum of 10,000 rows in deterministic `(occurred_at,id)` order; reject larger matches as `409 audit_export_limit_exceeded`. Stream UTF-8 CSV with a fixed column allowlist and `Content-Disposition`, `Digest`, `X-Export-ID`, and `X-Audit-Row-Count`; never include event detail JSON, hashes, PIN/session fields, report text, inmate fields, or free-form request data. Audit both the bounded search and export using filter names/count only; export is itself idempotent and audited.
 
-Health reports Operational/Degraded/Unavailable for database, migration, AI configuration, policy search, queue age/depth, latest backup metadata, and last restore exercise; it never controls infrastructure.
+Health reports Operational/Degraded/Unavailable for database, migration, AI configuration, policy search, queue age/depth, latest backup metadata, and last restore exercise; it never controls infrastructure. Within RP-10's existing allowed files, emit the sanitized signal types `dependency_health`, `queue_health`, `backup_restore_health`, and `client_upgrade_required`. Their values are limited respectively to stable dependency/result/latency-bucket fields; queue result/depth/oldest-age plus job-type/stage/result/latency buckets; backup/restore result and recency buckets; and result/parsed-client-version fields. Reuse ID-02's stable event fields/codes where applicable; include no report/request content, person/account/session/device/network identity, token, raw exception, SQL/query value, host, or secret. These RP-10 signals, ID-02 `request_event`, and RP-07 `ai_provider_repeat_risk_total` are the application producers consumed by OP-05; RP-09 produces no health contract.
 
 - [ ] **Step 5: Add the legacy pilot write gate**
 
@@ -877,7 +891,7 @@ Define one environment contract, `LEGACY_REPORT_MODE`, with exact values `pilot_
 
 - [ ] **Step 6: Complete OpenAPI examples and sensitive-log scan**
 
-Ensure every approved endpoint, header, enum, response, binary export, cursor, and error has a fictional example. Require operation-level `security: []` only on client policy, login, and renewal. Lock the exact audit list/export paths and `audit_export_limit_exceeded` response. The sensitive-log test captures `caplog` across auth, saves, jobs, policy, exports, Admin search, and failures and asserts supplied marker values never appear.
+Ensure every approved endpoint, header, enum, response, binary export, cursor, and error has a fictional example. Require operation-level `security: []` only on client policy, login, and renewal. Lock the exact nine-field public client policy, integer `field_notes_max_characters: 30000`, audit list/export paths, and `audit_export_limit_exceeded` response. The sensitive-log test captures `caplog` across auth, saves, jobs, policy, exports, Admin search, `dependency_health`, `queue_health`, `backup_restore_health`, `client_upgrade_required`, and failures and asserts supplied marker values never appear. `tests/integration/test_admin_audit_health.py` asserts those exact four sanitized RP-10 signal types and bounded fields, and asserts no RP-09 health field/source is referenced.
 
 - [ ] **Step 7: Run all backend gates**
 
