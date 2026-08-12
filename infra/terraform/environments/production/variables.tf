@@ -1,0 +1,47 @@
+variable "project_id" {
+  description = "Google Cloud project dedicated to the production environment. Supplied at plan time and never committed."
+  type        = string
+
+  validation {
+    condition     = length(trimspace(var.project_id)) > 0
+    error_message = "project_id must be supplied at plan time; it is never committed to the repository."
+  }
+}
+
+variable "environment" {
+  description = "Environment name. This root manages production only."
+  type        = string
+  default     = "production"
+
+  validation {
+    condition     = var.environment == "production"
+    error_message = "This root manages the production environment only; environment must be \"production\"."
+  }
+}
+
+variable "region" {
+  description = "Primary region for production regional resources. Locked to us-central1 by approved regional placement."
+  type        = string
+  default     = "us-central1"
+
+  validation {
+    condition     = var.region == "us-central1"
+    error_message = "Production regional resources are approved for us-central1 only."
+  }
+}
+
+variable "source_repository" {
+  description = "Repository allowed to deploy this environment, used by later tasks to scope workload-identity trust. Supplied at plan time and never committed."
+  type        = string
+
+  validation {
+    condition     = length(trimspace(var.source_repository)) > 0
+    error_message = "source_repository must be supplied at plan time; it is never committed to the repository."
+  }
+}
+
+variable "labels" {
+  description = "Labels applied to resources created by this root."
+  type        = map(string)
+  default     = {}
+}
