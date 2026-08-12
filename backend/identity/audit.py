@@ -27,6 +27,10 @@ AUDIT_ACTION_FIELDS = {
     "admin.account_unlocked": {"target_account_id"},
     "admin.review_lab_handoff_issued": {"handoff_id"},
     "admin.review_lab_handoff_redeemed": {"handoff_id", "browser_session_id"},
+    "system.initial_admin_bootstrapped": {
+        "operation_id",
+        "approval_reference_sha256",
+    },
 }
 
 
@@ -48,9 +52,24 @@ class AuditWriter(Protocol):
         """Append one validated audit event in the caller's transaction."""
 
 
+def validate_actor_attribution(event: AuditEventInput) -> None:
+    has_account = event.actor_account_id is not None
+    has_staff = event.actor_staff_member_id is not None
+    if has_account != has_staff:
+        raise ValueError("audit actor attribution is invalid")
+    if event.action == "system.initial_admin_bootstrapped":
+        if has_account:
+            raise ValueError("audit actor attribution is invalid")
+        return
+    if not has_account and event.action != "auth.login_failed":
+        raise ValueError("audit actor attribution is invalid")
+
+
 def validate_details(action: str, details: dict) -> dict:
     allowed = AUDIT_ACTION_FIELDS.get(action)
     if allowed is None or not isinstance(details, dict) or not set(details) <= allowed:
+        raise ValueError("audit details are invalid")
+    if action == "system.initial_admin_bootstrapped" and set(details) != allowed:
         raise ValueError("audit details are invalid")
     encoded = json.dumps(details, sort_keys=True, separators=(",", ":"))
     if len(encoded.encode("utf-8")) > 4096:
