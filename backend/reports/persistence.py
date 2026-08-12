@@ -6,7 +6,7 @@ import json
 from uuid import UUID, uuid4
 
 from sqlalchemy import and_, event, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from backend.identity.audit import AuditEventInput, AuditWriter, PostgresAuditWriter
 from backend.identity.idempotency import (
@@ -20,12 +20,22 @@ from backend.persistence.models.reporting import (
     IncidentRevision,
     Report,
     ReportAccess,
+    ReportRevision,
 )
-from backend.reports.revisions import RevisionConflict
+from backend.reports.revisions import (
+    RevisionConflict,
+    RevisionTargetMissing,
+    create_recovery_revision,
+    restore_report,
+    save_report,
+    save_report_status,
+)
 from backend.webapp.api_v1.middleware import Actor
 from backend.webapp.api_v1.schemas.reporting import (
     IncidentSnapshotV1,
+    ReportContentV1,
     SaveIncidentRequest,
+    SaveReportRequest,
     changed_field_names,
 )
 
@@ -43,6 +53,14 @@ class IncidentRevisionNotFound(LookupError):
     pass
 
 
+class ReportNotFound(LookupError):
+    pass
+
+
+class ReportRevisionNotFound(LookupError):
+    pass
+
+
 @dataclass(frozen=True)
 class IncidentView:
     incident: Incident
@@ -56,6 +74,38 @@ class IncidentView:
 @dataclass(frozen=True)
 class IncidentRevisionPage:
     items: list[IncidentRevision]
+    next_cursor: dict[str, str] | None
+
+
+@dataclass(frozen=True)
+class ReportView:
+    report: Report
+    content: dict
+    revision_number: int
+    status: str
+    updated_at: datetime
+    editor_staff_member_id: UUID
+    editor_display_name: str
+
+
+@dataclass(frozen=True)
+class ReportSummaryRow:
+    report: Report
+    incident: Incident
+    reporting_officer_display_name: str
+    preparer_display_name: str
+    relationship: str
+
+
+@dataclass(frozen=True)
+class ReportPage:
+    items: list[ReportSummaryRow]
+    next_cursor: dict[str, str] | None
+
+
+@dataclass(frozen=True)
+class ReportRevisionPage:
+    items: list[ReportRevision]
     next_cursor: dict[str, str] | None
 
 
@@ -521,9 +571,363 @@ def incident_revision_content(revision: IncidentRevision) -> dict:
     return _content_from_snapshot(revision.snapshot)
 
 
+def _display_name(staff: StaffMember) -> str:
+    return " ".join(
+        part for part in (staff.rank, staff.first_name, staff.last_name) if part
+    )
+
+
+def _authorized_report_statement(actor: Actor, report_id: UUID | None = None):
+    statement = select(Report)
+    if actor.role != "admin":
+        statement = statement.join(
+            ReportAccess, ReportAccess.report_id == Report.id,
+        ).where(
+            ReportAccess.staff_member_id == actor.staff_member_id,
+            ReportAccess.revoked_at.is_(None),
+        )
+    if report_id is not None:
+        statement = statement.where(Report.id == report_id)
+    return statement
+
+
+def _report_revision_view(
+    session: Session, report: Report, revision: ReportRevision, *,
+    status: str | None = None, current_revision_number: int | None = None,
+) -> ReportView:
+    editor = session.get(StaffMember, revision.editor_staff_member_id)
+    if editor is None:
+        raise RuntimeError("report revision editor is unavailable")
+    return ReportView(
+        report=report,
+        content=ReportContentV1.model_validate(revision.snapshot).model_dump(mode="json"),
+        revision_number=(
+            revision.revision_number
+            if current_revision_number is None else current_revision_number
+        ),
+        status=status or report.status,
+        updated_at=revision.created_at,
+        editor_staff_member_id=revision.editor_staff_member_id,
+        editor_display_name=_display_name(editor),
+    )
+
+
+def get_report(session: Session, actor: Actor, report_id: UUID) -> ReportView:
+    """Load a report only through its live owner/preparer relationship."""
+    report = session.scalar(_authorized_report_statement(actor, report_id))
+    if report is None:
+        raise ReportNotFound("Report not found.")
+    revision = session.scalar(select(ReportRevision).where(
+        ReportRevision.report_id == report.id,
+        ReportRevision.revision_number == report.current_revision_number,
+    ))
+    if revision is None:
+        raise ReportNotFound("Report not found.")
+    return _report_revision_view(session, report, revision)
+
+
+def list_reports(
+    session: Session,
+    actor: Actor,
+    *,
+    relationship: str,
+    limit: int = 25,
+    cursor: dict[str, str] | None = None,
+    status: str | None = None,
+    incident_date_from=None,
+    incident_date_to=None,
+    category: str | None = None,
+    updated_at_from: datetime | None = None,
+    updated_at_to: datetime | None = None,
+) -> ReportPage:
+    """Return an authorization-scoped keyset page with no report content."""
+    if relationship not in {"owned", "prepared"}:
+        raise ValueError("relationship is invalid")
+    owner = aliased(StaffMember)
+    preparer = aliased(StaffMember)
+    relationship_name = "owner" if relationship == "owned" else "preparer"
+    statement = (
+        select(Report, Incident, owner, preparer)
+        .join(ReportAccess, ReportAccess.report_id == Report.id)
+        .join(Incident, Incident.id == Report.incident_id)
+        .join(owner, owner.id == Report.reporting_staff_member_id)
+        .join(preparer, preparer.id == Report.prepared_by_staff_member_id)
+        .where(
+            ReportAccess.staff_member_id == actor.staff_member_id,
+            ReportAccess.relationship == relationship_name,
+            ReportAccess.revoked_at.is_(None),
+        )
+    )
+    if status is not None:
+        statement = statement.where(Report.status == status)
+    if incident_date_from is not None:
+        statement = statement.where(Incident.incident_date >= incident_date_from)
+    if incident_date_to is not None:
+        statement = statement.where(Incident.incident_date <= incident_date_to)
+    if category is not None:
+        statement = statement.where(Incident.category == category)
+    if updated_at_from is not None:
+        statement = statement.where(Report.updated_at >= updated_at_from)
+    if updated_at_to is not None:
+        statement = statement.where(Report.updated_at <= updated_at_to)
+    if cursor:
+        cursor_time = datetime.fromisoformat(cursor["created_at"].replace("Z", "+00:00"))
+        cursor_id = UUID(cursor["id"])
+        statement = statement.where(or_(
+            Report.updated_at < cursor_time,
+            and_(Report.updated_at == cursor_time, Report.id < cursor_id),
+        ))
+    rows = session.execute(statement.order_by(
+        Report.updated_at.desc(), Report.id.desc(),
+    ).limit(limit + 1)).all()
+    page_rows = rows[:limit]
+    items = [
+        ReportSummaryRow(
+            report=row[0], incident=row[1],
+            reporting_officer_display_name=_display_name(row[2]),
+            preparer_display_name=_display_name(row[3]),
+            relationship=relationship,
+        )
+        for row in page_rows
+    ]
+    next_cursor = None
+    if len(rows) > limit:
+        last = page_rows[-1][0]
+        next_cursor = {"created_at": last.updated_at.isoformat(), "id": str(last.id)}
+    return ReportPage(items, next_cursor)
+
+
+def list_report_revisions(
+    session: Session, actor: Actor, report_id: UUID, *, limit: int = 25,
+    cursor: dict[str, str] | None = None,
+) -> ReportRevisionPage:
+    get_report(session, actor, report_id)
+    statement = select(ReportRevision).where(ReportRevision.report_id == report_id)
+    if cursor:
+        cursor_id = UUID(cursor["id"])
+        cursor_row = session.scalar(select(ReportRevision).where(
+            ReportRevision.report_id == report_id,
+            ReportRevision.id == cursor_id,
+        ))
+        if cursor_row is None or cursor_row.created_at.isoformat() != cursor["created_at"]:
+            raise ValueError("revision cursor is invalid")
+        statement = statement.where(or_(
+            ReportRevision.revision_number > cursor_row.revision_number,
+            and_(
+                ReportRevision.revision_number == cursor_row.revision_number,
+                ReportRevision.id > cursor_row.id,
+            ),
+        ))
+    rows = list(session.scalars(statement.order_by(
+        ReportRevision.revision_number, ReportRevision.id,
+    ).limit(limit + 1)).all())
+    page_rows = rows[:limit]
+    next_cursor = None
+    if len(rows) > limit:
+        last = page_rows[-1]
+        next_cursor = {"created_at": last.created_at.isoformat(), "id": str(last.id)}
+    return ReportRevisionPage(page_rows, next_cursor)
+
+
+def get_report_revision(
+    session: Session, actor: Actor, report_id: UUID, revision_number: int,
+) -> ReportRevision:
+    get_report(session, actor, report_id)
+    revision = session.scalar(select(ReportRevision).where(
+        ReportRevision.report_id == report_id,
+        ReportRevision.revision_number == revision_number,
+    ))
+    if revision is None:
+        raise ReportRevisionNotFound("Report revision not found.")
+    return revision
+
+
+def report_revision_content(revision: ReportRevision) -> dict:
+    return ReportContentV1.model_validate(revision.snapshot).model_dump(mode="json")
+
+
+def _report_reference(
+    view: ReportView, *, operation_revision_number: int | None = None,
+) -> dict[str, object]:
+    return {
+        "report_id": str(view.report.id),
+        "revision_number": operation_revision_number or view.revision_number,
+        "current_revision_number": view.revision_number,
+        "status": view.status,
+    }
+
+
+def _report_view_from_reference(
+    session: Session, actor: Actor, reference: dict,
+) -> tuple[ReportView, int]:
+    try:
+        report_id = UUID(str(reference["report_id"]))
+        revision_number = int(reference["revision_number"])
+        current_revision_number = int(reference["current_revision_number"])
+        status = str(reference["status"])
+    except (KeyError, TypeError, ValueError):
+        raise RuntimeError("idempotency reference is invalid") from None
+    authorized = get_report(session, actor, report_id)
+    revision = session.scalar(select(ReportRevision).where(
+        ReportRevision.report_id == report_id,
+        ReportRevision.revision_number == revision_number,
+    ))
+    if revision is None:
+        raise RuntimeError("idempotency reference is invalid")
+    return (
+        _report_revision_view(
+            session, authorized.report, revision, status=status,
+            current_revision_number=current_revision_number,
+        ),
+        revision_number,
+    )
+
+
+def save_report_record(
+    session: Session, actor: Actor, report_id: UUID, request_model: SaveReportRequest,
+    idempotency_key: str, *, now: datetime | None = None, request_id: str,
+    client_version: str, audit_writer: AuditWriter | None = None,
+) -> ReportView:
+    validated = SaveReportRequest.model_validate(request_model)
+    get_report(session, actor, report_id)
+    fixed = now or datetime.now(UTC)
+    canonical = {"report_id": str(report_id), **validated.model_dump(mode="json")}
+    claim = claim_idempotency(
+        session, actor, key=idempotency_key, action="report.save",
+        request_sha256=request_digest(canonical), now=fixed,
+    )
+    if claim.replayed:
+        return _report_view_from_reference(session, actor, claim.response_reference or {})[0]
+    revision = save_report(
+        session, actor, report_id, validated.content,
+        validated.base_revision_number, validated.reason,
+        request_id=request_id, client_version=client_version,
+        audit_writer=audit_writer,
+    )
+    report = session.get(Report, report_id)
+    view = _report_revision_view(session, report, revision)
+    complete_idempotency(
+        session, claim, response_status=200,
+        response_reference=_report_reference(view), now=fixed,
+    )
+    session.flush()
+    return view
+
+
+def save_report_status_record(
+    session: Session, actor: Actor, report_id: UUID, status: str,
+    base_revision_number: int, idempotency_key: str, *, now: datetime | None = None,
+    request_id: str, client_version: str, audit_writer: AuditWriter | None = None,
+) -> ReportView:
+    get_report(session, actor, report_id)
+    fixed = now or datetime.now(UTC)
+    canonical = {
+        "report_id": str(report_id), "status": status,
+        "base_revision_number": base_revision_number,
+    }
+    claim = claim_idempotency(
+        session, actor, key=idempotency_key, action="report.status",
+        request_sha256=request_digest(canonical), now=fixed,
+    )
+    if claim.replayed:
+        return _report_view_from_reference(session, actor, claim.response_reference or {})[0]
+    revision = save_report_status(
+        session, actor, report_id, status, base_revision_number,
+        request_id=request_id, client_version=client_version,
+        audit_writer=audit_writer,
+    )
+    report = session.get(Report, report_id)
+    view = _report_revision_view(session, report, revision)
+    complete_idempotency(
+        session, claim, response_status=200,
+        response_reference=_report_reference(view), now=fixed,
+    )
+    session.flush()
+    return view
+
+
+def restore_report_record(
+    session: Session, actor: Actor, report_id: UUID, revision_number: int,
+    idempotency_key: str, *, now: datetime | None = None, request_id: str,
+    client_version: str, audit_writer: AuditWriter | None = None,
+) -> ReportView:
+    get_report(session, actor, report_id)
+    fixed = now or datetime.now(UTC)
+    canonical = {"report_id": str(report_id), "revision_number": revision_number}
+    claim = claim_idempotency(
+        session, actor, key=idempotency_key, action="report.restore",
+        request_sha256=request_digest(canonical), now=fixed,
+    )
+    if claim.replayed:
+        return _report_view_from_reference(session, actor, claim.response_reference or {})[0]
+    try:
+        revision = restore_report(
+            session, actor, report_id, revision_number,
+            request_id=request_id, client_version=client_version,
+            audit_writer=audit_writer,
+        )
+    except RevisionTargetMissing as error:
+        raise ReportRevisionNotFound(str(error)) from None
+    report = session.get(Report, report_id)
+    view = _report_revision_view(session, report, revision)
+    complete_idempotency(
+        session, claim, response_status=200,
+        response_reference=_report_reference(view), now=fixed,
+    )
+    session.flush()
+    return view
+
+
+def create_report_recovery_record(
+    session: Session, actor: Actor, report_id: UUID, content: ReportContentV1,
+    base_revision_number: int, idempotency_key: str, *, now: datetime | None = None,
+    request_id: str, client_version: str, audit_writer: AuditWriter | None = None,
+) -> tuple[ReportView, int]:
+    current = get_report(session, actor, report_id)
+    validated = ReportContentV1.model_validate(content)
+    fixed = now or datetime.now(UTC)
+    canonical = {
+        "report_id": str(report_id), "content": validated.model_dump(mode="json"),
+        "base_revision_number": base_revision_number,
+    }
+    claim = claim_idempotency(
+        session, actor, key=idempotency_key, action="report.recovery",
+        request_sha256=request_digest(canonical), now=fixed,
+    )
+    if claim.replayed:
+        return _report_view_from_reference(session, actor, claim.response_reference or {})
+    try:
+        recovery = create_recovery_revision(
+            session, actor, report_id, validated, base_revision_number,
+            request_id=request_id, client_version=client_version,
+            audit_writer=audit_writer,
+        )
+    except RevisionTargetMissing as error:
+        raise ReportRevisionNotFound(str(error)) from None
+    # The recovery snapshot is returned, while current_revision_number/status
+    # remain the cloud state that was deliberately not promoted.
+    view = _report_revision_view(
+        session, current.report, recovery, status=current.status,
+        current_revision_number=current.revision_number,
+    )
+    complete_idempotency(
+        session, claim, response_status=201,
+        response_reference=_report_reference(
+            view, operation_revision_number=recovery.revision_number),
+        now=fixed,
+    )
+    session.flush()
+    return view, recovery.revision_number
+
+
 __all__ = [
     "IncidentNotFound", "IncidentRevisionNotFound", "IncidentRevisionPage", "IncidentView",
+    "ReportNotFound", "ReportPage", "ReportRevisionNotFound", "ReportRevisionPage",
+    "ReportSummaryRow", "ReportView", "create_report_recovery_record",
     "create_incident", "get_incident", "get_incident_revision",
+    "get_report", "get_report_revision", "list_report_revisions", "list_reports",
     "incident_revision_content", "list_incident_revisions",
+    "report_revision_content", "restore_report_record", "save_report_record",
+    "save_report_status_record",
     "restore_incident_record", "save_incident_record",
 ]

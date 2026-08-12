@@ -11,6 +11,7 @@ tags:
   - name: Browser Handoff
   - name: Staff
   - name: Incidents
+  - name: Reports
 security:
   - AccessBearer: []
 paths:
@@ -191,6 +192,229 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/RevisionOrIdempotencyConflict" }
         "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/reports:
+    get:
+      operationId: listEmployeeReports
+      tags: [Reports]
+      description: Authorization-scoped owned or prepared report summaries; report content is excluded.
+      parameters:
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+        - name: relationship
+          in: query
+          required: true
+          schema: { type: string, enum: [owned, prepared] }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [in_progress, completed, archived] }
+        - name: incident_date_from
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: incident_date_to
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: category
+          in: query
+          required: false
+          schema: { type: string, maxLength: 120 }
+        - name: updated_at_from
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/UtcTimestamp" }
+        - name: updated_at_to
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/UtcTimestamp" }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 50, default: 25 }
+        - $ref: "#/components/parameters/PageCursor"
+      responses:
+        "200":
+          description: Authorized fictional report queue
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportListSuccessEnvelope" }
+              examples:
+                owned:
+                  value:
+                    data:
+                      items:
+                        - report_id: 00000000-0000-4000-8000-000000000041
+                          incident_id: 00000000-0000-4000-8000-000000000031
+                          report_type: first_person
+                          relationship: owned
+                          reporting_staff_member_id: 00000000-0000-4000-8000-000000000021
+                          reporting_officer_display_name: Officer Alex Example
+                          prepared_by_staff_member_id: 00000000-0000-4000-8000-000000000022
+                          preparer_display_name: Officer Blair Example
+                          category: fictional_incident
+                          incident_date: "2026-08-12"
+                          status: in_progress
+                          updated_at: "2026-08-12T15:00:00Z"
+                          current_revision_number: 1
+                      next_cursor: example-report-cursor-fictional-not-valid-0000000001
+                    request_id: req_20260812_report_list
+                    server_time: "2026-08-12T15:00:01Z"
+                    api_version: v1
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/reports/{report_id}:
+    get:
+      operationId: getEmployeeReport
+      tags: [Reports]
+      parameters:
+        - $ref: "#/components/parameters/ReportId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: Authorized canonical fictional report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportSuccessEnvelope" }
+              examples:
+                detail: { value: { data: { report_id: 00000000-0000-4000-8000-000000000041, incident_id: 00000000-0000-4000-8000-000000000031, report_type: first_person, status: in_progress, current_revision_number: 2, content: { schema_version: 1, narrative: "Fictional authorized narrative.", editable_fields: {}, validation: {}, warnings: [] }, reporting_staff_member_id: 00000000-0000-4000-8000-000000000021, reporting_officer_display_name: "Officer Alex Example", prepared_by_staff_member_id: 00000000-0000-4000-8000-000000000022, preparer_display_name: "Officer Blair Example", last_editor_staff_member_id: 00000000-0000-4000-8000-000000000022, last_editor_display_name: "Officer Blair Example", created_at: "2026-08-12T15:00:00Z", updated_at: "2026-08-12T15:05:00Z" }, request_id: req_20260812_report_detail, server_time: "2026-08-12T15:05:01Z", api_version: v1 } }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+    patch:
+      operationId: saveEmployeeReport
+      tags: [Reports]
+      description: Save content or make one reversible status change; Completed and Archived remain editable.
+      parameters:
+        - $ref: "#/components/parameters/ReportId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/ReportSaveRequest"
+                - $ref: "#/components/schemas/ReportStatusSaveRequest"
+      responses:
+        "200":
+          description: Fictional report content or status revision appended
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportSuccessEnvelope" }
+              examples:
+                saved: { value: { data: { report_id: 00000000-0000-4000-8000-000000000041, incident_id: 00000000-0000-4000-8000-000000000031, report_type: first_person, status: completed, current_revision_number: 3, content: { schema_version: 1, narrative: "Fictional saved narrative.", editable_fields: {}, validation: {}, warnings: [] }, reporting_staff_member_id: 00000000-0000-4000-8000-000000000021, reporting_officer_display_name: "Officer Alex Example", prepared_by_staff_member_id: 00000000-0000-4000-8000-000000000022, preparer_display_name: "Officer Blair Example", last_editor_staff_member_id: 00000000-0000-4000-8000-000000000021, last_editor_display_name: "Officer Alex Example", created_at: "2026-08-12T15:00:00Z", updated_at: "2026-08-12T15:06:00Z" }, request_id: req_20260812_report_save, server_time: "2026-08-12T15:06:01Z", api_version: v1 } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/ReportRevisionConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/reports/{report_id}/revisions:
+    get:
+      operationId: listEmployeeReportRevisions
+      tags: [Reports]
+      parameters:
+        - $ref: "#/components/parameters/ReportId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 50, default: 25 }
+        - $ref: "#/components/parameters/PageCursor"
+      responses:
+        "200":
+          description: Authorized immutable fictional revision summaries
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportRevisionListSuccessEnvelope" }
+              examples:
+                history: { value: { data: { items: [{ revision_id: 00000000-0000-4000-8000-000000000051, revision_number: 1, reason: manual_save, changed_fields: [narrative], editor_staff_member_id: 00000000-0000-4000-8000-000000000022, editor_display_name: "Officer Blair Example", client_version: 1.0.0, created_at: "2026-08-12T15:00:00Z", source_revision_number: null, is_current: false }], next_cursor: null }, request_id: req_20260812_report_history, server_time: "2026-08-12T15:07:00Z", api_version: v1 } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/reports/{report_id}/revisions/{revision_number}:
+    get:
+      operationId: getEmployeeReportRevision
+      tags: [Reports]
+      parameters:
+        - $ref: "#/components/parameters/ReportId"
+        - $ref: "#/components/parameters/RevisionNumber"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: Authorized immutable fictional report revision
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportRevisionSuccessEnvelope" }
+              examples:
+                revision: { value: { data: { revision_id: 00000000-0000-4000-8000-000000000051, revision_number: 1, reason: manual_save, changed_fields: [narrative], editor_staff_member_id: 00000000-0000-4000-8000-000000000022, editor_display_name: "Officer Blair Example", client_version: 1.0.0, created_at: "2026-08-12T15:00:00Z", source_revision_number: null, is_current: false, content: { schema_version: 1, narrative: "Fictional immutable narrative.", editable_fields: {}, validation: {}, warnings: [] } }, request_id: req_20260812_report_revision, server_time: "2026-08-12T15:07:00Z", api_version: v1 } }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/reports/{report_id}/restore:
+    post:
+      operationId: restoreEmployeeReportRevision
+      tags: [Reports]
+      parameters:
+        - $ref: "#/components/parameters/ReportId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportRestoreRequest" }
+      responses:
+        "200":
+          description: Fictional historical snapshot copied to a new current revision
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportSuccessEnvelope" }
+              examples:
+                restored: { value: { data: { report_id: 00000000-0000-4000-8000-000000000041, incident_id: 00000000-0000-4000-8000-000000000031, report_type: first_person, status: in_progress, current_revision_number: 4, content: { schema_version: 1, narrative: "Fictional restored narrative.", editable_fields: {}, validation: {}, warnings: [] }, reporting_staff_member_id: 00000000-0000-4000-8000-000000000021, reporting_officer_display_name: "Officer Alex Example", prepared_by_staff_member_id: 00000000-0000-4000-8000-000000000022, preparer_display_name: "Officer Blair Example", last_editor_staff_member_id: 00000000-0000-4000-8000-000000000021, last_editor_display_name: "Officer Alex Example", created_at: "2026-08-12T15:00:00Z", updated_at: "2026-08-12T15:08:00Z" }, request_id: req_20260812_report_restore, server_time: "2026-08-12T15:08:01Z", api_version: v1 } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/RevisionOrIdempotencyConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/reports/{report_id}/recovery-revisions:
+    post:
+      operationId: createEmployeeReportRecoveryRevision
+      tags: [Reports]
+      description: Preserve local content as a separate revision without promoting it over current cloud content.
+      parameters:
+        - $ref: "#/components/parameters/ReportId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportRecoveryRequest" }
+      responses:
+        "201":
+          description: Fictional local work preserved without promotion
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportRecoverySuccessEnvelope" }
+              examples:
+                recovery: { value: { data: { report_id: 00000000-0000-4000-8000-000000000041, recovery_revision_number: 5, current_revision_number: 4, status: in_progress, content: { schema_version: 1, narrative: "Fictional preserved local narrative.", editable_fields: {}, validation: {}, warnings: [] }, editor_staff_member_id: 00000000-0000-4000-8000-000000000021, editor_display_name: "Officer Alex Example", created_at: "2026-08-12T15:09:00Z" }, request_id: req_20260812_report_recovery, server_time: "2026-08-12T15:09:01Z", api_version: v1 } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/RevisionOrIdempotencyConflict" }
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/v1/auth/login:
     post:
@@ -740,6 +964,11 @@ components:
       in: path
       required: true
       schema: { $ref: "#/components/schemas/Uuid" }
+    ReportId:
+      name: report_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Uuid" }
     RevisionNumber:
       name: revision_number
       in: path
@@ -863,6 +1092,26 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    ReportRevisionConflict:
+      description: Safe report conflict metadata only; no report content is returned
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ReportRevisionConflictEnvelope" }
+          examples:
+            stale_save:
+              value:
+                error:
+                  code: revision_conflict
+                  message: The fictional report changed; reload before saving.
+                  retryable: false
+                  details:
+                    current_revision_number: 7
+                    current_editor_display_name: Officer Alex Example
+                    current_edited_at: "2026-08-12T15:10:00Z"
+                    changed_fields: [narrative]
+                request_id: req_20260812_report_conflict
+                server_time: "2026-08-12T15:10:01Z"
+                api_version: v1
     BlockingInformationRequired:
       description: Required incident information is unresolved; code is blocking_information_required
       content:
@@ -1493,6 +1742,259 @@ components:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/IncidentRevisionListData" } } }]
     IncidentRevisionSuccessEnvelope:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/IncidentRevisionData" } } }]
+    ReportContent:
+      type: object
+      additionalProperties: false
+      required: [schema_version, narrative, editable_fields, validation, warnings]
+      properties: &ReportContentProperties
+        schema_version: { type: integer, const: 1, default: 1 }
+        narrative: { type: string, maxLength: 30000, example: Fictional report narrative. }
+        editable_fields:
+          type: object
+          maxProperties: 100
+          additionalProperties: { type: [string, integer, number, boolean, "null"] }
+        validation: { type: object, maxProperties: 100, additionalProperties: true }
+        warnings:
+          type: array
+          maxItems: 100
+          items: { type: string, maxLength: 200 }
+    ReportSaveRequest:
+      type: object
+      additionalProperties: false
+      required: [content, base_revision_number]
+      properties:
+        content: { $ref: "#/components/schemas/ReportContent" }
+        base_revision_number: { type: integer, minimum: 1 }
+        reason: { type: string, enum: [autosave, manual_save], default: manual_save }
+      example:
+        content:
+          schema_version: 1
+          narrative: Fictional manually saved report narrative.
+          editable_fields: {}
+          validation: {}
+          warnings: []
+        base_revision_number: 1
+        reason: manual_save
+    ReportStatusSaveRequest:
+      type: object
+      additionalProperties: false
+      required: [status, base_revision_number]
+      properties:
+        status: { type: string, enum: [in_progress, completed, archived] }
+        base_revision_number: { type: integer, minimum: 1 }
+      example: { status: archived, base_revision_number: 2 }
+    ReportRestoreRequest:
+      type: object
+      additionalProperties: false
+      required: [revision_number]
+      properties:
+        revision_number: { type: integer, minimum: 1 }
+      example: { revision_number: 1 }
+    ReportRecoveryRequest:
+      type: object
+      additionalProperties: false
+      required: [content, base_revision_number]
+      properties:
+        content: { $ref: "#/components/schemas/ReportContent" }
+        base_revision_number: { type: integer, minimum: 1 }
+      example:
+        content:
+          schema_version: 1
+          narrative: Fictional local report content preserved for review.
+          editable_fields: {}
+          validation: {}
+          warnings: []
+        base_revision_number: 1
+    ReportSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - report_id
+        - incident_id
+        - report_type
+        - relationship
+        - reporting_staff_member_id
+        - reporting_officer_display_name
+        - prepared_by_staff_member_id
+        - preparer_display_name
+        - category
+        - incident_date
+        - status
+        - updated_at
+        - current_revision_number
+      properties:
+        report_id: { $ref: "#/components/schemas/Uuid" }
+        incident_id: { $ref: "#/components/schemas/Uuid" }
+        report_type: { type: string, enum: [first_person, supervisor_summary, cover_letter, disciplinary, investigation, form_005] }
+        relationship: { type: string, enum: [owned, prepared] }
+        reporting_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        reporting_officer_display_name: { type: string, maxLength: 200 }
+        prepared_by_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        preparer_display_name: { type: string, maxLength: 200 }
+        category: { type: [string, "null"], maxLength: 120 }
+        incident_date: { type: [string, "null"], format: date }
+        status: { type: string, enum: [in_progress, completed, archived] }
+        updated_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        current_revision_number: { type: integer, minimum: 1 }
+    ReportListData:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/ReportSummary" }
+        next_cursor: { $ref: "#/components/schemas/PageCursorValue" }
+    ReportData:
+      type: object
+      additionalProperties: false
+      required:
+        - report_id
+        - incident_id
+        - report_type
+        - status
+        - current_revision_number
+        - content
+        - reporting_staff_member_id
+        - reporting_officer_display_name
+        - prepared_by_staff_member_id
+        - preparer_display_name
+        - last_editor_staff_member_id
+        - last_editor_display_name
+        - created_at
+        - updated_at
+      properties:
+        report_id: { $ref: "#/components/schemas/Uuid" }
+        incident_id: { $ref: "#/components/schemas/Uuid" }
+        report_type: { type: string, enum: [first_person, supervisor_summary, cover_letter, disciplinary, investigation, form_005] }
+        status: { type: string, enum: [in_progress, completed, archived] }
+        current_revision_number: { type: integer, minimum: 1 }
+        content: { $ref: "#/components/schemas/ReportContent" }
+        reporting_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        reporting_officer_display_name: { type: string, maxLength: 200 }
+        prepared_by_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        preparer_display_name: { type: string, maxLength: 200 }
+        last_editor_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        last_editor_display_name: { type: string, maxLength: 200 }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UtcTimestamp" }
+    ReportRevisionSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - revision_id
+        - revision_number
+        - reason
+        - changed_fields
+        - editor_staff_member_id
+        - editor_display_name
+        - client_version
+        - created_at
+        - source_revision_number
+        - is_current
+      properties: &ReportRevisionSummaryProperties
+        revision_id: { $ref: "#/components/schemas/Uuid" }
+        revision_number: { type: integer, minimum: 1 }
+        reason: { type: string, enum: [autosave, manual_save, ai_result, restored, status_change, ownership_change, recovery, admin_edit] }
+        changed_fields:
+          type: array
+          maxItems: 100
+          items: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
+        editor_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        editor_display_name: { type: string, maxLength: 200 }
+        client_version: { type: string, maxLength: 64 }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        source_revision_number: { type: [integer, "null"], minimum: 0 }
+        is_current: { type: boolean }
+    ReportRevisionData:
+      type: object
+      additionalProperties: false
+      required:
+        - revision_id
+        - revision_number
+        - reason
+        - changed_fields
+        - editor_staff_member_id
+        - editor_display_name
+        - client_version
+        - created_at
+        - source_revision_number
+        - is_current
+        - content
+      properties:
+        <<: *ReportRevisionSummaryProperties
+        content: { $ref: "#/components/schemas/ReportContent" }
+    ReportRevisionListData:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/ReportRevisionSummary" }
+        next_cursor: { $ref: "#/components/schemas/PageCursorValue" }
+    ReportRecoveryData:
+      type: object
+      additionalProperties: false
+      required:
+        - report_id
+        - recovery_revision_number
+        - current_revision_number
+        - status
+        - content
+        - editor_staff_member_id
+        - editor_display_name
+        - created_at
+      properties:
+        report_id: { $ref: "#/components/schemas/Uuid" }
+        recovery_revision_number: { type: integer, minimum: 1 }
+        current_revision_number: { type: integer, minimum: 1 }
+        status: { type: string, enum: [in_progress, completed, archived] }
+        content: { $ref: "#/components/schemas/ReportContent" }
+        editor_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        editor_display_name: { type: string, maxLength: 200 }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+    RevisionConflictDetails:
+      type: object
+      additionalProperties: false
+      required: [current_revision_number, current_editor_display_name, current_edited_at, changed_fields]
+      properties:
+        current_revision_number: { type: integer, minimum: 1 }
+        current_editor_display_name: { type: string, maxLength: 200 }
+        current_edited_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        changed_fields:
+          type: array
+          maxItems: 100
+          items: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
+    ReportRevisionConflictEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error, request_id, server_time, api_version]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, retryable, details]
+          properties:
+            code: { type: string, const: revision_conflict }
+            message: { type: string }
+            retryable: { type: boolean, const: false }
+            details: { $ref: "#/components/schemas/RevisionConflictDetails" }
+        request_id: { $ref: "#/components/schemas/RequestId" }
+        server_time: { $ref: "#/components/schemas/UtcTimestamp" }
+        api_version: { type: string, const: v1 }
+    ReportSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/ReportData" } } }]
+    ReportListSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/ReportListData" } } }]
+    ReportRevisionListSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/ReportRevisionListData" } } }]
+    ReportRevisionSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/ReportRevisionData" } } }]
+    ReportRecoverySuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/ReportRecoveryData" } } }]
     StaffSuccessEnvelope:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/StaffData" } } }]
     StaffPageSuccessEnvelope:

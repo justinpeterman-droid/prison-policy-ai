@@ -67,6 +67,13 @@ def prepare_api_request():
         "api_v1.incidents_api.revision_list": "incident_revision_list",
         "api_v1.incidents_api.revision_detail": "incident_revision_read",
         "api_v1.incidents_api.restore": "incident_restore",
+        "api_v1.reports_api.list": "report_list",
+        "api_v1.reports_api.get": "report_read",
+        "api_v1.reports_api.save": "report_save",
+        "api_v1.reports_api.revision_list": "report_revision_list",
+        "api_v1.reports_api.revision_detail": "report_revision_read",
+        "api_v1.reports_api.restore": "report_restore",
+        "api_v1.reports_api.recovery": "report_recovery",
     }.get(request.endpoint or "", "unknown")
     if request.endpoint != "api_v1.client_policy":
         if getattr(g, "client_version", None) is None:
@@ -143,6 +150,10 @@ api_v1_bp.register_blueprint(staff_bp, url_prefix="/staff")
 from backend.webapp.api_v1.incidents import incidents_bp
 
 api_v1_bp.register_blueprint(incidents_bp, url_prefix="/incidents")
+
+from backend.webapp.api_v1.reports import reports_bp
+
+api_v1_bp.register_blueprint(reports_bp, url_prefix="/reports")
 
 
 @api_v1_bp.get("/me", endpoint="me")

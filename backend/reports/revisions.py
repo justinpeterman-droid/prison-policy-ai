@@ -19,6 +19,7 @@ from backend.persistence.models.reporting import (
     Report,
     ReportRevision,
 )
+from backend.persistence.models.identity import StaffMember
 from backend.reports.provenance import collect_provenance
 from backend.webapp.api_v1.middleware import Actor
 from backend.webapp.api_v1.schemas.reporting import (
@@ -36,6 +37,7 @@ __all__ = [
     "restore_report",
     "save_incident",
     "save_report",
+    "save_report_status",
 ]
 
 DEFAULT_CLIENT_VERSION = "0.0.0-development"
@@ -80,6 +82,8 @@ class RevisionConflict(Exception):
     current_revision_number: int
     status: str | None = None
     updated_at: datetime | None = None
+    current_editor_display_name: str | None = None
+    changed_fields: tuple[str, ...] = ()
 
     def __str__(self) -> str:
         return (
@@ -177,12 +181,31 @@ def _apply_incident_snapshot(
         setattr(incident, field, value)
 
 
-def _check_base(row, base_revision_number: int) -> None:
+def _check_base(session: Session, row, base_revision_number: int) -> None:
     if row.current_revision_number != base_revision_number:
+        editor_display_name = None
+        changed_fields: tuple[str, ...] = ()
+        edited_at = row.updated_at
+        if isinstance(row, Report):
+            current = session.scalar(select(ReportRevision).where(
+                ReportRevision.report_id == row.id,
+                ReportRevision.revision_number == row.current_revision_number,
+            ))
+            if current is not None:
+                editor = session.get(StaffMember, current.editor_staff_member_id)
+                if editor is not None:
+                    editor_display_name = " ".join(
+                        part for part in (editor.rank, editor.first_name, editor.last_name)
+                        if part
+                    )
+                changed_fields = tuple((current.changed_fields or {}).get("fields", ()))
+                edited_at = current.created_at
         raise RevisionConflict(
             current_revision_number=row.current_revision_number,
             status=getattr(row.status, "value", row.status),
-            updated_at=row.updated_at,
+            updated_at=edited_at,
+            current_editor_display_name=editor_display_name,
+            changed_fields=changed_fields,
         )
 
 
@@ -211,7 +234,7 @@ def save_report(
     request_id, client_version, audit_writer = _metadata(
         request_id, client_version, audit_writer)
     report = _lock_row(session, Report, report_id)
-    _check_base(report, base_revision_number)
+    _check_base(session, report, base_revision_number)
 
     payload = _report_payload(content)
     changed_fields = _changed_fields(report.current_content, payload)
@@ -254,6 +277,71 @@ def save_report(
     return revision
 
 
+def save_report_status(
+    session: Session,
+    actor: Actor,
+    report_id: UUID,
+    status: str,
+    base_revision_number: int,
+    *,
+    request_id: str | None = None,
+    client_version: str | None = None,
+    audit_writer: AuditWriter | None = None,
+) -> ReportRevision:
+    """Append one status revision without locking Completed/Archived content."""
+    base_revision_number = _validate_revision_number(base_revision_number, "base")
+    if status not in {"in_progress", "completed", "archived"}:
+        raise ValueError("report status is invalid")
+    request_id, client_version, audit_writer = _metadata(
+        request_id, client_version, audit_writer)
+    report = _lock_row(session, Report, report_id)
+    _check_base(session, report, base_revision_number)
+    previous_status = getattr(report.status, "value", report.status)
+    payload = _report_payload(ReportContentV1.model_validate(report.current_content))
+    current = session.scalar(select(ReportRevision).where(
+        ReportRevision.report_id == report_id,
+        ReportRevision.revision_number == report.current_revision_number,
+    ))
+    provenance = dict(current.provenance or {}) if current is not None else {}
+    fixed = datetime.now(UTC)
+    revision = ReportRevision(
+        report_id=report_id,
+        revision_number=_next_revision_number(
+            session, ReportRevision, ReportRevision.report_id, report_id),
+        editor_account_id=actor.account_id,
+        editor_staff_member_id=actor.staff_member_id,
+        snapshot=payload,
+        changed_fields={"fields": []},
+        reason="status_change",
+        provenance=provenance,
+        **{
+            name: getattr(current, name) if current is not None else None
+            for name in PROVENANCE_COLUMN_NAMES
+        },
+        client_version=client_version,
+        request_id=request_id,
+        created_at=fixed,
+    )
+    session.add(revision)
+    report.status = status
+    report.current_revision_number = revision.revision_number
+    report.updated_at = fixed
+    report.archived_at = fixed if status == "archived" else None
+    _append_audit(
+        session,
+        audit_writer,
+        actor,
+        action="report.status_changed",
+        target_type="report",
+        target_id=report_id,
+        request_id=request_id,
+        details={"old_status": previous_status, "new_status": status},
+        client_version=client_version,
+    )
+    session.flush()
+    return revision
+
+
 def save_incident(
     session: Session,
     actor: Actor,
@@ -273,7 +361,7 @@ def save_incident(
     request_id, client_version, audit_writer = _metadata(
         request_id, client_version, audit_writer)
     incident = _lock_row(session, Incident, incident_id)
-    _check_base(incident, base_revision_number)
+    _check_base(session, incident, base_revision_number)
 
     validated = IncidentSnapshotV1.model_validate(snapshot)
     payload = validated.model_dump(mode="json")
