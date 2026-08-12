@@ -4,6 +4,7 @@ import json
 from typing import Protocol
 from uuid import UUID
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 
@@ -44,6 +45,9 @@ class AuditEventInput:
     target_type: str
     target_id: UUID | None
     details: dict
+    client_version: str | None = None
+    device_id_hash: bytes | None = None
+    network_hash: bytes | None = None
 
 
 class AuditWriter(Protocol):
@@ -75,3 +79,35 @@ def validate_details(action: str, details: dict) -> dict:
     if len(encoded.encode("utf-8")) > 4096:
         raise ValueError("audit details are too large")
     return dict(details)
+
+
+class PostgresAuditWriter:
+    def append(self, session: Session, event: AuditEventInput) -> UUID:
+        validate_actor_attribution(event)
+        details = validate_details(event.action, event.details)
+        for digest in (event.device_id_hash, event.network_hash):
+            if digest is not None and (not isinstance(digest, bytes) or len(digest) != 32):
+                raise ValueError("audit hash is invalid")
+        if event.client_version is not None and (
+            not isinstance(event.client_version, str) or len(event.client_version) > 64
+        ):
+            raise ValueError("audit client version is invalid")
+        statement = text(
+            "SELECT append_audit_event("
+            ":actor_account_id, :actor_staff_member_id, :action, :target_type, "
+            ":target_id, :result, :request_id, :client_version, :device_id_hash, "
+            ":network_hash, CAST(:details AS jsonb))"
+        )
+        return session.execute(statement, {
+            "actor_account_id": event.actor_account_id,
+            "actor_staff_member_id": event.actor_staff_member_id,
+            "action": event.action,
+            "target_type": event.target_type,
+            "target_id": event.target_id,
+            "result": event.result,
+            "request_id": event.request_id,
+            "client_version": event.client_version,
+            "device_id_hash": event.device_id_hash,
+            "network_hash": event.network_hash,
+            "details": json.dumps(details, separators=(",", ":"), sort_keys=True),
+        }).scalar_one()

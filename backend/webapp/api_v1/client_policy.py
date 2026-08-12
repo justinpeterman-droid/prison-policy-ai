@@ -10,6 +10,13 @@ from backend.webapp.api_v1.errors import ApiError
 
 
 FIELD_NOTES_MAX_CHARACTERS: Final[int] = 30_000
+MUST_CHANGE_PIN_ALLOWED_PATHS: Final[frozenset[str]] = frozenset({
+    "/api/v1/me",
+    "/api/v1/auth/change-pin",
+    "/api/v1/auth/logout",
+    "/api/v1/auth/logout-all",
+    "/api/v1/auth/renew",
+})
 F = TypeVar("F", bound=Callable)
 
 

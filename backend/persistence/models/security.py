@@ -90,3 +90,45 @@ class AuditEvent(Base):
     network_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32))
     details: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+
+
+class IdempotencyRecord(Base):
+    __tablename__ = "idempotency_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "actor_account_id", "action", "idempotency_key",
+            name="uq_idempotency_actor_action_key",
+        ),
+        CheckConstraint(
+            "status IN ('in_progress','completed')",
+            name="idempotency_status",
+        ),
+        CheckConstraint(
+            "octet_length(request_sha256) = 32",
+            name="idempotency_request_hash_length",
+        ),
+        CheckConstraint(
+            "octet_length(response_reference::text) <= 4096",
+            name="idempotency_response_reference_size",
+        ),
+        Index("ix_idempotency_expiry", "expires_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        UUIDType(as_uuid=True), primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    actor_account_id: Mapped[UUID] = mapped_column(
+        ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False,
+    )
+    action: Mapped[str] = mapped_column(String(120), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_sha256: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    response_status: Mapped[int | None] = mapped_column(Integer)
+    response_reference: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

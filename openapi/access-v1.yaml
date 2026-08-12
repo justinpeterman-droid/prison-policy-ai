@@ -105,6 +105,154 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "503":
           $ref: "#/components/responses/DependencyUnavailable"
+  /api/v1/me:
+    get:
+      operationId: getCurrentActorProfile
+      tags: [Self]
+      parameters:
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: Server-owned current account and staff profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeSuccessEnvelope"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+  /api/v1/auth/logout:
+    post:
+      operationId: logoutCurrentSession
+      tags: [Authentication]
+      parameters:
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Current session revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutSuccessEnvelope"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+  /api/v1/auth/logout-all:
+    post:
+      operationId: logoutAllSessions
+      tags: [Authentication]
+      parameters:
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: All account sessions revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutAllSuccessEnvelope"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+  /api/v1/auth/change-pin:
+    post:
+      operationId: changeCurrentPin
+      tags: [Authentication]
+      parameters:
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/XDeviceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePinRequest"
+      responses:
+        "200":
+          description: PIN changed and current opaque session rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSuccessEnvelope"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+  /api/v1/auth/sessions:
+    get:
+      operationId: listCurrentAccountSessions
+      tags: [Authentication]
+      parameters:
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: Safe current-account session summaries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionListSuccessEnvelope"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PinChangeRequired"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+  /api/v1/auth/sessions/{session_id}:
+    delete:
+      operationId: revokeCurrentAccountSession
+      tags: [Authentication]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Selected session family revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionRevokeSuccessEnvelope"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PinChangeRequired"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
 components:
   securitySchemes:
     AccessBearer:
@@ -133,6 +281,15 @@ components:
         type: string
         minLength: 8
         maxLength: 128
+        pattern: '^[A-Za-z0-9._:-]{8,128}$'
+    XDeviceId:
+      name: X-Device-ID
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 256
   headers:
     XRequestId:
       description: Validated request correlation identifier.
@@ -171,6 +328,11 @@ components:
       headers:
         X-Request-ID:
           $ref: "#/components/headers/XRequestId"
+        Retry-After:
+          description: Seconds until every exceeded login dimension is safe to retry.
+          schema:
+            type: integer
+            minimum: 1
       content:
         application/json:
           schema:
@@ -180,6 +342,24 @@ components:
       headers:
         X-Request-ID:
           $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    AuthenticationRequired:
+      description: A valid live bearer session is required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    IdempotencyConflict:
+      description: Mutation conflict; code is idempotency_conflict, request_in_progress, idempotent_response_unavailable, or client_upgrade_required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    PinChangeRequired:
+      description: The temporary PIN must be changed before this operation
       content:
         application/json:
           schema:
@@ -252,6 +432,25 @@ components:
           maxLength: 256
           writeOnly: true
           example: device-fictional-user-0001
+    ChangePinRequest:
+      type: object
+      additionalProperties: false
+      required: [current_pin, new_pin]
+      properties:
+        current_pin:
+          type: string
+          minLength: 4
+          maxLength: 8
+          pattern: '^[A-Za-z0-9]{4,8}$'
+          writeOnly: true
+          example: Z9Y8X7
+        new_pin:
+          type: string
+          minLength: 4
+          maxLength: 8
+          pattern: '^[A-Za-z0-9]{4,8}$'
+          writeOnly: true
+          example: Q7W9E2
     SessionProfile:
       type: object
       additionalProperties: false
@@ -319,6 +518,105 @@ components:
         api_version:
           type: string
           const: v1
+    GenericSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, request_id, server_time, api_version]
+      properties:
+        data:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+        request_id:
+          $ref: "#/components/schemas/RequestId"
+        server_time:
+          $ref: "#/components/schemas/UtcTimestamp"
+        api_version:
+          type: string
+          const: v1
+    MeData:
+      type: object
+      additionalProperties: false
+      required: [account_id, staff_id, session_id, employee_number, display_name, rank, shift, role, status, must_change_pin]
+      properties:
+        account_id: { $ref: "#/components/schemas/Uuid" }
+        staff_id: { $ref: "#/components/schemas/Uuid" }
+        session_id: { $ref: "#/components/schemas/Uuid" }
+        employee_number: { $ref: "#/components/schemas/FictionalEmployeeNumber" }
+        display_name: { type: string }
+        rank: { type: string }
+        shift: { type: string }
+        role: { type: string, enum: [user, admin] }
+        status: { type: string, enum: [active, locked, deactivated] }
+        must_change_pin: { type: boolean }
+    SessionSummary:
+      type: object
+      additionalProperties: false
+      required: [session_id, device_label, persistent, created_at, last_used_at, renewal_expires_at, current]
+      properties:
+        session_id: { $ref: "#/components/schemas/Uuid" }
+        device_label: { type: string, maxLength: 120 }
+        persistent: { type: boolean }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        last_used_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        renewal_expires_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        current: { type: boolean }
+    LogoutData:
+      type: object
+      additionalProperties: false
+      required: [signed_out]
+      properties:
+        signed_out: { type: boolean, const: true }
+    LogoutAllData:
+      type: object
+      additionalProperties: false
+      required: [signed_out_account_id, session_count]
+      properties:
+        signed_out_account_id: { $ref: "#/components/schemas/Uuid" }
+        session_count: { type: integer, minimum: 0 }
+    SessionRevokeData:
+      type: object
+      additionalProperties: false
+      required: [session_id, revoked]
+      properties:
+        session_id: { $ref: "#/components/schemas/Uuid" }
+        revoked: { type: boolean, const: true }
+    MeSuccessEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/GenericSuccessEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/MeData" }
+    LogoutSuccessEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/GenericSuccessEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/LogoutData" }
+    LogoutAllSuccessEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/GenericSuccessEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/LogoutAllData" }
+    SessionListSuccessEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/GenericSuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/SessionSummary" }
+    SessionRevokeSuccessEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/GenericSuccessEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/SessionRevokeData" }
     ClientPolicy:
       type: object
       additionalProperties: false

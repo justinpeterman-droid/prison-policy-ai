@@ -8,10 +8,31 @@ from backend.webapp.api_v1.client_policy import policy_data
 from backend.webapp.api_v1.context import begin_request, request_event
 from backend.webapp.api_v1.errors import ApiError
 from backend.webapp.api_v1.responses import failure, success
+from backend.identity.audit import PostgresAuditWriter
+from backend.webapp.api_v1.middleware import (
+    close_request_session,
+    current_actor,
+    current_request_session,
+    require_access_token,
+)
+from backend.persistence.database import DatabaseUnavailable, session_scope
+from backend.persistence.models import Account, StaffMember
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 
 api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
 logger = logging.getLogger("backend.webapp.api_v1")
+
+
+@api_v1_bp.record_once
+def configure_api(state):
+    state.app.config.setdefault("AUDIT_WRITER", PostgresAuditWriter())
+
+
+@api_v1_bp.teardown_request
+def close_api_request(error=None):
+    close_request_session(error)
 
 
 @api_v1_bp.before_request
@@ -23,6 +44,11 @@ def prepare_api_request():
         "api_v1.me": "self_read",
         "api_v1.auth_api.login": "auth_login",
         "api_v1.auth_api.renew": "auth_renew",
+        "api_v1.auth_api.logout": "auth_logout",
+        "api_v1.auth_api.logout_all": "auth_logout_all",
+        "api_v1.auth_api.change_pin": "auth_change_pin",
+        "api_v1.auth_api.sessions": "auth_sessions",
+        "api_v1.auth_api.delete_session": "auth_revoke_session",
     }.get(request.endpoint or "", "unknown")
     if request.endpoint != "api_v1.client_policy":
         if getattr(g, "client_version", None) is None:
@@ -49,18 +75,25 @@ def record_api_request(response):
 
 @api_v1_bp.errorhandler(ApiError)
 def handle_api_error(error: ApiError):
+    g.identity_db_failed = True
     g.api_error_code = error.code
-    return failure(
+    response = failure(
         error.code,
         error.message,
         error.status,
         retryable=error.retryable,
         details=error.details,
     )
+    if error.code == "rate_limited" and error.details:
+        retry_after = error.details.get("retry_after_seconds")
+        if isinstance(retry_after, int) and retry_after > 0:
+            response.headers["Retry-After"] = str(retry_after)
+    return response
 
 
 @api_v1_bp.errorhandler(Exception)
 def handle_unexpected_api_error(_error: Exception):
+    g.identity_db_failed = True
     g.api_error_code = "internal_error"
     logger.error("Unhandled API exception", extra={"request_id": g.request_id})
     return failure(
@@ -77,15 +110,37 @@ def client_policy():
     return success(policy_data(settings))
 
 
-@api_v1_bp.get("/me", endpoint="me")
-def me():
-    raise ApiError(
-        "authentication_required",
-        "Authentication is required.",
-        status=401,
-    )
-
-
 from backend.webapp.api_v1.auth import auth_bp
 
 api_v1_bp.register_blueprint(auth_bp, url_prefix="/auth")
+
+
+@api_v1_bp.get("/me", endpoint="me")
+@require_access_token
+def me():
+    actor = current_actor()
+    try:
+        db_session = current_request_session()
+        account = db_session.scalar(select(Account).where(Account.id == actor.account_id))
+        staff = db_session.scalar(select(StaffMember).where(StaffMember.id == actor.staff_member_id))
+        if account is None or staff is None:
+            raise ApiError("authentication_required", "Authentication is required.", status=401)
+        return success({
+            "account_id": str(actor.account_id),
+            "staff_id": str(actor.staff_member_id),
+            "session_id": str(actor.session_id),
+            "employee_number": staff.employee_number,
+            "display_name": " ".join(
+                part for part in (staff.rank, staff.first_name, staff.last_name) if part
+            ),
+            "rank": staff.rank,
+            "shift": staff.shift,
+            "role": account.role,
+            "status": account.status,
+            "must_change_pin": account.must_change_pin,
+        })
+    except (DatabaseUnavailable, SQLAlchemyError):
+        raise ApiError(
+            "dependency_unavailable", "Authentication is temporarily unavailable.",
+            status=503, retryable=True,
+        ) from None
