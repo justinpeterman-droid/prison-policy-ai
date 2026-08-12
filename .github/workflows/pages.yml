@@ -34,8 +34,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Publish the whole repo: root index.html redirects to /frontend/forms/
-          path: .
+          # Publish only the standalone static forms application.
+          path: frontend/forms
 
       - name: Deploy to GitHub Pages
         id: deployment

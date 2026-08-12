@@ -1,12 +1,9 @@
-"""Deployment metadata contracts for traceable review records."""
+"""Preimplementation deployment safety contracts."""
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_cloud_run_deploy_stamps_the_source_commit():
-    workflow = (ROOT / ".github" / "workflows" / "cloud-run.yml").read_text(
-        encoding="utf-8")
-
-    assert "--update-env-vars SOURCE_COMMIT=${{ github.sha }}" in workflow
+def test_automatic_cloud_run_deployer_is_absent():
+    assert not (ROOT / ".github" / "workflows" / "cloud-run.yml").exists()
