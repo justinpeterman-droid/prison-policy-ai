@@ -38,6 +38,9 @@ JSON_KEY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 SERVER_OWNED_CONTENT_KEYS = frozenset({
     "provenance",
     "prompt_fingerprints",
+    "fast_model",
+    "pro_model",
+    "model_location",
     "classification_prompt_sha256",
     "generation_prompt_sha256",
     "checklist_sha256",

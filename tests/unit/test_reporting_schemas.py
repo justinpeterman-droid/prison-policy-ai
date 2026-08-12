@@ -12,6 +12,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
+from backend.reports.provenance import collect_provenance
 from backend.webapp.api_v1.client_policy import FIELD_NOTES_MAX_CHARACTERS
 from backend.webapp.api_v1.schemas import reporting
 from backend.webapp.api_v1.schemas.reporting import (
@@ -24,6 +25,7 @@ from backend.webapp.api_v1.schemas.reporting import (
 
 
 SOURCE = Path(reporting.__file__)
+COLLECTED_PROVENANCE_KEYS = frozenset(collect_provenance())
 # Non-BMP: 4 UTF-8 bytes, 2 UTF-16 code units, 1 code point. Counting anything
 # but code points makes the 30,000 boundary land in a different place.
 NON_BMP = "\U0001d11e"
@@ -133,12 +135,10 @@ def test_incident_clients_cannot_supply_server_provenance(model):
         })
 
 
-@pytest.mark.parametrize("forbidden", [
-    "provenance",
-    "prompt_fingerprints",
-    "classification_prompt_sha256",
-    "source_commit",
-])
+@pytest.mark.parametrize(
+    "forbidden",
+    sorted(COLLECTED_PROVENANCE_KEYS | {"provenance", "prompt_fingerprints"}),
+)
 def test_client_supplied_fingerprints_are_rejected(forbidden):
     with pytest.raises(ValidationError):
         ReportContentV1.model_validate({
@@ -345,12 +345,18 @@ def test_recursive_incident_json_rejects_unbounded_or_unsafe_nested_values():
         })
 
 
-@pytest.mark.parametrize("forbidden", [
-    "provenance",
-    "prompt_fingerprints",
-    "classification_prompt_sha256",
-    "source_commit",
-])
+def test_server_owned_content_keys_cover_every_collected_provenance_key():
+    reserved_provenance_keys = (
+        reporting.SERVER_OWNED_CONTENT_KEYS & COLLECTED_PROVENANCE_KEYS
+    )
+
+    assert reserved_provenance_keys == COLLECTED_PROVENANCE_KEYS
+
+
+@pytest.mark.parametrize(
+    "forbidden",
+    sorted(COLLECTED_PROVENANCE_KEYS | {"provenance", "prompt_fingerprints"}),
+)
 @pytest.mark.parametrize("model,payload", [
     (ReportContentV1, lambda key: {
         "narrative": "Fictional narrative.",
