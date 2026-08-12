@@ -657,6 +657,26 @@ def test_openapi_incident_schemas_validate_real_examples_and_reject_unknown_fiel
         },
     }
 
+    default_content = IncidentSnapshotV1().model_dump(mode="json")
+    examples["IncidentData"] = {
+        **default_content,
+        "incident_id": "00000000-0000-4000-8000-000000000031",
+        "status": "in_progress",
+        "current_revision_number": 1,
+        "reporting_staff_ids": ["00000000-0000-4000-8000-000000000021"],
+        "created_at": "2026-08-12T15:00:00Z",
+        "updated_at": "2026-08-12T15:00:00Z",
+    }
+    examples["IncidentRevisionData"] = {
+        **default_content,
+        "revision_number": 1,
+        "reason": "manual_save",
+        "changed_fields": [],
+        "editor_staff_member_id": "00000000-0000-4000-8000-000000000021",
+        "client_version": "1.0.0",
+        "created_at": "2026-08-12T15:00:00Z",
+    }
+
     for name, example in examples.items():
         schema = {"$ref": f"#/components/schemas/{name}", "components": components}
         validator = Draft202012Validator(schema, format_checker=checker)
