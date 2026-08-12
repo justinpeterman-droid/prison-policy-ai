@@ -345,6 +345,99 @@ def test_recursive_incident_json_rejects_unbounded_or_unsafe_nested_values():
         })
 
 
+@pytest.mark.parametrize("forbidden", [
+    "provenance",
+    "prompt_fingerprints",
+    "classification_prompt_sha256",
+    "source_commit",
+])
+@pytest.mark.parametrize("model,payload", [
+    (ReportContentV1, lambda key: {
+        "narrative": "Fictional narrative.",
+        "editable_fields": {key: "client-owned"},
+    }),
+    (ReportContentV1, lambda key: {
+        "narrative": "Fictional narrative.",
+        "validation": {"result": {key: "client-owned"}},
+    }),
+    (ReportContentV1, lambda key: {
+        "narrative": "Fictional narrative.",
+        "warnings": [{key: "client-owned"}],
+    }),
+    (IncidentSnapshotV1, lambda key: {
+        "classification": {"result": {key: "client-owned"}},
+    }),
+    (IncidentSnapshotV1, lambda key: {
+        "extracted_facts": {"result": {key: "client-owned"}},
+    }),
+    (IncidentSnapshotV1, lambda key: {
+        "gap_answers": {key: "client-owned"},
+    }),
+    (IncidentSnapshotV1, lambda key: {
+        "charges": [{key: "client-owned"}],
+    }),
+    (IncidentSnapshotV1, lambda key: {
+        "validation": {"result": {key: "client-owned"}},
+    }),
+    (IncidentSnapshotV1, lambda key: {
+        "warnings": [{key: "client-owned"}],
+    }),
+])
+def test_all_client_content_containers_reject_server_owned_keys(
+    model, payload, forbidden,
+):
+    with pytest.raises(ValidationError):
+        model.model_validate(payload(forbidden))
+
+
+@pytest.mark.parametrize("model,base", [
+    (ReportContentV1, {"narrative": "Fictional narrative."}),
+    (IncidentSnapshotV1, {}),
+])
+def test_complete_client_content_applies_recursive_bounds_to_validation(model, base):
+    too_deep = "fictional"
+    for _ in range(reporting.MAX_JSON_DEPTH + 1):
+        too_deep = {"nested": too_deep}
+
+    too_many_nodes = {
+        f"result_{index}": ["fictional"] * 20
+        for index in range(reporting.MAX_JSON_COLLECTION_ITEMS)
+    }
+
+    invalid_values = [
+        ["fictional"] * (reporting.MAX_JSON_COLLECTION_ITEMS + 1),
+        "x" * (reporting.MAX_JSON_STRING_CHARACTERS + 1),
+        too_deep,
+        too_many_nodes,
+        {"score": float("nan")},
+    ]
+    for invalid in invalid_values:
+        with pytest.raises(ValidationError):
+            model.model_validate({**base, "validation": {"result": invalid}})
+
+
+def test_ordinary_source_identifiers_remain_valid_client_content():
+    report = ReportContentV1.model_validate({
+        "narrative": "Fictional narrative.",
+        "editable_fields": {"source_id": "fictional-source-1"},
+        "validation": {
+            "source_document_id": "fictional-document-1",
+            "source_ids": ["fictional-source-1", "fictional-source-2"],
+        },
+    })
+    incident = IncidentSnapshotV1.model_validate({
+        "classification": {
+            "source_id": "fictional-source-1",
+            "source_ids": ["fictional-source-1", "fictional-source-2"],
+        },
+        "gap_answers": {"source_id": "fictional-source-1"},
+    })
+
+    assert report.validation["source_document_id"] == "fictional-document-1"
+    assert incident.classification["source_ids"] == [
+        "fictional-source-1", "fictional-source-2"]
+
+
 def test_save_incident_has_one_authoritative_top_level_field_notes_source():
     request = SaveIncidentRequest.model_validate_json(json.dumps({
         "field_notes": "Fictional authoritative notes.",

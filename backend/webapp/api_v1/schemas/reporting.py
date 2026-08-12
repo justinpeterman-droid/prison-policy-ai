@@ -137,7 +137,12 @@ class BoundedContent(StrictApiModel):
         payload = self.model_dump()
         if _has_nonfinite(payload):
             raise ValueError("content must not contain non-finite numbers")
-        encoded = json.dumps(payload, default=str, ensure_ascii=False)
+        json_payload = self.model_dump(mode="json")
+        nodes = [0]
+        for value in json_payload.values():
+            if isinstance(value, (dict, list)):
+                _validate_recursive_json(value, nodes=nodes)
+        encoded = json.dumps(json_payload, ensure_ascii=False)
         if len(encoded.encode("utf-8")) > MAX_CONTENT_JSON_BYTES:
             raise ValueError("content is too large")
         return self
@@ -164,13 +169,6 @@ class IncidentSnapshotV1(BoundedContent):
     validation: dict[CodeText, object] = Field(
         default_factory=dict, max_length=MAX_MAP_ENTRIES)
     warnings: list[ShortText] = Field(default_factory=list, max_length=MAX_WARNINGS)
-
-    @model_validator(mode="after")
-    def _bound_generated_json(self):
-        _validate_recursive_json(self.classification)
-        _validate_recursive_json(self.extracted_facts)
-        return self
-
 
 class ReportContentV1(BoundedContent):
     """One immutable version of a generated report's text and review state."""
