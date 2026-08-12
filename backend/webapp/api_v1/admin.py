@@ -22,7 +22,13 @@ from backend.identity.accounts import (
     unlock_account,
     update_staff,
 )
-from backend.identity.elevation import StepUpRequired, consume_step_up
+from backend.identity.elevation import (
+    AdminElevationRequired,
+    StepUpRequired,
+    consume_step_up,
+    touch_admin_elevation,
+)
+from backend.identity.browser_handoffs import HandoffInvalid, issue_browser_handoff
 from backend.identity.idempotency import (
     IdempotencyConflict,
     RequestInProgress,
@@ -122,7 +128,10 @@ def _page_inputs() -> tuple[int, dict | None]:
         raise ApiError("validation_failed", "Pagination input is invalid.", status=400) from None
 
 
-def _mutation(action: str, purpose: str, payload: dict, operation):
+def _mutation(
+    action: str, purpose: str, payload: dict, operation, *, response_status: int = 200,
+    one_time_replay: bool = False, operation_consumes_step_up: bool = False,
+):
     actor = current_actor()
     db_session = current_request_session()
     now = datetime.now(UTC)
@@ -130,9 +139,10 @@ def _mutation(action: str, purpose: str, payload: dict, operation):
         pending = getattr(g, "pending_step_up", None)
         if not pending or pending[0] != purpose:
             raise StepUpRequired("Administrator PIN confirmation is required.")
-        consume_step_up(
-            db_session, actor=actor, raw_token=pending[1], purpose=purpose, now=now,
-        )
+        if not operation_consumes_step_up:
+            consume_step_up(
+                db_session, actor=actor, raw_token=pending[1], purpose=purpose, now=now,
+            )
         try:
             claim = claim_idempotency(
                 db_session, actor, key=request.headers.get("Idempotency-Key", ""),
@@ -143,6 +153,19 @@ def _mutation(action: str, purpose: str, payload: dict, operation):
         except IdempotencyConflict as error:
             raise ApiError("idempotency_conflict", str(error), status=409) from None
         if claim.replayed:
+            if one_time_replay:
+                if operation_consumes_step_up:
+                    touch_admin_elevation(db_session, actor, now)
+                    consume_step_up(
+                        db_session, actor=actor, raw_token=pending[1],
+                        purpose=purpose, now=now,
+                    )
+                db_session.commit()
+                raise ApiError(
+                    "idempotent_response_unavailable",
+                    "The one-time value cannot be replayed; request a new value.",
+                    status=409,
+                )
             replay_data = _rehydrate_replay(
                 db_session, action, claim.response_reference or {}
             )
@@ -150,14 +173,20 @@ def _mutation(action: str, purpose: str, payload: dict, operation):
             return success(replay_data, status=claim.response_status or 200)
         data, stable_reference = operation(db_session, actor, now, claim.record_id)
         complete_idempotency(
-            db_session, claim, response_status=200,
+            db_session, claim, response_status=response_status,
             response_reference=stable_reference, now=now,
         )
         db_session.commit()
-        return success(data)
+        return success(data, status=response_status)
     except StepUpRequired as error:
         db_session.rollback()
         raise ApiError("step_up_required", str(error), status=403) from None
+    except AdminElevationRequired as error:
+        db_session.rollback()
+        raise ApiError("admin_elevation_required", str(error), status=403) from None
+    except HandoffInvalid as error:
+        db_session.rollback()
+        raise ApiError("permission_denied", str(error), status=403) from None
     except DuplicateEmployeeNumberError as error:
         db_session.rollback()
         raise ApiError(error.code, str(error), status=409) from None
@@ -409,3 +438,37 @@ def account_revoke_sessions_route(account_id: UUID):
                 "revoked_count": len(revoked)}
         return data, data
     return _mutation("admin.account_revoke_sessions", "account_revoke_sessions", canonical, operation)
+
+
+@admin_bp.post("/review-lab-handoffs", endpoint="review_lab_handoff_issue")
+@require_access_token
+@require_role("admin")
+@require_compatible_write
+@require_step_up("review_lab_handoff")
+def review_lab_handoff_issue_route():
+    g.api_action = "admin_review_lab_handoff_issue"
+    if request.data:
+        raise ApiError("validation_failed", "This operation does not accept a body.", status=400)
+
+    def operation(db, actor, now, _claim_id):
+        result = issue_browser_handoff(
+            db, actor=actor, now=now,
+            audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
+            step_up_token=g.pending_step_up[1],
+        )
+        origin = current_app.config["IDENTITY_SETTINGS"].review_lab_origin
+        if not origin:
+            raise RuntimeError("Review Lab origin is unavailable")
+        data = {
+            "handoff_url": f"{origin}/access-handoff#{result.token}",
+            "expires_at": _timestamp(result.expires_at),
+        }
+        return data, {
+            "handoff_id": str(result.handoff_id),
+            "one_time_value_unavailable": True,
+        }
+
+    return _mutation(
+        "admin.review_lab_handoff_issue", "review_lab_handoff", {}, operation,
+        response_status=201, one_time_replay=True, operation_consumes_step_up=True,
+    )

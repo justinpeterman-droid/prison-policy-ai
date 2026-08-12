@@ -1,9 +1,10 @@
 """Prison Policy AI — Flask web application with simple access-code auth."""
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 
-from flask import Flask, request, redirect, render_template, make_response, jsonify
+from flask import Flask, g, request, redirect, render_template, make_response, jsonify
 
 from backend.pipeline.config import ACCESS_CODE, ADMIN_CODE, logger
 from backend.webapp.assets import init_assets
@@ -13,6 +14,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 # Paths reachable without an access code
 AUTH_EXEMPT = {"/login", "/logout", "/health"}
+HANDOFF_EXEMPT = {"/access-handoff", "/api/browser-handoffs/redeem"}
 
 # Admin-only surface. The roster carries real staff names and employee numbers,
 # so it is gated a tier above the rest of the site: the same login box takes
@@ -172,6 +174,7 @@ def create_app() -> Flask:
     from backend.webapp.routes.roster import roster_bp
     from backend.webapp.routes.feedback import feedback_bp
     from backend.webapp.routes.review_lab import review_lab_bp
+    from backend.webapp.routes.browser_handoffs import browser_handoffs_bp
 
     app.register_blueprint(chat_bp)
     app.register_blueprint(reports_bp)
@@ -181,6 +184,7 @@ def create_app() -> Flask:
     if identity_settings.enabled:
         from backend.webapp.api_v1 import api_v1_bp
 
+        app.register_blueprint(browser_handoffs_bp)
         app.register_blueprint(api_v1_bp)
 
     # Record the resolved search/model config at startup so the values actually
@@ -213,7 +217,45 @@ def create_app() -> Flask:
         """
         if request.path.startswith("/api/v1/"):
             return None
+        if request.path in HANDOFF_EXEMPT and identity_settings.enabled:
+            return None
+        review_lab_path = (
+            request.path == "/review-lab"
+            or request.path.startswith("/api/review-lab/")
+            or request.path == "/api/review-lab"
+        )
+        browser_cookie = request.cookies.get("review_session") if review_lab_path else None
+        if browser_cookie and identity_settings.enabled:
+            from backend.identity.browser_handoffs import (
+                BrowserSessionInvalid,
+                resolve_browser_session,
+            )
+            from backend.persistence.database import DatabaseUnavailable, session_scope
+            from sqlalchemy.exc import SQLAlchemyError
+
+            try:
+                with session_scope() as db_session:
+                    g.browser_actor = resolve_browser_session(
+                        db_session, cookie_value=browser_cookie, now=datetime.now(UTC),
+                    )
+                g.review_lab_access_kind = "individual_browser_session"
+                return None
+            except BrowserSessionInvalid:
+                if request.path.startswith("/api/"):
+                    response = make_response(jsonify({"error": "Not found."}), 404)
+                else:
+                    response = make_response(render_template("404.html"), 404)
+                response.delete_cookie(
+                    "review_session", path="/", secure=True, samesite="Lax",
+                )
+                return response
+            except (DatabaseUnavailable, SQLAlchemyError):
+                if request.path.startswith("/api/"):
+                    return jsonify({"error": "Review Lab access is temporarily unavailable."}), 503
+                return "Review Lab access is temporarily unavailable.", 503
         if not ACCESS_CODE:
+            if review_lab_path and not identity_settings.enabled:
+                g.review_lab_access_kind = "legacy_shared_admin"
             return None
         if request.path in AUTH_EXEMPT or request.path.startswith("/static/"):
             return None
@@ -222,6 +264,8 @@ def create_app() -> Flask:
                 if request.path.startswith("/api/"):
                     return jsonify({"error": "Not found."}), 404
                 return render_template("404.html"), 404
+            if review_lab_path:
+                g.review_lab_access_kind = "legacy_shared_admin"
             return None
         # Bookmarkable links: ?code=... sets the cookie then redirects clean
         submitted = request.args.get("code")

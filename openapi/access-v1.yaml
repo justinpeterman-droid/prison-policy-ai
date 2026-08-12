@@ -467,6 +467,49 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyConflict" }
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/review-lab-handoffs:
+    post:
+      operationId: issueReviewLabHandoff
+      tags: [Browser Handoff]
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      responses:
+        "201":
+          description: One-time Review Lab handoff issued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserHandoffIssueSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/browser-handoffs/redeem:
+    post:
+      operationId: redeemReviewLabHandoff
+      tags: [Browser Handoff]
+      security: []
+      parameters:
+        - { $ref: "#/components/parameters/XRequestId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrowserHandoffRedeemRequest" }
+      responses:
+        "200":
+          description: Handoff redeemed into an HttpOnly browser session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserHandoffRedeemSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/HandoffInvalid" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
 components:
   securitySchemes:
     AccessBearer:
@@ -624,6 +667,11 @@ components:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
     NotFound:
       description: The requested resource was not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    HandoffInvalid:
+      description: The one-time handoff is invalid, expired, or already redeemed
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
@@ -1073,6 +1121,38 @@ components:
         scope: { type: string, enum: [all, one] }
         revoked_session_ids: { type: array, items: { $ref: "#/components/schemas/Uuid" } }
         revoked_count: { type: integer, minimum: 0 }
+    BrowserHandoffIssueData:
+      type: object
+      additionalProperties: false
+      required: [handoff_url, expires_at]
+      properties:
+        handoff_url:
+          type: string
+          format: uri
+          pattern: '^https://[^?#]+/access-handoff#[A-Za-z0-9_-]{40,512}$'
+          example: https://managed.example/access-handoff#example-token-not-valid
+        expires_at: { $ref: "#/components/schemas/UtcTimestamp" }
+    BrowserHandoffRedeemRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 40
+          maxLength: 512
+          writeOnly: true
+          example: example-token-not-valid
+    BrowserHandoffRedeemData:
+      type: object
+      additionalProperties: false
+      required: [redeemed]
+      properties:
+        redeemed: { type: boolean, const: true }
+    BrowserHandoffIssueSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/BrowserHandoffIssueData" } } }]
+    BrowserHandoffRedeemSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/BrowserHandoffRedeemData" } } }]
     StaffSuccessEnvelope:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/StaffData" } } }]
     StaffPageSuccessEnvelope:

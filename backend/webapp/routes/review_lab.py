@@ -17,6 +17,7 @@ from backend.reports.review_store import (
     ReviewStore,
     ReviewStoreUnavailable,
 )
+from backend.identity.browser_handoffs import require_review_lab_access
 
 review_lab_bp = Blueprint("review_lab", __name__)
 _store = None
@@ -47,6 +48,7 @@ def _limit(default: int, maximum: int) -> int:
 
 
 @review_lab_bp.route("/review-lab")
+@require_review_lab_access
 def review_lab_page():
     if not REVIEW_LAB_ENABLED:
         return _not_found()
@@ -58,6 +60,7 @@ def review_lab_page():
 
 
 @review_lab_bp.route("/api/review-lab/submissions", methods=["POST"])
+@require_review_lab_access
 def review_lab_submit():
     if not REVIEW_LAB_ENABLED:
         return _not_found()
@@ -82,6 +85,7 @@ def review_lab_submit():
 
 
 @review_lab_bp.route("/api/review-lab/submissions", methods=["GET"])
+@require_review_lab_access
 def review_lab_list():
     if not REVIEW_LAB_ENABLED:
         return _not_found()
@@ -98,6 +102,7 @@ def review_lab_list():
 
 
 @review_lab_bp.route("/api/review-lab/submissions/<submission_id>")
+@require_review_lab_access
 def review_lab_get(submission_id):
     if not REVIEW_LAB_ENABLED:
         return _not_found()
@@ -116,6 +121,7 @@ def review_lab_get(submission_id):
 
 
 @review_lab_bp.route("/api/review-lab/export")
+@require_review_lab_access
 def review_lab_export():
     if not REVIEW_LAB_ENABLED:
         return _not_found()
