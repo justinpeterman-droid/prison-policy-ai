@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
 from tests.integration.identity_fixtures import (
@@ -24,6 +24,23 @@ from datetime import UTC, datetime
 
 
 ROOT = Path(__file__).resolve().parents[2]
+DATABASE_FIXTURES = frozenset({"db_engine", "db_session_factory", "db_session"})
+
+
+def _truncate_application_tables(engine):
+    with engine.begin() as connection:
+        table_names = [
+            table_name
+            for table_name in inspect(connection).get_table_names()
+            if table_name != "alembic_version"
+        ]
+        if not table_names:
+            return
+        quote = connection.dialect.identifier_preparer.quote
+        tables = ", ".join(quote(table_name) for table_name in table_names)
+        connection.execute(text(
+            f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"
+        ))
 
 
 @pytest.fixture(scope="session")
@@ -55,6 +72,18 @@ def db_engine():
 @pytest.fixture(scope="session")
 def db_session_factory(db_engine):
     return sessionmaker(bind=db_engine, expire_on_commit=False)
+
+
+@pytest.fixture(autouse=True)
+def isolate_postgres_test(request):
+    if DATABASE_FIXTURES.isdisjoint(request.fixturenames):
+        yield
+        return
+
+    engine = request.getfixturevalue("db_engine")
+    _truncate_application_tables(engine)
+    yield
+    _truncate_application_tables(engine)
 
 
 @pytest.fixture

@@ -18,7 +18,7 @@ revisions = pytest.importorskip(
 )
 
 from backend.identity.audit import PostgresAuditWriter  # noqa: E402
-from backend.persistence.models import AuditEvent  # noqa: E402
+from backend.persistence.models import AuditEvent, StaffMember  # noqa: E402
 from backend.webapp.api_v1.schemas.reporting import (  # noqa: E402
     IncidentSnapshotV1,
     ReportContentV1,
@@ -472,6 +472,18 @@ def test_two_real_connections_from_same_revision_yield_one_success_and_conflict(
         assert len(verification.scalars(select(ReportRevision).where(
             ReportRevision.report_id == report_id)).all()) == 2
         assert len(_audit_rows(verification, report_id)) == 1
+
+
+def test_committed_concurrency_rows_do_not_leak_into_the_next_test(db_session):
+    leaked_employee_numbers = db_session.scalars(
+        select(StaffMember.employee_number).where(
+            StaffMember.employee_number.in_({
+                "TEST-2101", "TEST-2102", "TEST-2103", "TEST-9101",
+            })
+        )
+    ).all()
+
+    assert leaked_employee_numbers == []
 
 
 def test_caller_rollback_after_completed_work_removes_revision_current_and_audit(

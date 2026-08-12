@@ -6,7 +6,11 @@ import pytest
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
-from backend.persistence.models.reporting import IncidentRevision, ReportAccess
+from backend.persistence.models.reporting import (
+    IncidentRevision,
+    ReportAccess,
+    ReportRevision,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -76,18 +80,29 @@ def test_duplicate_revision_and_invalid_relationship_are_rejected(
         db_session.flush()
 
 
-def test_revision_rows_reject_update_and_delete(db_session, fictional_report):
-    revision = fictional_report.id
+def test_revision_rows_reject_update(db_session, fictional_report):
+    report_id = fictional_report.id
+    assert db_session.query(ReportRevision).filter_by(
+        report_id=report_id, revision_number=1,
+    ).one().report_id == report_id
+
     with pytest.raises(DBAPIError, match="immutable"):
         db_session.execute(
             text("UPDATE report_revisions SET reason='autosave' WHERE report_id=:report_id"),
-            {"report_id": revision},
+            {"report_id": report_id},
         )
         db_session.flush()
-    db_session.rollback()
+
+
+def test_revision_rows_reject_delete(db_session, fictional_report):
+    report_id = fictional_report.id
+    assert db_session.query(ReportRevision).filter_by(
+        report_id=report_id, revision_number=1,
+    ).one().report_id == report_id
+
     with pytest.raises(DBAPIError, match="immutable"):
         db_session.execute(
             text("DELETE FROM report_revisions WHERE report_id=:report_id"),
-            {"report_id": revision},
+            {"report_id": report_id},
         )
         db_session.flush()
