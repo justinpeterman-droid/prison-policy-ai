@@ -97,10 +97,17 @@ def db_session(db_session_factory):
 
 
 @pytest.fixture
-def api_client():
-    from backend.webapp.app import create_app
+def api_client(monkeypatch):
+    import backend.webapp.app as app_module
 
-    app = create_app()
+    monkeypatch.setenv("ACCESS_API_ENABLED", "true")
+    monkeypatch.setenv("IDENTITY_HASH_PEPPER", "p" * 32)
+    monkeypatch.setenv("CURSOR_SIGNING_KEY", "c" * 32)
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://integration.example.invalid")
+    monkeypatch.setattr(
+        app_module, "ACCESS_CODE", "fictional-local-integration-access-code",
+    )
+    app = app_module.create_app()
     app.config.update(TESTING=True)
     return app.test_client()
 
