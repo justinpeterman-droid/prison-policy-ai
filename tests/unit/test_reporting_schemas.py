@@ -225,23 +225,53 @@ def test_incident_snapshot_carries_bounded_searchable_fields():
     # coercion, it just knows JSON has no native date type.
     snapshot = IncidentSnapshotV1.model_validate_json(json.dumps({
         "field_notes": "Fictional field notes for contract testing.",
-        "incident_type": "inmate_fight",
         "incident_date": "2026-08-12",
-        "incident_location": "Fictional Dayroom B",
+        "incident_time": "14:35:00",
+        "facility": "Fictional Unit",
+        "shift": "A",
+        "location": "Fictional Dayroom B",
         "category": "inmate_fight",
         "classification": {"incident_type": "inmate_fight"},
-        "facts": {"inmate_count": 2},
+        "extracted_facts": {"inmate_count": 2},
         "gap_answers": {"oc_lot_number": "fictional-lot-1"},
         "charges": ["fictional charge"],
     }))
 
     assert snapshot.incident_date.isoformat() == "2026-08-12"
+    assert snapshot.incident_time.isoformat() == "14:35:00"
+    assert snapshot.facility == "Fictional Unit"
+    assert snapshot.shift == "A"
+    assert snapshot.location == "Fictional Dayroom B"
+    assert snapshot.extracted_facts == {"inmate_count": 2}
     assert snapshot.category == "inmate_fight"
 
     with pytest.raises(ValidationError):
         IncidentSnapshotV1.model_validate({
             "field_notes": "Fictional field notes.",
-            "incident_location": "x" * (reporting.MAX_SHORT_TEXT + 1),
+            "location": "x" * (reporting.MAX_SHORT_TEXT + 1),
+        })
+
+
+def test_save_incident_has_one_authoritative_top_level_field_notes_source():
+    request = SaveIncidentRequest.model_validate_json(json.dumps({
+        "field_notes": "Fictional authoritative notes.",
+        "base_revision_number": 1,
+        "reason": "manual_save",
+        "facility": "Fictional Unit",
+        "shift": "A",
+        "location": "Fictional Dayroom B",
+        "extracted_facts": {"staff_count": 2},
+    }))
+
+    assert request.field_notes == "Fictional authoritative notes."
+    assert request.extracted_facts == {"staff_count": 2}
+    assert not hasattr(request, "snapshot")
+
+    with pytest.raises(ValidationError):
+        SaveIncidentRequest.model_validate({
+            "field_notes": "Top-level notes.",
+            "snapshot": {"field_notes": "Contradictory nested notes."},
+            "base_revision_number": 1,
         })
 
 
@@ -290,4 +320,23 @@ def test_save_report_reason_is_bounded():
             "content": {"schema_version": 1, "narrative": "Fictional narrative."},
             "base_revision_number": 1,
             "reason": "not_a_reason",
+        })
+
+
+@pytest.mark.parametrize("server_reason", ["ai_result", "admin_edit"])
+def test_report_request_rejects_server_owned_reasons(server_reason):
+    with pytest.raises(ValidationError):
+        SaveReportRequest.model_validate({
+            "content": {"schema_version": 1, "narrative": "Fictional narrative."},
+            "base_revision_number": 1,
+            "reason": server_reason,
+        })
+
+
+def test_incident_request_rejects_admin_edit_reason():
+    with pytest.raises(ValidationError):
+        SaveIncidentRequest.model_validate({
+            "field_notes": "Fictional field notes.",
+            "base_revision_number": 1,
+            "reason": "admin_edit",
         })

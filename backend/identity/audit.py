@@ -71,7 +71,88 @@ AUDIT_ACTION_FIELDS = {
 #: a caller cannot smuggle report text through a list that reads as metadata.
 AUDIT_NAME_LIST_FIELDS = frozenset({"changed_fields", "filters"})
 AUDIT_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+AUDIT_SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 MAX_AUDIT_NAME_LIST = 100
+MAX_AUDIT_NUMBER = 1_000_000_000
+
+AUDIT_UUID_FIELDS = frozenset(
+    field
+    for fields in AUDIT_ACTION_FIELDS.values()
+    for field in fields
+    if field.endswith("_id")
+)
+AUDIT_SHA256_FIELDS = frozenset(
+    field
+    for fields in AUDIT_ACTION_FIELDS.values()
+    for field in fields
+    if field.endswith("_sha256")
+)
+AUDIT_INTEGER_FIELDS = frozenset({
+    "lock_minutes",
+    "session_count",
+    "revision_number",
+    "source_revision_number",
+    "latency_ms",
+    "document_count",
+    "result_count",
+    "report_count",
+    "event_count",
+})
+AUDIT_ENUM_FIELDS = {
+    "role": frozenset({"user", "admin"}),
+    "old_role": frozenset({"user", "admin"}),
+    "new_role": frozenset({"user", "admin"}),
+    "old_status": frozenset({"in_progress", "completed", "archived"}),
+    "new_status": frozenset({"in_progress", "completed", "archived"}),
+    "report_type": frozenset({
+        "first_person", "supervisor_summary", "cover_letter",
+        "disciplinary", "investigation", "form_005",
+    }),
+    "export_format": frozenset({"docx"}),
+    "job_type": frozenset({"classify", "extract", "generate", "disciplinary"}),
+}
+AUDIT_CHANGED_FIELDS = {
+    "incident.saved": frozenset({
+        "field_notes", "incident_date", "incident_time", "facility", "shift",
+        "location", "category", "classification", "extracted_facts",
+        "gap_answers", "charges", "validation",
+    }),
+    "report.saved": frozenset({
+        "narrative", "editable_fields", "validation", "warnings",
+    }),
+    "admin.staff_updated": frozenset({
+        "employee_number", "rank", "first_name", "last_name", "shift", "is_active",
+    }),
+}
+AUDIT_FILTER_FIELDS = frozenset({
+    "report_id", "incident_id", "reporting_staff_id", "preparer_staff_id",
+    "incident_date_from", "incident_date_to", "created_at_from", "created_at_to",
+    "inmate_first_name", "inmate_middle_name", "inmate_last_name",
+    "inmate_adc_number", "category", "facility", "location", "shift", "status",
+    "last_editor_staff_id", "modified_at_from", "modified_at_to",
+})
+AUDIT_CODE_VALUES = {
+    ("auth.login_failed", "reason"): frozenset({
+        "invalid_credentials", "account_locked_or_deactivated", "staff_inactive",
+        "temporary_pin_expired", "invalid_pin",
+    }),
+    ("auth.session_revoked", "reason"): frozenset({
+        "renewal_reuse", "user_revoked", "admin_action",
+    }),
+    ("auth.step_up_failed", "reason"): frozenset({"invalid_confirmation"}),
+    ("incident.saved", "reason"): frozenset({
+        "autosave", "manual_save", "ai_result",
+    }),
+    ("report.saved", "reason"): frozenset({
+        "autosave", "manual_save", "ai_result", "admin_edit",
+    }),
+}
+AUDIT_PURPOSES = frozenset({
+    "admin_center", "staff_write", "account_create", "account_role_status",
+    "account_reset_pin", "account_unlock", "account_revoke_sessions",
+    "report_restore", "report_transfer", "bulk_export", "audit_export",
+    "review_lab_handoff",
+})
 
 
 @dataclass(frozen=True)
@@ -108,11 +189,57 @@ def validate_actor_attribution(event: AuditEventInput) -> None:
         raise ValueError("audit actor attribution is invalid")
 
 
-def _validate_name_list(value: object) -> None:
+def _validate_name_list(action: str, key: str, value: object) -> None:
     if not isinstance(value, list) or len(value) > MAX_AUDIT_NAME_LIST:
         raise ValueError("audit details are invalid")
     for name in value:
         if not isinstance(name, str) or not AUDIT_NAME_PATTERN.fullmatch(name):
+            raise ValueError("audit details are invalid")
+    if len(set(value)) != len(value):
+        raise ValueError("audit details are invalid")
+    if key == "changed_fields":
+        allowed = AUDIT_CHANGED_FIELDS.get(action)
+        if allowed is not None and not set(value) <= allowed:
+            raise ValueError("audit details are invalid")
+    elif key == "filters" and not set(value) <= AUDIT_FILTER_FIELDS:
+        raise ValueError("audit details are invalid")
+
+
+def _validate_detail_value(action: str, key: str, value: object) -> None:
+    allowed_codes = AUDIT_CODE_VALUES.get((action, key))
+    if allowed_codes is not None:
+        if value not in allowed_codes:
+            raise ValueError("audit details are invalid")
+    elif key == "purpose":
+        if value not in AUDIT_PURPOSES:
+            raise ValueError("audit details are invalid")
+    elif key in AUDIT_UUID_FIELDS:
+        if not isinstance(value, str):
+            raise ValueError("audit details are invalid")
+        try:
+            parsed = UUID(value)
+        except (ValueError, AttributeError):
+            raise ValueError("audit details are invalid") from None
+        if str(parsed) != value.lower():
+            raise ValueError("audit details are invalid")
+    elif key in AUDIT_SHA256_FIELDS:
+        if not isinstance(value, str) or not AUDIT_SHA256_PATTERN.fullmatch(value):
+            raise ValueError("audit details are invalid")
+    elif key in AUDIT_INTEGER_FIELDS:
+        if (
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or not 0 <= value <= MAX_AUDIT_NUMBER
+        ):
+            raise ValueError("audit details are invalid")
+    elif key == "persistent":
+        if not isinstance(value, bool):
+            raise ValueError("audit details are invalid")
+    elif key in AUDIT_ENUM_FIELDS:
+        if value not in AUDIT_ENUM_FIELDS[key]:
+            raise ValueError("audit details are invalid")
+    elif key in {"reason", "purpose", "result_code"}:
+        if not isinstance(value, str) or not AUDIT_NAME_PATTERN.fullmatch(value):
             raise ValueError("audit details are invalid")
 
 
@@ -122,11 +249,17 @@ def validate_details(action: str, details: dict) -> dict:
         raise ValueError("audit details are invalid")
     if action == "system.initial_admin_bootstrapped" and set(details) != allowed:
         raise ValueError("audit details are invalid")
-    for key in AUDIT_NAME_LIST_FIELDS & set(details):
-        _validate_name_list(details[key])
-    encoded = json.dumps(details, sort_keys=True, separators=(",", ":"))
+    try:
+        encoded = json.dumps(details, sort_keys=True, separators=(",", ":"))
+    except (TypeError, ValueError):
+        raise ValueError("audit details are invalid") from None
     if len(encoded.encode("utf-8")) > 4096:
         raise ValueError("audit details are too large")
+    for key in AUDIT_NAME_LIST_FIELDS & set(details):
+        _validate_name_list(action, key, details[key])
+    for key, value in details.items():
+        if key not in AUDIT_NAME_LIST_FIELDS:
+            _validate_detail_value(action, key, value)
     return dict(details)
 
 

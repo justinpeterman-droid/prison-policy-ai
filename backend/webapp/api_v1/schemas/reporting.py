@@ -9,7 +9,7 @@ The field-notes ceiling is imported from the single ID-02 constant rather than
 restated, so the limit the client is told about in `/api/v1/client-policy` and
 the limit the server enforces cannot drift apart.
 """
-from datetime import date, datetime
+from datetime import date, datetime, time
 import json
 from math import isfinite
 from typing import Annotated, Final, Literal
@@ -48,7 +48,7 @@ RevisionReasonName = Literal[
     "admin_edit",
 ]
 #: The subset a client may ask for directly; the rest are server-generated.
-SaveReasonName = Literal["autosave", "manual_save", "ai_result", "admin_edit"]
+SaveReasonName = Literal["autosave", "manual_save"]
 
 
 def _has_nonfinite(value: object) -> bool:
@@ -95,14 +95,15 @@ class IncidentSnapshotV1(BoundedContent):
 
     schema_version: Literal[1] = CONTENT_SCHEMA_VERSION
     field_notes: str = Field(default="", max_length=FIELD_NOTES_MAX_CHARACTERS)
-    incident_type: CodeText | None = None
-    category: CodeText | None = None
     incident_date: date | None = None
-    incident_time: CodeText | None = None
-    incident_location: ShortText | None = None
+    incident_time: time | None = None
+    facility: str | None = Field(default=None, max_length=120)
+    shift: str | None = Field(default=None, max_length=32)
+    location: ShortText | None = None
+    category: str | None = Field(default=None, max_length=120)
     classification: dict[CodeText, JsonScalar] = Field(
         default_factory=dict, max_length=MAX_MAP_ENTRIES)
-    facts: dict[CodeText, JsonScalar] = Field(
+    extracted_facts: dict[CodeText, JsonScalar] = Field(
         default_factory=dict, max_length=MAX_MAP_ENTRIES)
     gap_answers: dict[CodeText, LongAnswer] = Field(
         default_factory=dict, max_length=MAX_MAP_ENTRIES)
@@ -124,13 +125,12 @@ class ReportContentV1(BoundedContent):
     warnings: list[ShortText] = Field(default_factory=list, max_length=MAX_WARNINGS)
 
 
-class SaveIncidentRequest(StrictApiModel):
+class SaveIncidentRequest(IncidentSnapshotV1):
     """A client's request to append one incident revision."""
 
     field_notes: str = Field(default="", max_length=FIELD_NOTES_MAX_CHARACTERS)
     base_revision_number: int = Field(default=0, ge=0)
     reason: SaveReasonName = "manual_save"
-    snapshot: IncidentSnapshotV1 | None = None
 
 
 class SaveReportRequest(StrictApiModel):

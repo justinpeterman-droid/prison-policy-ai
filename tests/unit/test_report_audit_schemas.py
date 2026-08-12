@@ -118,7 +118,7 @@ SAFE_EXAMPLES = {
         "latency_ms": 940,
     },
     "admin.report_search": {
-        "filters": ["status", "incident_date"],
+        "filters": ["status", "incident_date_from"],
         "result_count": 12,
     },
     "admin.bulk_exported": {
@@ -210,6 +210,84 @@ def test_search_filter_names_must_be_stable_codes():
         validate_details("admin.report_search", {
             "filters": ["owner=Fictional Officer"],
             "result_count": 1,
+        })
+
+
+@pytest.mark.parametrize("key", [
+    "incident_id", "report_id", "job_id", "export_id",
+    "old_owner_staff_id", "new_owner_staff_id",
+])
+def test_stable_id_fields_require_uuid_values(key):
+    action = next(
+        action for action, fields in AUDIT_ACTION_FIELDS.items() if key in fields)
+
+    with pytest.raises(ValueError):
+        validate_details(action, {key: "Fictional Officer raw identity text"})
+
+
+def test_sha256_fields_require_lowercase_hex_digest():
+    with pytest.raises(ValueError):
+        validate_details("policy.question_answered", {
+            "question_sha256": "Fictional policy question text",
+        })
+    with pytest.raises(ValueError):
+        validate_details("policy.question_answered", {
+            "question_sha256": "A" * 64,
+        })
+
+
+@pytest.mark.parametrize("value", [-1, True, 1.5, "12", 1_000_000_001])
+def test_count_latency_and_revision_fields_require_bounded_integers(value):
+    with pytest.raises(ValueError):
+        validate_details("ai.job_succeeded", {"latency_ms": value})
+
+
+@pytest.mark.parametrize("key,value", [
+    ("reason", "Fictional report narrative"),
+    ("reason", "admin_edit"),
+    ("job_type", "invented_job"),
+    ("export_format", "pdf"),
+    ("new_status", "deleted"),
+])
+def test_code_and_enum_fields_reject_raw_or_unapproved_values(key, value):
+    action = {
+        "reason": "incident.saved",
+        "job_type": "ai.job_submitted",
+        "export_format": "report.exported",
+        "new_status": "report.status_changed",
+    }[key]
+
+    with pytest.raises(ValueError):
+        validate_details(action, {key: value})
+
+
+@pytest.mark.parametrize("action,key", [
+    ("auth.login_failed", "reason"),
+    ("auth.session_revoked", "reason"),
+    ("auth.step_up_failed", "purpose"),
+])
+def test_identity_code_fields_reject_content_disguised_as_codes(action, key):
+    with pytest.raises(ValueError):
+        validate_details(action, {key: "fictional_officer_private_detail"})
+
+
+def test_name_lists_reject_duplicates_and_unapproved_names():
+    with pytest.raises(ValueError):
+        validate_details("report.saved", {
+            "changed_fields": ["narrative", "narrative"],
+        })
+    with pytest.raises(ValueError):
+        validate_details("report.saved", {
+            "changed_fields": ["fictional_inmate_confession"],
+        })
+    with pytest.raises(ValueError):
+        validate_details("admin.report_search", {
+            "filters": ["fictional_employee_name"],
+        })
+
+    with pytest.raises(ValueError):
+        validate_details("report.saved", {
+            "changed_fields": [{"narrative": "Fictional raw text"}],
         })
 
 
