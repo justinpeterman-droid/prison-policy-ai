@@ -1,7 +1,7 @@
 # Access + Cloud Run Master Design
 
 **Date:** 2026-08-12<br>
-**Status:** Design approved; written specification awaiting final user review<br>
+**Status:** Approved for implementation planning<br>
 **Selected approach:** Evolve the existing Flask/Cloud Run application and add
 a Microsoft Access client<br>
 **Target platform:** Agency-managed Windows 11 workstations with Microsoft

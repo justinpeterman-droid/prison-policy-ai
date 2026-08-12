@@ -1,7 +1,7 @@
 # Access User Client Design
 
 **Date:** 2026-08-12<br>
-**Status:** Design approved; written specification awaiting final user review<br>
+**Status:** Approved for implementation planning<br>
 **Parent:** [Access + Cloud Run Master Design](2026-08-12-access-cloud-run-master-design.md)<br>
 **Depends on:** [Cloud Identity Foundation](2026-08-12-cloud-identity-foundation-design.md),
 [Report Storage and Access API](2026-08-12-report-storage-api-design.md)

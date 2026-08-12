@@ -1,7 +1,7 @@
 # Cloud Identity Foundation Design
 
 **Date:** 2026-08-12<br>
-**Status:** Design approved; written specification awaiting final user review<br>
+**Status:** Approved for implementation planning<br>
 **Parent:** [Access + Cloud Run Master Design](2026-08-12-access-cloud-run-master-design.md)
 
 ## Purpose
