@@ -2,13 +2,73 @@ resource "google_sql_database_instance" "postgres" {
   name                = var.database_instance_name
   project             = var.project_id
   region              = var.region
-  database_version    = "POSTGRES_17"
+  database_version    = "POSTGRES_18"
   deletion_protection = var.environment == "production"
 
   settings {
     tier              = var.sql_tier
     availability_type = var.environment == "production" ? "REGIONAL" : "ZONAL"
     disk_autoresize   = true
+
+    database_flags {
+      name  = "cloudsql.enable_pgaudit"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_checkpoints"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_connections"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_disconnections"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_duration"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_hostname"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_lock_waits"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_min_duration_statement"
+      value = "-1"
+    }
+
+    database_flags {
+      name  = "log_min_error_statement"
+      value = "error"
+    }
+
+    database_flags {
+      name  = "log_min_messages"
+      value = "warning"
+    }
+
+    database_flags {
+      name  = "log_statement"
+      value = "ddl"
+    }
+
+    database_flags {
+      name  = "pgaudit.log"
+      value = "ddl,role,write"
+    }
 
     backup_configuration {
       enabled                        = true
@@ -25,7 +85,7 @@ resource "google_sql_database_instance" "postgres" {
     ip_configuration {
       ipv4_enabled    = false
       private_network = google_compute_network.access.id
-      ssl_mode        = "ENCRYPTED_ONLY"
+      ssl_mode        = "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"
     }
   }
 

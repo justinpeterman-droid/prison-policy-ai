@@ -10,6 +10,16 @@ resource "google_compute_security_policy" "edge" {
   name    = "access-${var.environment}-edge"
   project = var.project_id
   rule {
+    action   = "deny(403)"
+    priority = 100
+    preview  = false
+    match {
+      expr {
+        expression = "evaluatePreconfiguredWaf('cve-canary')"
+      }
+    }
+  }
+  rule {
     action   = "throttle"
     priority = 1000
     match {
