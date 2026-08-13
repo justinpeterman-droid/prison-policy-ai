@@ -129,7 +129,7 @@ def test_terraform_state_iam_is_prefix_scoped_for_plan_and_apply():
     module_variables = read("variables.tf")
     for root in (TEST_ROOT, PRODUCTION_ROOT):
         assert 'variable "state_bucket_name"' in (root / "variables.tf").read_text(encoding="utf-8")
-        assert 'state_bucket_name              = var.state_bucket_name' in (root / "main.tf").read_text(encoding="utf-8")
+        assert re.search(r"state_bucket_name\s*=\s*var\.state_bucket_name", (root / "main.tf").read_text(encoding="utf-8"))
     assert 'resource "google_storage_bucket_iam_member" "terraform_state"' in identities
     assert 'roles/storage.objectViewer' in identities
     assert 'roles/storage.objectAdmin' in identities
