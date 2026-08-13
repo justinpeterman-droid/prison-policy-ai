@@ -51,6 +51,13 @@ _QUEUE_AGE_BUCKETS = (
     "2h_or_more",
 )
 _DURATION_BUCKETS = _QUEUE_AGE_BUCKETS[1:]
+_STAGE_LATENCY_BUCKETS = (
+    "less_than_1s",
+    "1s_to_10s",
+    "10s_to_60s",
+    "1m_to_5m",
+    "5m_or_more",
+)
 
 
 def _bounded_count(value: int) -> int:
@@ -91,6 +98,22 @@ def _age_bucket(duration: timedelta | None) -> str:
     return _DURATION_BUCKETS[4]
 
 
+def _latency_bucket(duration: timedelta | None) -> str:
+    """Project failed-job stage duration into the closed second-scale enum."""
+    if duration is None:
+        return "unknown"
+    seconds = max(duration.total_seconds(), 0)
+    if seconds < 1:
+        return _STAGE_LATENCY_BUCKETS[0]
+    if seconds < 10:
+        return _STAGE_LATENCY_BUCKETS[1]
+    if seconds < 60:
+        return _STAGE_LATENCY_BUCKETS[2]
+    if seconds < 5 * 60:
+        return _STAGE_LATENCY_BUCKETS[3]
+    return _STAGE_LATENCY_BUCKETS[4]
+
+
 def _policy_search_status() -> str:
     """Fail closed until policy search has an approved live safe producer."""
     return "Unavailable"
@@ -121,7 +144,7 @@ def _failed_job_health(session) -> tuple[tuple[str, str], ...]:
         if row is not None:
             started_at, completed_at = row
             duration = completed_at - started_at if started_at and completed_at else None
-            signals.append((job_type, _age_bucket(duration)))
+            signals.append((job_type, _latency_bucket(duration)))
     return tuple(signals)
 
 

@@ -107,6 +107,22 @@ def test_health_age_bucket_contract_is_explicit_and_non_identifying():
     )
 
 
+def test_health_stage_latency_bucket_contract_has_distinct_second_boundaries():
+    """Failed-job stage latency uses its own closed, second-scale enum."""
+    import backend.webapp.api_v1.admin_health as health_api
+
+    assert callable(getattr(health_api, "_latency_bucket", None))
+    assert health_api._STAGE_LATENCY_BUCKETS == (
+        "less_than_1s", "1s_to_10s", "10s_to_60s", "1m_to_5m", "5m_or_more",
+    )
+    assert health_api._latency_bucket(timedelta(seconds=0)) == "less_than_1s"
+    assert health_api._latency_bucket(timedelta(seconds=1)) == "1s_to_10s"
+    assert health_api._latency_bucket(timedelta(seconds=10)) == "10s_to_60s"
+    assert health_api._latency_bucket(timedelta(seconds=45)) == "10s_to_60s"
+    assert health_api._latency_bucket(timedelta(seconds=60)) == "1m_to_5m"
+    assert health_api._latency_bucket(timedelta(minutes=5)) == "5m_or_more"
+
+
 def test_health_emits_bucketed_queue_age_and_failed_stage_latency(
     api_client, admin_bearer_headers, owner_bearer_headers, db_session,
     fictional_incident, monkeypatch,
