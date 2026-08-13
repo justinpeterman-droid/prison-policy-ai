@@ -4,6 +4,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 MODULE = ROOT / "infra" / "terraform" / "modules" / "access_platform"
+TEST_ROOT = ROOT / "infra" / "terraform" / "environments" / "test"
+PRODUCTION_ROOT = ROOT / "infra" / "terraform" / "environments" / "production"
 
 
 def read(name: str) -> str:
@@ -52,12 +54,63 @@ def test_workflow_identities_have_distinct_wif_and_secret_boundaries():
     for identity in ("terraform_plan", "terraform_apply", "deploy", "rollback", "admin_bootstrap", "access_release"):
         assert f'google_service_account.identities["{identity}"].member' not in secret_bindings
     assert re.search(r'role\s*=\s*"roles/viewer"', identities)
-    assert re.search(r'role\s*=\s*google_project_iam_custom_role\.rollback_traffic\.name', identities)
+    assert 'roles/artifactregistry.writer' not in identities
+    assert 'roles/run.admin' not in identities
+    assert 'rollback_traffic' not in identities
 
 
 def test_workflow_impersonation_is_scoped_to_the_exact_workflow_ref():
     identities = read("identities.tf")
-    assert 'attribute.job_workflow_ref/${one(var.wif_trust[each.key].workflow_refs)}' in identities
+    assert 'attribute.${var.wif_trust[each.key].workflow_claim}/${one(var.wif_trust[each.key].workflow_refs)}' in identities
+    assert 'assertion.${var.wif_trust[each.key].workflow_claim}' in identities
+
+
+def test_top_level_workflows_use_workflow_ref_and_rollback_is_distinct():
+    test_main = (TEST_ROOT / "main.tf").read_text(encoding="utf-8")
+    production_main = (PRODUCTION_ROOT / "main.tf").read_text(encoding="utf-8")
+    assert 'rollback-test.yml@refs/heads/main' in test_main
+    assert 'deploy-test.yml@refs/heads/main' in test_main
+    assert 'rollback-production.yml@refs/heads/main' in production_main
+    assert 'deploy-production.yml@refs/heads/main' in production_main
+    assert 'workflow_claim     = "job_workflow_ref"' not in test_main
+    assert 'workflow_claim     = "job_workflow_ref"' not in production_main
+    assert test_main.count('workflow_claim     = "workflow_ref"') == 6
+    assert production_main.count('workflow_claim     = "workflow_ref"') == 6
+
+
+def test_wif_display_names_use_short_physical_environment_id():
+    identities = read("identities.tf")
+    assert re.search(r'display_name\s*=\s*"Access \$\{each\.value\.role_id\} WIF \(\$\{local\.environment_id\}\)"', identities)
+    assert 'WIF (${var.environment})' not in identities
+
+
+def test_terraform_apply_never_receives_broad_secret_administration():
+    identities = read("identities.tf")
+    assert 'roles/secretmanager.admin' not in identities
+    assert 'secretmanager.versions.access' not in identities
+    assert 'secretmanager.versions.get' not in identities
+    assert 'google_secret_manager_secret_iam_member' in identities
+
+
+def test_terraform_state_iam_is_prefix_scoped_for_plan_and_apply():
+    identities = read("identities.tf")
+    module_variables = read("variables.tf")
+    for root in (TEST_ROOT, PRODUCTION_ROOT):
+        assert 'variable "state_bucket_name"' in (root / "variables.tf").read_text(encoding="utf-8")
+        assert 'state_bucket_name              = var.state_bucket_name' in (root / "main.tf").read_text(encoding="utf-8")
+    assert 'resource "google_storage_bucket_iam_member" "terraform_plan_state_read"' in identities
+    assert 'resource "google_storage_bucket_iam_member" "terraform_apply_state_write"' in identities
+    assert 'roles/storage.objectViewer' in identities
+    assert 'roles/storage.objectAdmin' in identities
+    assert 'objects/access/${var.environment}/' in identities
+    assert 'variable "state_bucket_name"' in module_variables
+
+
+def test_identity_and_secret_resources_wait_for_required_apis():
+    identities = read("identities.tf")
+    secrets = read("secrets.tf")
+    assert 'depends_on = [terraform_data.services_ready]' in identities
+    assert 'depends_on = [terraform_data.services_ready]' in secrets
 
 
 def test_bootstrap_and_update_grant_secrets_are_separated():

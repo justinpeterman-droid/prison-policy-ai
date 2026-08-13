@@ -54,6 +54,7 @@ resource "google_service_account" "identities" {
   project      = var.project_id
   account_id   = "access-${local.environment_id}-${each.value}"
   display_name = "Access ${each.key} (${var.environment})"
+  depends_on   = [terraform_data.services_ready]
 }
 
 resource "google_project_iam_member" "api_sql_client" {
@@ -104,6 +105,37 @@ resource "google_project_iam_member" "terraform_plan_secret_metadata" {
   member  = google_service_account.identities["terraform_plan"].member
 }
 
+# The state bucket is created outside this module.  These bindings intentionally
+# limit each Terraform workflow to its own environment prefix; OP-03 never
+# grants bucket-wide ownership or access to another environment's state.
+resource "google_storage_bucket_iam_member" "terraform_plan_state_read" {
+  bucket = var.state_bucket_name
+  role   = "roles/storage.objectViewer"
+  member = google_service_account.identities["terraform_plan"].member
+
+  condition {
+    title       = "AccessTerraformPlanState"
+    description = "Read only this environment's Terraform state objects."
+    expression  = "resource.name.startsWith(\"projects/_/buckets/${var.state_bucket_name}/objects/access/${var.environment}/\")"
+  }
+
+  depends_on = [terraform_data.services_ready]
+}
+
+resource "google_storage_bucket_iam_member" "terraform_apply_state_write" {
+  bucket = var.state_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = google_service_account.identities["terraform_apply"].member
+
+  condition {
+    title       = "AccessTerraformApplyState"
+    description = "Manage only this environment's Terraform state objects."
+    expression  = "resource.name.startsWith(\"projects/_/buckets/${var.state_bucket_name}/objects/access/${var.environment}/\")"
+  }
+
+  depends_on = [terraform_data.services_ready]
+}
+
 resource "google_project_iam_member" "terraform_apply_network_admin" {
   project = var.project_id
   role    = "roles/compute.networkAdmin"
@@ -122,9 +154,26 @@ resource "google_project_iam_member" "terraform_apply_sql_admin" {
   member  = google_service_account.identities["terraform_apply"].member
 }
 
-resource "google_project_iam_member" "terraform_apply_secret_admin" {
+resource "google_project_iam_custom_role" "terraform_apply_secret_containers" {
+  project     = var.project_id
+  role_id     = "accessSecretContainerAdmin"
+  title       = "Access Secret Manager containers only"
+  description = "Manage secret containers and their IAM without reading secret versions."
+  permissions = [
+    "secretmanager.secrets.create",
+    "secretmanager.secrets.delete",
+    "secretmanager.secrets.get",
+    "secretmanager.secrets.getIamPolicy",
+    "secretmanager.secrets.list",
+    "secretmanager.secrets.setIamPolicy",
+    "secretmanager.secrets.update",
+  ]
+  depends_on = [terraform_data.services_ready]
+}
+
+resource "google_project_iam_member" "terraform_apply_secret_container_admin" {
   project = var.project_id
-  role    = "roles/secretmanager.admin"
+  role    = google_project_iam_custom_role.terraform_apply_secret_containers.name
   member  = google_service_account.identities["terraform_apply"].member
 }
 
@@ -146,18 +195,6 @@ resource "google_project_iam_member" "terraform_apply_project_iam_admin" {
   member  = google_service_account.identities["terraform_apply"].member
 }
 
-resource "google_project_iam_member" "deploy_artifact_writer" {
-  project = var.project_id
-  role    = "roles/artifactregistry.writer"
-  member  = google_service_account.identities["deploy"].member
-}
-
-resource "google_project_iam_member" "deploy_run_admin" {
-  project = var.project_id
-  role    = "roles/run.admin"
-  member  = google_service_account.identities["deploy"].member
-}
-
 resource "google_service_account_iam_member" "deploy_runtime_user" {
   for_each = {
     api       = google_service_account.identities["api"].name
@@ -169,30 +206,11 @@ resource "google_service_account_iam_member" "deploy_runtime_user" {
   member             = google_service_account.identities["deploy"].member
 }
 
-resource "google_project_iam_custom_role" "rollback_traffic" {
-  project     = var.project_id
-  role_id     = "accessRollbackTraffic"
-  title       = "Access rollback traffic only"
-  description = "Traffic adjustment only; service IAM later narrows this role to the API and worker."
-  permissions = [
-    "run.services.get",
-    "run.services.update",
-    "run.operations.get",
-    "run.revisions.get",
-    "run.revisions.list",
-  ]
-}
-
-resource "google_project_iam_member" "rollback_traffic" {
-  project = var.project_id
-  role    = google_project_iam_custom_role.rollback_traffic.name
-  member  = google_service_account.identities["rollback"].member
-}
-
 resource "google_iam_workload_identity_pool" "workflow" {
   project                   = var.project_id
   workload_identity_pool_id = "access-${local.environment_id}-wif"
-  display_name              = "Access GitHub trust (${var.environment})"
+  display_name              = "Access GitHub WIF (${local.environment_id})"
+  depends_on                = [terraform_data.services_ready]
 }
 
 resource "google_iam_workload_identity_pool_provider" "workflow" {
@@ -200,7 +218,7 @@ resource "google_iam_workload_identity_pool_provider" "workflow" {
   project                            = var.project_id
   workload_identity_pool_id          = google_iam_workload_identity_pool.workflow.workload_identity_pool_id
   workload_identity_pool_provider_id = each.value.role_id
-  display_name                       = "GitHub ${each.key} (${var.environment})"
+  display_name                       = "Access ${each.value.role_id} WIF (${local.environment_id})"
 
   attribute_mapping = {
     "google.subject"             = "assertion.sub"
@@ -208,9 +226,10 @@ resource "google_iam_workload_identity_pool_provider" "workflow" {
     "attribute.ref"              = "assertion.ref"
     "attribute.environment"      = "assertion.environment"
     "attribute.job_workflow_ref" = "assertion.job_workflow_ref"
+    "attribute.workflow_ref"     = "assertion.workflow_ref"
   }
 
-  attribute_condition = "assertion.repository == \"${var.github_repository}\" && assertion.ref == \"${var.wif_trust[each.key].ref_pattern}\" && assertion.environment == \"${var.wif_trust[each.key].github_environment}\" && assertion.job_workflow_ref in [${join(", ", [for ref in sort(tolist(var.wif_trust[each.key].workflow_refs)) : format("%q", ref)])}]"
+  attribute_condition = "assertion.repository == \"${var.github_repository}\" && assertion.ref == \"${var.wif_trust[each.key].ref_pattern}\" && assertion.environment == \"${var.wif_trust[each.key].github_environment}\" && assertion.${var.wif_trust[each.key].workflow_claim} in [${join(", ", [for ref in sort(tolist(var.wif_trust[each.key].workflow_refs)) : format("%q", ref)])}]"
 
   oidc { issuer_uri = "https://token.actions.githubusercontent.com" }
 }
@@ -219,7 +238,7 @@ resource "google_service_account_iam_member" "workflow_impersonation" {
   for_each           = local.workflow_accounts
   service_account_id = google_service_account.identities[each.value.account].name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.workflow.name}/attribute.job_workflow_ref/${one(var.wif_trust[each.key].workflow_refs)}"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.workflow.name}/attribute.${var.wif_trust[each.key].workflow_claim}/${one(var.wif_trust[each.key].workflow_refs)}"
 }
 
 # Secrets are bound individually below. No workflow account appears in a

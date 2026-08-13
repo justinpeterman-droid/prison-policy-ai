@@ -5,6 +5,7 @@ resource "google_secret_manager_secret" "access_database_url" {
   replication {
     auto {}
   }
+  depends_on = [terraform_data.services_ready]
 }
 
 resource "google_secret_manager_secret" "identity_hash_pepper" {
@@ -14,6 +15,7 @@ resource "google_secret_manager_secret" "identity_hash_pepper" {
   replication {
     auto {}
   }
+  depends_on = [terraform_data.services_ready]
 }
 
 resource "google_secret_manager_secret" "cursor_signing_key" {
@@ -23,6 +25,7 @@ resource "google_secret_manager_secret" "cursor_signing_key" {
   replication {
     auto {}
   }
+  depends_on = [terraform_data.services_ready]
 }
 
 resource "google_secret_manager_secret" "client_update_grant_key" {
@@ -32,6 +35,7 @@ resource "google_secret_manager_secret" "client_update_grant_key" {
   replication {
     auto {}
   }
+  depends_on = [terraform_data.services_ready]
 }
 
 resource "google_secret_manager_secret" "legacy_access_code" {
@@ -41,6 +45,7 @@ resource "google_secret_manager_secret" "legacy_access_code" {
   replication {
     auto {}
   }
+  depends_on = [terraform_data.services_ready]
 }
 
 resource "google_secret_manager_secret" "legacy_admin_code" {
@@ -50,6 +55,7 @@ resource "google_secret_manager_secret" "legacy_admin_code" {
   replication {
     auto {}
   }
+  depends_on = [terraform_data.services_ready]
 }
 
 resource "google_secret_manager_secret" "github_feedback_token" {
@@ -59,6 +65,7 @@ resource "google_secret_manager_secret" "github_feedback_token" {
   replication {
     auto {}
   }
+  depends_on = [terraform_data.services_ready]
 }
 
 resource "google_secret_manager_secret" "flask_session_secret" {
@@ -68,6 +75,7 @@ resource "google_secret_manager_secret" "flask_session_secret" {
   replication {
     auto {}
   }
+  depends_on = [terraform_data.services_ready]
 }
 
 resource "google_secret_manager_secret" "initial_admin_pin" {
@@ -77,4 +85,5 @@ resource "google_secret_manager_secret" "initial_admin_pin" {
   replication {
     auto {}
   }
+  depends_on = [terraform_data.services_ready]
 }
