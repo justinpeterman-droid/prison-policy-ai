@@ -25,21 +25,21 @@ run "private_platform_contract" {
   }
 
   assert {
-    condition = module.access_platform.terraform_test_contract.service_account_count == (
+    condition = module.access_platform.terraform_test_contract.service_accounts.count == (
       module.access_platform.database_name == "access_production" ? 11 : 10
-    ) && alltrue([for id_length in module.access_platform.terraform_test_contract.service_account_id_lengths : id_length <= 30])
-    error_message = "Test and production must have exactly ten and eleven provider-valid service accounts."
+    ) && module.access_platform.terraform_test_contract.service_accounts.distinct_account_id_count == module.access_platform.terraform_test_contract.service_accounts.count && alltrue([for id_length in module.access_platform.terraform_test_contract.service_accounts.id_lengths : id_length <= 30])
+    error_message = "Test and production must have exactly ten and eleven distinct provider-valid service accounts."
   }
 
   assert {
-    condition = module.access_platform.terraform_test_contract.wif_provider_count == (
+    condition = module.access_platform.terraform_test_contract.wif.provider_count == (
       module.access_platform.database_name == "access_production" ? 6 : 5
-    ) && alltrue([for id_length in module.access_platform.terraform_test_contract.wif_provider_id_lengths : id_length <= 32])
-    error_message = "Test and production must expose five and six provider-valid WIF identities."
+    ) && module.access_platform.terraform_test_contract.wif.distinct_provider_id_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.impersonation_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.provider_specific_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.pool_id_length <= 32 && alltrue([for id_length in module.access_platform.terraform_test_contract.wif.provider_id_lengths : id_length <= 32]) && module.access_platform.terraform_test_contract.wif.direct_claim_condition_count == module.access_platform.terraform_test_contract.wif.provider_count
+    error_message = "Test and production must expose distinct provider-valid WIF identities with one provider-specific binding each."
   }
 
   assert {
-    condition = length(setsubtract(toset(module.access_platform.terraform_test_contract.secret_names), toset([
+    condition = module.access_platform.terraform_test_contract.secrets.container_count == 9 && length(setsubtract(toset(module.access_platform.terraform_test_contract.secrets.names), toset([
       "access-database-url", "identity-hash-pepper", "cursor-signing-key",
       "client-update-grant-key", "legacy-access-code", "legacy-admin-code",
       "github-feedback-token", "flask-session-secret", "initial-admin-pin",
@@ -47,18 +47,23 @@ run "private_platform_contract" {
       "access-database-url", "identity-hash-pepper", "cursor-signing-key",
       "client-update-grant-key", "legacy-access-code", "legacy-admin-code",
       "github-feedback-token", "flask-session-secret", "initial-admin-pin",
-    ]), toset(module.access_platform.terraform_test_contract.secret_names))) == 0 && module.access_platform.terraform_test_contract.secret_version_resource_count == 0
-    error_message = "Only the nine approved empty secret containers may exist; Terraform must not create secret versions."
+    ]), toset(module.access_platform.terraform_test_contract.secrets.names))) == 0
+    error_message = "Only the nine approved empty secret containers may exist."
   }
 
   assert {
-    condition     = module.access_platform.terraform_test_contract.update_grant.accessor_category == "api" && module.access_platform.terraform_test_contract.update_grant.accessor_role == "roles/secretmanager.secretAccessor" && module.access_platform.terraform_test_contract.update_grant.non_api_accessor_count == 0 && module.access_platform.terraform_test_contract.bootstrap.database_accessor_role == "roles/secretmanager.secretAccessor" && module.access_platform.terraform_test_contract.bootstrap.initial_pin_adder_role == "roles/secretmanager.secretVersionAdder" && module.access_platform.terraform_test_contract.bootstrap.initial_pin_accessor_count == 0 && module.access_platform.terraform_test_contract.workflow_secret_accessor_count == 0
+    condition     = module.access_platform.terraform_test_contract.secrets.binding_count == 12 && module.access_platform.terraform_test_contract.secrets.update_grant.role == "roles/secretmanager.secretAccessor" && module.access_platform.terraform_test_contract.secrets.bootstrap.database_role == "roles/secretmanager.secretAccessor" && module.access_platform.terraform_test_contract.secrets.bootstrap.pin_role == "roles/secretmanager.secretVersionAdder"
     error_message = "Update-grant, bootstrap PIN, and workflow secret-access boundaries must remain least privilege."
   }
 
   assert {
-    condition     = module.access_platform.database_name == "access_test" ? module.access_platform.terraform_test_contract.bootstrap.environment == "test" : module.access_platform.terraform_test_contract.bootstrap.environment == "production-deploy"
+    condition     = module.access_platform.database_name == "access_test" ? module.access_platform.terraform_test_contract.bootstrap_environment == "test" : module.access_platform.terraform_test_contract.bootstrap_environment == "production-deploy"
     error_message = "Bootstrap trust must use test or production-deploy for its matching root."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.wif.workflow_identity_mapping_count == module.access_platform.terraform_test_contract.wif.provider_count
+    error_message = "Every workflow account must have a separate provider-specific identity category."
   }
 
   assert {

@@ -221,14 +221,16 @@ resource "google_iam_workload_identity_pool_provider" "workflow" {
   workload_identity_pool_provider_id = each.value.role_id
   display_name                       = "Access ${each.value.role_id} (${local.environment_id})"
 
-  # Only standard claims that GitHub issues to every supported caller are
-  # mapped. Workflow-path claims are evaluated directly in the provider
-  # condition, so a reusable-only claim is never required as an attribute.
+  # Standard GitHub claims are preserved and every provider carries a static,
+  # provider-specific identity value. Workflow-path claims remain direct
+  # condition checks, so a reusable-only claim is never required as an
+  # attribute.
   attribute_mapping = {
-    "google.subject"        = "assertion.sub"
-    "attribute.repository"  = "assertion.repository"
-    "attribute.ref"         = "assertion.ref"
-    "attribute.environment" = "assertion.environment"
+    "google.subject"              = "assertion.sub"
+    "attribute.repository"        = "assertion.repository"
+    "attribute.ref"               = "assertion.ref"
+    "attribute.environment"       = "assertion.environment"
+    "attribute.workflow_identity" = "\"${each.key}\""
   }
 
   attribute_condition = "assertion.repository == \"${var.github_repository}\" && assertion.ref == \"${var.wif_trust[each.key].ref_pattern}\" && assertion.environment == \"${var.wif_trust[each.key].github_environment}\" && (${join(" || ", [for claim in sort(tolist(var.wif_trust[each.key].workflow_claims)) : "has(assertion.${claim}) && assertion.${claim} in [${join(", ", [for ref in sort(tolist(var.wif_trust[each.key].workflow_refs)) : format("%q", ref)])}"])})"
@@ -240,7 +242,7 @@ resource "google_service_account_iam_member" "workflow_impersonation" {
   for_each           = local.workflow_accounts
   service_account_id = google_service_account.identities[each.value.account].name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.workflow.name}/attribute.repository/${var.github_repository}"
+  member             = "principalSet://iam.googleapis.com/projects/${var.project_id}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.workflow.workload_identity_pool_id}/attribute.workflow_identity/${each.key}"
 }
 
 # Secrets are bound individually below. No workflow account appears in a

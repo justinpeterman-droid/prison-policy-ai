@@ -68,8 +68,14 @@ def test_workflow_impersonation_is_scoped_to_exact_permitted_workflow_claims():
     assert '"attribute.workflow_ref"' not in identities
     assert 'for claim in sort(tolist(var.wif_trust[each.key].workflow_claims))' in identities
     assert 'for_each           = local.workflow_accounts' in identities
-    assert 'attribute.repository/${var.github_repository}' in identities
+    assert '"attribute.workflow_identity" = "\\"${each.key}\\"' in identities
+    assert 'attribute.workflow_identity/${each.key}' in identities
+    assert 'attribute.repository/${var.github_repository}' not in identities
     assert 'output "terraform_test_contract"' in outputs
+    assert 'distinct_account_id_count' in outputs
+    assert 'distinct_provider_id_count' in outputs
+    assert 'provider_specific_binding_count' in outputs
+    assert 'google_secret_manager_secret_iam_member.api_client_update_grant_key' in outputs
 
 
 def test_workflow_claims_follow_top_level_and_reusable_boundaries():
@@ -135,6 +141,7 @@ def test_bootstrap_and_update_grant_secrets_are_separated():
         identities,
         flags=re.DOTALL,
     )
+    assert len(bindings) == 12
     initial_pin = next(block for block in bindings if "initial_admin_pin.id" in block)
     update_key = next(block for block in bindings if "client_update_grant_key.id" in block)
     assert re.search(r'role\s*=\s*"roles/secretmanager\.secretVersionAdder"', initial_pin)

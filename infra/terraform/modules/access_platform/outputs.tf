@@ -53,8 +53,8 @@ output "secret_resource_ids" {
 
 output "services_ready" { value = terraform_data.services_ready.output }
 
-# This output exists only for mocked native Terraform assertions. It intentionally
-# contains no identifiers, IAM members, secret payloads, or client-facing data.
+# Native tests consume only this non-secret, resource-derived contract. It is
+# not a runtime/client interface.
 output "terraform_test_contract" {
   value = {
     database = {
@@ -62,34 +62,76 @@ output "terraform_test_contract" {
       availability_type  = google_sql_database_instance.postgres.settings[0].availability_type
       deletion_protected = google_sql_database_instance.postgres.deletion_protection
     }
-    service_account_count      = length(local.service_account_roles)
-    service_account_id_lengths = [for role_id in values(local.service_account_roles) : length("access-${local.environment_id}-${role_id}")]
-    wif_provider_count         = length(local.workflow_accounts)
-    wif_provider_id_lengths    = [for workflow in values(local.workflow_accounts) : length(workflow.role_id)]
-    secret_names = sort([
-      google_secret_manager_secret.access_database_url.secret_id,
-      google_secret_manager_secret.identity_hash_pepper.secret_id,
-      google_secret_manager_secret.cursor_signing_key.secret_id,
-      google_secret_manager_secret.client_update_grant_key.secret_id,
-      google_secret_manager_secret.legacy_access_code.secret_id,
-      google_secret_manager_secret.legacy_admin_code.secret_id,
-      google_secret_manager_secret.github_feedback_token.secret_id,
-      google_secret_manager_secret.flask_session_secret.secret_id,
-      google_secret_manager_secret.initial_admin_pin.secret_id,
-    ])
-    update_grant = {
-      accessor_category      = "api"
-      accessor_role          = google_secret_manager_secret_iam_member.api_client_update_grant_key.role
-      non_api_accessor_count = 0
+    service_accounts = {
+      count                     = length(google_service_account.identities)
+      distinct_account_id_count = length(toset([for account in values(google_service_account.identities) : account.account_id]))
+      id_lengths                = [for account in values(google_service_account.identities) : length(account.account_id)]
     }
-    bootstrap = {
-      environment                = var.wif_trust["admin-bootstrap"].github_environment
-      database_accessor_role     = google_secret_manager_secret_iam_member.bootstrap_database.role
-      initial_pin_adder_role     = google_secret_manager_secret_iam_member.bootstrap_initial_pin_adder.role
-      initial_pin_accessor_count = 0
+    wif = {
+      provider_count              = length(google_iam_workload_identity_pool_provider.workflow)
+      distinct_provider_id_count  = length(toset([for provider in values(google_iam_workload_identity_pool_provider.workflow) : provider.workload_identity_pool_provider_id]))
+      provider_id_lengths         = [for provider in values(google_iam_workload_identity_pool_provider.workflow) : length(provider.workload_identity_pool_provider_id)]
+      pool_id_length              = length(google_iam_workload_identity_pool.workflow.workload_identity_pool_id)
+      impersonation_binding_count = length(google_service_account_iam_member.workflow_impersonation)
+      provider_specific_binding_count = length([
+        for name, binding in google_service_account_iam_member.workflow_impersonation : binding
+        if endswith(binding.member, "/attribute.workflow_identity/${name}")
+      ])
+      workflow_identity_mapping_count = length([
+        for name, provider in google_iam_workload_identity_pool_provider.workflow : provider
+        if provider.attribute_mapping["attribute.workflow_identity"] == format("%q", name)
+      ])
+      direct_claim_condition_count = length([
+        for provider in values(google_iam_workload_identity_pool_provider.workflow) : provider
+        if strcontains(provider.attribute_condition, "assertion.workflow_ref") || strcontains(provider.attribute_condition, "assertion.job_workflow_ref")
+      ])
     }
-    workflow_claim_categories      = { for name, trust in var.wif_trust : name => sort(tolist(trust.workflow_claims)) }
-    secret_version_resource_count  = 0
-    workflow_secret_accessor_count = 0
+    secrets = {
+      container_count = length([
+        google_secret_manager_secret.access_database_url,
+        google_secret_manager_secret.identity_hash_pepper,
+        google_secret_manager_secret.cursor_signing_key,
+        google_secret_manager_secret.client_update_grant_key,
+        google_secret_manager_secret.legacy_access_code,
+        google_secret_manager_secret.legacy_admin_code,
+        google_secret_manager_secret.github_feedback_token,
+        google_secret_manager_secret.flask_session_secret,
+        google_secret_manager_secret.initial_admin_pin,
+      ])
+      names = sort([
+        google_secret_manager_secret.access_database_url.secret_id,
+        google_secret_manager_secret.identity_hash_pepper.secret_id,
+        google_secret_manager_secret.cursor_signing_key.secret_id,
+        google_secret_manager_secret.client_update_grant_key.secret_id,
+        google_secret_manager_secret.legacy_access_code.secret_id,
+        google_secret_manager_secret.legacy_admin_code.secret_id,
+        google_secret_manager_secret.github_feedback_token.secret_id,
+        google_secret_manager_secret.flask_session_secret.secret_id,
+        google_secret_manager_secret.initial_admin_pin.secret_id,
+      ])
+      binding_count = length([
+        google_secret_manager_secret_iam_member.api_database,
+        google_secret_manager_secret_iam_member.api_identity_pepper,
+        google_secret_manager_secret_iam_member.api_cursor_key,
+        google_secret_manager_secret_iam_member.api_client_update_grant_key,
+        google_secret_manager_secret_iam_member.api_legacy_access,
+        google_secret_manager_secret_iam_member.api_legacy_admin,
+        google_secret_manager_secret_iam_member.api_feedback,
+        google_secret_manager_secret_iam_member.api_session,
+        google_secret_manager_secret_iam_member.worker_database,
+        google_secret_manager_secret_iam_member.migration_database,
+        google_secret_manager_secret_iam_member.bootstrap_database,
+        google_secret_manager_secret_iam_member.bootstrap_initial_pin_adder,
+      ])
+      update_grant = {
+        role = google_secret_manager_secret_iam_member.api_client_update_grant_key.role
+      }
+      bootstrap = {
+        database_role = google_secret_manager_secret_iam_member.bootstrap_database.role
+        pin_role      = google_secret_manager_secret_iam_member.bootstrap_initial_pin_adder.role
+      }
+    }
+    bootstrap_environment     = var.wif_trust["admin-bootstrap"].github_environment
+    workflow_claim_categories = { for name, trust in var.wif_trust : name => sort(tolist(trust.workflow_claims)) }
   }
 }
