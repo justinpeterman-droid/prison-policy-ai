@@ -34,10 +34,14 @@ def main() -> int:
     runtime = inspect(args.runtime_image)
     image_id = str(image["Id"])
     runtime_id = str(runtime["Id"])
+    runtime_digests = runtime.get("RepoDigests") or []
     image_layers = image["RootFS"]["Layers"]
     runtime_layers = runtime["RootFS"]["Layers"]
     provenance_path = Path(args.provenance)
     if args.generate_provenance:
+        if not any(digest.endswith("@" + DIGEST) for digest in runtime_digests):
+            print("runtime image does not resolve to approved digest", file=sys.stderr)
+            return 1
         provenance_path.write_text(
             json.dumps(
                 {
@@ -45,6 +49,7 @@ def main() -> int:
                     "image_id": image_id,
                     "runtime_image": args.runtime_image,
                     "runtime_id": runtime_id,
+                    "runtime_repo_digests": runtime_digests,
                     "image_layers": image_layers,
                     "runtime_layers": runtime_layers,
                     "runtime_digest": DIGEST,
@@ -62,6 +67,8 @@ def main() -> int:
         or not data.get("packages")
         or provenance.get("image_id") != image_id
         or provenance.get("runtime_id") != runtime_id
+        or provenance.get("runtime_repo_digests") != runtime_digests
+        or not any(digest.endswith("@" + DIGEST) for digest in runtime_digests)
         or provenance.get("image_layers") != image_layers
         or provenance.get("runtime_layers") != runtime_layers
         or image_layers[: len(runtime_layers)] != runtime_layers

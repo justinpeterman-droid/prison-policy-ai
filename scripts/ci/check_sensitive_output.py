@@ -21,6 +21,10 @@ FORBIDDEN = (
     "inmate_id",
 )
 FIXTURE_VALUE = re.compile(r"^\s*(?:fixture-|fake-)[a-z0-9_-]+\s*$", re.I)
+ASSIGNMENT = re.compile(
+    r"\b(?:password|private_key|authorization|bearer|service_account|access_code|admin_code|temporary_pin)\b\s*[:=]\s*['\"]([^'\"]+)['\"]",
+    re.I,
+)
 
 
 def paths(args: argparse.Namespace) -> list[Path]:
@@ -49,9 +53,12 @@ def main() -> int:
                 continue
             for line in text.splitlines():
                 lowered = line.lower()
-                if any(
-                    re.search(rf"\b{re.escape(term)}\b\s*[:=]", lowered) for term in FORBIDDEN
-                ) and not FIXTURE_VALUE.search(line.split("=", 1)[-1].split(":", 1)[-1].strip()):
+                value = ASSIGNMENT.search(line)
+                strict = path.suffix.lower() in {".sarif", ".json", ".log"} or "output" in path.parts
+                if value and not FIXTURE_VALUE.fullmatch(value.group(1)):
+                    bad.append(str(path))
+                    break
+                if strict and any(re.search(rf"\b{re.escape(term)}\b\s*[:=]", lowered) for term in FORBIDDEN):
                     bad.append(str(path))
                     break
     if bad:
