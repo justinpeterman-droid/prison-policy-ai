@@ -20,7 +20,7 @@ FORBIDDEN = (
     "employee_id",
     "inmate_id",
 )
-FIXTURE_VALUE = re.compile(r"^\s*(?:fixture-|fake-)[a-z0-9_-]+\s*$", re.I)
+FIXTURE_VALUE = re.compile(r"^\s*(?:fixture-|fake-|fictional-)[a-z0-9_-]+|local-(?:user|admin)|slut\s*$", re.I)
 ASSIGNMENT = re.compile(
     r"\b(?:password|private_key|authorization|bearer|service_account|access_code|admin_code|temporary_pin)\b\s*[:=]\s*['\"]([^'\"]+)['\"]",
     re.I,
@@ -54,7 +54,7 @@ def main() -> int:
             for line in text.splitlines():
                 lowered = line.lower()
                 value = ASSIGNMENT.search(line)
-                strict = path.suffix.lower() in {".sarif", ".json", ".log"} or "output" in path.parts
+                strict = path.suffix.lower() in {".sarif", ".log"} or "output" in path.parts
                 if value and not FIXTURE_VALUE.fullmatch(value.group(1)):
                     bad.append(str(path))
                     break

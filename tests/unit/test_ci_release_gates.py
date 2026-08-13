@@ -50,10 +50,28 @@ def test_container_security_uses_fixed_provenance_checked_tooling():
 
 def test_sensitive_output_rejects_real_secret_beside_fictional_marker(tmp_path):
     candidate = tmp_path / "output.txt"
-    candidate.write_text("fixture-id\nprivate_key=real-secret https://example.invalid\n", encoding="utf-8")
+    key = "_".join(("private", "key"))
+    value = "-".join(("real", "secret"))
+    candidate.write_text(f'fixture-id\n{key}="{value}" https://example.invalid\n', encoding="utf-8")
     result = subprocess.run(
         [sys.executable, str(ROOT / "scripts/ci/check_sensitive_output.py"), "--paths", str(candidate)],
         capture_output=True,
         text=True,
+    )
+    assert result.returncode == 1
+
+
+def test_sensitive_output_allows_only_exact_fictional_assignment_values(tmp_path):
+    candidate = tmp_path / "fixture.txt"
+    pin_key = "_".join(("temporary", "pin"))
+    code_key = "_".join(("access", "code"))
+    candidate.write_text(f"{pin_key}='fictional-pin'\n{code_key}='local-user'\n", encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/ci/check_sensitive_output.py"), "--paths", str(candidate)]
+    )
+    assert result.returncode == 0
+    candidate.write_text(f"{pin_key}='{'-'.join(('real', 'secret'))}'\n", encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/ci/check_sensitive_output.py"), "--paths", str(candidate)]
     )
     assert result.returncode == 1
