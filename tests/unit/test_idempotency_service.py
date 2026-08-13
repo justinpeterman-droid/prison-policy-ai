@@ -38,9 +38,7 @@ def test_submit_command_canonical_payload_is_stable_and_content_free():
     )
 
 
-@pytest.mark.parametrize(
-    "job_type", ["classify", "extract", "generate", "disciplinary"]
-)
+@pytest.mark.parametrize("job_type", ["classify", "extract", "generate", "disciplinary"])
 def test_submit_command_accepts_only_the_four_public_job_types(job_type):
     command = SubmitJobCommand(incident_id=INCIDENT_ID, job_type=job_type)
     assert command.canonical_payload(base_revision_number=1)["job_type"] == job_type

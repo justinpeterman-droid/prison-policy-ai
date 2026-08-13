@@ -65,15 +65,9 @@ def fictional_revision_time() -> datetime:
     return datetime(2026, 8, 12, 15, 4, 5, tzinfo=UTC)
 
 
-def test_docx_normalization_is_byte_stable(
-    fictional_docx_bytes, fictional_revision_time
-):
-    first = normalize_docx_bytes(
-        fictional_docx_bytes, document_time=fictional_revision_time
-    )
-    second = normalize_docx_bytes(
-        fictional_docx_bytes, document_time=fictional_revision_time
-    )
+def test_docx_normalization_is_byte_stable(fictional_docx_bytes, fictional_revision_time):
+    first = normalize_docx_bytes(fictional_docx_bytes, document_time=fictional_revision_time)
+    second = normalize_docx_bytes(fictional_docx_bytes, document_time=fictional_revision_time)
 
     assert first == second
     assert hashlib.sha256(first).hexdigest() == hashlib.sha256(second).hexdigest()
@@ -88,12 +82,8 @@ def test_normalization_survives_a_differently_stamped_source(fictional_revision_
     )
 
 
-def test_members_are_emitted_sorted_by_name(
-    fictional_docx_bytes, fictional_revision_time
-):
-    normalized = normalize_docx_bytes(
-        fictional_docx_bytes, document_time=fictional_revision_time
-    )
+def test_members_are_emitted_sorted_by_name(fictional_docx_bytes, fictional_revision_time):
+    normalized = normalize_docx_bytes(fictional_docx_bytes, document_time=fictional_revision_time)
 
     with zipfile.ZipFile(io.BytesIO(normalized)) as archive:
         names = archive.namelist()
@@ -105,9 +95,7 @@ def test_every_entry_timestamp_is_rewritten_to_the_fixed_epoch(
     fictional_docx_bytes,
     fictional_revision_time,
 ):
-    normalized = normalize_docx_bytes(
-        fictional_docx_bytes, document_time=fictional_revision_time
-    )
+    normalized = normalize_docx_bytes(fictional_docx_bytes, document_time=fictional_revision_time)
 
     with zipfile.ZipFile(io.BytesIO(normalized)) as archive:
         stamps = {item.date_time for item in archive.infolist()}
@@ -120,9 +108,7 @@ def test_content_compression_permissions_and_comments_are_preserved(
     fictional_docx_bytes,
     fictional_revision_time,
 ):
-    normalized = normalize_docx_bytes(
-        fictional_docx_bytes, document_time=fictional_revision_time
-    )
+    normalized = normalize_docx_bytes(fictional_docx_bytes, document_time=fictional_revision_time)
 
     with zipfile.ZipFile(io.BytesIO(normalized)) as archive:
         items = {item.filename: item for item in archive.infolist()}
@@ -139,9 +125,7 @@ def test_core_properties_times_are_normalized_to_the_revision_time(
     fictional_docx_bytes,
     fictional_revision_time,
 ):
-    normalized = normalize_docx_bytes(
-        fictional_docx_bytes, document_time=fictional_revision_time
-    )
+    normalized = normalize_docx_bytes(fictional_docx_bytes, document_time=fictional_revision_time)
 
     with zipfile.ZipFile(io.BytesIO(normalized)) as archive:
         core = archive.read(CORE_PROPERTIES_NAME).decode("utf-8")
@@ -180,9 +164,7 @@ def test_normalizing_an_already_normalized_document_is_a_fixed_point(
     fictional_docx_bytes,
     fictional_revision_time,
 ):
-    once = normalize_docx_bytes(
-        fictional_docx_bytes, document_time=fictional_revision_time
-    )
+    once = normalize_docx_bytes(fictional_docx_bytes, document_time=fictional_revision_time)
     twice = normalize_docx_bytes(once, document_time=fictional_revision_time)
 
     assert once == twice
@@ -193,9 +175,7 @@ def test_a_document_without_core_properties_still_normalizes(fictional_revision_
     with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr("word/document.xml", b"<w:document>Fictional.</w:document>")
 
-    normalized = normalize_docx_bytes(
-        buffer.getvalue(), document_time=fictional_revision_time
-    )
+    normalized = normalize_docx_bytes(buffer.getvalue(), document_time=fictional_revision_time)
 
     with zipfile.ZipFile(io.BytesIO(normalized)) as archive:
         assert archive.namelist() == ["word/document.xml"]
@@ -203,6 +183,4 @@ def test_a_document_without_core_properties_still_normalizes(fictional_revision_
 
 def test_a_document_that_is_not_a_zip_is_rejected(fictional_revision_time):
     with pytest.raises(ValueError):
-        normalize_docx_bytes(
-            b"not a fictional zip archive", document_time=fictional_revision_time
-        )
+        normalize_docx_bytes(b"not a fictional zip archive", document_time=fictional_revision_time)

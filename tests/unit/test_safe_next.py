@@ -39,12 +39,8 @@ def test_the_demo_deep_link_survives_login():
     """The whole reason the redirect carries a query string at all: without
     this, a logged-out 'Try a demo' click lands on a blank /reports."""
     assert _safe_next("/reports?demo=1") == "/reports?demo=1"
-    assert (
-        _safe_next("/reports?demo=use_of_force_oc") == "/reports?demo=use_of_force_oc"
-    )
-    assert _safe_next("/review-lab?demo=use_of_force_oc") == (
-        "/review-lab?demo=use_of_force_oc"
-    )
+    assert _safe_next("/reports?demo=use_of_force_oc") == "/reports?demo=use_of_force_oc"
+    assert _safe_next("/review-lab?demo=use_of_force_oc") == ("/review-lab?demo=use_of_force_oc")
 
 
 def test_only_the_demo_parameter_rides_along():

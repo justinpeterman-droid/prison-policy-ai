@@ -159,16 +159,10 @@ def _timestamp(value: datetime | None) -> str | None:
 def _body(*, exact: set[str] | None = None, allowed: set[str] | None = None) -> dict:
     value = request.get_json(silent=True)
     if not isinstance(value, dict):
-        raise ApiError(
-            "validation_failed", "The admin report request is invalid.", status=400
-        )
+        raise ApiError("validation_failed", "The admin report request is invalid.", status=400)
     keys = set(value)
-    if (exact is not None and keys != exact) or (
-        allowed is not None and (not keys or not keys <= allowed)
-    ):
-        raise ApiError(
-            "validation_failed", "The admin report request is invalid.", status=400
-        )
+    if (exact is not None and keys != exact) or (allowed is not None and (not keys or not keys <= allowed)):
+        raise ApiError("validation_failed", "The admin report request is invalid.", status=400)
     return value
 
 
@@ -176,9 +170,7 @@ def _staff_display(session, staff_id: UUID) -> tuple[str, str]:
     staff = session.get(StaffMember, staff_id)
     if staff is None:
         raise RuntimeError("report staff is unavailable")
-    return str(staff.id), " ".join(
-        part for part in (staff.rank, staff.first_name, staff.last_name) if part
-    )
+    return str(staff.id), " ".join(part for part in (staff.rank, staff.first_name, staff.last_name) if part)
 
 
 def _view_data(session, view: ReportView) -> dict[str, object]:
@@ -219,19 +211,13 @@ def _view_data(session, view: ReportView) -> dict[str, object]:
 def _content_hash(snapshot: dict) -> str:
     import hashlib
 
-    encoded = json.dumps(
-        snapshot, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    )
+    encoded = json.dumps(snapshot, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _source_revision_number(row) -> int | None:
     provenance = row.provenance or {}
-    value = (
-        provenance.get("source_revision_number")
-        if isinstance(provenance, dict)
-        else None
-    )
+    value = provenance.get("source_revision_number") if isinstance(provenance, dict) else None
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
@@ -265,9 +251,7 @@ def _search_item_data(item: AdminReportSearchItem) -> dict[str, object]:
         "facility": incident.facility,
         "location": incident.location,
         "shift": incident.shift,
-        "incident_date": incident.incident_date.isoformat()
-        if incident.incident_date
-        else None,
+        "incident_date": incident.incident_date.isoformat() if incident.incident_date else None,
         "reporting_staff_member_id": str(report.reporting_staff_member_id),
         "prepared_by_staff_member_id": str(report.prepared_by_staff_member_id),
         "last_editor_staff_member_id": str(item.last_editor_staff_member_id),
@@ -301,9 +285,7 @@ def _parse_datetime(value: str) -> datetime:
 T = TypeVar("T")
 
 
-def _optional_filter(
-    values: Mapping[str, str], name: str, parser: Callable[[str], T]
-) -> T | None:
+def _optional_filter(values: Mapping[str, str], name: str, parser: Callable[[str], T]) -> T | None:
     raw = values.get(name)
     if raw is None:
         return None
@@ -335,36 +317,22 @@ def _filters_from_raw(values: Mapping[str, str]) -> AdminReportFilters:
     return AdminReportFilters(
         report_id=_optional_filter(values, "report_id", _parse_uuid_filter),
         incident_id=_optional_filter(values, "incident_id", _parse_uuid_filter),
-        reporting_staff_id=_optional_filter(
-            values, "reporting_staff_id", _parse_uuid_filter
-        ),
-        preparer_staff_id=_optional_filter(
-            values, "preparer_staff_id", _parse_uuid_filter
-        ),
+        reporting_staff_id=_optional_filter(values, "reporting_staff_id", _parse_uuid_filter),
+        preparer_staff_id=_optional_filter(values, "preparer_staff_id", _parse_uuid_filter),
         incident_date_from=_optional_filter(values, "incident_date_from", _parse_date),
         incident_date_to=_optional_filter(values, "incident_date_to", _parse_date),
         created_at_from=_optional_filter(values, "created_at_from", _parse_datetime),
         created_at_to=_optional_filter(values, "created_at_to", _parse_datetime),
-        inmate_first_name=_optional_filter(
-            values, "inmate_first_name", _parse_text_filter
-        ),
-        inmate_middle_name=_optional_filter(
-            values, "inmate_middle_name", _parse_text_filter
-        ),
-        inmate_last_name=_optional_filter(
-            values, "inmate_last_name", _parse_text_filter
-        ),
-        inmate_adc_number=_optional_filter(
-            values, "inmate_adc_number", _parse_text_filter
-        ),
+        inmate_first_name=_optional_filter(values, "inmate_first_name", _parse_text_filter),
+        inmate_middle_name=_optional_filter(values, "inmate_middle_name", _parse_text_filter),
+        inmate_last_name=_optional_filter(values, "inmate_last_name", _parse_text_filter),
+        inmate_adc_number=_optional_filter(values, "inmate_adc_number", _parse_text_filter),
         category=_optional_filter(values, "category", _parse_text_filter),
         facility=_optional_filter(values, "facility", _parse_text_filter),
         location=_optional_filter(values, "location", _parse_text_filter),
         shift=_optional_filter(values, "shift", _parse_text_filter),
         status=_optional_filter(values, "status", _parse_status_filter),
-        last_editor_staff_id=_optional_filter(
-            values, "last_editor_staff_id", _parse_uuid_filter
-        ),
+        last_editor_staff_id=_optional_filter(values, "last_editor_staff_id", _parse_uuid_filter),
         modified_at_from=_optional_filter(values, "modified_at_from", _parse_datetime),
         modified_at_to=_optional_filter(values, "modified_at_to", _parse_datetime),
     )
@@ -373,11 +341,7 @@ def _filters_from_raw(values: Mapping[str, str]) -> AdminReportFilters:
 def _parse_admin_filters(args) -> AdminReportFilters:
     if not set(args) <= ADMIN_SEARCH_QUERY_FIELDS:
         raise ValueError("search filters are invalid")
-    values = {
-        name: raw
-        for name in ADMIN_REPORT_FILTER_FIELDS
-        if (raw := args.get(name)) is not None
-    }
+    values = {name: raw for name in ADMIN_REPORT_FILTER_FIELDS if (raw := args.get(name)) is not None}
     filters = _filters_from_raw(values)
     for lo_name, hi_name in _RANGE_PAIRS:
         lo, hi = getattr(filters, lo_name), getattr(filters, hi_name)
@@ -390,9 +354,7 @@ def _search_cursor_key(base_key: str, filters: AdminReportFilters, sort: str) ->
     context = {
         "sort": sort,
         "filters": {
-            name: str(value)
-            for name in ADMIN_REPORT_FILTER_FIELDS
-            if (value := getattr(filters, name)) is not None
+            name: str(value) for name in ADMIN_REPORT_FILTER_FIELDS if (value := getattr(filters, name)) is not None
         },
     }
     canonical = json.dumps(
@@ -455,15 +417,11 @@ def search_route():
         return success(
             {
                 "items": [_search_item_data(item) for item in page.items],
-                "next_cursor": encode_cursor(page.next_cursor, key)
-                if page.next_cursor
-                else None,
+                "next_cursor": encode_cursor(page.next_cursor, key) if page.next_cursor else None,
             }
         )
     except (InvalidCursor, ValueError):
-        raise ApiError(
-            "validation_failed", "Search filters are invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "Search filters are invalid.", status=400) from None
 
 
 @admin_reports_bp.get("/<uuid:report_id>", endpoint="detail")
@@ -499,21 +457,14 @@ def revision_list_route(report_id: UUID):
         )
         return success(
             {
-                "items": [
-                    _revision_summary(db, row, current.revision_number)
-                    for row in page.items
-                ],
-                "next_cursor": encode_cursor(page.next_cursor, key)
-                if page.next_cursor
-                else None,
+                "items": [_revision_summary(db, row, current.revision_number) for row in page.items],
+                "next_cursor": encode_cursor(page.next_cursor, key) if page.next_cursor else None,
             }
         )
     except ReportNotFound:
         raise ApiError("not_found", "Report not found.", status=404) from None
     except (InvalidCursor, ValueError):
-        raise ApiError(
-            "validation_failed", "Revision pagination is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "Revision pagination is invalid.", status=400) from None
 
 
 @admin_reports_bp.get(
@@ -553,9 +504,7 @@ def _admin_mutation(purpose: str | None, operation):
             pending = getattr(g, "pending_step_up", None)
             if not pending or pending[0] != purpose:
                 raise StepUpRequired("Administrator PIN confirmation is required.")
-            consume_step_up(
-                db, actor=actor, raw_token=pending[1], purpose=purpose, now=now
-            )
+            consume_step_up(db, actor=actor, raw_token=pending[1], purpose=purpose, now=now)
         view = operation(db, actor, now)
         db.commit()
         return success(_view_data(db, view))
@@ -567,9 +516,7 @@ def _admin_mutation(purpose: str | None, operation):
         raise ApiError("admin_elevation_required", str(error), status=403) from None
     except RequestInProgress as error:
         db.rollback()
-        raise ApiError(
-            "request_in_progress", str(error), status=409, retryable=True
-        ) from None
+        raise ApiError("request_in_progress", str(error), status=409, retryable=True) from None
     except IdempotencyConflict as error:
         db.rollback()
         raise ApiError("idempotency_conflict", str(error), status=409) from None
@@ -594,9 +541,7 @@ def _admin_mutation(purpose: str | None, operation):
         raise
     except (ValidationError, ValueError, TypeError):
         db.rollback()
-        raise ApiError(
-            "validation_failed", "The admin report request is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "The admin report request is invalid.", status=400) from None
     except IntegrityError:
         db.rollback()
         raise ApiError(
@@ -639,9 +584,7 @@ def edit_route(report_id: UUID):
     try:
         model = SaveReportRequest.model_validate_json(json.dumps(payload))
     except ValidationError:
-        raise ApiError(
-            "validation_failed", "The admin report request is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "The admin report request is invalid.", status=400) from None
 
     def operation(db, actor, _now):
         return save_report_admin_record(
@@ -667,14 +610,8 @@ def edit_route(report_id: UUID):
 def restore_route(report_id: UUID):
     payload = _body(exact={"revision_number"})
     revision_number = payload["revision_number"]
-    if (
-        not isinstance(revision_number, int)
-        or isinstance(revision_number, bool)
-        or revision_number < 1
-    ):
-        raise ApiError(
-            "validation_failed", "The admin report request is invalid.", status=400
-        )
+    if not isinstance(revision_number, int) or isinstance(revision_number, bool) or revision_number < 1:
+        raise ApiError("validation_failed", "The admin report request is invalid.", status=400)
 
     def operation(db, actor, _now):
         return restore_report_admin_record(
@@ -700,29 +637,17 @@ def restore_route(report_id: UUID):
 def transfer_route(report_id: UUID):
     payload = _body(allowed={"new_owner_staff_id", "new_preparer_staff_id", "reason"})
     if "new_owner_staff_id" not in payload or "reason" not in payload:
-        raise ApiError(
-            "validation_failed", "The admin report request is invalid.", status=400
-        )
+        raise ApiError("validation_failed", "The admin report request is invalid.", status=400)
     reason = payload["reason"]
-    if (
-        not isinstance(reason, str)
-        or not reason.strip()
-        or len(reason) > TRANSFER_REASON_MAX_LENGTH
-    ):
-        raise ApiError(
-            "validation_failed", "The admin report request is invalid.", status=400
-        )
+    if not isinstance(reason, str) or not reason.strip() or len(reason) > TRANSFER_REASON_MAX_LENGTH:
+        raise ApiError("validation_failed", "The admin report request is invalid.", status=400)
     try:
         new_owner_staff_id = UUID(str(payload["new_owner_staff_id"]))
         new_preparer_staff_id = (
-            UUID(str(payload["new_preparer_staff_id"]))
-            if payload.get("new_preparer_staff_id") is not None
-            else None
+            UUID(str(payload["new_preparer_staff_id"])) if payload.get("new_preparer_staff_id") is not None else None
         )
     except (TypeError, ValueError):
-        raise ApiError(
-            "validation_failed", "The admin report request is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "The admin report request is invalid.", status=400) from None
 
     def operation(db, actor, _now):
         return transfer_report_ownership_record(
@@ -779,9 +704,7 @@ def admin_export_docx_route(report_id: UUID):
         db.commit()
     except RequestInProgress as error:
         db.rollback()
-        raise ApiError(
-            "request_in_progress", str(error), status=409, retryable=True
-        ) from None
+        raise ApiError("request_in_progress", str(error), status=409, retryable=True) from None
     except IdempotencyConflict as error:
         db.rollback()
         raise ApiError("idempotency_conflict", str(error), status=409) from None
@@ -793,9 +716,7 @@ def admin_export_docx_route(report_id: UUID):
         raise
     except (ValidationError, ValueError, TypeError):
         db.rollback()
-        raise ApiError(
-            "validation_failed", "The export request is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "The export request is invalid.", status=400) from None
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError, OSError):
         db.rollback()
         raise ApiError(
@@ -819,23 +740,15 @@ def admin_export_docx_route(report_id: UUID):
 
 def _bulk_reason(payload: dict) -> str:
     reason = payload.get("reason")
-    if (
-        not isinstance(reason, str)
-        or not reason.strip()
-        or len(reason) > BULK_EXPORT_REASON_MAX_LENGTH
-    ):
-        raise ApiError(
-            "validation_failed", "A bulk export reason is required.", status=400
-        )
+    if not isinstance(reason, str) or not reason.strip() or len(reason) > BULK_EXPORT_REASON_MAX_LENGTH:
+        raise ApiError("validation_failed", "A bulk export reason is required.", status=400)
     return reason
 
 
 def _bulk_report_ids(selection: dict) -> tuple[UUID, ...]:
     raw = selection.get("report_ids")
     if not isinstance(raw, list) or not raw:
-        raise ApiError(
-            "validation_failed", "The bulk export selection is invalid.", status=400
-        )
+        raise ApiError("validation_failed", "The bulk export selection is invalid.", status=400)
     if len(raw) > BULK_EXPORT_MAX_DOCUMENTS:
         raise ApiError(
             "bulk_export_limit_exceeded",
@@ -845,9 +758,7 @@ def _bulk_report_ids(selection: dict) -> tuple[UUID, ...]:
     ids: list[UUID] = []
     for item in raw:
         if not isinstance(item, str):
-            raise ApiError(
-                "validation_failed", "The bulk export selection is invalid.", status=400
-            )
+            raise ApiError("validation_failed", "The bulk export selection is invalid.", status=400)
         try:
             parsed = UUID(item)
         except (AttributeError, TypeError, ValueError):
@@ -858,28 +769,18 @@ def _bulk_report_ids(selection: dict) -> tuple[UUID, ...]:
             ) from None
         ids.append(parsed)
     if len(set(ids)) != len(ids):
-        raise ApiError(
-            "validation_failed", "The bulk export selection is invalid.", status=400
-        )
+        raise ApiError("validation_failed", "The bulk export selection is invalid.", status=400)
     return tuple(ids)
 
 
 def _bulk_filters(selection: dict) -> AdminReportFilters:
     raw = selection.get("filters")
-    if (
-        not isinstance(raw, dict)
-        or not raw
-        or not set(raw) <= set(ADMIN_REPORT_FILTER_FIELDS)
-    ):
-        raise ApiError(
-            "validation_failed", "The bulk export selection is invalid.", status=400
-        )
+    if not isinstance(raw, dict) or not raw or not set(raw) <= set(ADMIN_REPORT_FILTER_FIELDS):
+        raise ApiError("validation_failed", "The bulk export selection is invalid.", status=400)
     values: dict[str, str] = {}
     for name, value in raw.items():
         if not isinstance(value, str):
-            raise ApiError(
-                "validation_failed", "The bulk export selection is invalid.", status=400
-            )
+            raise ApiError("validation_failed", "The bulk export selection is invalid.", status=400)
         values[name] = value
     try:
         filters = _filters_from_raw(values)
@@ -892,9 +793,7 @@ def _bulk_filters(selection: dict) -> AdminReportFilters:
     for lo_name, hi_name in _RANGE_PAIRS:
         lo, hi = getattr(filters, lo_name), getattr(filters, hi_name)
         if lo is not None and hi is not None and lo > hi:
-            raise ApiError(
-                "validation_failed", "The bulk export selection is invalid.", status=400
-            )
+            raise ApiError("validation_failed", "The bulk export selection is invalid.", status=400)
     return filters
 
 
@@ -906,41 +805,25 @@ def _bulk_selection(payload: dict):
     named set of records, not for "as many as you can give me".
     """
     if set(payload) != BULK_EXPORT_BODY_FIELDS:
-        raise ApiError(
-            "validation_failed", "The bulk export request is invalid.", status=400
-        )
+        raise ApiError("validation_failed", "The bulk export request is invalid.", status=400)
     if payload.get("revision_selection") != BULK_REVISION_SELECTION:
-        raise ApiError(
-            "validation_failed", "The bulk export request is invalid.", status=400
-        )
+        raise ApiError("validation_failed", "The bulk export request is invalid.", status=400)
     reason = _bulk_reason(payload)
     selection = payload.get("selection")
     if not isinstance(selection, dict):
-        raise ApiError(
-            "validation_failed", "The bulk export selection is invalid.", status=400
-        )
+        raise ApiError("validation_failed", "The bulk export selection is invalid.", status=400)
     mode = selection.get("mode")
     if mode == "report_ids":
         if set(selection) != {"mode", "report_ids"}:
-            raise ApiError(
-                "validation_failed", "The bulk export selection is invalid.", status=400
-            )
+            raise ApiError("validation_failed", "The bulk export selection is invalid.", status=400)
         return "report_ids", _bulk_report_ids(selection), [], reason
     if mode == "filters":
         if set(selection) != {"mode", "filters"}:
-            raise ApiError(
-                "validation_failed", "The bulk export selection is invalid.", status=400
-            )
+            raise ApiError("validation_failed", "The bulk export selection is invalid.", status=400)
         filters = _bulk_filters(selection)
-        names = sorted(
-            name
-            for name in ADMIN_REPORT_FILTER_FIELDS
-            if getattr(filters, name) is not None
-        )
+        names = sorted(name for name in ADMIN_REPORT_FILTER_FIELDS if getattr(filters, name) is not None)
         return "filters", filters, names, reason
-    raise ApiError(
-        "validation_failed", "The bulk export selection is invalid.", status=400
-    )
+    raise ApiError("validation_failed", "The bulk export selection is invalid.", status=400)
 
 
 def _current_revisions(db, report_ids):
@@ -994,9 +877,7 @@ def _resolve_bulk_selection(db, mode, selection):
         missing = ()
         resolved = list(found.values())
     if not resolved and not missing:
-        raise ApiError(
-            "not_found", "No reports matched the export selection.", status=404
-        )
+        raise ApiError("not_found", "No reports matched the export selection.", status=404)
     resolved.sort(key=lambda pair: str(pair[0].id))
     return resolved, tuple(sorted(missing, key=str))
 
@@ -1017,9 +898,7 @@ def bulk_export_route():
     g.api_action = "admin_report_bulk_export"
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
-        raise ApiError(
-            "validation_failed", "The bulk export request is invalid.", status=400
-        )
+        raise ApiError("validation_failed", "The bulk export request is invalid.", status=400)
     mode, selection, filter_names, reason = _bulk_selection(payload)
     key = export_idempotency_key()
     actor = current_actor()
@@ -1033,9 +912,7 @@ def bulk_export_route():
         # run at REPEATABLE READ; everything below commits or rolls back as one.
         db.commit()
         db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
-        consume_step_up(
-            db, actor=actor, raw_token=pending[1], purpose="bulk_export", now=now
-        )
+        consume_step_up(db, actor=actor, raw_token=pending[1], purpose="bulk_export", now=now)
         claim = claim_idempotency(
             session=db,
             actor=actor,
@@ -1049,9 +926,7 @@ def bulk_export_route():
                     "selection": (
                         sorted(str(item) for item in selection)
                         if mode == "report_ids"
-                        else {
-                            name: str(getattr(selection, name)) for name in filter_names
-                        }
+                        else {name: str(getattr(selection, name)) for name in filter_names}
                     ),
                 }
             ),
@@ -1061,9 +936,7 @@ def bulk_export_route():
         if record is None:
             raise RuntimeError("bulk export idempotency record is unavailable")
         if claim.replayed:
-            revision_ids, replay_failures = decode_bulk_reference(
-                dict(record.response_reference)
-            )
+            revision_ids, replay_failures = decode_bulk_reference(dict(record.response_reference))
             rows = db.execute(
                 select(Report, ReportRevision)
                 .join(
@@ -1072,22 +945,15 @@ def bulk_export_route():
                 )
                 .where(ReportRevision.id.in_(list(revision_ids)))
             ).all()
-            resolved = sorted(
-                ((row[0], row[1]) for row in rows), key=lambda pair: str(pair[0].id)
-            )
+            resolved = sorted(((row[0], row[1]) for row in rows), key=lambda pair: str(pair[0].id))
             known = tuple(
-                ExportFailure(
-                    report_id=item[0], revision_number=item[1], reason_code=item[2]
-                )
+                ExportFailure(report_id=item[0], revision_number=item[1], reason_code=item[2])
                 for item in replay_failures
             )
         else:
             resolved, missing = _resolve_bulk_selection(db, mode, selection)
             known = tuple(
-                ExportFailure(
-                    report_id=item, revision_number=None, reason_code="not_found"
-                )
-                for item in missing
+                ExportFailure(report_id=item, revision_number=None, reason_code="not_found") for item in missing
             )
             # Persist the bounded selection before the first document exists.
             record.response_reference = {
@@ -1144,9 +1010,7 @@ def bulk_export_route():
         raise ApiError("admin_elevation_required", str(error), status=403) from None
     except RequestInProgress as error:
         db.rollback()
-        raise ApiError(
-            "request_in_progress", str(error), status=409, retryable=True
-        ) from None
+        raise ApiError("request_in_progress", str(error), status=409, retryable=True) from None
     except IdempotencyConflict as error:
         db.rollback()
         raise ApiError("idempotency_conflict", str(error), status=409) from None
@@ -1158,9 +1022,7 @@ def bulk_export_route():
         raise ApiError("not_found", "Report not found.", status=404) from None
     except (ValidationError, ValueError, TypeError):
         db.rollback()
-        raise ApiError(
-            "validation_failed", "The bulk export request is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "The bulk export request is invalid.", status=400) from None
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError, OSError):
         db.rollback()
         raise ApiError(

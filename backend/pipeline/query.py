@@ -101,9 +101,7 @@ def _bounded_milliseconds(default: int, deadline_monotonic: float | None) -> int
 def _get_gen_client() -> genai.Client:
     global _gen_client
     if _gen_client is None:
-        _gen_client = genai.Client(
-            vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION
-        )
+        _gen_client = genai.Client(vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION)
     return _gen_client
 
 
@@ -129,8 +127,7 @@ DOMAIN_RULES = (
 CHAT_SYSTEM_PROMPT = (
     "You are a policy assistant for prison staff. Answer questions "
     "using ONLY the policy documents provided. Cite document numbers "
-    "and sections. If the documents don't address the question, say so.\n\n"
-    + DOMAIN_RULES
+    "and sections. If the documents don't address the question, say so.\n\n" + DOMAIN_RULES
 )
 
 GATE_PROMPT = (
@@ -341,9 +338,7 @@ def _get_token(*, deadline_monotonic: float | None = None) -> str:
     base_request = google.auth.transport.requests.Request()
 
     class DeadlineRequest(google.auth.transport.Request):
-        def __call__(
-            self, url, method="GET", body=None, headers=None, timeout=120, **kwargs
-        ):
+        def __call__(self, url, method="GET", body=None, headers=None, timeout=120, **kwargs):
             return base_request(
                 url,
                 method=method,
@@ -364,9 +359,7 @@ def _get_token(*, deadline_monotonic: float | None = None) -> str:
     if token is None:
         raise RuntimeError("Application Default Credentials returned no access token")
     _token_cache["token"] = token
-    _token_cache["expiry"] = (
-        creds.expiry.timestamp() if creds.expiry else time.time() + 3500
-    )
+    _token_cache["expiry"] = creds.expiry.timestamp() if creds.expiry else time.time() + 3500
     return token
 
 
@@ -483,9 +476,7 @@ def _search_snippets_only(
             timeout=_bounded_seconds(30, deadline_monotonic),
         ) as resp:
             result = json.loads(resp.read())
-        logger.info(
-            "Snippets-only search returned %d results", len(result.get("results", []))
-        )
+        logger.info("Snippets-only search returned %d results", len(result.get("results", [])))
         return result
     except urllib.error.HTTPError as http_exc:
         body = http_exc.read().decode()[:1000]
@@ -498,9 +489,7 @@ def _search_snippets_only(
         hint = _http_error_hint(http_exc.code)
         if hint:
             logger.error("Likely cause: %s", hint)
-        logger.error(
-            "The original request was also rejected (400): %s", original_error[:300]
-        )
+        logger.error("The original request was also rejected (400): %s", original_error[:300])
         raise RuntimeError(f"Search API error {http_exc.code}") from http_exc
     except TimeoutError:
         raise
@@ -517,9 +506,7 @@ def _search_snippets_only(
             type(exc).__name__,
             exc,
         )
-        raise RuntimeError(
-            f"Search API error (transport) {type(exc).__name__}: {exc}"
-        ) from exc
+        raise RuntimeError(f"Search API error (transport) {type(exc).__name__}: {exc}") from exc
 
 
 def _search_data_store(query: str, page_size: int = 10) -> list[dict]:
@@ -544,11 +531,7 @@ def _search_with_stats(
     # told the officer "An unexpected error occurred" — with a log line that
     # never mentioned search. Name the step that failed.
     try:
-        token = (
-            _get_token()
-            if deadline_monotonic is None
-            else _get_token(deadline_monotonic=deadline_monotonic)
-        )
+        token = _get_token() if deadline_monotonic is None else _get_token(deadline_monotonic=deadline_monotonic)
     except TimeoutError:
         raise
     except Exception as exc:
@@ -641,9 +624,7 @@ def _search_with_stats(
             type(exc).__name__,
             exc,
         )
-        raise RuntimeError(
-            f"Search API error (transport) {type(exc).__name__}: {exc}"
-        ) from exc
+        raise RuntimeError(f"Search API error (transport) {type(exc).__name__}: {exc}") from exc
 
     raw_count = len(result.get("results", []) or [])
     contexts = parse_search_results(result, max_chars=MAX_PASSAGE_CHARS)
@@ -658,9 +639,7 @@ def _search_with_stats(
             raw_count,
         )
     elif raw_count != len(contexts):
-        logger.info(
-            "Search: %d raw result(s) → %d usable passage(s)", raw_count, len(contexts)
-        )
+        logger.info("Search: %d raw result(s) → %d usable passage(s)", raw_count, len(contexts))
     return contexts, raw_count
 
 
@@ -695,10 +674,7 @@ def answer_question(
         deadline_monotonic=deadline_monotonic,
     ):
         return {
-            "answer": (
-                "Good try — you're at work. If you believe this is wrong, "
-                "contact Regional Three."
-            ),
+            "answer": ("Good try — you're at work. If you believe this is wrong, contact Regional Three."),
             "citations": [],
             "sources": [],
         }
@@ -738,13 +714,8 @@ def answer_question(
         }
 
     # Trim to the top passages (dedupe + per-source cap), numbered for citation.
-    contexts = select_passages(
-        retrieved, MAX_CONTEXT_PASSAGES, max_total_chars=MAX_CONTEXT_CHARS
-    )
-    numbered = "\n\n".join(
-        f"[{i + 1}] (Source: {c['source']})\n{c['text']}"
-        for i, c in enumerate(contexts)
-    )
+    contexts = select_passages(retrieved, MAX_CONTEXT_PASSAGES, max_total_chars=MAX_CONTEXT_CHARS)
+    numbered = "\n\n".join(f"[{i + 1}] (Source: {c['source']})\n{c['text']}" for i, c in enumerate(contexts))
     # History is context for READING the question, never evidence for answering
     # it. Stated explicitly because prior answers can carry the ungrounded
     # warning or an error, and treating them as fact compounds the mistake.
@@ -775,9 +746,7 @@ def answer_question(
             config=types.GenerateContentConfig(
                 system_instruction=CHAT_SYSTEM_PROMPT,
                 http_options=types.HttpOptions(
-                    timeout=_bounded_milliseconds(
-                        ANSWER_TIMEOUT_MS, deadline_monotonic
-                    ),
+                    timeout=_bounded_milliseconds(ANSWER_TIMEOUT_MS, deadline_monotonic),
                 ),
             ),
         )
@@ -798,9 +767,7 @@ def answer_question(
     answer, citations, grounded = build_grounded(response.text, contexts, infer=True)
     if not grounded:
         answer = (response.text or "").rstrip() + UNGROUNDED_NOTE
-    logger.info(
-        "answer_question: grounded=%s, %d citation(s)", grounded, len(citations)
-    )
+    logger.info("answer_question: grounded=%s, %d citation(s)", grounded, len(citations))
 
     return {
         "answer": answer,

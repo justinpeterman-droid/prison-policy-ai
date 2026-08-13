@@ -263,9 +263,7 @@ def _check_time_format(r, text):
     """RW-005 — narrative times read '9:50 pm' (ruling 11)."""
     bad = BAD_TIME.findall(text)
     if bad:
-        _fail(
-            r, "RW-005", "BLOCKING", f"Non-standard time format: {sorted(set(bad))[:3]}"
-        )
+        _fail(r, "RW-005", "BLOCKING", f"Non-standard time format: {sorted(set(bad))[:3]}")
     else:
         r.checks_passed += 1
 
@@ -306,9 +304,7 @@ def _check_opening(r, report_type, text):
     if ok:
         r.checks_passed += 1
     else:
-        _fail(
-            r, "RW-010", "WARN", f"Opening may not match the formula: {opening[:90]!r}"
-        )
+        _fail(r, "RW-010", "WARN", f"Opening may not match the formula: {opening[:90]!r}")
 
 
 def _check_charging_closer(r, report_type, text):
@@ -456,9 +452,7 @@ def repair(text: str) -> tuple[str, list[str]]:
         text = new
 
     # RW-003: 'Sgt Smith' -> 'Sgt. Smith' (ruling 2)
-    new = RANK_NO_PERIOD.sub(
-        lambda m: m.group(0).replace(m.group(1), m.group(1) + ".", 1), text
-    )
+    new = RANK_NO_PERIOD.sub(lambda m: m.group(0).replace(m.group(1), m.group(1) + ".", 1), text)
     if new != text:
         fixed.append("RW-003")
         text = new
@@ -550,20 +544,14 @@ def summarize(results: dict) -> dict:
         "reports": {rtype: res.as_dict() for rtype, res in results.items()},
         "blocking": blocking,
         "blocking_count": len(blocking),
-        "score": (
-            round(sum(r.score for r in results.values()) / len(results), 3)
-            if results
-            else 1.0
-        ),
+        "score": (round(sum(r.score for r in results.values()) / len(results), 3) if results else 1.0),
     }
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 
-def _fail(
-    r: ValidationResult, rule_id: str, severity: str, message: str, context: str = ""
-):
+def _fail(r: ValidationResult, rule_id: str, severity: str, message: str, context: str = ""):
     r.violations.append(Violation(rule_id, severity, message, context))
     r.checks_failed += 1
 

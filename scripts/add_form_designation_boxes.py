@@ -49,10 +49,7 @@ def add_placeholders() -> int:
             print(f"  {placeholder}: already present, skipping")
             continue
         if box.text.strip():
-            raise SystemExit(
-                f"Checkbox cell for {label} is not empty ({box.text!r}) — "
-                f"refusing to overwrite it."
-            )
+            raise SystemExit(f"Checkbox cell for {label} is not empty ({box.text!r}) — refusing to overwrite it.")
 
         para = box.paragraphs[0]
         if para.runs:

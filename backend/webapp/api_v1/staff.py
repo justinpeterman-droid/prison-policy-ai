@@ -24,34 +24,24 @@ def staff_list():
     try:
         limit = int(request.args.get("limit", "25"))
     except ValueError:
-        raise ApiError(
-            "validation_failed", "Staff search input is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "Staff search input is invalid.", status=400) from None
     if not 2 <= len(query) <= 100 or not 1 <= limit <= 50:
-        raise ApiError(
-            "validation_failed", "Staff search input is invalid.", status=400
-        )
+        raise ApiError("validation_failed", "Staff search input is invalid.", status=400)
     try:
         key = current_app.config["IDENTITY_SETTINGS"].cursor_signing_key
         if not key:
             raise RuntimeError("staff pagination key is unavailable")
         raw_cursor = request.args.get("cursor")
         cursor = decode_cursor(raw_cursor, key) if raw_cursor else None
-        page = SqlStaffProvider(current_request_session()).search_page(
-            query, limit=limit, cursor=cursor
-        )
+        page = SqlStaffProvider(current_request_session()).search_page(query, limit=limit, cursor=cursor)
         return success(
             {
                 "items": page.items,
-                "next_cursor": encode_cursor(page.next_cursor, key)
-                if page.next_cursor
-                else None,
+                "next_cursor": encode_cursor(page.next_cursor, key) if page.next_cursor else None,
             }
         )
     except InvalidCursor:
-        raise ApiError(
-            "validation_failed", "Staff search input is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "Staff search input is invalid.", status=400) from None
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
         raise ApiError(
             "dependency_unavailable",

@@ -108,9 +108,7 @@ def _submit(incident_id: UUID, job_type: str):
         raise ApiError("not_found", "Job target not found.", status=404) from None
     except ValueError:
         db.rollback()
-        raise ApiError(
-            "validation_failed", "The job request is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "The job request is invalid.", status=400) from None
     except IntegrityError:
         db.rollback()
         raise ApiError(

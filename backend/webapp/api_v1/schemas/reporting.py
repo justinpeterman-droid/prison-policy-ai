@@ -115,11 +115,7 @@ def _validate_recursive_json(
         if len(value) > MAX_JSON_COLLECTION_ITEMS:
             raise ValueError("nested content collection is too large")
         for key, item in value.items():
-            if (
-                not isinstance(key, str)
-                or not JSON_KEY_PATTERN.fullmatch(key)
-                or key in SERVER_OWNED_CONTENT_KEYS
-            ):
+            if not isinstance(key, str) or not JSON_KEY_PATTERN.fullmatch(key) or key in SERVER_OWNED_CONTENT_KEYS:
                 raise ValueError("nested content key is invalid")
             _validate_recursive_json(item, depth=depth + 1, nodes=nodes)
 
@@ -168,19 +164,11 @@ class IncidentSnapshotV1(BoundedContent):
     shift: str | None = Field(default=None, max_length=32)
     location: ShortText | None = None
     category: str | None = Field(default=None, max_length=120)
-    classification: dict[CodeText, JsonValue] = Field(
-        default_factory=dict, max_length=MAX_MAP_ENTRIES
-    )
-    extracted_facts: dict[CodeText, JsonValue] = Field(
-        default_factory=dict, max_length=MAX_MAP_ENTRIES
-    )
-    gap_answers: dict[CodeText, LongAnswer] = Field(
-        default_factory=dict, max_length=MAX_MAP_ENTRIES
-    )
+    classification: dict[CodeText, JsonValue] = Field(default_factory=dict, max_length=MAX_MAP_ENTRIES)
+    extracted_facts: dict[CodeText, JsonValue] = Field(default_factory=dict, max_length=MAX_MAP_ENTRIES)
+    gap_answers: dict[CodeText, LongAnswer] = Field(default_factory=dict, max_length=MAX_MAP_ENTRIES)
     charges: list[ShortText] = Field(default_factory=list, max_length=MAX_CHARGES)
-    validation: dict[CodeText, object] = Field(
-        default_factory=dict, max_length=MAX_MAP_ENTRIES
-    )
+    validation: dict[CodeText, object] = Field(default_factory=dict, max_length=MAX_MAP_ENTRIES)
     warnings: list[ShortText] = Field(default_factory=list, max_length=MAX_WARNINGS)
 
 
@@ -189,12 +177,8 @@ class ReportContentV1(BoundedContent):
 
     schema_version: Literal[1] = CONTENT_SCHEMA_VERSION
     narrative: str = Field(max_length=MAX_NARRATIVE_CHARACTERS)
-    editable_fields: dict[CodeText, JsonScalar] = Field(
-        default_factory=dict, max_length=MAX_MAP_ENTRIES
-    )
-    validation: dict[CodeText, object] = Field(
-        default_factory=dict, max_length=MAX_MAP_ENTRIES
-    )
+    editable_fields: dict[CodeText, JsonScalar] = Field(default_factory=dict, max_length=MAX_MAP_ENTRIES)
+    validation: dict[CodeText, object] = Field(default_factory=dict, max_length=MAX_MAP_ENTRIES)
     warnings: list[ShortText] = Field(default_factory=list, max_length=MAX_WARNINGS)
 
 
@@ -219,9 +203,7 @@ class RevisionSummary(StrictApiModel):
 
     revision_number: int = Field(ge=0)
     reason: RevisionReasonName
-    changed_fields: list[CodeText] = Field(
-        default_factory=list, max_length=MAX_MAP_ENTRIES
-    )
+    changed_fields: list[CodeText] = Field(default_factory=list, max_length=MAX_MAP_ENTRIES)
     created_at: datetime
     editor_staff_member_id: UUID | None = None
     source_revision_number: int | None = Field(default=None, ge=0)
@@ -236,9 +218,5 @@ def changed_field_names(previous: dict | None, current: dict) -> list[str]:
     report — not in an audit export.
     """
     previous = previous or {}
-    names = {
-        key
-        for key in set(previous) | set(current)
-        if previous.get(key) != current.get(key)
-    }
+    names = {key for key in set(previous) | set(current) if previous.get(key) != current.get(key)}
     return sorted(name for name in names if name != "schema_version")

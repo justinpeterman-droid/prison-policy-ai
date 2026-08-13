@@ -10,12 +10,7 @@ OUTPUT = Path(__file__).parent.parent / "templates" / "005_template.docx"
 
 
 def xml_esc(s: str) -> str:
-    return (
-        s.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
 FIELDS = [

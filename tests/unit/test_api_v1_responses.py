@@ -12,9 +12,7 @@ from backend.identity.sessions import SessionReauthenticationRequired
 def configured_client(monkeypatch):
     monkeypatch.setattr(app_mod, "ACCESS_CODE", "legacy-user")
     monkeypatch.setenv("ACCESS_API_ENABLED", "true")
-    monkeypatch.setenv(
-        "DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test"
-    )
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test")
     monkeypatch.setenv("IDENTITY_HASH_PEPPER", "p" * 32)
     monkeypatch.setenv("CURSOR_SIGNING_KEY", "c" * 32)
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://review.example.gov")
@@ -23,9 +21,7 @@ def configured_client(monkeypatch):
 
 def test_success_and_error_envelopes_have_exact_keys_and_headers(monkeypatch):
     client = configured_client(monkeypatch)
-    success = client.get(
-        "/api/v1/client-policy", headers={"X-Request-ID": "request_1234"}
-    )
+    success = client.get("/api/v1/client-policy", headers={"X-Request-ID": "request_1234"})
     assert success.status_code == 200
     assert set(success.get_json()) == {
         "data",
@@ -107,11 +103,7 @@ def test_request_events_are_closed_and_exclude_sensitive_markers(monkeypatch, ca
         },
     )
 
-    events = [
-        json.loads(record.message)
-        for record in caplog.records
-        if record.name == "backend.webapp.api_v1"
-    ]
+    events = [json.loads(record.message) for record in caplog.records if record.name == "backend.webapp.api_v1"]
     assert events
     for event in events:
         assert set(event) == {
@@ -132,9 +124,7 @@ def test_request_events_are_closed_and_exclude_sensitive_markers(monkeypatch, ca
 
 def test_signed_cursor_is_closed_and_tamper_evident():
     payload = {
-        "created_at": datetime(2026, 8, 12, tzinfo=UTC)
-        .isoformat()
-        .replace("+00:00", "Z"),
+        "created_at": datetime(2026, 8, 12, tzinfo=UTC).isoformat().replace("+00:00", "Z"),
         "id": str(uuid4()),
     }
     encoded = encode_cursor(payload, "c" * 32)

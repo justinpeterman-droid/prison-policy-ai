@@ -15,18 +15,14 @@ from backend.reports.roster import (
 
 
 def test_public_engine_adapter_signatures_match_the_locked_roadmap():
-    assert list(inspect.signature(service.classify_incident_notes).parameters) == [
-        "notes"
-    ]
+    assert list(inspect.signature(service.classify_incident_notes).parameters) == ["notes"]
     assert list(inspect.signature(service.extract_incident_notes).parameters) == [
         "notes",
         "category",
         "staff_provider",
     ]
     generate = list(inspect.signature(service.generate_report_set).parameters.values())
-    disciplinary = list(
-        inspect.signature(service.generate_disciplinary_report).parameters.values()
-    )
+    disciplinary = list(inspect.signature(service.generate_disciplinary_report).parameters.values())
     assert [parameter.name for parameter in generate] == ["payload", "staff_provider"]
     assert [parameter.name for parameter in disciplinary] == [
         "payload",
@@ -81,9 +77,7 @@ def test_extract_adapter_uses_injected_staff_provider_and_keeps_wire_shape(monke
             "date": "08-12-2026",
             "time": "1400",
             "location": "Fictional Dayroom",
-            "persons": [
-                {"role": "security_staff", "name": "Alex Example", "last": "Example"}
-            ],
+            "persons": [{"role": "security_staff", "name": "Alex Example", "last": "Example"}],
         },
     )
     monkeypatch.setattr(
@@ -96,20 +90,14 @@ def test_extract_adapter_uses_injected_staff_provider_and_keeps_wire_shape(monke
             "auto_content": ["Fictional approved content."],
         },
     )
-    monkeypatch.setattr(
-        service, "compute_provenance", lambda notes, slots: {"date": "notes"}
-    )
+    monkeypatch.setattr(service, "compute_provenance", lambda notes, slots: {"date": "notes"})
     monkeypatch.setattr(
         service,
         "security_staff",
-        lambda slots: [
-            person for person in slots["persons"] if person["role"] == "security_staff"
-        ],
+        lambda slots: [person for person in slots["persons"] if person["role"] == "security_staff"],
     )
 
-    result = service.extract_incident_notes(
-        "Fictional field notes.", "fictional_incident", _FictionalProvider()
-    )
+    result = service.extract_incident_notes("Fictional field notes.", "fictional_incident", _FictionalProvider())
 
     assert set(result) == {
         "slots",
@@ -129,9 +117,7 @@ def test_extract_adapter_uses_injected_staff_provider_and_keeps_wire_shape(monke
 def test_generate_adapter_runs_existing_generation_and_finalization(monkeypatch):
     provider = _FictionalProvider()
     context = {"slots": {"charges": "TEST-01"}, "category": "fictional_incident"}
-    monkeypatch.setattr(
-        service, "_prepare_generation", lambda payload, staff_provider: context
-    )
+    monkeypatch.setattr(service, "_prepare_generation", lambda payload, staff_provider: context)
     monkeypatch.setattr(
         service,
         "generate_all_reports",
@@ -158,15 +144,11 @@ def test_generate_adapter_runs_existing_generation_and_finalization(monkeypatch)
 def test_disciplinary_adapter_drops_unknown_prior_report_keys(monkeypatch):
     provider = _FictionalProvider()
     context = {"slots": {"charges": "TEST-01"}, "auto_content": []}
-    monkeypatch.setattr(
-        service, "_prepare_generation", lambda payload, staff_provider: context
-    )
+    monkeypatch.setattr(service, "_prepare_generation", lambda payload, staff_provider: context)
     monkeypatch.setattr(
         service,
         "generate_disciplinary_only",
-        lambda slots, first_person, auto_content: {
-            "disciplinary": "Fictional supplement."
-        },
+        lambda slots, first_person, auto_content: {"disciplinary": "Fictional supplement."},
     )
     monkeypatch.setattr(
         service,
@@ -193,9 +175,7 @@ def test_disciplinary_adapter_drops_unknown_prior_report_keys(monkeypatch):
 def test_staff_resolution_consumes_provider_without_mutating_legacy_store(monkeypatch):
     monkeypatch.setattr(
         "backend.reports.roster.roster_store.update",
-        lambda *_args, **_kwargs: pytest.fail(
-            "SQL staff resolution must not update the legacy roster"
-        ),
+        lambda *_args, **_kwargs: pytest.fail("SQL staff resolution must not update the legacy roster"),
     )
 
     resolved, gaps = resolve_staff_from_persons(

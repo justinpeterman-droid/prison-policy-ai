@@ -58,10 +58,7 @@ def test_review_lab_feature_flag_accepts_explicit_truthy_values(value):
         [
             sys.executable,
             "-c",
-            (
-                "from backend.pipeline.config import REVIEW_LAB_ENABLED; "
-                "print(REVIEW_LAB_ENABLED)"
-            ),
+            ("from backend.pipeline.config import REVIEW_LAB_ENABLED; print(REVIEW_LAB_ENABLED)"),
         ],
         env=env,
         capture_output=True,
@@ -78,10 +75,7 @@ def test_review_lab_feature_flag_defaults_off():
         [
             sys.executable,
             "-c",
-            (
-                "from backend.pipeline.config import REVIEW_LAB_ENABLED; "
-                "print(REVIEW_LAB_ENABLED)"
-            ),
+            ("from backend.pipeline.config import REVIEW_LAB_ENABLED; print(REVIEW_LAB_ENABLED)"),
         ],
         env=env,
         capture_output=True,

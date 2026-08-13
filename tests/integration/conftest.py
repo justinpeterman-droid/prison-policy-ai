@@ -30,9 +30,7 @@ DATABASE_FIXTURES = frozenset({"db_engine", "db_session_factory", "db_session"})
 def _truncate_application_tables(engine):
     with engine.begin() as connection:
         table_names = [
-            table_name
-            for table_name in inspect(connection).get_table_names()
-            if table_name != "alembic_version"
+            table_name for table_name in inspect(connection).get_table_names() if table_name != "alembic_version"
         ]
         if not table_names:
             return
@@ -236,9 +234,7 @@ def user_actor(fictional_staff_and_accounts, fictional_owner_tokens):
 
 
 @pytest.fixture
-def fictional_owner_tokens(
-    db_session, fictional_staff_and_accounts, identity_fixed_now
-):
+def fictional_owner_tokens(db_session, fictional_staff_and_accounts, identity_fixed_now):
     return issue_fictional_tokens(
         db_session,
         account=fictional_staff_and_accounts.user,
@@ -248,9 +244,7 @@ def fictional_owner_tokens(
 
 
 @pytest.fixture
-def fictional_preparer_tokens(
-    db_session, fictional_staff_and_accounts, identity_fixed_now
-):
+def fictional_preparer_tokens(db_session, fictional_staff_and_accounts, identity_fixed_now):
     return issue_fictional_tokens(
         db_session,
         account=fictional_staff_and_accounts.preparer,
@@ -260,9 +254,7 @@ def fictional_preparer_tokens(
 
 
 @pytest.fixture
-def fictional_unrelated_tokens(
-    db_session, fictional_staff_and_accounts, identity_fixed_now
-):
+def fictional_unrelated_tokens(db_session, fictional_staff_and_accounts, identity_fixed_now):
     return issue_fictional_tokens(
         db_session,
         account=fictional_staff_and_accounts.unrelated,

@@ -58,9 +58,7 @@ def extract(notes: str, category: str) -> dict:
     return _api("/api/reports/extract", {"notes": notes, "category": category})
 
 
-def generate(
-    notes: str, category: str, slots: dict, answers: dict, reporter_index: int = 0
-) -> dict:
+def generate(notes: str, category: str, slots: dict, answers: dict, reporter_index: int = 0) -> dict:
     return _api(
         "/api/reports/generate",
         {
@@ -147,9 +145,7 @@ def run_test(name: str, notes: str, verbose: bool = True) -> dict:
             continue
         atype = g.get("answer_type", "text")
         if atype == "choice":
-            answers[slot] = g.get("default", "") or (
-                g.get("options", [""])[0] if g.get("options") else ""
-            )
+            answers[slot] = g.get("default", "") or (g.get("options", [""])[0] if g.get("options") else "")
         elif atype == "yes_no":
             answers[slot] = "Yes"
         elif slot == "officer_name":
@@ -188,9 +184,7 @@ def run_test(name: str, notes: str, verbose: bool = True) -> dict:
         score_pct = vr.score * 100
         passed = vr.checks_passed
         failed = vr.checks_failed
-        print(
-            f"\n  [{rtype}] {score_pct:.0f}% ({passed}/{passed + failed} checks passed)"
-        )
+        print(f"\n  [{rtype}] {score_pct:.0f}% ({passed}/{passed + failed} checks passed)")
 
         # Show the generated text snippet
         short = text[:200].replace("\n", " ")
@@ -198,9 +192,7 @@ def run_test(name: str, notes: str, verbose: bool = True) -> dict:
 
         for v in vr.violations:
             sev = v.severity
-            marker = (
-                "BLOCK" if sev == "BLOCKING" else "ERROR" if sev == "ERROR" else "WARN "
-            )
+            marker = "BLOCK" if sev == "BLOCKING" else "ERROR" if sev == "ERROR" else "WARN "
             print(f"    [{marker}] {v.rule_id}: {v.message[:150]}")
             total += 1
             if sev == "BLOCKING":
@@ -232,12 +224,8 @@ def run_all(loop: int = 1):
     print(f"\n{'=' * 60}")
     print("FINAL SUMMARY")
     print(f"{'=' * 60}")
-    passed = sum(
-        1 for r in all_results if r.get("validation", {}).get("blocking", 999) == 0
-    )
-    print(
-        f"  {len(all_results)} tests: {passed} PASS, {len(all_results) - passed} FAIL"
-    )
+    passed = sum(1 for r in all_results if r.get("validation", {}).get("blocking", 999) == 0)
+    print(f"  {len(all_results)} tests: {passed} PASS, {len(all_results) - passed} FAIL")
     for r in all_results:
         v = r.get("validation", {})
         b = v.get("blocking", "?")

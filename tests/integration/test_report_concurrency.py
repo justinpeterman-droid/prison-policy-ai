@@ -55,9 +55,7 @@ def test_two_saves_from_the_same_base_yield_one_success_and_one_safe_conflict(
                 headers=headers,
                 json={
                     "base_revision_number": 1,
-                    "content": fictional_report_content(
-                        f"Fictional simultaneous edit {number}."
-                    ),
+                    "content": fictional_report_content(f"Fictional simultaneous edit {number}."),
                     "reason": "manual_save",
                 },
             )
@@ -84,17 +82,13 @@ def test_two_saves_from_the_same_base_yield_one_success_and_one_safe_conflict(
         assert report.current_revision_number == 2
         assert (
             verification.scalar(
-                select(func.count())
-                .select_from(ReportRevision)
-                .where(ReportRevision.report_id == report_id)
+                select(func.count()).select_from(ReportRevision).where(ReportRevision.report_id == report_id)
             )
             == 2
         )
         assert (
             verification.scalar(
-                select(func.count())
-                .select_from(IdempotencyRecord)
-                .where(IdempotencyRecord.action == "report.save")
+                select(func.count()).select_from(IdempotencyRecord).where(IdempotencyRecord.action == "report.save")
             )
             == 1
         )
@@ -129,9 +123,7 @@ def test_if_match_and_body_base_must_agree_before_any_write(
         assert verification.get(Report, report_id).current_revision_number == 1
         assert (
             verification.scalar(
-                select(func.count())
-                .select_from(IdempotencyRecord)
-                .where(IdempotencyRecord.action == "report.save")
+                select(func.count()).select_from(IdempotencyRecord).where(IdempotencyRecord.action == "report.save")
             )
             == 0
         )
@@ -173,9 +165,7 @@ def test_access_revoked_before_report_lock_conceals_and_rolls_back_every_side_ef
                 },
                 json={
                     "base_revision_number": 1,
-                    "content": fictional_report_content(
-                        "Fictional edit after access revocation."
-                    ),
+                    "content": fictional_report_content("Fictional edit after access revocation."),
                     "reason": "manual_save",
                 },
             )
@@ -186,9 +176,7 @@ def test_access_revoked_before_report_lock_conceals_and_rolls_back_every_side_ef
         with db_session_factory() as observer:
             for _ in range(200):
                 wait_type = observer.scalar(
-                    text(
-                        "SELECT wait_event_type FROM pg_stat_activity WHERE pid = :pid"
-                    ),
+                    text("SELECT wait_event_type FROM pg_stat_activity WHERE pid = :pid"),
                     {"pid": pid},
                 )
                 observer.rollback()
@@ -219,18 +207,12 @@ def test_access_revoked_before_report_lock_conceals_and_rolls_back_every_side_ef
         assert verification.get(Report, report_id).current_revision_number == 1
         assert (
             verification.scalar(
-                select(func.count())
-                .select_from(ReportRevision)
-                .where(ReportRevision.report_id == report_id)
+                select(func.count()).select_from(ReportRevision).where(ReportRevision.report_id == report_id)
             )
             == 1
         )
         assert (
-            verification.scalar(
-                select(func.count())
-                .select_from(AuditEvent)
-                .where(AuditEvent.target_id == report_id)
-            )
+            verification.scalar(select(func.count()).select_from(AuditEvent).where(AuditEvent.target_id == report_id))
             == 0
         )
         assert (

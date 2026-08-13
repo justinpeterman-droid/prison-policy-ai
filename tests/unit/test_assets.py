@@ -80,9 +80,7 @@ def test_asset_url_survives_missing_file(app):
 def test_asset_initialization_requires_a_static_folder():
     application = Flask(__name__, static_folder=None)
 
-    with pytest.raises(
-        RuntimeError, match="static asset delivery requires a configured static folder"
-    ):
+    with pytest.raises(RuntimeError, match="static asset delivery requires a configured static folder"):
         init_assets(application)
 
 
@@ -91,9 +89,7 @@ def test_asset_initialization_requires_a_static_folder():
 
 def test_versioned_static_is_immutable(client):
     resp = client.get("/static/small.css?v=deadbeef")
-    assert resp.headers["Cache-Control"] == (
-        f"public, max-age={IMMUTABLE_MAX_AGE}, immutable"
-    )
+    assert resp.headers["Cache-Control"] == (f"public, max-age={IMMUTABLE_MAX_AGE}, immutable")
 
 
 def test_unversioned_static_gets_short_cache(client):

@@ -71,9 +71,7 @@ def _confirm_admin_pin(api_client, headers, purpose, key):
 @pytest.fixture
 def elevated_admin_bearer_headers(api_client, admin_bearer_headers, db_session):
     db_session.commit()
-    _confirm_admin_pin(
-        api_client, admin_bearer_headers, "admin_center", "admin-elevate-0001"
-    )
+    _confirm_admin_pin(api_client, admin_bearer_headers, "admin_center", "admin-elevate-0001")
     return admin_bearer_headers
 
 
@@ -142,10 +140,7 @@ def _make_extra_report(db_session, accounts, now):
 
 @pytest.fixture
 def extra_reports(db_session, fictional_staff_and_accounts, identity_fixed_now):
-    return [
-        _make_extra_report(db_session, fictional_staff_and_accounts, identity_fixed_now)
-        for _index in range(3)
-    ]
+    return [_make_extra_report(db_session, fictional_staff_and_accounts, identity_fixed_now) for _index in range(3)]
 
 
 def _temp_export_directories() -> set[Path]:
@@ -296,9 +291,7 @@ def test_bulk_export_is_concealed_from_a_regular_user(
 
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
-        headers=_headers(
-            user_bearer_headers | {"X-Admin-Step-Up": "x" * 48}, "bulk-export-user-0001"
-        ),
+        headers=_headers(user_bearer_headers | {"X-Admin-Step-Up": "x" * 48}, "bulk-export-user-0001"),
         json=_ids_body([report_id]),
     )
 
@@ -343,9 +336,7 @@ def test_bulk_export_rejects_more_than_one_hundred_matches(
     db_session.commit()
 
     def _never(*args, **kwargs):
-        raise AssertionError(
-            "no document may be generated before the selection is bounded"
-        )
+        raise AssertionError("no document may be generated before the selection is bounded")
 
     monkeypatch.setattr(export_service, "build_revision_docx", _never)
 
@@ -511,13 +502,9 @@ def test_bulk_manifest_is_serialized_with_sorted_keys_and_stable_metadata(
     assert manifest["actor_account_id"] == str(fictional_admin_account.id)
     assert manifest["selection_mode"] == "report_ids"
     assert manifest["filter_names"] == []
-    record = db_session.scalar(
-        select(IdempotencyRecord).where(IdempotencyRecord.action == "admin.bulk_export")
-    )
+    record = db_session.scalar(select(IdempotencyRecord).where(IdempotencyRecord.action == "admin.bulk_export"))
     assert record is not None
-    assert manifest["idempotency_recorded_at"] == (
-        record.created_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
-    )
+    assert manifest["idempotency_recorded_at"] == (record.created_at.astimezone(UTC).isoformat().replace("+00:00", "Z"))
 
     entry = manifest["reports"][0]
     export_row = db_session.scalar(select(Export))
@@ -622,12 +609,7 @@ def test_a_failure_after_selection_is_explicit_and_never_marked_exported(
     assert manifest["failures"][0]["reason_code"] == "generation_failed"
     assert doomed not in [entry["report_id"] for entry in manifest["reports"]]
     assert db_session.scalar(select(func.count()).select_from(Export)) == 3
-    assert (
-        db_session.scalar(
-            select(func.count()).select_from(Export).where(Export.report_id == doomed)
-        )
-        == 0
-    )
+    assert db_session.scalar(select(func.count()).select_from(Export).where(Export.report_id == doomed)) == 0
 
 
 # --- Idempotency, audit, cleanup -------------------------------------------
@@ -666,10 +648,7 @@ def test_the_same_bulk_key_regenerates_identical_bytes_and_no_new_rows(
 
     assert first.status_code == second.status_code == 200, second.get_data()[:300]
     assert first.data == second.data
-    assert (
-        hashlib.sha256(first.data).hexdigest()
-        == hashlib.sha256(second.data).hexdigest()
-    )
+    assert hashlib.sha256(first.data).hexdigest() == hashlib.sha256(second.data).hexdigest()
     assert db_session.scalar(select(func.count()).select_from(Export)) == 4
     assert first.headers["X-Export-ID"] == second.headers["X-Export-ID"]
 
@@ -694,20 +673,13 @@ def test_bulk_export_writes_one_bounded_admin_audit_event(
         json=_filters_body({"status": "in_progress"}),
     )
 
-    events = db_session.scalars(
-        select(AuditEvent).where(AuditEvent.action == "admin.bulk_exported")
-    ).all()
+    events = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "admin.bulk_exported")).all()
     assert len(events) == 1
     assert events[0].details == {
         "export_id": response.headers["X-Export-ID"],
         "report_count": 4,
     }
-    assert (
-        db_session.scalars(
-            select(AuditEvent).where(AuditEvent.action == "admin.report_search")
-        ).all()
-        == []
-    )
+    assert db_session.scalars(select(AuditEvent).where(AuditEvent.action == "admin.report_search")).all() == []
 
 
 def test_bulk_export_removes_its_temporary_workspace(

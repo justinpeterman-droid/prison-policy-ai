@@ -184,27 +184,17 @@ def me():
     actor = current_actor()
     try:
         db_session = current_request_session()
-        account = db_session.scalar(
-            select(Account).where(Account.id == actor.account_id)
-        )
-        staff = db_session.scalar(
-            select(StaffMember).where(StaffMember.id == actor.staff_member_id)
-        )
+        account = db_session.scalar(select(Account).where(Account.id == actor.account_id))
+        staff = db_session.scalar(select(StaffMember).where(StaffMember.id == actor.staff_member_id))
         if account is None or staff is None:
-            raise ApiError(
-                "authentication_required", "Authentication is required.", status=401
-            )
+            raise ApiError("authentication_required", "Authentication is required.", status=401)
         return success(
             {
                 "account_id": str(actor.account_id),
                 "staff_id": str(actor.staff_member_id),
                 "session_id": str(actor.session_id),
                 "employee_number": staff.employee_number,
-                "display_name": " ".join(
-                    part
-                    for part in (staff.rank, staff.first_name, staff.last_name)
-                    if part
-                ),
+                "display_name": " ".join(part for part in (staff.rank, staff.first_name, staff.last_name) if part),
                 "rank": staff.rank,
                 "shift": staff.shift,
                 "role": account.role,

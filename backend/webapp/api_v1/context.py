@@ -22,9 +22,7 @@ def begin_request() -> None:
         return
     try:
         parsed = Version(raw_version)
-        g.client_version = (
-            parsed if parsed.local is None and len(parsed.release) >= 3 else None
-        )
+        g.client_version = parsed if parsed.local is None and len(parsed.release) >= 3 else None
     except InvalidVersion:
         g.client_version = None
 
@@ -76,11 +74,7 @@ def request_event(
         "latency_ms": latency_ms,
         "latency_bucket": _latency_bucket(latency_ms),
         "http_status_class": f"{min(max(status_code, 100), 599) // 100}xx",
-        "error_code": (
-            _stable_code(error_code, "internal_error") if error_code else None
-        ),
-        "client_version": str(parsed_version)
-        if parsed_version is not None
-        else "missing",
+        "error_code": (_stable_code(error_code, "internal_error") if error_code else None),
+        "client_version": str(parsed_version) if parsed_version is not None else "missing",
         "dependency": _stable_code(dependency, "none"),
     }

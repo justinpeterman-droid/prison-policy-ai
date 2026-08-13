@@ -76,9 +76,7 @@ def review_lab_submit():
     except ReviewValidationError as exc:
         return jsonify({"error": str(exc)}), 400
     except (ReviewStoreUnavailable, ReviewConflictError):
-        return jsonify(
-            {"error": "Review could not be saved. Your edits are still on this page."}
-        ), 503
+        return jsonify({"error": "Review could not be saved. Your edits are still on this page."}), 503
     return jsonify(
         {
             "submission_id": record["submission_id"],
@@ -120,9 +118,7 @@ def review_lab_get(submission_id):
     if record is None:
         return _not_found()
     response = jsonify(record)
-    response.headers["Content-Disposition"] = (
-        f'attachment; filename="{submission_id}.json"'
-    )
+    response.headers["Content-Disposition"] = f'attachment; filename="{submission_id}.json"'
     return response
 
 
@@ -141,9 +137,7 @@ def review_lab_export():
         payload,
         mimetype="application/x-ndjson",
         headers={
-            "Content-Disposition": (
-                'attachment; filename="review-lab-submissions.jsonl"'
-            ),
+            "Content-Disposition": ('attachment; filename="review-lab-submissions.jsonl"'),
             "X-Review-Records-Skipped": str(skipped),
         },
     )

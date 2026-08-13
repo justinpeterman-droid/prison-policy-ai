@@ -75,9 +75,9 @@ def _read_seed() -> dict:
 
 
 def _blob():
-    from google.cloud import storage  # imported lazily — optional dependency
+    from google.cloud.storage import Client  # imported lazily — optional dependency
 
-    return storage.Client().bucket(ROSTER_BUCKET).blob(ROSTER_OBJECT)
+    return Client().bucket(ROSTER_BUCKET).blob(ROSTER_OBJECT)
 
 
 def _fetch() -> tuple[dict, int | None]:
@@ -102,9 +102,7 @@ def _fetch() -> tuple[dict, int | None]:
         # First run against a fresh bucket: hand back the packaged seed so the
         # app has shift definitions to work with. Nothing is written until a
         # real edit comes through update().
-        logger.info(
-            "No roster object in gs://%s yet — using the packaged seed", ROSTER_BUCKET
-        )
+        logger.info("No roster object in gs://%s yet — using the packaged seed", ROSTER_BUCKET)
         return _read_seed(), _ABSENT
     try:
         return json.loads(text), blob.generation
@@ -218,8 +216,7 @@ def update(mutate):
                 # operator seeing "PreconditionFailed" has no way to tell a
                 # contention problem from a misconfigured bucket.
                 raise RuntimeError(
-                    f"Roster write kept losing to concurrent writers after "
-                    f"{_MAX_ATTEMPTS} attempts"
+                    f"Roster write kept losing to concurrent writers after {_MAX_ATTEMPTS} attempts"
                 ) from exc
             # Someone else wrote first. Re-read and re-apply rather than
             # clobbering their change.

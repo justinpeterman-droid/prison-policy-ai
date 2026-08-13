@@ -61,9 +61,7 @@ class DispatchSettings:
             "worker_url": "AI_WORKER_URL",
             "oidc_service_account": "CLOUD_TASKS_OIDC_SERVICE_ACCOUNT",
         }
-        values = {
-            field: str(source.get(name, "")).strip() for field, name in required.items()
-        }
+        values = {field: str(source.get(name, "")).strip() for field, name in required.items()}
         if any(not value for value in values.values()):
             raise RuntimeError("Cloud Tasks dispatcher configuration is incomplete")
         return cls(**values)
@@ -129,9 +127,7 @@ class SqlOutboxRepository:
 
     def mark_dispatched(self, row_id: UUID, *, now: datetime) -> None:
         with self._scope() as session:
-            row = session.scalar(
-                select(TaskOutbox).where(TaskOutbox.id == row_id).with_for_update()
-            )
+            row = session.scalar(select(TaskOutbox).where(TaskOutbox.id == row_id).with_for_update())
             if row is None or row.state != "pending":
                 return
             row.state = "dispatched"
@@ -148,9 +144,7 @@ class SqlOutboxRepository:
         now: datetime,
     ) -> None:
         with self._scope() as session:
-            row = session.scalar(
-                select(TaskOutbox).where(TaskOutbox.id == row_id).with_for_update()
-            )
+            row = session.scalar(select(TaskOutbox).where(TaskOutbox.id == row_id).with_for_update())
             if row is None or row.state != "pending":
                 return
             row.attempts += 1

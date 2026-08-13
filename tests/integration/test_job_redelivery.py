@@ -86,9 +86,7 @@ def test_duplicate_redelivery_applies_one_terminal_result_and_one_audit(
 ):
     db_session.commit()
     with db_session_factory() as setup:
-        job_id = _submit(
-            setup, user_actor, fictional_incident.id, "job-fictional-redelivery"
-        )
+        job_id = _submit(setup, user_actor, fictional_incident.id, "job-fictional-redelivery")
 
     with db_session_factory.begin() as worker:
         claimed = claim_job(worker, job_id, now=FIXED_NOW)
@@ -139,9 +137,7 @@ def test_stale_incident_revision_becomes_terminal_conflict_without_overwrite(
     original_classification = dict(fictional_incident.classification)
     db_session.commit()
     with db_session_factory() as setup:
-        job_id = _submit(
-            setup, user_actor, fictional_incident.id, "job-fictional-stale-result"
-        )
+        job_id = _submit(setup, user_actor, fictional_incident.id, "job-fictional-stale-result")
 
     with db_session_factory.begin() as advance:
         incident = advance.get(type(fictional_incident), fictional_incident.id)
@@ -190,9 +186,7 @@ def test_expired_running_job_is_reclaimed_with_a_fenced_twenty_minute_lease(
 ):
     db_session.commit()
     with db_session_factory() as setup:
-        job_id = _submit(
-            setup, user_actor, fictional_incident.id, "job-fictional-reclaim"
-        )
+        job_id = _submit(setup, user_actor, fictional_incident.id, "job-fictional-reclaim")
 
     with db_session_factory.begin() as first_delivery:
         first = claim_job(first_delivery, job_id, now=FIXED_NOW)
@@ -455,10 +449,7 @@ def test_status_get_never_reflects_a_malformed_durable_result_reference(
     with pytest.raises(IntegrityError):
         with db_session_factory.begin() as corrupt:
             corrupt.execute(
-                text(
-                    "UPDATE ai_jobs SET result_reference=CAST(:reference AS jsonb) "
-                    "WHERE id=:job_id"
-                ),
+                text("UPDATE ai_jobs SET result_reference=CAST(:reference AS jsonb) WHERE id=:job_id"),
                 {
                     "job_id": job_id,
                     "reference": json.dumps(

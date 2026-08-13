@@ -102,9 +102,7 @@ def _sanitize_url(url: str) -> str:
         if k.lower() not in _SENSITIVE_QUERY_KEYS
     ]
     cleaned = urllib.parse.urlencode(kept)
-    return urllib.parse.urlunsplit(
-        (parts.scheme, parts.netloc, parts.path, cleaned, parts.fragment)
-    )
+    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, cleaned, parts.fragment))
 
 
 def _clean_field(value, max_len: int) -> str:
@@ -121,9 +119,7 @@ def _clean_field(value, max_len: int) -> str:
     return value
 
 
-def _build_issue_body(
-    feedback_text: str, page_url: str, name: str, context: dict
-) -> str:
+def _build_issue_body(feedback_text: str, page_url: str, name: str, context: dict) -> str:
     """Assemble the Markdown issue body. Pure — unit tested without network."""
     reporter = f" from **{name}**" if name else ""
     lines = [
@@ -159,7 +155,8 @@ def feedback_api():
     feedback_text = data.get("comment", "").strip()
     page_url = _sanitize_url(data.get("url", ""))
     name = _clean_field(data.get("name", ""), MAX_NAME_LEN)
-    context = data.get("context") if isinstance(data.get("context"), dict) else {}
+    raw_context = data.get("context")
+    context: dict[str, object] = raw_context if isinstance(raw_context, dict) else {}
 
     if not feedback_text:
         return jsonify({"error": "No feedback provided"}), 400
@@ -169,11 +166,7 @@ def feedback_api():
 
     if _rate_limited(_client_key()):
         logger.warning("Feedback rate limit hit")
-        return jsonify(
-            {
-                "error": "Too many feedback submissions. Please wait a few minutes and try again."
-            }
-        ), 429
+        return jsonify({"error": "Too many feedback submissions. Please wait a few minutes and try again."}), 429
 
     github_token = os.environ.get("GITHUB_TOKEN")
     if not github_token:
@@ -186,9 +179,7 @@ def feedback_api():
     issue_title = f"User Feedback from {page_url}"
     issue_body = _build_issue_body(feedback_text, page_url, name, context)
 
-    payload = json.dumps(
-        {"title": issue_title, "body": issue_body, "labels": ["feedback"]}
-    ).encode("utf-8")
+    payload = json.dumps({"title": issue_title, "body": issue_body, "labels": ["feedback"]}).encode("utf-8")
 
     req = urllib.request.Request(api_url, data=payload, method="POST")
     req.add_header("Authorization", f"Bearer {github_token}")

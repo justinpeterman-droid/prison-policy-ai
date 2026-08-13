@@ -141,15 +141,11 @@ class TestSharedHistoryCleaner:
             assert clean_policy_history(bad) == []
 
     def test_malformed_entries_are_skipped_not_fatal(self):
-        out = clean_policy_history(
-            ["string", 7, None, {"answer": "orphan"}, {"question": "real one"}]
-        )
+        out = clean_policy_history(["string", 7, None, {"answer": "orphan"}, {"question": "real one"}])
         assert [item["question"] for item in out] == ["real one"]
 
     def test_caps_the_number_of_turns_keeping_the_most_recent(self):
-        out = clean_policy_history(
-            [{"question": f"q{i}", "answer": "a"} for i in range(50)]
-        )
+        out = clean_policy_history([{"question": f"q{i}", "answer": "a"} for i in range(50)])
         assert len(out) == MAX_HISTORY_ITEMS
         assert out[-1]["question"] == "q49"
 
@@ -177,9 +173,7 @@ class TestBrowserParity:
 
     def test_browser_response_shape_is_unchanged(self, monkeypatch):
         chat = pytest.importorskip("backend.webapp.routes.chat")
-        monkeypatch.setattr(
-            chat, "answer_question", lambda q, history=None: _provider_result()
-        )
+        monkeypatch.setattr(chat, "answer_question", lambda q, history=None: _provider_result())
         app = pytest.importorskip("flask").Flask(__name__)
         app.register_blueprint(chat.chat_bp)
         response = app.test_client().post("/api/chat", json={"question": "Fictional?"})
@@ -202,9 +196,7 @@ class TestRequestContract:
         monkeypatch,
     ):
         calls = _fake_provider(monkeypatch)
-        history = [
-            {"question": f"Question {i}", "answer": "A" * 100} for i in range(10)
-        ]
+        history = [{"question": f"Question {i}", "answer": "A" * 100} for i in range(10)]
         response = api_client.post(
             "/api/v1/policy/questions",
             headers=_headers(auth_headers, "policy-fictional-0001"),
@@ -339,9 +331,7 @@ class TestRequestContract:
         assert response.json["error"]["code"] == "client_upgrade_required"
         assert calls == []
 
-    @pytest.mark.skipif(
-        not os.environ.get("TEST_DATABASE_URL"), reason="requires disposable PostgreSQL"
-    )
+    @pytest.mark.skipif(not os.environ.get("TEST_DATABASE_URL"), reason="requires disposable PostgreSQL")
     def test_requires_authentication(self, api_client, monkeypatch):
         calls = _fake_provider(monkeypatch)
         response = api_client.post(
@@ -432,9 +422,7 @@ class TestIdempotencyOutcomes:
         worker.start()
         assert started.wait(timeout=10)
 
-        duplicate = api_client.post(
-            "/api/v1/policy/questions", headers=headers, json=body
-        )
+        duplicate = api_client.post("/api/v1/policy/questions", headers=headers, json=body)
         release.set()
         worker.join(timeout=10)
 
@@ -482,9 +470,7 @@ class TestNothingSensitiveIsPersisted:
             json={"question": self.SECRET_QUESTION},
         )
         record = db_session.scalar(
-            select(IdempotencyRecord).where(
-                IdempotencyRecord.idempotency_key == "policy-fictional-0020"
-            )
+            select(IdempotencyRecord).where(IdempotencyRecord.idempotency_key == "policy-fictional-0020")
         )
         assert record is not None
         assert record.status == "completed"
@@ -518,9 +504,7 @@ class TestNothingSensitiveIsPersisted:
             json={"question": self.SECRET_QUESTION},
         )
         rows = db_session.execute(
-            text(
-                "SELECT action, details FROM audit_events WHERE action = 'policy.question_answered'"
-            )
+            text("SELECT action, details FROM audit_events WHERE action = 'policy.question_answered'")
         ).all()
         assert rows, "the policy question should be audited"
         for _action, details in rows:
@@ -575,9 +559,7 @@ class TestNothingSensitiveIsPersisted:
             "info",
             lambda message, *args: messages.append(message % args),
         )
-        monkeypatch.setattr(
-            query.urllib.request, "urlopen", lambda *_args, **_kwargs: _Response()
-        )
+        monkeypatch.setattr(query.urllib.request, "urlopen", lambda *_args, **_kwargs: _Response())
         query._search_with_stats(secret)
         logged = "\n".join(messages)
         assert secret not in logged
@@ -606,9 +588,7 @@ class TestNothingSensitiveIsPersisted:
             lambda _request, *, timeout: seen.append(timeout) or _Response(),
         )
         deadline = time.monotonic() + 0.2
-        query._search_with_stats(
-            "fictional policy question", deadline_monotonic=deadline
-        )
+        query._search_with_stats("fictional policy question", deadline_monotonic=deadline)
         assert 0 < seen[0] <= 0.2
 
     def test_expired_shared_deadline_never_falls_open_to_search(self, monkeypatch):
@@ -755,17 +735,13 @@ class TestSafeUpstreamErrors:
     ):
         """A provider failure must settle the record, so the officer can retry
         with the same key rather than being locked out by a dead claim."""
-        _fake_provider(
-            monkeypatch, raises=RuntimeError("Search API error: upstream refused")
-        )
+        _fake_provider(monkeypatch, raises=RuntimeError("Search API error: upstream refused"))
         headers = _headers(auth_headers, "policy-fictional-0031")
         body = {"question": "Fictional failing question?"}
         first = api_client.post("/api/v1/policy/questions", headers=headers, json=body)
         assert first.status_code == 503
 
         record = db_session.scalar(
-            select(IdempotencyRecord).where(
-                IdempotencyRecord.idempotency_key == "policy-fictional-0031"
-            )
+            select(IdempotencyRecord).where(IdempotencyRecord.idempotency_key == "policy-fictional-0031")
         )
         assert record is None or record.status != "in_progress"

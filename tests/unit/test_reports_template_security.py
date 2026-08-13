@@ -8,13 +8,7 @@ import subprocess
 from backend.reports.extraction import compute_provenance
 
 
-TEMPLATE = (
-    Path(__file__).resolve().parents[2]
-    / "backend"
-    / "webapp"
-    / "templates"
-    / "reports.html"
-)
+TEMPLATE = Path(__file__).resolve().parents[2] / "backend" / "webapp" / "templates" / "reports.html"
 
 
 def _render_provenance_in_node(provenance: list[dict]) -> str:

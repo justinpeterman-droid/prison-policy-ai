@@ -74,9 +74,7 @@ def _condition_met(cond: str, slots: dict) -> bool:
 def _options_for(rule: dict, checklist: dict) -> list[str] | None:
     if rule.get("answer_type") != "choice":
         return None
-    opts = rule.get("options") or checklist["shared_option_sets"].get(
-        rule.get("options_ref", ""), []
-    )
+    opts = rule.get("options") or checklist["shared_option_sets"].get(rule.get("options_ref", ""), [])
     return list(opts) + [OTHER_OPTION]
 
 
@@ -111,9 +109,7 @@ def find_gaps(category_name: str, slots: dict) -> dict:
         if slot in COLLECTED_ELSEWHERE:
             continue
         val = slots.get(slot)
-        if val is None and not any(
-            r["require"] == slot for r in category.get("rules", [])
-        ):
+        if val is None and not any(r["require"] == slot for r in category.get("rules", [])):
             gaps.append(
                 {
                     "slot": slot,
@@ -169,13 +165,7 @@ def investigation_occurred(slots: dict) -> bool:
     findings = slots.get("investigation_findings")
     if isinstance(findings, str):
         findings = [findings]
-    return bool(
-        [
-            f
-            for f in (findings or [])
-            if isinstance(f, str) and f.strip() and f.strip().upper() != UNKNOWN
-        ]
-    )
+    return bool([f for f in (findings or []) if isinstance(f, str) and f.strip() and f.strip().upper() != UNKNOWN])
 
 
 def _checklist_state(category: dict, slots: dict) -> list[dict]:
@@ -184,8 +174,7 @@ def _checklist_state(category: dict, slots: dict) -> list[dict]:
     yes = {
         r["require"]
         for r in category.get("rules", [])
-        if r.get("answer_type") == "yes_no"
-        and str(slots.get(r["require"], "")).lower() in ("yes", "true")
+        if r.get("answer_type") == "yes_no" and str(slots.get(r["require"], "")).lower() in ("yes", "true")
     }
     form_slot = {
         "witness_statements": "witness_statements_collected",
@@ -212,11 +201,7 @@ def _inmate_phrases(slots: dict) -> dict:
     `inmate_object` is the mid-sentence object form and stays lowercase per
     STYLE_RULINGS.md ruling 6.
     """
-    inmates = [
-        p
-        for p in slots.get("persons", [])
-        if p.get("role") == "inmate" and p.get("last")
-    ]
+    inmates = [p for p in slots.get("persons", []) if p.get("role") == "inmate" and p.get("last")]
     names = [f"Inmate {p['last']}" for p in inmates]
     if len(names) == 1:
         inmate_list = names[0]
@@ -252,9 +237,7 @@ def _inmate_phrases(slots: dict) -> dict:
     }
 
 
-def _resolve_auto_content(
-    category: dict, slots: dict, checklist: dict | None = None
-) -> list[dict]:
+def _resolve_auto_content(category: dict, slots: dict, checklist: dict | None = None) -> list[dict]:
     """Fill each auto_content template whose condition is met. Unfilled
     placeholders render as visible [NEEDED: ...] markers — never dropped.
 
@@ -276,15 +259,11 @@ def _resolve_auto_content(
             return str(value)
 
         text = re.sub(r"\{(\w+)\}", replace_slot, item["template"])
-        resolved.append(
-            {"id": item["id"], "insert_into": item["insert_into"], "text": text}
-        )
+        resolved.append({"id": item["id"], "insert_into": item["insert_into"], "text": text})
     return resolved
 
 
-def invented_facts(
-    output_text: str, notes: str, answers: dict, allow=None
-) -> list[str]:
+def invented_facts(output_text: str, notes: str, answers: dict, allow=None) -> list[str]:
     """Hard check: every ADC#, time, and date in generated text must appear in
     the officer's input (notes or gap answers). Returns suspicious tokens.
 

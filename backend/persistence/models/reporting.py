@@ -50,13 +50,9 @@ class RevisionReason(str, enum.Enum):
 
 
 STATUS_VALUES = "'in_progress','completed','archived'"
-INCIDENT_REASON_VALUES = (
-    "'autosave','manual_save','ai_result','restored','status_change',"
-    "'ownership_change','recovery'"
-)
+INCIDENT_REASON_VALUES = "'autosave','manual_save','ai_result','restored','status_change','ownership_change','recovery'"
 REPORT_REASON_VALUES = (
-    "'autosave','manual_save','ai_result','restored','status_change',"
-    "'ownership_change','recovery','admin_edit'"
+    "'autosave','manual_save','ai_result','restored','status_change','ownership_change','recovery','admin_edit'"
 )
 
 
@@ -64,9 +60,7 @@ class Incident(Base):
     __tablename__ = "incidents"
     __table_args__ = (
         CheckConstraint(f"status IN ({STATUS_VALUES})", name="status"),
-        CheckConstraint(
-            "current_revision_number >= 0", name="current_revision_nonnegative"
-        ),
+        CheckConstraint("current_revision_number >= 0", name="current_revision_nonnegative"),
         Index("ix_incidents_status_date", "status", "incident_date", "id"),
         Index("ix_incidents_category_date", "category", "incident_date", "id"),
         Index("ix_incidents_updated_at", "updated_at", "id"),
@@ -197,14 +191,10 @@ class Report(Base):
             name="uq_reports_incident_type_owner",
         ),
         CheckConstraint(f"status IN ({STATUS_VALUES})", name="status"),
-        CheckConstraint(
-            "current_revision_number >= 0", name="current_revision_nonnegative"
-        ),
+        CheckConstraint("current_revision_number >= 0", name="current_revision_nonnegative"),
         Index("ix_reports_incident", "incident_id", "id"),
         Index("ix_reports_status_updated", "status", "updated_at", "id"),
-        Index(
-            "ix_reports_owner_updated", "reporting_staff_member_id", "updated_at", "id"
-        ),
+        Index("ix_reports_owner_updated", "reporting_staff_member_id", "updated_at", "id"),
         Index(
             "ix_reports_preparer_updated",
             "prepared_by_staff_member_id",
@@ -315,9 +305,7 @@ class ReportRevision(Base):
         CheckConstraint("revision_number >= 0", name="number_nonnegative"),
         CheckConstraint(f"reason IN ({REPORT_REASON_VALUES})", name="reason"),
         Index("ix_report_revisions_parent_created", "report_id", "created_at"),
-        Index(
-            "ix_report_revisions_editor_created", "editor_staff_member_id", "created_at"
-        ),
+        Index("ix_report_revisions_editor_created", "editor_staff_member_id", "created_at"),
     )
 
     id: Mapped[UUID] = mapped_column(

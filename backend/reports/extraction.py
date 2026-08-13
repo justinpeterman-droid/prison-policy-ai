@@ -24,9 +24,7 @@ _client = None
 def _get_client() -> genai.Client:
     global _client
     if _client is None:
-        _client = genai.Client(
-            vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION
-        )
+        _client = genai.Client(vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION)
     return _client
 
 

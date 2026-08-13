@@ -51,9 +51,7 @@ class TestBuildGrounded:
         assert citations[1]["source"] == "Policy 1"
 
     def test_ungrounded_when_no_citations(self):
-        answer, citations, grounded = build_grounded(
-            "A plausible but uncited answer.", _ctx(3)
-        )
+        answer, citations, grounded = build_grounded("A plausible but uncited answer.", _ctx(3))
         assert grounded is False
         assert citations == []
         assert answer == "A plausible but uncited answer."
@@ -78,12 +76,7 @@ class TestSupportScore:
         )
 
     def test_no_overlap(self):
-        assert (
-            support_score(
-                "Inmate visitation hours.", "Chemical agents storage requirements."
-            )
-            == 0.0
-        )
+        assert support_score("Inmate visitation hours.", "Chemical agents storage requirements.") == 0.0
 
     def test_partial_overlap(self):
         score = support_score(
@@ -108,21 +101,16 @@ class TestInferCitations:
     PASSAGES = [
         {
             "source": "AD 14-15",
-            "text": "Any use of force must be reported to the "
-            "shift supervisor within 24 hours of the incident.",
+            "text": "Any use of force must be reported to the shift supervisor within 24 hours of the incident.",
         },
         {
             "source": "Post Order 7",
-            "text": "Officers shall conduct a formal count "
-            "at the beginning of every shift.",
+            "text": "Officers shall conduct a formal count at the beginning of every shift.",
         },
     ]
 
     def test_recovers_citations_when_markers_missing(self):
-        answer = (
-            "Any use of force must be reported to the shift supervisor "
-            "within 24 hours of the incident."
-        )
+        answer = "Any use of force must be reported to the shift supervisor within 24 hours of the incident."
         citations, grounded = infer_citations(answer, self.PASSAGES)
         assert grounded is True
         assert [c["source"] for c in citations] == ["AD 14-15"]
@@ -130,10 +118,7 @@ class TestInferCitations:
     def test_does_not_ground_an_invented_answer(self):
         # The safety-critical case: content absent from every passage must NOT
         # be presented as document-backed.
-        answer = (
-            "Inmates are entitled to four hours of recreation and may "
-            "keep personal electronics in their cell."
-        )
+        answer = "Inmates are entitled to four hours of recreation and may keep personal electronics in their cell."
         citations, grounded = infer_citations(answer, self.PASSAGES)
         assert grounded is False
         assert citations == []
@@ -172,19 +157,13 @@ class TestInferCitations:
 
 class TestBuildGroundedInference:
     def test_infer_off_by_default_preserves_old_behavior(self):
-        raw = (
-            "Any use of force must be reported to the shift supervisor "
-            "within 24 hours of the incident."
-        )
+        raw = "Any use of force must be reported to the shift supervisor within 24 hours of the incident."
         ctx = [{"source": "AD 14-15", "text": raw}]
         _, citations, grounded = build_grounded(raw, ctx)
         assert grounded is False and citations == []
 
     def test_infer_recovers_grounding(self):
-        raw = (
-            "Any use of force must be reported to the shift supervisor "
-            "within 24 hours of the incident."
-        )
+        raw = "Any use of force must be reported to the shift supervisor within 24 hours of the incident."
         ctx = [{"source": "AD 14-15", "text": raw}]
         answer, citations, grounded = build_grounded(raw, ctx, infer=True)
         assert grounded is True

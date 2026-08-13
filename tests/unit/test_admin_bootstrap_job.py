@@ -84,14 +84,10 @@ def test_secret_adapter_makes_one_non_idempotent_call_and_validates_name():
     class Client:
         def add_secret_version(self, **kwargs):
             calls.append(kwargs)
-            return SimpleNamespace(
-                name="projects/fixture/secrets/initial-admin-pin/versions/7"
-            )
+            return SimpleNamespace(name="projects/fixture/secrets/initial-admin-pin/versions/7")
 
     parent = "projects/fixture/secrets/initial-admin-pin"
-    result = GoogleSecretVersionAdder(Client()).add_version(
-        parent=parent, payload=b"fictional-pin"
-    )
+    result = GoogleSecretVersionAdder(Client()).add_version(parent=parent, payload=b"fictional-pin")
     assert result == f"{parent}/versions/7"
     assert calls == [
         {
@@ -145,15 +141,9 @@ def test_cli_emits_only_the_closed_four_field_result(monkeypatch, capsys):
     request = AdminBootstrapRequest(operation_id, staff_id, approval)
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://fixture.invalid/test")
     monkeypatch.setenv("ADMIN_BOOTSTRAP_REQUEST_BUCKET", "fixture-config")
-    monkeypatch.setenv(
-        "INITIAL_ADMIN_PIN_SECRET", "projects/fixture/secrets/initial-admin-pin"
-    )
-    monkeypatch.setattr(
-        "backend.jobs.admin_bootstrap.GoogleBootstrapRequestReader", lambda: object()
-    )
-    monkeypatch.setattr(
-        "backend.jobs.admin_bootstrap.GoogleSecretVersionAdder", lambda: object()
-    )
+    monkeypatch.setenv("INITIAL_ADMIN_PIN_SECRET", "projects/fixture/secrets/initial-admin-pin")
+    monkeypatch.setattr("backend.jobs.admin_bootstrap.GoogleBootstrapRequestReader", lambda: object())
+    monkeypatch.setattr("backend.jobs.admin_bootstrap.GoogleSecretVersionAdder", lambda: object())
     monkeypatch.setattr(
         "backend.jobs.admin_bootstrap.load_bootstrap_request",
         lambda *args, **kwargs: request,
@@ -162,9 +152,7 @@ def test_cli_emits_only_the_closed_four_field_result(monkeypatch, capsys):
         "backend.jobs.admin_bootstrap.create_engine",
         lambda *args, **kwargs: SimpleNamespace(dispose=lambda: None),
     )
-    monkeypatch.setattr(
-        "backend.jobs.admin_bootstrap.sessionmaker", lambda **kwargs: object()
-    )
+    monkeypatch.setattr("backend.jobs.admin_bootstrap.sessionmaker", lambda **kwargs: object())
     monkeypatch.setattr(
         "backend.jobs.admin_bootstrap.execute_admin_bootstrap",
         lambda *args, **kwargs: AdminBootstrapResult(

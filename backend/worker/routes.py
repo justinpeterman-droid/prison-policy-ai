@@ -148,9 +148,7 @@ class RouteNeutralReportEngine:
             return report_service.classify_incident_notes(incident.field_notes)
         provider = SqlStaffProvider(session)
         if job.job_type == "extract":
-            category = incident.category or str(
-                (incident.classification or {}).get("incident_type", "")
-            )
+            category = incident.category or str((incident.classification or {}).get("incident_type", ""))
             if not category:
                 raise TerminalJobFailure("job_output_invalid")
             return report_service.extract_incident_notes(
@@ -228,9 +226,7 @@ def _normalize_engine_result(
         if type(slots) is not dict:
             raise TerminalJobFailure("job_output_invalid")
         validation = {
-            key: raw[key]
-            for key in ("gaps", "blocking_remaining", "checklist", "auto_content")
-            if key in raw
+            key: raw[key] for key in ("gaps", "blocking_remaining", "checklist", "auto_content") if key in raw
         }
         payload = _incident_payload(incident)
         payload.update(
@@ -266,20 +262,12 @@ def _normalize_engine_result(
         selected = {"disciplinary": reports.get("disciplinary")}
     report_contents: dict[str, ReportContentV1] = {}
     raw_markers = raw.get("markers", [])
-    warnings = (
-        [str(value)[:200] for value in raw_markers[:100]]
-        if isinstance(raw_markers, list)
-        else []
-    )
+    warnings = [str(value)[:200] for value in raw_markers[:100]] if isinstance(raw_markers, list) else []
     validation = {key: raw[key] for key in ("style", "flags", "repaired") if key in raw}
     for key, narrative in selected.items():
         if key not in _REPORT_KEYS:
             continue
-        if (
-            not isinstance(narrative, str)
-            or not narrative.strip()
-            or _PLACEHOLDER.match(narrative)
-        ):
+        if not isinstance(narrative, str) or not narrative.strip() or _PLACEHOLDER.match(narrative):
             raise TerminalJobFailure("job_output_invalid")
         report_contents[key] = ReportContentV1(
             narrative=narrative,
@@ -292,8 +280,7 @@ def _normalize_engine_result(
         editable_fields = {
             str(key): value
             for key, value in form005.items()
-            if isinstance(key, str)
-            and isinstance(value, (str, int, float, bool, type(None)))
+            if isinstance(key, str) and isinstance(value, (str, int, float, bool, type(None)))
         }
         if not isinstance(narrative, str) or not narrative.strip():
             raise TerminalJobFailure("job_output_invalid")
@@ -332,12 +319,7 @@ class JobProcessor:
     def _actor(session, job: AiJob) -> Actor:
         account = session.get(Account, job.requested_by_account_id)
         staff = session.get(StaffMember, account.staff_member_id) if account else None
-        if (
-            account is None
-            or account.status != "active"
-            or staff is None
-            or not staff.is_active
-        ):
+        if account is None or account.status != "active" or staff is None or not staff.is_active:
             raise TerminalJobFailure("job_authorization_invalid")
         return Actor(
             account_id=account.id,
@@ -356,9 +338,7 @@ class JobProcessor:
     ) -> Report | None:
         if job.report_id is None:
             return None
-        report = session.scalar(
-            select(Report).where(Report.id == job.report_id).with_for_update()
-        )
+        report = session.scalar(select(Report).where(Report.id == job.report_id).with_for_update())
         if report is None or report.incident_id != job.incident_id:
             raise TerminalJobFailure("job_target_invalid")
         access = session.scalar(
@@ -394,9 +374,7 @@ class JobProcessor:
     ) -> tuple[UUID, ...]:
         snapshot = revision.snapshot if isinstance(revision.snapshot, dict) else {}
         metadata = snapshot.get("server_metadata")
-        raw_ids = (
-            metadata.get("reporting_staff_ids") if isinstance(metadata, dict) else None
-        )
+        raw_ids = metadata.get("reporting_staff_ids") if isinstance(metadata, dict) else None
         if not isinstance(raw_ids, list) or not 1 <= len(raw_ids) <= 20:
             raise TerminalJobFailure("job_target_invalid")
         try:
@@ -429,9 +407,7 @@ class JobProcessor:
             return
         snapshot = source.snapshot if isinstance(source.snapshot, dict) else {}
         metadata = snapshot.get("server_metadata")
-        raw_ids = (
-            metadata.get("reporting_staff_ids") if isinstance(metadata, dict) else []
-        )
+        raw_ids = metadata.get("reporting_staff_ids") if isinstance(metadata, dict) else []
         if not isinstance(raw_ids, list):
             raw_ids = []
         try:
@@ -456,9 +432,7 @@ class JobProcessor:
 
     @staticmethod
     def _metadata(job: AiJob) -> dict[str, object]:
-        return (
-            dict(job.request_metadata) if isinstance(job.request_metadata, dict) else {}
-        )
+        return dict(job.request_metadata) if isinstance(job.request_metadata, dict) else {}
 
     @staticmethod
     def _finish_provider_metadata(job: AiJob) -> None:
@@ -486,9 +460,7 @@ class JobProcessor:
     def _mark_terminal(self, job_id: UUID, claim_token: UUID, code: str) -> None:
         fixed = self._now()
         with self._scope() as session:
-            job = session.scalar(
-                select(AiJob).where(AiJob.id == job_id).with_for_update()
-            )
+            job = session.scalar(select(AiJob).where(AiJob.id == job_id).with_for_update())
             if job is None or job.state in TERMINAL_STATES:
                 return
             if job.state != "running" or job.claim_token != claim_token:
@@ -524,9 +496,7 @@ class JobProcessor:
 
     def _release_transient(self, job_id: UUID, claim_token: UUID) -> None:
         with self._scope() as session:
-            job = session.scalar(
-                select(AiJob).where(AiJob.id == job_id).with_for_update()
-            )
+            job = session.scalar(select(AiJob).where(AiJob.id == job_id).with_for_update())
             if job is None or job.state in TERMINAL_STATES:
                 return
             if job.state == "running" and job.claim_token == claim_token:
@@ -550,9 +520,7 @@ class JobProcessor:
             claim_token = claimed.claim_token
             metadata = self._metadata(claimed)
             previous = metadata.pop("provider_attempt_started", None)
-            if isinstance(previous, dict) and previous.get("claim_token") != str(
-                claim_token
-            ):
+            if isinstance(previous, dict) and previous.get("claim_token") != str(claim_token):
                 repeat_job_type = claimed.job_type
                 metadata["provider_repeat_risk_emitted_attempt"] = claimed.attempts
             claimed.request_metadata = metadata
@@ -569,9 +537,7 @@ class JobProcessor:
     ) -> None:
         fixed = self._now()
         with self._scope() as session:
-            job = session.scalar(
-                select(AiJob).where(AiJob.id == job_id).with_for_update()
-            )
+            job = session.scalar(select(AiJob).where(AiJob.id == job_id).with_for_update())
             if (
                 job is None
                 or job.state != "running"
@@ -582,9 +548,7 @@ class JobProcessor:
                 raise StaleJobClaim("job claim is no longer current")
             actor = self._actor(session, job)
             report = self._authorize_report_target(session, job, actor)
-            incident = session.scalar(
-                select(Incident).where(Incident.id == job.incident_id).with_for_update()
-            )
+            incident = session.scalar(select(Incident).where(Incident.id == job.incident_id).with_for_update())
             if incident is None:
                 raise TerminalJobFailure("job_target_invalid")
             if incident.current_revision_number != job.base_incident_revision:
@@ -638,9 +602,7 @@ class JobProcessor:
     def _mark_provider_started(self, job_id: UUID, claim_token: UUID) -> None:
         fixed = self._now()
         with self._scope() as session:
-            job = session.scalar(
-                select(AiJob).where(AiJob.id == job_id).with_for_update()
-            )
+            job = session.scalar(select(AiJob).where(AiJob.id == job_id).with_for_update())
             if (
                 job is None
                 or job.state != "running"
@@ -676,10 +638,7 @@ class JobProcessor:
     ):
         def attach(_session, _context, _instances):
             for pending in _session.new:
-                if (
-                    isinstance(pending, ReportRevision)
-                    and pending.reason == "ai_result"
-                ):
+                if isinstance(pending, ReportRevision) and pending.reason == "ai_result":
                     pending.source_incident_revision_id = source_revision_id
                     pending.source_ai_job_id = job_id
 
@@ -742,11 +701,7 @@ class JobProcessor:
         metadata = self._metadata(job)
         raw_bases = metadata.get("target_report_base_revisions", {})
         bases = (
-            {
-                str(key): value
-                for key, value in raw_bases.items()
-                if isinstance(key, str) and type(value) is int
-            }
+            {str(key): value for key, value in raw_bases.items() if isinstance(key, str) and type(value) is int}
             if isinstance(raw_bases, dict)
             else {}
         )
@@ -858,9 +813,7 @@ class JobProcessor:
     def _apply(self, job_id: UUID, claim_token: UUID, result: JobEngineResult) -> None:
         completed_at = self._now()
         with self._scope() as session:
-            job = session.scalar(
-                select(AiJob).where(AiJob.id == job_id).with_for_update()
-            )
+            job = session.scalar(select(AiJob).where(AiJob.id == job_id).with_for_update())
             if (
                 job is None
                 or job.state != "running"
@@ -870,9 +823,7 @@ class JobProcessor:
             ):
                 raise StaleJobClaim("job claim is no longer current")
             actor = self._actor(session, job)
-            incident = session.scalar(
-                select(Incident).where(Incident.id == job.incident_id).with_for_update()
-            )
+            incident = session.scalar(select(Incident).where(Incident.id == job.incident_id).with_for_update())
             if incident is None:
                 raise TerminalJobFailure("job_target_invalid")
             if incident.current_revision_number != job.base_incident_revision:

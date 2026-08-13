@@ -25,6 +25,7 @@ would then buy a second provider request for the same key.
 from datetime import UTC, datetime
 import hashlib
 from time import monotonic
+from typing import TypedDict
 
 from flask import Blueprint, current_app, g, request
 
@@ -88,6 +89,13 @@ _SAFE_ERROR_MESSAGES = {
     "dependency_timeout": "The Policy Expert took too long to answer. Try a shorter, more specific question.",
     "internal_error": "An unexpected error occurred.",
 }
+
+
+class _PolicyData(TypedDict):
+    answer: str
+    citations: list[dict[str, object]]
+    sources: list[str]
+    retrieved_sources: list[str]
 
 
 def clean_policy_history(raw) -> list[dict[str, str]]:
@@ -198,7 +206,7 @@ def _bounded_string(value: object, limit: int) -> str:
     return value[:limit] if isinstance(value, str) else ""
 
 
-def _policy_data(result: object) -> dict[str, object]:
+def _policy_data(result: object) -> _PolicyData:
     """Project untrusted pipeline output into the closed Access wire schema."""
     raw = result if isinstance(result, dict) else {}
     citations: list[dict[str, object]] = []
@@ -216,9 +224,7 @@ def _policy_data(result: object) -> dict[str, object]:
     def source_list(value: object) -> list[str]:
         if not isinstance(value, list):
             return []
-        return [
-            text for item in value if (text := _bounded_string(item, MAX_SOURCE_CHARS))
-        ]
+        return [text for item in value if (text := _bounded_string(item, MAX_SOURCE_CHARS))]
 
     return {
         "answer": _bounded_string(raw.get("answer"), MAX_QUESTION_CHARS * 4),
@@ -321,9 +327,7 @@ def ask_policy_question():
         result = _call_provider(question, history)
     except Exception as exc:  # noqa: BLE001 - every failure is translated below
         category, _status = classify_error(exc)
-        code, http_status, retryable = _ERROR_TRANSLATION.get(
-            category, ("internal_error", 500, False)
-        )
+        code, http_status, retryable = _ERROR_TRANSLATION.get(category, ("internal_error", 500, False))
         latency_ms = max(0, int((monotonic() - started) * 1000))
         try:
             _settle(

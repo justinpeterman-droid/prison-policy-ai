@@ -88,9 +88,7 @@ def _normalize_location(value):
 def _titlecase(value):
     if not value:
         return value
-    return " ".join(
-        word[:1].upper() + word[1:] if word else word for word in str(value).split()
-    )
+    return " ".join(word[:1].upper() + word[1:] if word else word for word in str(value).split())
 
 
 def _to_12h(value):
@@ -156,11 +154,7 @@ def _format_shift(value):
     if not value:
         return value
     rendered = str(value).strip()
-    return (
-        f"{rendered.upper()} Shift"
-        if len(rendered) == 1 and rendered.isalpha()
-        else rendered
-    )
+    return f"{rendered.upper()} Shift" if len(rendered) == 1 and rendered.isalpha() else rendered
 
 
 def _today() -> str:
@@ -184,8 +178,7 @@ def _format_inmates(slots: dict) -> str:
             continue
         first = _titlecase(person.get("first")) or FIRST_NAME_NEEDED
         values.append(
-            f"Inmate {_titlecase(person.get('last', ''))}, {first} "
-            f"ADC#{person.get('adc_number') or 'UNKNOWN'}"
+            f"Inmate {_titlecase(person.get('last', ''))}, {first} ADC#{person.get('adc_number') or 'UNKNOWN'}"
         )
     return ", ".join(values)
 
@@ -194,9 +187,7 @@ def _inmates_missing_first(slots: dict) -> list:
     return [
         person.get("last")
         for person in slots.get("persons", [])
-        if person.get("role") == "inmate"
-        and person.get("last")
-        and not person.get("first")
+        if person.get("role") == "inmate" and person.get("last") and not person.get("first")
     ]
 
 
@@ -206,18 +197,13 @@ def _apply_first_name_answers(slots: dict, answers: dict) -> None:
             continue
         last = key.split("::", 1)[1]
         for person in slots.get("persons", []):
-            if (
-                person.get("role") == "inmate"
-                and person.get("last") == last
-                and not person.get("first")
-            ):
+            if person.get("role") == "inmate" and person.get("last") == last and not person.get("first"):
                 person["first"] = _titlecase(value)
 
 
 def _format_employees(slots: dict) -> str:
     return ", ".join(
-        f"{person.get('rank', '')} {_titlecase(person.get('first', ''))} "
-        f"{_titlecase(person.get('last', ''))}".strip()
+        f"{person.get('rank', '')} {_titlecase(person.get('first', ''))} {_titlecase(person.get('last', ''))}".strip()
         for person in slots.get("persons", [])
         if person.get("role") == "security_staff" and person.get("last")
     )
@@ -268,9 +254,7 @@ def _parse_rank(full_name: str) -> str:
         "Officer": "Ofc.",
     }
     for rank in sorted(ranks, key=len, reverse=True):
-        if full_name.startswith(rank) or full_name.startswith(
-            rank.lower().capitalize()
-        ):
+        if full_name.startswith(rank) or full_name.startswith(rank.lower().capitalize()):
             return abbreviations.get(rank, rank)
     return ""
 
@@ -280,9 +264,7 @@ def _apply_gap_defaults(category: str, gaps: list) -> None:
         slot = gap.get("slot")
         if slot == "medical_disposition":
             gap["default"] = (
-                "Seen by Infirmary staff"
-                if category in MEDICAL_SEEN_CATEGORIES
-                else "N/A - no injuries reported"
+                "Seen by Infirmary staff" if category in MEDICAL_SEEN_CATEGORIES else "N/A - no injuries reported"
             )
         elif slot == "drug_test_disposition":
             gap["default"] = "N/A"
@@ -317,9 +299,7 @@ def extract_incident_notes(
     roster_gaps: list[dict] = []
     persons = slots.get("persons", [])
     if persons:
-        persons, roster_gaps = resolve_staff_from_persons(
-            persons, staff_provider=staff_provider
-        )
+        persons, roster_gaps = resolve_staff_from_persons(persons, staff_provider=staff_provider)
         slots["persons"] = persons
         for person in persons:
             if person.get("role") == "security_staff" and person.get("_roster_match"):
@@ -332,13 +312,11 @@ def extract_incident_notes(
                 break
 
     if not slots.get("inmates_involved") and any(
-        person.get("role") == "inmate" and person.get("last")
-        for person in slots.get("persons", [])
+        person.get("role") == "inmate" and person.get("last") for person in slots.get("persons", [])
     ):
         slots["inmates_involved"] = _format_inmates(slots)
     if not slots.get("employees_involved") and any(
-        person.get("role") == "security_staff" and person.get("last")
-        for person in slots.get("persons", [])
+        person.get("role") == "security_staff" and person.get("last") for person in slots.get("persons", [])
     ):
         slots["employees_involved"] = _format_employees(slots)
 
@@ -400,8 +378,7 @@ def _prepare_generation(data: dict, staff_provider: StaffProvider) -> dict:
             hint = key.replace("officer_fields_", "")
             for person in slots.get("persons", []):
                 if person.get("role") == "security_staff" and (
-                    person.get("last", "").lower() == hint.lower()
-                    or person.get("name", "").lower() == hint.lower()
+                    person.get("last", "").lower() == hint.lower() or person.get("name", "").lower() == hint.lower()
                 ):
                     person["first"] = _titlecase(str(value))
                     break
@@ -410,13 +387,9 @@ def _prepare_generation(data: dict, staff_provider: StaffProvider) -> dict:
         slots["date"] = _today()
     if slots.get("time"):
         slots["time"] = _to_12h(slots["time"])
-    last_three = slots.get("incident_number_last3") or answers.get(
-        "incident_number_last3"
-    )
+    last_three = slots.get("incident_number_last3") or answers.get("incident_number_last3")
     if last_three and not slots.get("incident_number"):
-        slots["incident_number"] = _build_incident_number(
-            last_three, incident_date=slots.get("date")
-        )
+        slots["incident_number"] = _build_incident_number(last_three, incident_date=slots.get("date"))
     if not slots.get("drug_test_disposition"):
         slots["drug_test_disposition"] = "N/A"
     charges = data.get("charges")
@@ -428,9 +401,7 @@ def _prepare_generation(data: dict, staff_provider: StaffProvider) -> dict:
             slots["escort_destination"] = RESTRICTIVE_HOUSING
         elif "restrictive" not in destination.lower():
             slots["escort_destination"] = (
-                f"Infirmary, then {RESTRICTIVE_HOUSING}"
-                if "infirmary" in destination.lower()
-                else RESTRICTIVE_HOUSING
+                f"Infirmary, then {RESTRICTIVE_HOUSING}" if "infirmary" in destination.lower() else RESTRICTIVE_HOUSING
             )
 
     gap_result = find_gaps(category, slots)
@@ -462,11 +433,7 @@ def _prepare_generation(data: dict, staff_provider: StaffProvider) -> dict:
             slots["officer_first"] = first
         if rank:
             slots["rank"] = rank
-    elif reporters := [
-        person
-        for person in slots.get("persons", [])
-        if person.get("role") == "security_staff"
-    ]:
+    elif reporters := [person for person in slots.get("persons", []) if person.get("role") == "security_staff"]:
         slots = bind_reporter(slots, reporters[0])
         reporter = reporters[0]
 
@@ -520,9 +487,7 @@ def _finalize_generation(reports: dict, ctx: dict) -> dict:
         "officer_treatment": officer_injury,
         "recommendation": reports.get("recommendation", ""),
         "narrative": reports.get("first_person", ""),
-        "reporting_employee_signature": (
-            f"{slots.get('officer_first', '')} {slots.get('officer_last', '')}".strip()
-        ),
+        "reporting_employee_signature": (f"{slots.get('officer_first', '')} {slots.get('officer_last', '')}".strip()),
         "supervisor_signature": "",
     }
     all_text = " ".join(value for value in reports.values() if isinstance(value, str))
@@ -591,11 +556,7 @@ def _generate_disciplinary_report(
 ) -> dict:
     context = _prepare_generation(payload, staff_provider)
     prior = payload.get("reports") or {}
-    reports = {
-        key: value
-        for key, value in prior.items()
-        if key in RESUMABLE_REPORT_KEYS and isinstance(value, str)
-    }
+    reports = {key: value for key, value in prior.items() if key in RESUMABLE_REPORT_KEYS and isinstance(value, str)}
     reports.update(
         generate_only(
             context["slots"],
@@ -608,9 +569,7 @@ def _generate_disciplinary_report(
     return result
 
 
-def generate_disciplinary_report(
-    payload: dict, *, staff_provider: StaffProvider
-) -> dict:
+def generate_disciplinary_report(payload: dict, *, staff_provider: StaffProvider) -> dict:
     return _generate_disciplinary_report(
         payload,
         staff_provider=staff_provider,

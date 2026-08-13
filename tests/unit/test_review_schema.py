@@ -45,9 +45,7 @@ def valid_payload(**overrides):
 
 
 def test_server_owns_canonical_scenario_identity_and_notes():
-    record = build_review_submission(
-        valid_payload(), now=FIXED_NOW, id_factory=lambda: "abc123"
-    )
+    record = build_review_submission(valid_payload(), now=FIXED_NOW, id_factory=lambda: "abc123")
     canonical = get_demo_scenario("inmate_fight_dayroom")
 
     assert record["submission_id"] == "review_20260811T010203Z_abc123"
@@ -79,10 +77,7 @@ def test_server_owns_model_revision_and_prompt_metadata(monkeypatch):
         "checklist",
         "charges",
     }
-    assert all(
-        re.fullmatch(r"[0-9a-f]{64}", value)
-        for value in metadata["prompt_fingerprints"].values()
-    )
+    assert all(re.fullmatch(r"[0-9a-f]{64}", value) for value in metadata["prompt_fingerprints"].values())
 
 
 def test_report_ids_are_stable_and_both_versions_are_retained():
@@ -99,9 +94,7 @@ def test_report_ids_are_stable_and_both_versions_are_retained():
 
 
 def test_review_summary_contains_only_history_list_fields():
-    record = build_review_submission(
-        valid_payload(), now=FIXED_NOW, id_factory=lambda: "abc123"
-    )
+    record = build_review_submission(valid_payload(), now=FIXED_NOW, id_factory=lambda: "abc123")
 
     assert review_summary(record) == {
         "submission_id": "review_20260811T010203Z_abc123",
@@ -151,9 +144,7 @@ def test_at_least_one_generated_report_is_required():
 
 def test_comments_and_report_text_are_bounded():
     with pytest.raises(ReviewValidationError, match="comments"):
-        build_review_submission(
-            valid_payload(review={"score": 3, "comments": "x" * 5001})
-        )
+        build_review_submission(valid_payload(review={"score": 3, "comments": "x" * 5001}))
 
     oversized = valid_payload()["reports"][0] | {"edited_text": "x" * 30001}
     with pytest.raises(ReviewValidationError, match="report text"):

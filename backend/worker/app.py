@@ -24,11 +24,7 @@ def create_worker_app(
         metric_sink=metric_sink,
         now=now,
     )
-    resolved_queue = str(
-        queue_name
-        if queue_name is not None
-        else os.environ.get("CLOUD_TASKS_QUEUE", "")
-    ).strip()
+    resolved_queue = str(queue_name if queue_name is not None else os.environ.get("CLOUD_TASKS_QUEUE", "")).strip()
     if not resolved_queue:
         raise RuntimeError("Cloud Tasks worker queue configuration is incomplete")
     app.register_blueprint(

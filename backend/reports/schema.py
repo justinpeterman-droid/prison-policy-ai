@@ -158,14 +158,10 @@ def bind_reporter(slots: dict, person: dict) -> dict:
     out["officer_first"] = person.get("first") or None
     out["employee_number"] = person.get("employee_number") or None
     out["rank"] = person.get("rank") or None
-    out["shift_assignment"] = person.get("shift_assignment") or slots.get(
-        "shift_assignment"
-    )
+    out["shift_assignment"] = person.get("shift_assignment") or slots.get("shift_assignment")
     return out
 
 
 def security_staff(extraction: dict) -> list[dict]:
     """All named security staff — one report button each in the UI."""
-    return [
-        p for p in extraction.get("persons", []) if p.get("role") == "security_staff"
-    ]
+    return [p for p in extraction.get("persons", []) if p.get("role") == "security_staff"]

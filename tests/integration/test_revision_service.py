@@ -51,19 +51,13 @@ def actor(fictional_staff_and_accounts):
 
 
 def _audit_rows(session, report_id):
-    return (
-        session.execute(select(AuditEvent).where(AuditEvent.target_id == report_id))
-        .scalars()
-        .all()
-    )
+    return session.execute(select(AuditEvent).where(AuditEvent.target_id == report_id)).scalars().all()
 
 
 def test_public_report_service_interfaces_match_the_locked_roadmap():
     save_parameters = list(inspect.signature(save_report).parameters.values())
     restore_parameters = list(inspect.signature(restore_report).parameters.values())
-    recovery_parameters = list(
-        inspect.signature(create_recovery_revision).parameters.values()
-    )
+    recovery_parameters = list(inspect.signature(create_recovery_revision).parameters.values())
 
     assert [parameter.name for parameter in save_parameters[:6]] == [
         "session",
@@ -88,9 +82,7 @@ def test_public_report_service_interfaces_match_the_locked_roadmap():
     ]
     assert inspect.signature(save_report).return_annotation is ReportRevision
     assert inspect.signature(restore_report).return_annotation is ReportRevision
-    assert (
-        inspect.signature(create_recovery_revision).return_annotation is ReportRevision
-    )
+    assert inspect.signature(create_recovery_revision).return_annotation is ReportRevision
 
 
 def test_service_uses_caller_transaction_and_flushes_without_begin_or_commit(
@@ -162,9 +154,7 @@ def test_service_uses_caller_transaction_and_flushes_without_begin_or_commit(
 
 
 @pytest.mark.parametrize("target", ["report", "incident"])
-def test_ai_result_stamps_centralized_provenance_and_fingerprint_columns(
-    monkeypatch, target
-):
+def test_ai_result_stamps_centralized_provenance_and_fingerprint_columns(monkeypatch, target):
     expected = {
         "fast_model": "fictional-fast-model",
         "pro_model": "fictional-pro-model",
@@ -408,9 +398,7 @@ def test_save_rejects_invalid_base_revision_before_database_work(invalid_base, s
             )
 
 
-def test_locked_base_call_returns_revision_with_non_null_safe_metadata(
-    db_session, fictional_report, actor
-):
+def test_locked_base_call_returns_revision_with_non_null_safe_metadata(db_session, fictional_report, actor):
     with db_session.begin_nested():
         revision = save_report(
             db_session,
@@ -428,9 +416,7 @@ def test_locked_base_call_returns_revision_with_non_null_safe_metadata(
         assert db_session.in_transaction()
 
 
-def test_injected_request_metadata_is_persisted_without_service_commit(
-    db_session, fictional_report, actor
-):
+def test_injected_request_metadata_is_persisted_without_service_commit(db_session, fictional_report, actor):
     revision = save_report(
         db_session,
         actor,
@@ -492,20 +478,8 @@ def test_two_real_connections_from_same_revision_yield_one_success_and_conflict(
     assert {result[1] for result in results} == {2}
 
     with db_session_factory() as verification:
-        assert (
-            verification.scalar(
-                select(Report.current_revision_number).where(Report.id == report_id)
-            )
-            == 2
-        )
-        assert (
-            len(
-                verification.scalars(
-                    select(ReportRevision).where(ReportRevision.report_id == report_id)
-                ).all()
-            )
-            == 2
-        )
+        assert verification.scalar(select(Report.current_revision_number).where(Report.id == report_id)) == 2
+        assert len(verification.scalars(select(ReportRevision).where(ReportRevision.report_id == report_id)).all()) == 2
         assert len(_audit_rows(verification, report_id)) == 1
 
 
@@ -556,23 +530,12 @@ def test_caller_rollback_after_completed_work_removes_revision_current_and_audit
     with db_session_factory() as verification:
         report = verification.get(Report, report_id)
         assert report.current_revision_number == 1
-        assert report.current_content["narrative"] == (
-            "Fictional initial report narrative."
-        )
-        assert (
-            len(
-                verification.scalars(
-                    select(ReportRevision).where(ReportRevision.report_id == report_id)
-                ).all()
-            )
-            == 1
-        )
+        assert report.current_content["narrative"] == ("Fictional initial report narrative.")
+        assert len(verification.scalars(select(ReportRevision).where(ReportRevision.report_id == report_id)).all()) == 1
         assert _audit_rows(verification, report_id) == []
 
 
-def test_save_records_changed_field_names_without_values(
-    db_session, fictional_report, actor
-):
+def test_save_records_changed_field_names_without_values(db_session, fictional_report, actor):
     revision = save_report(
         db_session,
         actor,
@@ -588,9 +551,7 @@ def test_save_records_changed_field_names_without_values(
     assert "Fictional replacement." not in str(revision.changed_fields)
 
 
-def test_restore_copies_history_into_next_revision_and_current_content(
-    db_session, fictional_report, actor
-):
+def test_restore_copies_history_into_next_revision_and_current_content(db_session, fictional_report, actor):
     save_report(
         db_session,
         actor,
@@ -619,9 +580,7 @@ def test_restore_copies_history_into_next_revision_and_current_content(
     assert fictional_report.current_content == restored.snapshot
 
 
-def test_recovery_preserves_supplied_stale_base_without_promoting(
-    db_session, fictional_report, actor
-):
+def test_recovery_preserves_supplied_stale_base_without_promoting(db_session, fictional_report, actor):
     save_report(
         db_session,
         actor,
@@ -651,9 +610,7 @@ def test_recovery_preserves_supplied_stale_base_without_promoting(
     assert fictional_report.current_content["narrative"] == ("Fictional newer current.")
 
 
-def test_incident_save_updates_real_current_fields_and_is_conflict_safe(
-    db_session, fictional_incident, actor
-):
+def test_incident_save_updates_real_current_fields_and_is_conflict_safe(db_session, fictional_incident, actor):
     snapshot = IncidentSnapshotV1.model_validate(
         {
             "field_notes": "Fictional replacement field notes.",

@@ -70,16 +70,10 @@ class IdentitySettings:
         cursor_signing_key = env.get("CURSOR_SIGNING_KEY") or None
         release_version = env.get("RELEASE_VERSION") or "0.0.0-development"
         latest_client_version = env.get("LATEST_CLIENT_VERSION") or "0.0.0-development"
-        minimum_client_version = (
-            env.get("MINIMUM_CLIENT_VERSION") or "0.0.0-development"
-        )
-        minimum_server_version = (
-            env.get("MINIMUM_SERVER_VERSION") or "0.0.0-development"
-        )
+        minimum_client_version = env.get("MINIMUM_CLIENT_VERSION") or "0.0.0-development"
+        minimum_server_version = env.get("MINIMUM_SERVER_VERSION") or "0.0.0-development"
         api_version = env.get("API_VERSION") or "v1"
-        release_notes = env.get(
-            "RELEASE_NOTES", "Development build; not approved for production."
-        ).strip()
+        release_notes = env.get("RELEASE_NOTES", "Development build; not approved for production.").strip()
         public_base_url = env.get("PUBLIC_BASE_URL") or None
         review_lab_origin = _https_origin(public_base_url)
         if enabled:
@@ -93,17 +87,9 @@ class IdentitySettings:
                 if not value
             ]
             if missing:
-                raise RuntimeError(
-                    "Missing identity configuration: " + ", ".join(missing)
-                )
-            if (
-                not release_notes
-                or len(release_notes) > 500
-                or any(ord(ch) < 32 for ch in release_notes)
-            ):
-                raise RuntimeError(
-                    "RELEASE_NOTES must be one nonempty line of at most 500 characters"
-                )
+                raise RuntimeError("Missing identity configuration: " + ", ".join(missing))
+            if not release_notes or len(release_notes) > 500 or any(ord(ch) < 32 for ch in release_notes):
+                raise RuntimeError("RELEASE_NOTES must be one nonempty line of at most 500 characters")
             if api_version != "v1":
                 raise RuntimeError("API_VERSION must be v1")
             if review_lab_origin is None:
@@ -111,25 +97,17 @@ class IdentitySettings:
             if release_version != "0.0.0-development":
                 release_version = _public_version("RELEASE_VERSION", release_version)
             if latest_client_version != "0.0.0-development":
-                latest_client_version = _public_version(
-                    "LATEST_CLIENT_VERSION", latest_client_version
-                )
+                latest_client_version = _public_version("LATEST_CLIENT_VERSION", latest_client_version)
             if minimum_client_version != "0.0.0-development":
-                minimum_client_version = _public_version(
-                    "MINIMUM_CLIENT_VERSION", minimum_client_version
-                )
+                minimum_client_version = _public_version("MINIMUM_CLIENT_VERSION", minimum_client_version)
             if minimum_server_version != "0.0.0-development":
-                minimum_server_version = _public_version(
-                    "MINIMUM_SERVER_VERSION", minimum_server_version
-                )
+                minimum_server_version = _public_version("MINIMUM_SERVER_VERSION", minimum_server_version)
             if (
                 latest_client_version != "0.0.0-development"
                 and minimum_client_version != "0.0.0-development"
                 and Version(minimum_client_version) > Version(latest_client_version)
             ):
-                raise RuntimeError(
-                    "MINIMUM_CLIENT_VERSION cannot exceed LATEST_CLIENT_VERSION"
-                )
+                raise RuntimeError("MINIMUM_CLIENT_VERSION cannot exceed LATEST_CLIENT_VERSION")
         return cls(
             enabled=enabled,
             database_url=database_url,

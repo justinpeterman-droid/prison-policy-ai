@@ -54,6 +54,4 @@ def test_prerequisite_documents_are_complete():
 def test_templates_forbid_real_operational_records_in_git():
     for filename in REQUIRED:
         text = (OPERATIONS / filename).read_text(encoding="utf-8")
-        assert (
-            "Store completed records in the agency-approved system of record." in text
-        )
+        assert "Store completed records in the agency-approved system of record." in text

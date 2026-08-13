@@ -94,9 +94,7 @@ def test_audit_actor_attribution_rules():
     with pytest.raises(ValueError, match="actor attribution"):
         validate_actor_attribution(_event("admin.account_created", uuid4(), None))
     with pytest.raises(ValueError, match="actor attribution"):
-        validate_actor_attribution(
-            _event("system.initial_admin_bootstrapped", uuid4(), uuid4())
-        )
+        validate_actor_attribution(_event("system.initial_admin_bootstrapped", uuid4(), uuid4()))
 
 
 def test_bootstrap_audit_requires_both_safe_detail_fields():

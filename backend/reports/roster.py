@@ -67,9 +67,7 @@ class SqlStaffProvider:
 
     @staticmethod
     def _record(row: StaffMember) -> dict[str, object]:
-        display_name = " ".join(
-            value for value in (row.rank, row.first_name, row.last_name) if value
-        )
+        display_name = " ".join(value for value in (row.rank, row.first_name, row.last_name) if value)
         return {
             "staff_id": str(row.id),
             "employee_number": row.employee_number,
@@ -102,24 +100,16 @@ class SqlStaffProvider:
             ),
         )
         if cursor:
-            created_at = datetime.fromisoformat(
-                cursor["created_at"].replace("Z", "+00:00")
-            )
+            created_at = datetime.fromisoformat(cursor["created_at"].replace("Z", "+00:00"))
             staff_id = UUID(cursor["id"])
             statement = statement.where(
                 or_(
                     StaffMember.created_at > created_at,
-                    and_(
-                        StaffMember.created_at == created_at, StaffMember.id > staff_id
-                    ),
+                    and_(StaffMember.created_at == created_at, StaffMember.id > staff_id),
                 )
             )
         rows = list(
-            self._session.scalars(
-                statement.order_by(StaffMember.created_at, StaffMember.id).limit(
-                    limit + 1
-                )
-            ).all()
+            self._session.scalars(statement.order_by(StaffMember.created_at, StaffMember.id).limit(limit + 1)).all()
         )
         page_rows = rows[:limit]
         next_cursor = None
@@ -193,9 +183,7 @@ def lookup(name_hint: str) -> dict | None:
     return None
 
 
-def _add_to_roster_file(
-    rank: str, first: str, last: str, employee_number: str, shift: str = "A"
-) -> bool:
+def _add_to_roster_file(rank: str, first: str, last: str, employee_number: str, shift: str = "A") -> bool:
     """Persist a new staff member to the roster.
 
     Returns True if the entry was added, False if it already existed.
@@ -207,8 +195,7 @@ def _add_to_roster_file(
         # we're adding may already be there because another request added them.
         for person in roster.get("staff", []):
             if person.get("employee_number", "").lower() == employee_number.lower() or (
-                person.get("last", "").lower() == last.lower()
-                and person.get("first", "").lower() == first.lower()
+                person.get("last", "").lower() == last.lower() and person.get("first", "").lower() == first.lower()
             ):
                 return None  # Already exists — nothing to write
 

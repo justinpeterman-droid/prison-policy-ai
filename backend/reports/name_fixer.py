@@ -75,9 +75,7 @@ def _inmate_patterns(person: dict, allow_bare: bool) -> list[str]:
     """Ways an inmate may be written, longest/most-specific first."""
     last = re.escape((person.get("last") or "").strip())
     first = re.escape((person.get("first") or "").strip())
-    adc = re.escape(
-        (person.get("adc_number") or person.get("employee_number") or "").strip()
-    )
+    adc = re.escape((person.get("adc_number") or person.get("employee_number") or "").strip())
     if not last:
         return []
     pats = []
@@ -174,17 +172,11 @@ def _select_spans(spans: list[tuple[int, int, int]]) -> list[tuple[int, int, int
 
 
 def _full_form(person: dict) -> str:
-    return (
-        _inmate_full(person) if person.get("role") == "inmate" else _staff_full(person)
-    )
+    return _inmate_full(person) if person.get("role") == "inmate" else _staff_full(person)
 
 
 def _short_form(person: dict) -> str:
-    return (
-        _inmate_short(person)
-        if person.get("role") == "inmate"
-        else _staff_short(person)
-    )
+    return _inmate_short(person) if person.get("role") == "inmate" else _staff_short(person)
 
 
 def _match_sentence_case(replacement: str, text: str, start: int) -> str:
@@ -240,11 +232,7 @@ def enforce_naming(text: str, slots: dict) -> str:
     if not text or not slots:
         return text
 
-    persons = [
-        p
-        for p in (slots.get("persons") or [])
-        if isinstance(p, dict) and (p.get("last") or "").strip()
-    ]
+    persons = [p for p in (slots.get("persons") or []) if isinstance(p, dict) and (p.get("last") or "").strip()]
     if not persons:
         return text
 

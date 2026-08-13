@@ -54,11 +54,7 @@ def _blocking(text: str) -> list[str]:
     """Style-only check: no notes, so the fabrication rule is skipped —
     these are real filed reports, not model output."""
     return sorted(
-        {
-            v.rule_id
-            for v in validate_report("first_person", text, {}, notes="").violations
-            if v.severity == "BLOCKING"
-        }
+        {v.rule_id for v in validate_report("first_person", text, {}, notes="").violations if v.severity == "BLOCKING"}
     )
 
 
@@ -78,16 +74,14 @@ def classify(text: str) -> tuple[str, str, list[str]]:
         what = ", ".join(EXPLAIN.get(r, r) for r in fixed)
         return (
             "auto",
-            f"> 🔧 AUTO-FIXABLE — {what}. Normalized automatically before use; "
-            f"judge it on content.",
+            f"> 🔧 AUTO-FIXABLE — {what}. Normalized automatically before use; judge it on content.",
             [],
         )
 
     what = ", ".join(EXPLAIN.get(r, r) for r in after)
     return (
         "edit",
-        f"> ⚠️ NEEDS YOUR EDIT — {what}. No code can fix this without "
-        f"changing what the report says.",
+        f"> ⚠️ NEEDS YOUR EDIT — {what}. No code can fix this without changing what the report says.",
         after,
     )
 
@@ -117,9 +111,7 @@ def main(check_only: bool = False) -> int:
         print("\n  reasons the ⚠️ ones need a human:")
         for reason in sorted(set(needs_edit)):
             n = needs_edit.count(reason)
-            print(
-                f"    {n:2}  {', '.join(EXPLAIN.get(r, r) for r in reason.split(', '))}"
-            )
+            print(f"    {n:2}  {', '.join(EXPLAIN.get(r, r) for r in reason.split(', '))}")
 
     if check_only:
         print("\n--check: nothing written.")

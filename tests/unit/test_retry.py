@@ -57,9 +57,7 @@ class TestIsTransient:
 
     def test_permanent_wins_over_transient_wording(self):
         # A 403 that happens to mention a timeout must still not be retried.
-        assert (
-            is_transient(RuntimeError("403 permission_denied after timeout")) is False
-        )
+        assert is_transient(RuntimeError("403 permission_denied after timeout")) is False
 
 
 class TestWithRetries:

@@ -37,9 +37,7 @@ logger = logging.getLogger("backend.webapp.operations")
 _MAX_COUNT = 1_000_000_000
 _SIGNAL_FIELDS = {
     "dependency_health": frozenset({"dependency", "latency_bucket"}),
-    "queue_health": frozenset(
-        {"depth_bucket", "oldest_age_bucket", "job_type", "stage", "latency_bucket"}
-    ),
+    "queue_health": frozenset({"depth_bucket", "oldest_age_bucket", "job_type", "stage", "latency_bucket"}),
     "backup_restore_health": frozenset({"recency_bucket"}),
     "client_upgrade_required": frozenset({"parsed_client_version"}),
 }
@@ -73,13 +71,10 @@ def _emit(signal: str, result: str, **fields: str) -> None:
     if allowed is None or set(fields) - allowed:
         raise ValueError("operational signal fields are invalid")
     if not _STABLE_VALUE.fullmatch(result) or any(
-        not isinstance(value, str) or not _STABLE_VALUE.fullmatch(value)
-        for value in fields.values()
+        not isinstance(value, str) or not _STABLE_VALUE.fullmatch(value) for value in fields.values()
     ):
         raise ValueError("operational signal values are invalid")
-    logger.info(
-        json.dumps({"signal": signal, "result": result, **fields}, sort_keys=True)
-    )
+    logger.info(json.dumps({"signal": signal, "result": result, **fields}, sort_keys=True))
 
 
 def emit_client_upgrade_required(parsed_client_version: str) -> None:
@@ -131,12 +126,8 @@ def _policy_search_status() -> str:
 def _oldest_pending_or_running_at(session):
     """Return only the oldest pending outbox/running job time, never the value itself."""
     active_times = union_all(
-        select(TaskOutbox.created_at.label("queued_at")).where(
-            TaskOutbox.state == "pending"
-        ),
-        select(
-            func.coalesce(AiJob.started_at, AiJob.created_at).label("queued_at")
-        ).where(AiJob.state == "running"),
+        select(TaskOutbox.created_at.label("queued_at")).where(TaskOutbox.state == "pending"),
+        select(func.coalesce(AiJob.started_at, AiJob.created_at).label("queued_at")).where(AiJob.state == "running"),
     ).subquery()
     return session.scalar(select(func.min(active_times.c.queued_at)))
 
@@ -153,9 +144,7 @@ def _failed_job_health(session) -> tuple[tuple[str, str], ...]:
         ).one_or_none()
         if row is not None:
             started_at, completed_at = row
-            duration = (
-                completed_at - started_at if started_at and completed_at else None
-            )
+            duration = completed_at - started_at if started_at and completed_at else None
             signals.append((job_type, _latency_bucket(duration)))
     return tuple(signals)
 
@@ -206,28 +195,14 @@ def overview():
     try:
         return success(
             {
-                "reports": _bounded_count(
-                    db.scalar(select(func.count()).select_from(Report)) or 0
-                ),
+                "reports": _bounded_count(db.scalar(select(func.count()).select_from(Report)) or 0),
                 "queued_jobs": _bounded_count(
-                    db.scalar(
-                        select(func.count())
-                        .select_from(AiJob)
-                        .where(AiJob.state == "queued")
-                    )
-                    or 0
+                    db.scalar(select(func.count()).select_from(AiJob).where(AiJob.state == "queued")) or 0
                 ),
                 "pending_outbox": _bounded_count(
-                    db.scalar(
-                        select(func.count())
-                        .select_from(TaskOutbox)
-                        .where(TaskOutbox.state == "pending")
-                    )
-                    or 0
+                    db.scalar(select(func.count()).select_from(TaskOutbox).where(TaskOutbox.state == "pending")) or 0
                 ),
-                "recent_audit_events": _bounded_count(
-                    db.scalar(select(func.count()).select_from(AuditEvent)) or 0
-                ),
+                "recent_audit_events": _bounded_count(db.scalar(select(func.count()).select_from(AuditEvent)) or 0),
                 "build": build_metadata(),
             }
         )
@@ -254,15 +229,11 @@ def health():
     try:
         pending = (
             current_request_session().scalar(
-                select(func.count())
-                .select_from(TaskOutbox)
-                .where(TaskOutbox.state == "pending")
+                select(func.count()).select_from(TaskOutbox).where(TaskOutbox.state == "pending")
             )
             or 0
         )
-        oldest_pending_or_running_at = _oldest_pending_or_running_at(
-            current_request_session()
-        )
+        oldest_pending_or_running_at = _oldest_pending_or_running_at(current_request_session())
         failed_job_health = _failed_job_health(current_request_session())
         if pending > 10_000:
             queue_status = "Degraded"
@@ -280,9 +251,7 @@ def health():
     safe_database = db_status.lower()
     safe_queue = queue_status.lower()
     safe_policy_search = policy_search_status.lower()
-    depth_bucket = (
-        "zero" if pending == 0 else "one_to_999" if pending < 1_000 else "1000_or_more"
-    )
+    depth_bucket = "zero" if pending == 0 else "one_to_999" if pending < 1_000 else "1000_or_more"
     _emit(
         "dependency_health",
         safe_database,
@@ -307,9 +276,7 @@ def health():
         oldest_age_bucket=oldest_age_bucket,
     )
     _emit_failed_job_health(failed_job_health)
-    _emit(
-        "backup_restore_health", backup_restore_status.lower(), recency_bucket="unknown"
-    )
+    _emit("backup_restore_health", backup_restore_status.lower(), recency_bucket="unknown")
     overall = (
         "Unavailable"
         if "Unavailable" in {db_status, policy_search_status}

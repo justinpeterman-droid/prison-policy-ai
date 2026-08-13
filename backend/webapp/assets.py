@@ -81,13 +81,9 @@ def init_assets(app: Flask) -> None:
             # A ?v= hash means the URL changes whenever the bytes do, so the
             # response can be cached hard. Without one, stay conservative.
             if request.args.get("v"):
-                response.headers["Cache-Control"] = (
-                    f"public, max-age={IMMUTABLE_MAX_AGE}, immutable"
-                )
+                response.headers["Cache-Control"] = f"public, max-age={IMMUTABLE_MAX_AGE}, immutable"
             else:
-                response.headers["Cache-Control"] = (
-                    f"public, max-age={DEFAULT_STATIC_MAX_AGE}"
-                )
+                response.headers["Cache-Control"] = f"public, max-age={DEFAULT_STATIC_MAX_AGE}"
 
         return _compress(response)
 

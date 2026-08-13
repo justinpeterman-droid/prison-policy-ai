@@ -25,9 +25,7 @@ class TestCleanHistory:
             assert chat._clean_history(bad) == []
 
     def test_malformed_entries_are_skipped_not_fatal(self):
-        out = chat._clean_history(
-            ["string", 7, None, {"answer": "orphan"}, {"question": "real one"}]
-        )
+        out = chat._clean_history(["string", 7, None, {"answer": "orphan"}, {"question": "real one"}])
         assert [h["question"] for h in out] == ["real one"]
 
     def test_caps_the_number_of_turns(self):

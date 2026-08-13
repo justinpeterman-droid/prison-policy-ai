@@ -80,9 +80,7 @@ class TestParseSearchResults:
                 {
                     "derivedStructData": {
                         "title": "AD 14-15 PREA",
-                        "snippets": [
-                            {"snippet": "Zero tolerance.", "snippet_status": "SUCCESS"}
-                        ],
+                        "snippets": [{"snippet": "Zero tolerance.", "snippet_status": "SUCCESS"}],
                     }
                 }
             )
@@ -110,9 +108,7 @@ class TestParseSearchResults:
                 {
                     "derivedStructData": {
                         "title": "Post Order 7",
-                        "snippets": [
-                            {"snippet": "", "snippet_status": "NO_SNIPPET_AVAILABLE"}
-                        ],
+                        "snippets": [{"snippet": "", "snippet_status": "NO_SNIPPET_AVAILABLE"}],
                         "extractive_answers": [{"content": "Officers shall maintain."}],
                     }
                 }
@@ -199,25 +195,16 @@ class TestParseSearchResults:
 
 class TestSourceLabel:
     def test_prefers_title(self):
-        assert (
-            extract_source_label({"derivedStructData": {"title": "AD 14-15"}})
-            == "AD 14-15"
-        )
+        assert extract_source_label({"derivedStructData": {"title": "AD 14-15"}}) == "AD 14-15"
 
     def test_struct_data_title_is_reachable(self):
         # Previously unreachable: the code read structData from *inside*
         # derivedStructData, so this fallback never fired.
-        assert (
-            extract_source_label({"structData": {"title": "From structData"}})
-            == "From structData"
-        )
+        assert extract_source_label({"structData": {"title": "From structData"}}) == "From structData"
 
     def test_falls_back_to_file_name_from_link(self):
         assert (
-            extract_source_label(
-                {"derivedStructData": {"link": "gs://bucket/policies/AD-14-15.pdf"}}
-            )
-            == "AD-14-15.pdf"
+            extract_source_label({"derivedStructData": {"link": "gs://bucket/policies/AD-14-15.pdf"}}) == "AD-14-15.pdf"
         )
 
     def test_default_label(self):
@@ -239,9 +226,7 @@ class TestRichPassagePreference:
         "derivedStructData": {
             "title": "AD 14-15",
             "snippets": [{"snippet": "…use of force must be …reported…"}],
-            "extractive_answers": [
-                {"content": "Use of force must be reported to the shift supervisor."}
-            ],
+            "extractive_answers": [{"content": "Use of force must be reported to the shift supervisor."}],
             "extractive_segments": [
                 {
                     "content": "Section 4. Any use of force, including "
@@ -281,10 +266,7 @@ class TestRichPassagePreference:
             "derivedStructData": {
                 "title": "T",
                 "extractive_segments": [
-                    {
-                        "content": "First sentence here. Second sentence here. "
-                        "Third sentence runs past the limit."
-                    }
+                    {"content": "First sentence here. Second sentence here. Third sentence runs past the limit."}
                 ],
             }
         }
@@ -353,9 +335,7 @@ class TestFormatHistory:
     """RC-6: recent turns, compact, newest kept when the budget bites."""
 
     def _h(self, n):
-        return [
-            {"question": f"question {i}", "answer": f"answer {i}"} for i in range(n)
-        ]
+        return [{"question": f"question {i}", "answer": f"answer {i}"} for i in range(n)]
 
     def test_empty_and_malformed(self):
         assert format_history(None) == ""

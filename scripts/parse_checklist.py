@@ -1,9 +1,7 @@
 import re
 from pathlib import Path
 
-rtf_path = Path(
-    r"C:\Users\justi\workspace\.hermes\desktop-attachments\Incident-Accident Package Checklist.rtf"
-)
+rtf_path = Path(r"C:\Users\justi\workspace\.hermes\desktop-attachments\Incident-Accident Package Checklist.rtf")
 text = rtf_path.read_text(encoding="utf-8", errors="replace")
 
 # Strip RTF markup
@@ -13,11 +11,7 @@ text = re.sub(r"[{}]", "", text)
 text = re.sub(r"\\\n", "\n", text)
 
 # Find checklist items — look for lines with form names
-lines = [
-    line.strip()
-    for line in text.split("\n")
-    if len(line.strip()) > 5 and not line.startswith("\\")
-]
+lines = [line.strip() for line in text.split("\n") if len(line.strip()) > 5 and not line.startswith("\\")]
 
 print("=== RAW LINES ===")
 for line in lines[:80]:

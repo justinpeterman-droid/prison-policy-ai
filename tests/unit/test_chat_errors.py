@@ -170,9 +170,7 @@ class TestSearchFailureClassification:
     def test_a_transport_failure_is_reported_as_a_search_outage(self):
         """A connection/DNS/TLS failure is a search outage, and the officer
         should be told that rather than 'something unexpected happened'."""
-        exc = RuntimeError(
-            "Search API error (transport) URLError: <urlopen error [Errno -2]>"
-        )
+        exc = RuntimeError("Search API error (transport) URLError: <urlopen error [Errno -2]>")
         category, status = classify_error(exc)
         assert category == "upstream"
         assert "policy search" in ERROR_MESSAGES[category].lower()
@@ -184,24 +182,17 @@ class TestSearchFailureClassification:
 
     def test_a_bare_transport_error_would_have_been_miscategorised(self):
         """The regression this guards: unwrapped, it reads as 'internal'."""
-        assert (
-            classify_error(urllib.error.URLError("connection reset"))[0] == "internal"
-        )
+        assert classify_error(urllib.error.URLError("connection reset"))[0] == "internal"
 
     def test_credential_errors_keep_their_more_specific_category(self):
         """Token acquisition re-raises unwrapped precisely so this stays true —
         'not configured' is more actionable than 'search is down'."""
-        assert (
-            classify_error(Exception("default credentials were not found"))[0]
-            == "credentials"
-        )
+        assert classify_error(Exception("default credentials were not found"))[0] == "credentials"
 
     def test_the_wrapper_names_the_exception_class(self):
         """`%s` of a URLError is just '<urlopen error ...>'; the class is what
         identifies the fault."""
-        exc = RuntimeError(
-            "Search API error (transport) SSLCertVerificationError: bad cert"
-        )
+        exc = RuntimeError("Search API error (transport) SSLCertVerificationError: bad cert")
         assert "SSLCertVerificationError" in str(exc)
         assert classify_error(exc)[0] == "upstream"
 
@@ -225,9 +216,7 @@ class TestSnippetsFallbackClassification:
 
         monkeypatch.setattr(query.urllib.request, "urlopen", boom)
         with pytest.raises(RuntimeError) as caught:
-            query._search_snippets_only(
-                "https://example.invalid", "tok", "use of force", 10, "original 400"
-            )
+            query._search_snippets_only("https://example.invalid", "tok", "use of force", 10, "original 400")
         assert classify_error(caught.value)[0] == "upstream"
 
     def test_the_fallback_names_the_exception_class(self, monkeypatch):
@@ -238,9 +227,7 @@ class TestSnippetsFallbackClassification:
 
         monkeypatch.setattr(query.urllib.request, "urlopen", boom)
         with pytest.raises(RuntimeError) as caught:
-            query._search_snippets_only(
-                "https://example.invalid", "tok", "use of force", 10, "original 400"
-            )
+            query._search_snippets_only("https://example.invalid", "tok", "use of force", 10, "original 400")
         assert "OSError" in str(caught.value)
 
     def test_the_fallback_preserves_the_cause(self, monkeypatch):
@@ -254,9 +241,7 @@ class TestSnippetsFallbackClassification:
 
         monkeypatch.setattr(query.urllib.request, "urlopen", boom)
         with pytest.raises(RuntimeError) as caught:
-            query._search_snippets_only(
-                "https://example.invalid", "tok", "use of force", 10, "original 400"
-            )
+            query._search_snippets_only("https://example.invalid", "tok", "use of force", 10, "original 400")
         assert caught.value.__cause__ is original
 
 
@@ -309,9 +294,7 @@ class TestSnippetsFallbackReturnContract:
 
             class _Resp:
                 def read(self):
-                    return _json.dumps(
-                        TestSnippetsFallbackReturnContract.PAYLOAD
-                    ).encode()
+                    return _json.dumps(TestSnippetsFallbackReturnContract.PAYLOAD).encode()
 
                 def __enter__(self):
                     return self
@@ -327,9 +310,7 @@ class TestSnippetsFallbackReturnContract:
 
     def test_the_fallback_returns_a_tuple_not_the_raw_payload(self, monkeypatch):
         out = self._run(monkeypatch)
-        assert isinstance(out, tuple) and len(out) == 2, (
-            f"expected (contexts, raw_count), got {type(out).__name__}"
-        )
+        assert isinstance(out, tuple) and len(out) == 2, f"expected (contexts, raw_count), got {type(out).__name__}"
 
     def test_the_fallback_returns_parsed_passages(self, monkeypatch):
         contexts, raw_count = self._run(monkeypatch)
@@ -337,24 +318,18 @@ class TestSnippetsFallbackReturnContract:
         assert [c["source"] for c in contexts] == ["AD 2024-15 Use of Force"]
         assert contexts[0]["text"].startswith("Force must be reasonable")
 
-    def test_the_unpacked_result_survives_what_answer_question_does_next(
-        self, monkeypatch
-    ):
+    def test_the_unpacked_result_survives_what_answer_question_does_next(self, monkeypatch):
         """The exact line that raised in production."""
         retrieved, _ = self._run(monkeypatch)
         assert retrieved[0]["source"][:60] == "AD 2024-15 Use of Force"
 
-    def test_a_non_400_http_error_still_raises_a_classified_search_error(
-        self, monkeypatch
-    ):
+    def test_a_non_400_http_error_still_raises_a_classified_search_error(self, monkeypatch):
         """Restructuring the 400 branch must not swallow other HTTP errors."""
         import io
         from backend.pipeline import query
 
         def fake_urlopen(_req, timeout=None):
-            raise urllib.error.HTTPError(
-                "u", 503, "Unavailable", {}, io.BytesIO(b"upstream down")
-            )
+            raise urllib.error.HTTPError("u", 503, "Unavailable", {}, io.BytesIO(b"upstream down"))
 
         monkeypatch.setattr(query, "_get_token", lambda: "tok")
         monkeypatch.setattr(query.urllib.request, "urlopen", fake_urlopen)

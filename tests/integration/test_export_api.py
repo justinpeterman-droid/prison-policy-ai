@@ -64,9 +64,7 @@ def _confirm_admin_pin(api_client, headers, purpose, key):
 @pytest.fixture
 def elevated_admin_bearer_headers(api_client, admin_bearer_headers, db_session):
     db_session.commit()
-    _confirm_admin_pin(
-        api_client, admin_bearer_headers, "admin_center", "admin-elevate-0001"
-    )
+    _confirm_admin_pin(api_client, admin_bearer_headers, "admin_center", "admin-elevate-0001")
     return admin_bearer_headers
 
 
@@ -87,12 +85,8 @@ def test_same_export_key_returns_one_export_record(
     db_session.commit()
     headers = _headers(owner_bearer_headers, "export-fictional-0001")
 
-    first = api_client.post(
-        f"/api/v1/reports/{report_id}/export-docx?revision=1", headers=headers
-    )
-    second = api_client.post(
-        f"/api/v1/reports/{report_id}/export-docx?revision=1", headers=headers
-    )
+    first = api_client.post(f"/api/v1/reports/{report_id}/export-docx?revision=1", headers=headers)
+    second = api_client.post(f"/api/v1/reports/{report_id}/export-docx?revision=1", headers=headers)
 
     assert first.status_code == second.status_code == 200, first.get_data()[:200]
     assert hashlib.sha256(first.data).digest() == hashlib.sha256(second.data).digest()
@@ -119,9 +113,7 @@ def test_export_response_carries_the_exact_locked_headers(
     row = db_session.scalar(select(Export))
     assert row is not None
     digest = hashlib.sha256(response.data).digest()
-    assert response.headers["Digest"] == "sha-256=" + base64.b64encode(digest).decode(
-        "ascii"
-    )
+    assert response.headers["Digest"] == "sha-256=" + base64.b64encode(digest).decode("ascii")
     assert response.headers["X-Export-ID"] == str(row.id)
     assert response.headers["X-Report-Revision"] == "1"
     assert response.headers["X-Template-Version"] == row.template_version
@@ -171,13 +163,8 @@ def test_export_persists_metadata_only_and_never_document_bytes(
     row = db_session.scalar(select(Export))
     assert row is not None
     assert len(row.output_sha256) == 32
-    stored = {
-        column.name: getattr(row, column.name) for column in Export.__table__.columns
-    }
-    assert not any(
-        isinstance(value, (bytes, bytearray)) and len(value) > 32
-        for value in stored.values()
-    )
+    stored = {column.name: getattr(row, column.name) for column in Export.__table__.columns}
+    assert not any(isinstance(value, (bytes, bytearray)) and len(value) > 32 for value in stored.values())
     record = db_session.scalar(select(IdempotencyRecord))
     assert record is not None
     assert "narrative" not in str(record.response_reference)
@@ -196,9 +183,7 @@ def test_export_writes_the_user_audit_action(
         headers=_headers(owner_bearer_headers, "export-fictional-0005"),
     )
 
-    events = db_session.scalars(
-        select(AuditEvent).where(AuditEvent.action == "report.exported")
-    ).all()
+    events = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "report.exported")).all()
     assert len(events) == 1
     assert events[0].details["export_id"] == response.headers["X-Export-ID"]
     assert events[0].details["export_format"] == "docx"
@@ -400,11 +385,7 @@ def test_admin_export_writes_a_distinct_admin_audit_action(
         headers=_headers(elevated_admin_bearer_headers, "admin-export-fictional-0002"),
     )
 
-    actions = set(
-        db_session.scalars(
-            select(AuditEvent.action).where(AuditEvent.action.like("report.export%"))
-        ).all()
-    )
+    actions = set(db_session.scalars(select(AuditEvent.action).where(AuditEvent.action.like("report.export%"))).all())
     assert actions == {"report.exported_by_admin"}
 
 

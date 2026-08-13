@@ -114,9 +114,7 @@ def test_local_write_atomically_replaces_complete_json(tmp_path, monkeypatch):
     assert json.loads(path.read_text()) == observed["staged"]
 
 
-def test_failed_local_replace_keeps_original_and_removes_temp_file(
-    tmp_path, monkeypatch
-):
+def test_failed_local_replace_keeps_original_and_removes_temp_file(tmp_path, monkeypatch):
     path = tmp_path / "staff_roster.json"
     original = {"shifts": {}, "staff": [{"last": "Alvarez"}]}
     path.write_text(json.dumps(original))
@@ -214,9 +212,7 @@ class FakeGCS:
             hook, self.on_write = self.on_write, None
             hook(self)
         if generation != self.generation:
-            raise FakePreconditionFailed(
-                f"expected generation {generation}, object is at {self.generation}"
-            )
+            raise FakePreconditionFailed(f"expected generation {generation}, object is at {self.generation}")
         self.text = payload
         self.generation += 1
         self.writes += 1
@@ -224,9 +220,7 @@ class FakeGCS:
 
 @pytest.fixture
 def gcs(monkeypatch, no_cache):
-    fake = FakeGCS(
-        {"shifts": {}, "staff": [{"last": "Alvarez", "employee_number": "100412"}]}
-    )
+    fake = FakeGCS({"shifts": {}, "staff": [{"last": "Alvarez", "employee_number": "100412"}]})
 
     monkeypatch.setattr(roster_store, "ROSTER_BUCKET", "test-bucket")
     monkeypatch.setattr(roster_store, "using_gcs", lambda: True)
@@ -380,9 +374,7 @@ def test_corrupt_json_raises_rather_than_reading_as_empty(monkeypatch, no_cache)
         ("Marek Thackeray 100888", ("Ofc", "Marek", "Thackeray", "100888")),
     ],
 )
-def test_a_rank_written_with_a_period_still_parses(
-    tmp_path, monkeypatch, answer, expected
-):
+def test_a_rank_written_with_a_period_still_parses(tmp_path, monkeypatch, answer, expected):
     """Regression: '\\b' after '\\.?' never matches, so "Sgt." matched as "Sgt"
     and left the period behind — which then became the officer's first name.
     Officers write the period, so this corrupted most auto-added records."""

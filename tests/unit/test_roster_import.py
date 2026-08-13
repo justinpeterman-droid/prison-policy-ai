@@ -32,9 +32,7 @@ FICTIONAL_RECORDS = [
 
 
 def test_roster_checksum_is_stable_for_key_order():
-    reordered = [
-        {key: FICTIONAL_RECORDS[0][key] for key in reversed(FICTIONAL_RECORDS[0])}
-    ]
+    reordered = [{key: FICTIONAL_RECORDS[0][key] for key in reversed(FICTIONAL_RECORDS[0])}]
     assert roster_checksum(FICTIONAL_RECORDS) == roster_checksum(reordered)
     assert len(roster_checksum(FICTIONAL_RECORDS)) == 64
 
@@ -58,22 +56,16 @@ def test_duplicate_normalized_employee_number_is_rejected_before_query():
 
 def test_unknown_or_missing_roster_fields_are_rejected():
     with pytest.raises(ValueError, match="roster record fields are invalid"):
-        import_roster(
-            EmptySession(), [{**FICTIONAL_RECORDS[0], "unexpected": "x"}], apply=False
-        )
+        import_roster(EmptySession(), [{**FICTIONAL_RECORDS[0], "unexpected": "x"}], apply=False)
 
 
 def test_empty_rank_is_allowed_when_field_is_present():
-    summary = import_roster(
-        EmptySession(), [{**FICTIONAL_RECORDS[0], "rank": ""}], apply=False
-    )
+    summary = import_roster(EmptySession(), [{**FICTIONAL_RECORDS[0], "rank": ""}], apply=False)
     assert summary.source_count == 1
 
 
 def test_checked_in_fictional_roster_has_expected_dry_run_count():
-    payload = json.loads(
-        Path("templates/staff_roster.json").read_text(encoding="utf-8")
-    )
+    payload = json.loads(Path("templates/staff_roster.json").read_text(encoding="utf-8"))
     summary = import_roster(EmptySession(), payload["staff"], apply=False)
     assert (summary.source_count, summary.inserted_count, summary.existing_count) == (
         13,

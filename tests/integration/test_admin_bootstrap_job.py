@@ -59,9 +59,7 @@ def _counts(factory):
         return (
             session.scalar(select(func.count(Account.id))),
             session.scalar(
-                select(func.count(AuditEvent.id)).where(
-                    AuditEvent.action == "system.initial_admin_bootstrapped"
-                )
+                select(func.count(AuditEvent.id)).where(AuditEvent.action == "system.initial_admin_bootstrapped")
             ),
         )
     finally:

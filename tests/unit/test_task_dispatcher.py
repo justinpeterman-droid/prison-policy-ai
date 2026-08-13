@@ -82,21 +82,15 @@ def test_dispatcher_uses_exact_oidc_body_url_and_stable_task_name():
     assert summary.failed == 0
     assert summary.pending == 0
     request = client.created[0]
-    assert request["parent"] == (
-        "projects/fictional-project/locations/us-central1/queues/fictional-report-jobs"
-    )
+    assert request["parent"] == ("projects/fictional-project/locations/us-central1/queues/fictional-report-jobs")
     task = request["task"]
     assert task["name"] == f"{request['parent']}/tasks/ai-job-{JOB_ID}"
     http_request = task["http_request"]
     assert http_request["http_method"] == 1
-    assert http_request["url"] == (
-        f"https://worker.example.invalid/internal/jobs/{JOB_ID}/run"
-    )
+    assert http_request["url"] == (f"https://worker.example.invalid/internal/jobs/{JOB_ID}/run")
     assert json.loads(http_request["body"]) == {"job_id": str(JOB_ID)}
     assert http_request["headers"] == {"Content-Type": "application/json"}
-    assert http_request["oidc_token"]["service_account_email"] == (
-        "task-invoker@example.invalid"
-    )
+    assert http_request["oidc_token"]["service_account_email"] == ("task-invoker@example.invalid")
     assert http_request["oidc_token"]["audience"] == "https://worker.example.invalid"
     assert repository.dispatched == [(OUTBOX_ID, NOW)]
     assert repository.failures == []

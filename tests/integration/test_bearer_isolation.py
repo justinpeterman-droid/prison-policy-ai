@@ -16,9 +16,7 @@ def test_fictional_bearer_resolves_server_owned_actor(
     assert account.role == "user"
 
 
-def test_legacy_cookie_value_cannot_resolve_as_access_token(
-    db_session, identity_fixed_now
-):
+def test_legacy_cookie_value_cannot_resolve_as_access_token(db_session, identity_fixed_now):
     from backend.identity.sessions import SessionReauthenticationRequired
     import pytest
 

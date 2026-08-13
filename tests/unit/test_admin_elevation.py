@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+import inspect
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -8,18 +9,18 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from backend.identity.elevation import (
     AdminElevationRequired,
+    ElevationResult,
     StepUpRequired,
     consume_step_up,
     elevation_is_active,
     touch_admin_elevation,
 )
+from backend.webapp.api_v1.errors import ApiError
 from backend.webapp.api_v1.middleware import require_admin_elevation, require_step_up
 
 
 NOW = datetime(2026, 8, 12, 15, 0, tzinfo=UTC)
-ACTOR = SimpleNamespace(
-    account_id=uuid4(), staff_member_id=uuid4(), session_id=uuid4(), role="admin"
-)
+ACTOR = SimpleNamespace(account_id=uuid4(), staff_member_id=uuid4(), session_id=uuid4(), role="admin")
 
 
 class Session:
@@ -57,9 +58,7 @@ def test_step_up_is_single_use_and_bound_to_exact_session_and_purpose():
         used_at=None,
         revoked_at=None,
     )
-    consume_step_up(
-        Session(row), actor=ACTOR, raw_token=token, purpose="account_reset_pin", now=NOW
-    )
+    consume_step_up(Session(row), actor=ACTOR, raw_token=token, purpose="account_reset_pin", now=NOW)
     assert row.used_at == NOW
     with pytest.raises(StepUpRequired):
         consume_step_up(
@@ -75,9 +74,7 @@ def test_missing_step_up_does_not_touch_or_extend_elevation(monkeypatch):
     import backend.webapp.api_v1.middleware as middleware
 
     calls = []
-    monkeypatch.setattr(
-        middleware, "touch_admin_elevation", lambda *_args: calls.append(True)
-    )
+    monkeypatch.setattr(middleware, "touch_admin_elevation", lambda *_args: calls.append(True))
     app = Flask(__name__)
 
     @app.before_request
@@ -120,3 +117,57 @@ def test_elevation_database_failure_is_safe_503(monkeypatch):
     response = app.test_client().get("/admin")
     assert response.status_code == 503
     assert response.get_json()["error"]["code"] == "dependency_unavailable"
+
+
+def test_step_up_route_rejects_token_without_expiry_as_dependency_failure(monkeypatch):
+    import backend.webapp.api_v1.auth as auth_api
+
+    actor = SimpleNamespace(
+        account_id=uuid4(),
+        staff_member_id=uuid4(),
+        session_id=uuid4(),
+        role="admin",
+        auth_version=1,
+    )
+
+    class Db:
+        def __init__(self):
+            self.rolled_back = False
+
+        def rollback(self):
+            self.rolled_back = True
+
+    db = Db()
+    monkeypatch.setattr(
+        auth_api,
+        "claim_idempotency",
+        lambda *_args, **_kwargs: SimpleNamespace(replayed=False, record_id=uuid4()),
+    )
+    monkeypatch.setattr(
+        auth_api,
+        "confirm_admin_pin",
+        lambda *_args, **_kwargs: ElevationResult(
+            elevation_expires_at=NOW + timedelta(minutes=15),
+            step_up_token="fictional-step-up-token",
+            step_up_expires_at=None,
+            purpose="account_reset_pin",
+        ),
+    )
+    app = Flask(__name__)
+    app.config["AUDIT_WRITER"] = object()
+    with app.test_request_context(
+        "/api/v1/auth/admin-step-up",
+        method="POST",
+        json={"pin": "A1B2C3", "purpose": "account_reset_pin"},
+        headers={"Idempotency-Key": "fictional-step-up-request"},
+    ):
+        g.actor = actor
+        g.identity_db_session = db
+        g.request_id = "fictional-step-up-request"
+        route = inspect.unwrap(auth_api.admin_step_up_route)
+        with pytest.raises(ApiError) as caught:
+            route()
+
+    assert caught.value.code == "dependency_unavailable"
+    assert caught.value.status == 503
+    assert db.rolled_back is True

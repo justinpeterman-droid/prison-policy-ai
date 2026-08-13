@@ -97,9 +97,7 @@ def test_unknown_category_raises():
 
 def test_invented_facts_flags_a_genuinely_invented_adc_number():
     # An ADC# in the output that never appeared in the notes IS suspicious.
-    flags = invented_facts(
-        "Inmate Smith ADC#999888.", notes="Inmate Smith fought.", answers={}
-    )
+    flags = invented_facts("Inmate Smith ADC#999888.", notes="Inmate Smith fought.", answers={})
     assert any("999888" in f for f in flags)
 
 
@@ -132,9 +130,7 @@ def test_allow_list_suppresses_a_normalized_time():
     )
     assert flags == []
     # Without the allow-list, the normalized time WOULD be flagged (the bug).
-    assert invented_facts(
-        "...at approximately 10:00pm...", notes="fight ~10pm", answers={}
-    )
+    assert invented_facts("...at approximately 10:00pm...", notes="fight ~10pm", answers={})
 
 
 def test_allow_list_suppresses_a_fallback_date():
@@ -173,9 +169,7 @@ def test_allow_list_ignores_none_and_empty_entries():
 
 
 def _one_inmate():
-    return [
-        {"role": "inmate", "last": "Roe", "first": "Richard", "adc_number": "111111"}
-    ]
+    return [{"role": "inmate", "last": "Roe", "first": "Richard", "adc_number": "111111"}]
 
 
 @pytest.mark.parametrize("category", ["use_of_force", "medical_emergency"])
@@ -195,9 +189,7 @@ def test_use_of_force_carries_the_409_designation():
 
 def test_use_of_force_asks_for_agent_detail_only_when_chemical():
     base = {"persons": _one_inmate()}
-    assert not any(
-        g["slot"] == "chemical_agent" for g in find_gaps("use_of_force", base)["gaps"]
-    )
+    assert not any(g["slot"] == "chemical_agent" for g in find_gaps("use_of_force", base)["gaps"])
     chem = {**base, "force_type": "Chemical agent (OC/MK-3)"}
     slots = {g["slot"] for g in find_gaps("use_of_force", chem)["gaps"]}
     assert {"chemical_agent", "decontamination"} <= slots
@@ -205,9 +197,7 @@ def test_use_of_force_asks_for_agent_detail_only_when_chemical():
 
 def test_medical_emergency_generates_no_disciplinary_report():
     """A medical emergency is not a rule violation — there is nothing to charge."""
-    cat = next(
-        c for c in load_checklist()["categories"] if c["name"] == "medical_emergency"
-    )
+    cat = next(c for c in load_checklist()["categories"] if c["name"] == "medical_emergency")
     assert "disciplinary" not in cat["reports"]
 
 
@@ -218,10 +208,7 @@ def test_medical_emergency_auto_content_reads_as_grammatical_prose():
         "medical_response": "I called a Code Blue and cleared the area.",
         "escort_destination": "Infirmary ward for observation",
     }
-    lines = {
-        a["id"]: a["text"]
-        for a in find_gaps("medical_emergency", answered)["auto_content"]
-    }
+    lines = {a["id"]: a["text"] for a in find_gaps("medical_emergency", answered)["auto_content"]}
     # The evaluation clause used to run on without a subject:
     # "Medical staff evaluated Inmate Roe and was escorted to ..."
     assert lines["medical_evaluation_line"] == "Medical staff evaluated inmate Roe."
@@ -231,12 +218,7 @@ def test_medical_emergency_auto_content_reads_as_grammatical_prose():
 def test_escort_line_is_dropped_when_the_optional_slot_is_unanswered():
     """escort_destination is non-blocking, so an unanswered one must not inject
     a [NEEDED: ...] marker into the narrative."""
-    ids = {
-        a["id"]
-        for a in find_gaps("medical_emergency", {"persons": _one_inmate()})[
-            "auto_content"
-        ]
-    }
+    ids = {a["id"] for a in find_gaps("medical_emergency", {"persons": _one_inmate()})["auto_content"]}
     assert "medical_escort_line" not in ids
 
 
@@ -277,36 +259,23 @@ def test_blank_and_unknown_findings_do_not_count_as_an_investigation():
 
 
 def test_real_findings_trigger_the_report():
-    assert (
-        investigation_occurred({"investigation_findings": ["Reviewed camera footage."]})
-        is True
-    )
+    assert investigation_occurred({"investigation_findings": ["Reviewed camera footage."]}) is True
 
 
 def test_a_single_string_finding_is_accepted():
     # Defensive: the schema asks for an array, but a model that returns one
     # string must not silently suppress the report.
-    assert (
-        investigation_occurred({"investigation_findings": "Reviewed camera footage."})
-        is True
-    )
+    assert investigation_occurred({"investigation_findings": "Reviewed camera footage."}) is True
 
 
 def test_find_gaps_exposes_the_investigation_flag():
     base = {"persons": _one_inmate()}
     assert find_gaps("inmate_fight", base)["investigation"] is False
-    assert (
-        find_gaps(
-            "inmate_fight", {**base, "investigation_findings": ["Took a statement."]}
-        )["investigation"]
-        is True
-    )
+    assert find_gaps("inmate_fight", {**base, "investigation_findings": ["Took a statement."]})["investigation"] is True
 
 
 def test_ordinary_incident_is_never_asked_investigation_questions():
-    slots = {
-        g["slot"] for g in find_gaps("inmate_fight", {"persons": _one_inmate()})["gaps"]
-    }
+    slots = {g["slot"] for g in find_gaps("inmate_fight", {"persons": _one_inmate()})["gaps"]}
     assert not [s for s in slots if s.startswith("investigation")]
 
 
@@ -332,9 +301,6 @@ def test_investigation_questions_appear_once_findings_exist():
 
 def test_empty_findings_list_does_not_open_the_investigation_questions():
     slots = {
-        g["slot"]
-        for g in find_gaps(
-            "inmate_fight", {"persons": _one_inmate(), "investigation_findings": []}
-        )["gaps"]
+        g["slot"] for g in find_gaps("inmate_fight", {"persons": _one_inmate(), "investigation_findings": []})["gaps"]
     }
     assert not [s for s in slots if s.startswith("investigation")]

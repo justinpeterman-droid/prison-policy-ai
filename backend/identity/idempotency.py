@@ -41,17 +41,13 @@ class IdempotencyClaim:
 
 
 def request_digest(payload: object) -> bytes:
-    encoded = json.dumps(
-        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    )
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(encoded.encode("utf-8")).digest()
 
 
 def _safe_reference(value: object) -> bool:
     if isinstance(value, dict):
-        return not (set(value) & FORBIDDEN_REFERENCE_KEYS) and all(
-            _safe_reference(item) for item in value.values()
-        )
+        return not (set(value) & FORBIDDEN_REFERENCE_KEYS) and all(_safe_reference(item) for item in value.values())
     if isinstance(value, list):
         return all(_safe_reference(item) for item in value)
     return value is None or isinstance(value, (str, int, float, bool))
@@ -137,18 +133,12 @@ def complete_idempotency(
 ) -> None:
     if claim.replayed:
         return
-    if not isinstance(response_reference, dict) or not _safe_reference(
-        response_reference
-    ):
+    if not isinstance(response_reference, dict) or not _safe_reference(response_reference):
         raise ValueError("idempotency response reference is invalid")
     encoded = json.dumps(response_reference, sort_keys=True, separators=(",", ":"))
     if len(encoded.encode("utf-8")) > 4096:
         raise ValueError("idempotency response reference is too large")
-    record = session.scalar(
-        select(IdempotencyRecord)
-        .where(IdempotencyRecord.id == claim.record_id)
-        .with_for_update()
-    )
+    record = session.scalar(select(IdempotencyRecord).where(IdempotencyRecord.id == claim.record_id).with_for_update())
     if record is None or record.status != "in_progress":
         raise RuntimeError("idempotency claim is unavailable")
     record.status = "completed"

@@ -70,18 +70,14 @@ def test_field_notes_rejects_one_character_over_the_limit(model):
 
 @pytest.mark.parametrize("model", [IncidentSnapshotV1, SaveIncidentRequest])
 def test_non_bmp_boundary_counts_code_points_not_bytes_or_units(model):
-    accepted = model.model_validate(
-        {"field_notes": NON_BMP * FIELD_NOTES_MAX_CHARACTERS}
-    )
+    accepted = model.model_validate({"field_notes": NON_BMP * FIELD_NOTES_MAX_CHARACTERS})
 
     assert len(accepted.field_notes) == 30_000
     # 120,000 UTF-8 bytes and 60,000 UTF-16 units still fit: only code points count.
     assert len(accepted.field_notes.encode("utf-8")) == 4 * 30_000
 
     with pytest.raises(ValidationError):
-        model.model_validate(
-            {"field_notes": NON_BMP * (FIELD_NOTES_MAX_CHARACTERS + 1)}
-        )
+        model.model_validate({"field_notes": NON_BMP * (FIELD_NOTES_MAX_CHARACTERS + 1)})
 
 
 @pytest.mark.parametrize("class_name", ["IncidentSnapshotV1", "SaveIncidentRequest"])
@@ -356,9 +352,7 @@ def test_incident_snapshot_accepts_realistic_nested_classifier_and_extractor_sha
 
     assert snapshot.classification["persons_involved"][0]["role"] == "inmate"
     assert snapshot.classification["charges_applicable"][0]["code"] == "12-1"
-    assert snapshot.extracted_facts["persons"][0]["actions"] == [
-        "Raised hands in a staged confrontation."
-    ]
+    assert snapshot.extracted_facts["persons"][0]["actions"] == ["Raised hands in a staged confrontation."]
 
 
 def test_recursive_incident_json_rejects_unbounded_or_unsafe_nested_values():
@@ -366,10 +360,7 @@ def test_recursive_incident_json_rejects_unbounded_or_unsafe_nested_values():
         IncidentSnapshotV1.model_validate(
             {
                 "classification": {
-                    "persons_involved": [
-                        {"role": "inmate"}
-                        for _ in range(reporting.MAX_JSON_COLLECTION_ITEMS + 1)
-                    ],
+                    "persons_involved": [{"role": "inmate"} for _ in range(reporting.MAX_JSON_COLLECTION_ITEMS + 1)],
                 },
             }
         )
@@ -398,9 +389,7 @@ def test_recursive_incident_json_rejects_unbounded_or_unsafe_nested_values():
 
 
 def test_server_owned_content_keys_cover_every_collected_provenance_key():
-    reserved_provenance_keys = (
-        reporting.SERVER_OWNED_CONTENT_KEYS & COLLECTED_PROVENANCE_KEYS
-    )
+    reserved_provenance_keys = reporting.SERVER_OWNED_CONTENT_KEYS & COLLECTED_PROVENANCE_KEYS
 
     assert reserved_provenance_keys == COLLECTED_PROVENANCE_KEYS
 
@@ -492,10 +481,7 @@ def test_complete_client_content_applies_recursive_bounds_to_validation(model, b
     for _ in range(reporting.MAX_JSON_DEPTH + 1):
         too_deep = {"nested": too_deep}
 
-    too_many_nodes = {
-        f"result_{index}": ["fictional"] * 20
-        for index in range(reporting.MAX_JSON_COLLECTION_ITEMS)
-    }
+    too_many_nodes = {f"result_{index}": ["fictional"] * 20 for index in range(reporting.MAX_JSON_COLLECTION_ITEMS)}
 
     invalid_values = [
         ["fictional"] * (reporting.MAX_JSON_COLLECTION_ITEMS + 1),

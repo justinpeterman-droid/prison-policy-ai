@@ -9,9 +9,7 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-TEMPLATE_PATH = (
-    Path(__file__).parent.parent.parent / "templates" / "005_template_v3.docx"
-)
+TEMPLATE_PATH = Path(__file__).parent.parent.parent / "templates" / "005_template_v3.docx"
 
 # What marks a ticked box on the 005 header, per the unit supervisor's ruling.
 TICK = "X"
@@ -142,12 +140,7 @@ def _ensure_template() -> Path:
 
 def _xml_escape(s: str) -> str:
     """Escape XML special characters."""
-    return (
-        s.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
 def _build_text(metadata: dict) -> str:

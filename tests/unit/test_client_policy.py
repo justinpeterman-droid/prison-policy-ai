@@ -17,9 +17,7 @@ EXPECTED_KEYS = {
 def configured_client(monkeypatch):
     monkeypatch.setattr(app_mod, "ACCESS_CODE", "legacy-user")
     monkeypatch.setenv("ACCESS_API_ENABLED", "true")
-    monkeypatch.setenv(
-        "DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test"
-    )
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test")
     monkeypatch.setenv("IDENTITY_HASH_PEPPER", "p" * 32)
     monkeypatch.setenv("CURSOR_SIGNING_KEY", "c" * 32)
     monkeypatch.setenv("RELEASE_VERSION", "1.4.0")
@@ -42,9 +40,7 @@ def test_public_client_policy_has_exact_nine_safe_fields(monkeypatch):
 
 
 def test_public_client_policy_exposes_only_safe_origin(monkeypatch):
-    policy = (
-        configured_client(monkeypatch).get("/api/v1/client-policy").get_json()["data"]
-    )
+    policy = configured_client(monkeypatch).get("/api/v1/client-policy").get_json()["data"]
     assert policy["minimum_server_version"] == "1.2.0"
     assert policy["api_version"] == "v1"
     assert policy["review_lab_origin"] == "https://review.example.gov"

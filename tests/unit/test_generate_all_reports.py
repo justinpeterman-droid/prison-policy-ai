@@ -29,20 +29,14 @@ SLOTS = {"persons": [], "charges": ""}
 def stub(monkeypatch):
     """Replace the five generators with controllable stand-ins."""
 
-    def _apply(
-        first=None, supervisor=None, cover=None, disciplinary=None, investigation=None
-    ):
-        monkeypatch.setattr(
-            generator, "generate_first_person", first or (lambda *a, **k: "FIRST")
-        )
+    def _apply(first=None, supervisor=None, cover=None, disciplinary=None, investigation=None):
+        monkeypatch.setattr(generator, "generate_first_person", first or (lambda *a, **k: "FIRST"))
         monkeypatch.setattr(
             generator,
             "generate_supervisor_summary",
             supervisor or (lambda *a, **k: "SUPERVISOR"),
         )
-        monkeypatch.setattr(
-            generator, "generate_cover_letter", cover or (lambda *a, **k: "COVER")
-        )
+        monkeypatch.setattr(generator, "generate_cover_letter", cover or (lambda *a, **k: "COVER"))
         monkeypatch.setattr(
             generator,
             "generate_disciplinary",
@@ -73,10 +67,7 @@ class TestSuccessPath:
         stub()
         assert "disciplinary" not in generator.generate_all_reports(SLOTS)
         with_charges = dict(SLOTS, charges="12-1, 12-3")
-        assert (
-            generator.generate_all_reports(with_charges)["disciplinary"]
-            == "DISCIPLINARY"
-        )
+        assert generator.generate_all_reports(with_charges)["disciplinary"] == "DISCIPLINARY"
 
     def test_disciplinary_receives_the_finished_first_person_report(self, stub):
         seen = {}

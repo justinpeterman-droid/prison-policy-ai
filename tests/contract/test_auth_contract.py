@@ -66,9 +66,7 @@ def _pair():
 def configured_client(monkeypatch):
     monkeypatch.setattr(app_mod, "ACCESS_CODE", "legacy-user")
     monkeypatch.setenv("ACCESS_API_ENABLED", "true")
-    monkeypatch.setenv(
-        "DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test"
-    )
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test")
     monkeypatch.setenv("IDENTITY_HASH_PEPPER", "p" * 32)
     monkeypatch.setenv("CURSOR_SIGNING_KEY", "c" * 32)
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://review.example.gov")
@@ -98,9 +96,7 @@ def test_login_route_returns_profile_without_follow_up_and_rejects_extra_fields(
         "device_label": "Intake Desk",
         "persistent": False,
     }
-    response = client.post(
-        "/api/v1/auth/login", json=payload, headers={"X-Client-Version": "1.0.0"}
-    )
+    response = client.post("/api/v1/auth/login", json=payload, headers={"X-Client-Version": "1.0.0"})
     assert response.status_code == 200
     data = response.get_json()["data"]
     assert data["profile"]["display_name"] == "Officer Avery Morgan"
@@ -156,12 +152,8 @@ def test_auth_routes_reject_malformed_secret_shapes_before_service_call(monkeypa
     import backend.webapp.api_v1.auth as auth_api
 
     calls = []
-    monkeypatch.setattr(
-        auth_api, "login", lambda *_args, **_kwargs: calls.append("login")
-    )
-    monkeypatch.setattr(
-        auth_api, "renew_session", lambda *_args, **_kwargs: calls.append("renew")
-    )
+    monkeypatch.setattr(auth_api, "login", lambda *_args, **_kwargs: calls.append("login"))
+    monkeypatch.setattr(auth_api, "renew_session", lambda *_args, **_kwargs: calls.append("renew"))
     client = configured_client(monkeypatch)
     login_response = client.post(
         "/api/v1/auth/login",

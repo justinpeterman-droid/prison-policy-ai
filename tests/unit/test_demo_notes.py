@@ -21,10 +21,7 @@ CHECKLIST_PATH = _ROOT / "templates" / "incident_checklist_v2.json"
 # Categories come from the checklist, which CLAUDE.md names as authoritative.
 # Reading it here (rather than importing classifier.VALID_CATEGORIES) keeps this
 # module runnable without the Vertex SDK — see the cross-check test below.
-VALID_CATEGORIES = {
-    c["name"]
-    for c in json.loads(CHECKLIST_PATH.read_text(encoding="utf-8"))["categories"]
-}
+VALID_CATEGORIES = {c["name"] for c in json.loads(CHECKLIST_PATH.read_text(encoding="utf-8"))["categories"]}
 
 try:
     from backend.reports import classifier
@@ -77,8 +74,7 @@ def test_every_demo_has_separate_operational_answers(scenarios):
 def test_categories_are_real_categories(scenarios):
     for s in scenarios:
         assert s["category"] in VALID_CATEGORIES, (
-            f"{s['id']} uses category {s['category']!r}, which is not one of the "
-            f"nine in VALID_CATEGORIES"
+            f"{s['id']} uses category {s['category']!r}, which is not one of the nine in VALID_CATEGORIES"
         )
 
 
@@ -98,9 +94,7 @@ def test_the_three_scenarios_cover_distinct_categories(scenarios):
 _RANKED_NAME = re.compile(r"\b(?:Sgt|Cpl|Lt|Capt|Cpt|Maj|Col|Ofc)\.?\s+([A-Z][a-z]+)\b")
 
 
-def test_every_officer_named_in_the_notes_is_on_the_roster(
-    scenarios, roster_last_names
-):
+def test_every_officer_named_in_the_notes_is_on_the_roster(scenarios, roster_last_names):
     """A demo officer who isn't on the roster produces a gap panel, which
     defeats the purpose of a showcase run."""
     for s in scenarios:
@@ -134,17 +128,14 @@ def test_the_gap_scenario_still_withholds_the_canister_details(scenarios):
     assert "oc" in notes, "the scenario must establish a chemical agent was used"
     for leaked in ("lot", "mfg", "serial", "pmf"):
         assert leaked not in notes, (
-            f"{oc['id']} now mentions {leaked!r} — the blocking gap this demo "
-            f"exists to show will no longer fire"
+            f"{oc['id']} now mentions {leaked!r} — the blocking gap this demo exists to show will no longer fire"
         )
 
 
 def test_the_reports_placeholder_is_not_a_copy_of_a_scenario(scenarios):
     """Regression: the placeholder used to duplicate the demo string by hand,
     so the two silently drifted apart."""
-    html = (_ROOT / "backend" / "webapp" / "templates" / "reports.html").read_text(
-        encoding="utf-8"
-    )
+    html = (_ROOT / "backend" / "webapp" / "templates" / "reports.html").read_text(encoding="utf-8")
     match = re.search(r'<textarea id="notes"[^>]*placeholder="([^"]*)"', html)
     assert match, "could not find the field-notes textarea placeholder"
     placeholder = match.group(1)

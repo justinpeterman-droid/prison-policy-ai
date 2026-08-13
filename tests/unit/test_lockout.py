@@ -17,18 +17,14 @@ from backend.identity.accounts import (
 from sqlalchemy.dialects import postgresql
 
 
-@pytest.mark.parametrize(
-    "cycle,minutes", [(1, 15), (2, 30), (3, 60), (4, 120), (8, 1440), (20, 1440)]
-)
+@pytest.mark.parametrize("cycle,minutes", [(1, 15), (2, 30), (3, 60), (4, 120), (8, 1440), (20, 1440)])
 def test_lock_minutes_double_with_twenty_four_hour_cap(cycle, minutes):
     assert lock_minutes(cycle) == minutes
 
 
 def test_fifth_failure_locks_for_fifteen_minutes():
     now = datetime(2026, 8, 12, 15, 0, tzinfo=UTC)
-    account = SimpleNamespace(
-        failed_attempts=4, lock_cycle=0, status="active", locked_until=None
-    )
+    account = SimpleNamespace(failed_attempts=4, lock_cycle=0, status="active", locked_until=None)
     record_failed_attempt(account, now)
     assert account.status == "locked"
     assert account.failed_attempts == 5
@@ -37,9 +33,7 @@ def test_fifth_failure_locks_for_fifteen_minutes():
 
 
 def test_reset_and_unlock_clear_lock_state():
-    account = SimpleNamespace(
-        failed_attempts=3, lock_cycle=4, status="locked", locked_until=datetime.now(UTC)
-    )
+    account = SimpleNamespace(failed_attempts=3, lock_cycle=4, status="locked", locked_until=datetime.now(UTC))
     unlock_account(account)
     assert (
         account.status,
@@ -133,9 +127,7 @@ def test_exact_lock_expiry_allows_success_and_resets_cycle(monkeypatch):
         def append(self, _session, _event):
             raise AssertionError("successful verification emitted failure audit")
 
-    monkeypatch.setattr(
-        "backend.identity.accounts.verify_pin", lambda _hash, _pin: True
-    )
+    monkeypatch.setattr("backend.identity.accounts.verify_pin", lambda _hash, _pin: True)
     monkeypatch.setattr("backend.identity.accounts.needs_rehash", lambda _hash: False)
     result = verify_login_pin(
         Session(),
@@ -170,9 +162,7 @@ def test_current_lock_and_expired_temporary_pin_share_generic_error(monkeypatch)
         def append(self, _session, _event):
             return uuid4()
 
-    monkeypatch.setattr(
-        "backend.identity.accounts.verify_pin", lambda _hash, _pin: True
-    )
+    monkeypatch.setattr("backend.identity.accounts.verify_pin", lambda _hash, _pin: True)
     for account in (
         SimpleNamespace(
             id=uuid4(),
@@ -240,9 +230,7 @@ def test_fifth_wrong_pin_emits_failure_and_lock_events(monkeypatch):
             return uuid4()
 
     audit = Audit()
-    monkeypatch.setattr(
-        "backend.identity.accounts.verify_pin", lambda _hash, _pin: False
-    )
+    monkeypatch.setattr("backend.identity.accounts.verify_pin", lambda _hash, _pin: False)
     with pytest.raises(InvalidCredentials):
         verify_login_pin(
             Session(),

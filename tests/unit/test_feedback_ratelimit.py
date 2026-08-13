@@ -27,10 +27,7 @@ def _clear_hits():
 
 def test_allows_up_to_the_limit():
     for i in range(5):
-        assert (
-            feedback._rate_limited("1.2.3.4", now=1000 + i, max_hits=5, window=600)
-            is False
-        )
+        assert feedback._rate_limited("1.2.3.4", now=1000 + i, max_hits=5, window=600) is False
 
 
 def test_blocks_after_the_limit():

@@ -74,25 +74,19 @@ def test_default_request_still_includes_the_supplement(client):
 
 
 def test_deferred_request_omits_the_supplement(client):
-    d = client.post(
-        "/api/reports/generate", json=_payload(defer_disciplinary=True)
-    ).get_json()
+    d = client.post("/api/reports/generate", json=_payload(defer_disciplinary=True)).get_json()
     assert "disciplinary" not in d["reports"]
     assert set(d["reports"]) == set(BATCH)
 
 
 def test_deferred_flag_tells_the_client_a_second_call_is_owed(client):
-    d = client.post(
-        "/api/reports/generate", json=_payload(defer_disciplinary=True)
-    ).get_json()
+    d = client.post("/api/reports/generate", json=_payload(defer_disciplinary=True)).get_json()
     assert d["disciplinary_deferred"] is True
 
 
 def test_no_charges_means_nothing_is_owed_even_when_deferring(client):
     """Otherwise the client waits on a second pass that will never produce one."""
-    d = client.post(
-        "/api/reports/generate", json=_payload(charges=[], defer_disciplinary=True)
-    ).get_json()
+    d = client.post("/api/reports/generate", json=_payload(charges=[], defer_disciplinary=True)).get_json()
     assert d["disciplinary_deferred"] is False
 
 
@@ -101,9 +95,7 @@ def test_no_charges_means_nothing_is_owed_even_when_deferring(client):
 
 def test_second_pass_returns_the_complete_set(client):
     """It replaces the first payload wholesale, so the client never merges."""
-    d = client.post(
-        "/api/reports/disciplinary", json=_payload(reports=BATCH)
-    ).get_json()
+    d = client.post("/api/reports/disciplinary", json=_payload(reports=BATCH)).get_json()
     assert set(d["reports"]) == set(BATCH) | {"disciplinary"}
     assert d["disciplinary_deferred"] is False
 
@@ -118,9 +110,7 @@ def test_second_pass_rejects_unknown_report_keys(client):
 
 
 def test_second_pass_with_no_charges_is_not_an_error(client):
-    d = client.post(
-        "/api/reports/disciplinary", json=_payload(charges=[], reports=BATCH)
-    )
+    d = client.post("/api/reports/disciplinary", json=_payload(charges=[], reports=BATCH))
     assert d.status_code == 200
     assert "disciplinary" not in d.get_json()["reports"]
 
@@ -135,12 +125,8 @@ def test_both_endpoints_validate_their_inputs(client):
 
 def test_split_produces_the_same_reports_as_one_request(client):
     one = client.post("/api/reports/generate", json=_payload()).get_json()
-    client.post(
-        "/api/reports/generate", json=_payload(defer_disciplinary=True)
-    ).get_json()
-    two = client.post(
-        "/api/reports/disciplinary", json=_payload(reports=BATCH)
-    ).get_json()
+    client.post("/api/reports/generate", json=_payload(defer_disciplinary=True)).get_json()
+    two = client.post("/api/reports/disciplinary", json=_payload(reports=BATCH)).get_json()
     assert one["reports"] == two["reports"]
 
 
@@ -148,9 +134,7 @@ def test_split_produces_the_same_005_and_flags(client):
     """The 005 and the fabrication flags are the filed artefacts — if the split
     changed either, it would be changing the record, not just the transport."""
     one = client.post("/api/reports/generate", json=_payload()).get_json()
-    two = client.post(
-        "/api/reports/disciplinary", json=_payload(reports=BATCH)
-    ).get_json()
+    two = client.post("/api/reports/disciplinary", json=_payload(reports=BATCH)).get_json()
     assert one["form005"] == two["form005"]
     assert one["flags"] == two["flags"]
     assert one["markers"] == two["markers"]
@@ -159,8 +143,6 @@ def test_split_produces_the_same_005_and_flags(client):
 def test_split_produces_the_same_style_score(client):
     """Style is scored over the whole set in both paths, so it must match."""
     one = client.post("/api/reports/generate", json=_payload()).get_json()
-    two = client.post(
-        "/api/reports/disciplinary", json=_payload(reports=BATCH)
-    ).get_json()
+    two = client.post("/api/reports/disciplinary", json=_payload(reports=BATCH)).get_json()
     assert one["style"]["score"] == two["style"]["score"]
     assert one["style"]["blocking_count"] == two["style"]["blocking_count"]

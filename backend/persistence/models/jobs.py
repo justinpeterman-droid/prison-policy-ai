@@ -24,10 +24,7 @@ from backend.persistence.base import Base
 
 JOB_TYPES = "'classify','extract','generate','disciplinary'"
 JOB_STATES = "'queued','running','succeeded','failed','cancelled'"
-JOB_STAGES = (
-    "'queued','classifying','extracting','validating','generating',"
-    "'disciplinary','completed','failed'"
-)
+JOB_STAGES = "'queued','classifying','extracting','validating','generating','disciplinary','completed','failed'"
 RESULT_REFERENCE_KEYS = frozenset({"incident_revision_number", "reports"})
 RESULT_REPORT_REFERENCE_KEYS = frozenset({"report_id", "revision_number"})
 MAX_RESULT_REPORT_REFERENCES = 20
@@ -67,9 +64,7 @@ def normalize_job_result_reference(value: object) -> dict[str, object]:
             try:
                 report_id = UUID(raw_report_id)
             except ValueError:
-                raise InvalidJobResultReference(
-                    "job result reference is invalid"
-                ) from None
+                raise InvalidJobResultReference("job result reference is invalid") from None
             if revision_number < 1 or report_id in seen_report_ids:
                 raise InvalidJobResultReference("job result reference is invalid")
             seen_report_ids.add(report_id)
@@ -147,8 +142,7 @@ class AiJob(Base):
             name="result_reference_reports",
         ),
         CheckConstraint(
-            "((state = 'running') = "
-            "(lease_expires_at IS NOT NULL AND claim_token IS NOT NULL))",
+            "((state = 'running') = (lease_expires_at IS NOT NULL AND claim_token IS NOT NULL))",
             name="lease_matches_running_state",
         ),
         CheckConstraint(
@@ -272,9 +266,7 @@ class TaskOutbox(Base):
         server_default="pending",
     )
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
-    available_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_error_code: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(

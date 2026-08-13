@@ -50,9 +50,7 @@ def collect_provenance() -> dict[str, str | None]:
         "fast_model": FAST_MODEL,
         "pro_model": PRO_MODEL,
         "model_location": MODEL_LOCATION,
-        "classification_prompt_sha256": file_sha256(
-            PROVENANCE_SOURCES["classification"]
-        ),
+        "classification_prompt_sha256": file_sha256(PROVENANCE_SOURCES["classification"]),
         "generation_prompt_sha256": file_sha256(PROVENANCE_SOURCES["generation"]),
         "checklist_sha256": file_sha256(PROVENANCE_SOURCES["checklist"]),
         "template_sha256": file_sha256(PROVENANCE_SOURCES["template"]),

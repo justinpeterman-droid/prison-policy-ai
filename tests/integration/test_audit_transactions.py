@@ -4,9 +4,7 @@ from backend.identity.audit import AuditEventInput, PostgresAuditWriter
 from backend.persistence.models import AuditEvent
 
 
-def test_postgres_audit_writer_inserts_through_append_function(
-    db_session, fictional_user_account
-):
+def test_postgres_audit_writer_inserts_through_append_function(db_session, fictional_user_account):
     event_id = PostgresAuditWriter().append(
         db_session,
         AuditEventInput(

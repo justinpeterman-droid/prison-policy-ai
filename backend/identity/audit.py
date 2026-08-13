@@ -78,16 +78,10 @@ MAX_AUDIT_NAME_LIST = 100
 MAX_AUDIT_NUMBER = 1_000_000_000
 
 AUDIT_UUID_FIELDS = frozenset(
-    field
-    for fields in AUDIT_ACTION_FIELDS.values()
-    for field in fields
-    if field.endswith("_id")
+    field for fields in AUDIT_ACTION_FIELDS.values() for field in fields if field.endswith("_id")
 )
 AUDIT_SHA256_FIELDS = frozenset(
-    field
-    for fields in AUDIT_ACTION_FIELDS.values()
-    for field in fields
-    if field.endswith("_sha256")
+    field for fields in AUDIT_ACTION_FIELDS.values() for field in fields if field.endswith("_sha256")
 )
 AUDIT_INTEGER_FIELDS = frozenset(
     {
@@ -304,11 +298,7 @@ def _validate_detail_value(action: str, key: str, value: object) -> None:
         if not isinstance(value, str) or not AUDIT_SHA256_PATTERN.fullmatch(value):
             raise ValueError("audit details are invalid")
     elif key in AUDIT_INTEGER_FIELDS:
-        if (
-            not isinstance(value, int)
-            or isinstance(value, bool)
-            or not 0 <= value <= MAX_AUDIT_NUMBER
-        ):
+        if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= MAX_AUDIT_NUMBER:
             raise ValueError("audit details are invalid")
     elif key == "persistent":
         if not isinstance(value, bool):
@@ -346,9 +336,7 @@ class PostgresAuditWriter:
         validate_actor_attribution(event)
         details = validate_details(event.action, event.details)
         for digest in (event.device_id_hash, event.network_hash):
-            if digest is not None and (
-                not isinstance(digest, bytes) or len(digest) != 32
-            ):
+            if digest is not None and (not isinstance(digest, bytes) or len(digest) != 32):
                 raise ValueError("audit hash is invalid")
         if event.client_version is not None and (
             not isinstance(event.client_version, str) or len(event.client_version) > 64

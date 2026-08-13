@@ -622,9 +622,7 @@ def test_reportless_generation_creates_revisioned_attributed_report_shell(
                 IncidentRevision.revision_number == base_revision,
             )
         )
-        assert (
-            revision.snapshot["narrative"] == "Fictional supervisor summary narrative."
-        )
+        assert revision.snapshot["narrative"] == "Fictional supervisor summary narrative."
         assert revision.source_incident_revision_id == incident_revision.id
         assert revision.source_ai_job_id == job_id
         assert job.result_reference == {
@@ -828,9 +826,7 @@ def test_report_edit_during_provider_call_is_terminal_conflict_without_ai_revisi
         report = verification.get(Report, fictional_report.id)
         assert (job.state, job.error_code) == ("failed", "job_result_conflict")
         assert report.current_revision_number == 2
-        assert report.current_content["narrative"] == (
-            "Fictional employee edit during provider work."
-        )
+        assert report.current_content["narrative"] == ("Fictional employee edit during provider work.")
         assert (
             verification.scalar(
                 select(func.count())

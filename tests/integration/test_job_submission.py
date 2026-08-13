@@ -99,8 +99,7 @@ def test_same_key_returns_same_job_and_one_atomic_outbox_and_audit(
                 select(func.count())
                 .select_from(IdempotencyRecord)
                 .where(
-                    IdempotencyRecord.actor_account_id
-                    == fictional_staff_and_accounts.user.id,
+                    IdempotencyRecord.actor_account_id == fictional_staff_and_accounts.user.id,
                     IdempotencyRecord.action == "ai.job.submit",
                     IdempotencyRecord.status == "completed",
                 )
@@ -109,8 +108,7 @@ def test_same_key_returns_same_job_and_one_atomic_outbox_and_audit(
         )
         record = verification.scalar(
             select(IdempotencyRecord).where(
-                IdempotencyRecord.actor_account_id
-                == fictional_staff_and_accounts.user.id,
+                IdempotencyRecord.actor_account_id == fictional_staff_and_accounts.user.id,
                 IdempotencyRecord.action == "ai.job.submit",
             )
         )
@@ -140,9 +138,7 @@ def test_same_key_changed_payload_or_job_type_conflicts_without_second_job(
     db_session.commit()
     headers = _headers(owner_bearer_headers, "job-fictional-0002")
     first = _post(api_client, fictional_incident.id, "extract", headers)
-    changed_revision = _post(
-        api_client, fictional_incident.id, "extract", headers, revision=2
-    )
+    changed_revision = _post(api_client, fictional_incident.id, "extract", headers, revision=2)
     changed_type = _post(api_client, fictional_incident.id, "generate", headers)
 
     assert first.status_code == 202
@@ -289,17 +285,13 @@ def test_authorization_and_stale_base_fail_without_durable_fragments(
         assert verification.scalar(select(func.count()).select_from(TaskOutbox)) == 0
         assert (
             verification.scalar(
-                select(func.count())
-                .select_from(IdempotencyRecord)
-                .where(IdempotencyRecord.action == "ai.job.submit")
+                select(func.count()).select_from(IdempotencyRecord).where(IdempotencyRecord.action == "ai.job.submit")
             )
             == 0
         )
         assert (
             verification.scalar(
-                select(func.count())
-                .select_from(AuditEvent)
-                .where(AuditEvent.action == "ai.job_submitted")
+                select(func.count()).select_from(AuditEvent).where(AuditEvent.action == "ai.job_submitted")
             )
             == 0
         )
@@ -390,23 +382,17 @@ def test_access_revoked_before_live_relationship_lock_leaves_no_job_fragment(
             with db_session_factory() as observer:
                 for _ in range(200):
                     wait_type = observer.scalar(
-                        text(
-                            "SELECT wait_event_type FROM pg_stat_activity WHERE pid = :pid"
-                        ),
+                        text("SELECT wait_event_type FROM pg_stat_activity WHERE pid = :pid"),
                         {"pid": pid},
                     )
                     observer.rollback()
                     if wait_type == "Lock":
                         break
                     if future.done():
-                        raise AssertionError(
-                            "submission did not lock and revalidate live incident access"
-                        )
+                        raise AssertionError("submission did not lock and revalidate live incident access")
                     time.sleep(0.01)
                 else:
-                    raise AssertionError(
-                        "submission did not wait for the live relationship lock"
-                    )
+                    raise AssertionError("submission did not wait for the live relationship lock")
             relationship.revoked_at = datetime(2026, 8, 12, 15, 2, tzinfo=UTC)
             holder.commit()
             response = future.result(timeout=10)
@@ -421,17 +407,13 @@ def test_access_revoked_before_live_relationship_lock_leaves_no_job_fragment(
         assert verification.scalar(select(func.count()).select_from(TaskOutbox)) == 0
         assert (
             verification.scalar(
-                select(func.count())
-                .select_from(IdempotencyRecord)
-                .where(IdempotencyRecord.action == "ai.job.submit")
+                select(func.count()).select_from(IdempotencyRecord).where(IdempotencyRecord.action == "ai.job.submit")
             )
             == 0
         )
         assert (
             verification.scalar(
-                select(func.count())
-                .select_from(AuditEvent)
-                .where(AuditEvent.action == "ai.job_submitted")
+                select(func.count()).select_from(AuditEvent).where(AuditEvent.action == "ai.job_submitted")
             )
             == 0
         )
@@ -473,17 +455,13 @@ def test_audit_failure_rolls_back_job_outbox_idempotency_and_audit_together(
         assert verification.scalar(select(func.count()).select_from(TaskOutbox)) == 0
         assert (
             verification.scalar(
-                select(func.count())
-                .select_from(IdempotencyRecord)
-                .where(IdempotencyRecord.action == "ai.job.submit")
+                select(func.count()).select_from(IdempotencyRecord).where(IdempotencyRecord.action == "ai.job.submit")
             )
             == 0
         )
         assert (
             verification.scalar(
-                select(func.count())
-                .select_from(AuditEvent)
-                .where(AuditEvent.action == "ai.job_submitted")
+                select(func.count()).select_from(AuditEvent).where(AuditEvent.action == "ai.job_submitted")
             )
             == 0
         )
@@ -536,8 +514,7 @@ def test_job_status_requires_requester_plus_current_access_or_admin(
         relationship = revoke.scalar(
             select(ReportAccess).where(
                 ReportAccess.report_id == fictional_report.id,
-                ReportAccess.staff_member_id
-                == fictional_report.reporting_staff_member_id,
+                ReportAccess.staff_member_id == fictional_report.reporting_staff_member_id,
             )
         )
         relationship.revoked_at = datetime(2026, 8, 12, 15, 10, tzinfo=UTC)
@@ -558,17 +535,11 @@ def test_jobs_migration_has_bounded_tables_constraints_and_lookup_indexes(db_eng
     inspector = inspect(db_engine)
     assert {"ai_jobs", "task_outbox", "exports"} <= set(inspector.get_table_names())
     unique_names = {
-        item["name"]
-        for table in ("ai_jobs", "task_outbox")
-        for item in inspector.get_unique_constraints(table)
+        item["name"] for table in ("ai_jobs", "task_outbox") for item in inspector.get_unique_constraints(table)
     }
     assert "uq_task_outbox_ai_job_id" in unique_names
     assert "uq_ai_jobs_actor_idempotency_key" not in unique_names
-    indexes = {
-        item["name"]
-        for table in ("ai_jobs", "task_outbox", "exports")
-        for item in inspector.get_indexes(table)
-    }
+    indexes = {item["name"] for table in ("ai_jobs", "task_outbox", "exports") for item in inspector.get_indexes(table)}
     assert {
         "ix_ai_jobs_queue",
         "ix_ai_jobs_requested_actor",
@@ -578,15 +549,9 @@ def test_jobs_migration_has_bounded_tables_constraints_and_lookup_indexes(db_eng
         "ix_exports_actor_created",
         "ix_ai_jobs_claim",
     } <= indexes
-    assert {"lease_expires_at", "claim_token"} <= {
-        column["name"] for column in inspector.get_columns("ai_jobs")
-    }
-    report_revision_foreign_keys = {
-        item["name"]: item for item in inspector.get_foreign_keys("report_revisions")
-    }
-    source_job_fk = report_revision_foreign_keys[
-        "fk_report_revisions_source_ai_job_id_ai_jobs"
-    ]
+    assert {"lease_expires_at", "claim_token"} <= {column["name"] for column in inspector.get_columns("ai_jobs")}
+    report_revision_foreign_keys = {item["name"]: item for item in inspector.get_foreign_keys("report_revisions")}
+    source_job_fk = report_revision_foreign_keys["fk_report_revisions_source_ai_job_id_ai_jobs"]
     assert source_job_fk["constrained_columns"] == ["source_ai_job_id"]
     assert source_job_fk["referred_table"] == "ai_jobs"
     assert source_job_fk["referred_columns"] == ["id"]
@@ -597,9 +562,7 @@ def test_jobs_migration_downgrades_and_reupgrades_with_reverse_fk(db_engine):
 
     alembic_command.downgrade(config, "20260812_0004")
     downgraded = inspect(db_engine)
-    assert {"ai_jobs", "task_outbox", "exports"}.isdisjoint(
-        downgraded.get_table_names()
-    )
+    assert {"ai_jobs", "task_outbox", "exports"}.isdisjoint(downgraded.get_table_names())
     assert "fk_report_revisions_source_ai_job_id_ai_jobs" not in {
         item["name"] for item in downgraded.get_foreign_keys("report_revisions")
     }
@@ -614,9 +577,9 @@ def test_jobs_migration_downgrades_and_reupgrades_with_reverse_fk(db_engine):
 
 def test_openapi_declares_closed_job_routes_headers_stages_and_safe_conflicts():
     document = yaml.safe_load((ROOT / "openapi" / "access-v1.yaml").read_text("utf-8"))
-    expected_paths = {
-        f"/api/v1/incidents/{{incident_id}}/jobs/{job_type}" for job_type in JOB_TYPES
-    } | {"/api/v1/jobs/{job_id}"}
+    expected_paths = {f"/api/v1/incidents/{{incident_id}}/jobs/{job_type}" for job_type in JOB_TYPES} | {
+        "/api/v1/jobs/{job_id}"
+    }
     assert expected_paths <= set(document["paths"])
     schemas = document["components"]["schemas"]
     assert schemas["SubmitJobRequest"]["additionalProperties"] is False
@@ -644,9 +607,7 @@ def test_openapi_declares_closed_job_routes_headers_stages_and_safe_conflicts():
         "failed",
     }
     for job_type in JOB_TYPES:
-        operation = document["paths"][
-            f"/api/v1/incidents/{{incident_id}}/jobs/{job_type}"
-        ]["post"]
+        operation = document["paths"][f"/api/v1/incidents/{{incident_id}}/jobs/{job_type}"]["post"]
         refs = {parameter.get("$ref") for parameter in operation["parameters"]}
         assert {
             "#/components/parameters/IncidentId",
@@ -654,13 +615,9 @@ def test_openapi_declares_closed_job_routes_headers_stages_and_safe_conflicts():
             "#/components/parameters/RequiredXRequestId",
             "#/components/parameters/IdempotencyKey",
         } <= refs
-        assert {"202", "400", "401", "403", "404", "409", "422", "503"} <= set(
-            operation["responses"]
-        )
+        assert {"202", "400", "401", "403", "404", "409", "422", "503"} <= set(operation["responses"])
         response_ref = operation["responses"]["409"]["$ref"].rsplit("/", 1)[-1]
-        examples = document["components"]["responses"][response_ref]["content"][
-            "application/json"
-        ]["examples"]
+        examples = document["components"]["responses"][response_ref]["content"]["application/json"]["examples"]
         codes = {item["value"]["error"]["code"] for item in examples.values()}
         assert {
             "revision_conflict",
