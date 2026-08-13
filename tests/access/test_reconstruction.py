@@ -31,3 +31,23 @@ def test_import_reexport_is_canonical(tmp_path: Path):
     expected = json.loads((CLIENT / "src" / "manifest.json").read_text("utf-8"))
     actual = json.loads((exported / "manifest.json").read_text("utf-8"))
     assert actual["objects"] == expected["objects"]
+
+
+@pytest.mark.access_com
+def test_export_contains_every_import_dependency(tmp_path: Path):
+    exported = tmp_path / "exported"
+    invoke_access_script(
+        CLIENT / "build" / "ExportAccessSource.ps1",
+        Database=CLIENT / "SLUT-Client.accdb",
+        Output=exported,
+        SourceRoot=CLIENT / "src",
+        Check=True,
+    )
+
+    manifest = json.loads((exported / "manifest.json").read_text("utf-8"))
+    required = [
+        exported / "project.json",
+        exported / "tables" / "schema.json",
+        *[exported / item["path"] for item in manifest["objects"]],
+    ]
+    assert all(path.is_file() for path in required)

@@ -165,6 +165,21 @@ function Export-AccessSource {
     if (-not (Test-Path -LiteralPath $Output)) {
         New-Item -ItemType Directory -Force -Path $Output | Out-Null
     }
+    # `Import-AccessSource` consumes this metadata in addition to manifested
+    # Access objects. Keep an export self-contained so it can be used as the
+    # next source root rather than merely as a manifest comparison artifact.
+    foreach ($relativePath in @('project.json', 'tables/schema.json', 'reports/.gitkeep', 'queries/.gitkeep')) {
+        $sourcePath = Join-Path $SourceRoot $relativePath
+        if (-not (Test-Path -LiteralPath $sourcePath)) {
+            throw "Required source metadata is missing: $sourcePath."
+        }
+        $targetPath = Join-Path $Output $relativePath
+        $targetDirectory = Split-Path -Parent $targetPath
+        if (-not (Test-Path -LiteralPath $targetDirectory)) {
+            New-Item -ItemType Directory -Force -Path $targetDirectory | Out-Null
+        }
+        Copy-Item -LiteralPath $sourcePath -Destination $targetPath -Force
+    }
     $app = New-AccessApplication
     try {
         $app.OpenCurrentDatabase((Resolve-Path -LiteralPath $Database).Path)
@@ -181,10 +196,12 @@ function Export-AccessSource {
             }
             $isVendor = ($object.PSObject.Properties.Name -contains 'vendor') -and $object.vendor
             if ($isVendor) {
-                # Vendor bytes are immutable and hash-pinned. Never re-export over them;
-                # record the pinned hash instead so the manifest still round-trips.
+                # Vendor bytes are immutable and hash-pinned. Never re-export them
+                # through Access, but copy the pinned source bytes into the exported
+                # layout so `Import-AccessSource` can consume that layout directly.
                 $pinned = (Resolve-Path -LiteralPath (Join-Path $SourceRoot $object.path)).Path
-                $object | Add-Member -NotePropertyName 'sha256' -NotePropertyValue (Get-Sha256 -Path $pinned) -Force
+                Copy-Item -LiteralPath $pinned -Destination $target -Force
+                $object | Add-Member -NotePropertyName 'sha256' -NotePropertyValue (Get-Sha256 -Path $target) -Force
                 continue
             }
             if ($object.type -eq 'module') {
