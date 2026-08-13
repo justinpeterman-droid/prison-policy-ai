@@ -11,6 +11,9 @@ COPY alembic.ini /app/alembic.ini
 COPY migrations/ /app/migrations/
 COPY scripts/dispatch_outbox.py /app/scripts/dispatch_outbox.py
 
+RUN addgroup --system app && adduser --system --ingroup app app && chown -R app:app /app
+USER app
+
 ENV PORT=8080
 ENV PYTHONPATH=/app
 

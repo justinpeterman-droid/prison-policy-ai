@@ -289,6 +289,59 @@ run "private_platform_contract" {
     condition     = module.access_platform.terraform_test_contract.serverless.api_only_update_grant && module.access_platform.terraform_test_contract.serverless.api_only_release_bucket && alltrue(values(module.access_platform.terraform_test_contract.serverless.api_secret_source_relations)) && module.access_platform.terraform_test_contract.serverless.worker_database_only && module.access_platform.terraform_test_contract.serverless.cloud_armor_attached && module.access_platform.terraform_test_contract.serverless.http_redirect_count == 1 && alltrue(values(module.access_platform.terraform_test_contract.serverless.deploy_scoped_relations)) && alltrue(values(module.access_platform.terraform_test_contract.serverless.rollback_scoped_relations)) && module.access_platform.terraform_test_contract.serverless.access_release_scoped
     error_message = "Only API may receive the update grant and release bucket; HTTP must redirect to HTTPS."
   }
+
+  assert {
+    condition = module.access_platform.terraform_test_contract.jobs.names == {
+      migration     = "access-test-migrate"
+      roster_import = "access-test-roster-import"
+      bootstrap     = "access-test-bootstrap-admin"
+    }
+    error_message = "OP-06 must create the three exact environment-scoped job names."
+  }
+
+  assert {
+    condition     = join("\u0000", module.access_platform.terraform_test_contract.jobs.commands.migration) == join("\u0000", ["python", "-m", "backend.jobs.migration", "upgrade"]) && join("\u0000", module.access_platform.terraform_test_contract.jobs.commands.roster_import) == join("\u0000", ["python", "-m", "backend.jobs.roster_import", "--source-uri", "gs://access-test-roster/operator-supplied-roster.json", "--corrections-uri", "gs://access-test-roster/operator-supplied-corrections.json", "--report-uri", "gs://access-test-roster/operator-supplied-report.json", "--expected-sha256", "0000000000000000000000000000000000000000000000000000000000000000"]) && join("\u0000", module.access_platform.terraform_test_contract.jobs.commands.bootstrap) == join("\u0000", ["python", "-m", "backend.jobs.admin_bootstrap", "--request-uri", "gs://access-test-configuration/admin-bootstrap-requests/00000000-0000-4000-8000-000000000001.json", "--expected-sha256", "0000000000000000000000000000000000000000000000000000000000000000"])
+    error_message = "OP-06 jobs must expose only the reviewed deterministic commands and arguments."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.jobs.identities.migration == module.access_platform.migration_service_account_email && module.access_platform.terraform_test_contract.jobs.identities.roster_import == module.access_platform.migration_service_account_email && module.access_platform.terraform_test_contract.jobs.identities.bootstrap == module.access_platform.bootstrap_service_account_email && alltrue([for value in values(module.access_platform.terraform_test_contract.jobs.max_retries) : value == 0]) && module.access_platform.terraform_test_contract.jobs.image_digest_exact
+    error_message = "Migration and roster jobs must use migration identity; bootstrap must use bootstrap identity; retries must be disabled."
+  }
+
+  assert {
+    condition     = alltrue([for count in values(module.access_platform.terraform_test_contract.jobs.cloudsql_mounts) : count == 1])
+    error_message = "Every OP-06 job must mount its Cloud SQL volume at /cloudsql."
+  }
+
+  assert {
+    condition = module.access_platform.terraform_test_contract.jobs.bootstrap_environment == {
+      ADMIN_BOOTSTRAP_REQUEST_BUCKET = "access-test-configuration"
+      ADMIN_BOOTSTRAP_REQUEST_PREFIX = "admin-bootstrap-requests/"
+      INITIAL_ADMIN_PIN_SECRET       = "fixture-secret-initial-admin-pin"
+    }
+    error_message = "Bootstrap must receive only the exact bucket, prefix, and secret parent runtime configuration."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.jobs.bootstrap_invoker_exact && module.access_platform.terraform_test_contract.jobs.invoker_binding_count == 1 && module.access_platform.terraform_test_contract.jobs.public_invoker_count == 0 && module.access_platform.terraform_test_contract.jobs.scheduled_target_count == 0 && module.access_platform.terraform_test_contract.jobs.bootstrap_workflow_service_binding_count == 0
+    error_message = "Only the admin-bootstrap workflow identity may invoke bootstrap; OP-06 jobs must be private and unscheduled."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.jobs.apply_job_relation && module.access_platform.terraform_test_contract.jobs.apply_runtime_relations && module.access_platform.terraform_test_contract.jobs.apply_job_permissions == toset(["run.jobs.create", "run.jobs.delete", "run.jobs.get", "run.jobs.getIamPolicy", "run.jobs.list", "run.jobs.setIamPolicy", "run.jobs.update", "run.operations.get"]) && !contains(module.access_platform.terraform_test_contract.jobs.apply_job_permissions, "run.jobs.run")
+    error_message = "Terraform apply must provision and bind OP-06 jobs without permission to execute them."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.jobs.deploy_job_relations && module.access_platform.terraform_test_contract.jobs.deploy_job_permissions == toset(["run.jobs.get", "run.jobs.run", "run.jobs.runWithOverrides", "run.jobs.update", "run.operations.get"]) && module.access_platform.terraform_test_contract.jobs.bootstrap_deploy_count == 0
+    error_message = "Deploy may update and invoke only migration and roster jobs; it must never receive bootstrap access."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.jobs.report_writer_exact
+    error_message = "Migration runtime may create only the exact approved private roster report object."
+  }
 }
 override_resource {
   target          = module.access_platform.google_service_account.identities["access_release"]

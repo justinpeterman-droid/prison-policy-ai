@@ -219,3 +219,45 @@ variable "api_max_concurrency" { type = number }
 variable "worker_min_instances" { type = number }
 variable "worker_max_instances" { type = number }
 variable "worker_max_concurrency" { type = number }
+variable "roster_source_uri" {
+  type = string
+  validation {
+    condition     = can(regex("^gs://access-(test|production)-roster/[A-Za-z0-9][A-Za-z0-9._/-]{0,500}$", var.roster_source_uri)) && startswith(var.roster_source_uri, "gs://access-${var.environment}-roster/") && !strcontains(var.roster_source_uri, "..")
+    error_message = "roster_source_uri must identify one private environment roster-bucket object."
+  }
+}
+variable "roster_corrections_uri" {
+  type = string
+  validation {
+    condition     = can(regex("^gs://access-(test|production)-roster/[A-Za-z0-9][A-Za-z0-9._/-]{0,500}$", var.roster_corrections_uri)) && startswith(var.roster_corrections_uri, "gs://access-${var.environment}-roster/") && !strcontains(var.roster_corrections_uri, "..")
+    error_message = "roster_corrections_uri must identify one private environment roster-bucket object."
+  }
+}
+variable "roster_report_uri" {
+  type = string
+  validation {
+    condition     = can(regex("^gs://access-(test|production)-roster/[A-Za-z0-9][A-Za-z0-9._/-]{0,500}$", var.roster_report_uri)) && startswith(var.roster_report_uri, "gs://access-${var.environment}-roster/") && !strcontains(var.roster_report_uri, "..") && var.roster_report_uri != var.roster_source_uri && var.roster_report_uri != var.roster_corrections_uri
+    error_message = "roster_report_uri must identify one private environment roster-bucket object."
+  }
+}
+variable "roster_expected_sha256" {
+  type = string
+  validation {
+    condition     = can(regex("^[0-9a-f]{64}$", var.roster_expected_sha256))
+    error_message = "roster_expected_sha256 must be lowercase 64-hex."
+  }
+}
+variable "bootstrap_request_uri" {
+  type = string
+  validation {
+    condition     = can(regex("^gs://access-(test|production)-configuration/admin-bootstrap-requests/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.json$", var.bootstrap_request_uri)) && startswith(var.bootstrap_request_uri, "gs://access-${var.environment}-configuration/admin-bootstrap-requests/")
+    error_message = "bootstrap_request_uri must be an opaque v4 UUID object in the private bootstrap request prefix."
+  }
+}
+variable "bootstrap_request_sha256" {
+  type = string
+  validation {
+    condition     = can(regex("^[0-9a-f]{64}$", var.bootstrap_request_sha256))
+    error_message = "bootstrap_request_sha256 must be lowercase 64-hex."
+  }
+}

@@ -4,6 +4,9 @@ output "worker_service_account_email" { value = google_service_account.identitie
 output "task_invoker_service_account_email" { value = google_service_account.identities["task_invoker"].email }
 output "migration_service_account_email" { value = google_service_account.identities["migration"].email }
 output "bootstrap_service_account_email" { value = google_service_account.identities["bootstrap"].email }
+output "migration_job_name" { value = google_cloud_run_v2_job.migration.name }
+output "roster_import_job_name" { value = google_cloud_run_v2_job.roster_import.name }
+output "bootstrap_admin_job_name" { value = google_cloud_run_v2_job.bootstrap_admin.name }
 
 output "terraform_plan_service_account_email" { value = google_service_account.identities["terraform_plan"].email }
 output "terraform_apply_service_account_email" { value = google_service_account.identities["terraform_apply"].email }
@@ -144,6 +147,58 @@ output "terraform_test_contract" {
       deploy_scoped_relations      = { artifact = google_artifact_registry_repository_iam_member.deploy_writer.repository == google_artifact_registry_repository.backend.name && google_artifact_registry_repository_iam_member.deploy_writer.role == "roles/artifactregistry.writer", services = length(google_cloud_run_v2_service_iam_member.deploy_services) == 2 && alltrue([for binding in values(google_cloud_run_v2_service_iam_member.deploy_services) : binding.role == google_project_iam_custom_role.deploy_revision.name && binding.member == google_service_account.identities["deploy"].member]) }
       rollback_scoped_relations    = { services = length(google_cloud_run_v2_service_iam_member.rollback_services) == 2 && alltrue([for binding in values(google_cloud_run_v2_service_iam_member.rollback_services) : binding.role == google_project_iam_custom_role.rollback_traffic.name && binding.member == google_service_account.identities["rollback"].member]), permissions = toset(google_project_iam_custom_role.rollback_traffic.permissions) == toset(["run.services.get", "run.services.update", "run.operations.get", "run.revisions.get", "run.revisions.list"]) }
       access_release_scoped        = length(google_storage_bucket_iam_member.release_access_release_write) == (var.enable_access_release_identity ? 1 : 0) && alltrue([for binding in google_storage_bucket_iam_member.release_access_release_write : binding.role == "roles/storage.objectCreator" && binding.member == google_service_account.identities["access_release"].member && binding.condition[0].expression == "resource.name.startsWith(\"projects/_/buckets/${google_storage_bucket.private["release"].name}/objects/releases/\")"])
+    }
+    jobs = {
+      names = {
+        migration     = google_cloud_run_v2_job.migration.name
+        roster_import = google_cloud_run_v2_job.roster_import.name
+        bootstrap     = google_cloud_run_v2_job.bootstrap_admin.name
+      }
+      commands = {
+        migration     = concat(google_cloud_run_v2_job.migration.template[0].template[0].containers[0].command, google_cloud_run_v2_job.migration.template[0].template[0].containers[0].args)
+        roster_import = concat(google_cloud_run_v2_job.roster_import.template[0].template[0].containers[0].command, google_cloud_run_v2_job.roster_import.template[0].template[0].containers[0].args)
+        bootstrap     = concat(google_cloud_run_v2_job.bootstrap_admin.template[0].template[0].containers[0].command, google_cloud_run_v2_job.bootstrap_admin.template[0].template[0].containers[0].args)
+      }
+      identities = {
+        migration     = google_cloud_run_v2_job.migration.template[0].template[0].service_account
+        roster_import = google_cloud_run_v2_job.roster_import.template[0].template[0].service_account
+        bootstrap     = google_cloud_run_v2_job.bootstrap_admin.template[0].template[0].service_account
+      }
+      max_retries = {
+        migration     = google_cloud_run_v2_job.migration.template[0].template[0].max_retries
+        roster_import = google_cloud_run_v2_job.roster_import.template[0].template[0].max_retries
+        bootstrap     = google_cloud_run_v2_job.bootstrap_admin.template[0].template[0].max_retries
+      }
+      image_digest_exact = alltrue([
+        google_cloud_run_v2_job.migration.template[0].template[0].containers[0].image == var.image_digest,
+        google_cloud_run_v2_job.roster_import.template[0].template[0].containers[0].image == var.image_digest,
+        google_cloud_run_v2_job.bootstrap_admin.template[0].template[0].containers[0].image == var.image_digest,
+      ])
+      cloudsql_mounts = {
+        migration     = length([for mount in google_cloud_run_v2_job.migration.template[0].template[0].containers[0].volume_mounts : mount if mount.name == "cloudsql" && mount.mount_path == "/cloudsql"])
+        roster_import = length([for mount in google_cloud_run_v2_job.roster_import.template[0].template[0].containers[0].volume_mounts : mount if mount.name == "cloudsql" && mount.mount_path == "/cloudsql"])
+        bootstrap     = length([for mount in google_cloud_run_v2_job.bootstrap_admin.template[0].template[0].containers[0].volume_mounts : mount if mount.name == "cloudsql" && mount.mount_path == "/cloudsql"])
+      }
+      bootstrap_environment = {
+        for env in google_cloud_run_v2_job.bootstrap_admin.template[0].template[0].containers[0].env : env.name => try(env.value, null)
+        if contains(["ADMIN_BOOTSTRAP_REQUEST_BUCKET", "ADMIN_BOOTSTRAP_REQUEST_PREFIX", "INITIAL_ADMIN_PIN_SECRET"], env.name)
+      }
+      bootstrap_invoker_exact = google_cloud_run_v2_job_iam_member.bootstrap_invoker.name == google_cloud_run_v2_job.bootstrap_admin.name && google_cloud_run_v2_job_iam_member.bootstrap_invoker.role == "roles/run.invoker" && google_cloud_run_v2_job_iam_member.bootstrap_invoker.member == google_service_account.identities["admin_bootstrap"].member
+      apply_job_permissions   = toset(google_project_iam_custom_role.terraform_apply_jobs.permissions)
+      apply_job_relation      = google_project_iam_member.terraform_apply_jobs.member == google_service_account.identities["terraform_apply"].member && google_project_iam_custom_role.terraform_apply_jobs.role_id == "accessOp06JobAdmin"
+      apply_runtime_relations = length(google_service_account_iam_member.terraform_apply_job_runtime_user) == 2 && alltrue([for key, binding in google_service_account_iam_member.terraform_apply_job_runtime_user : binding.role == "roles/iam.serviceAccountUser" && binding.member == google_service_account.identities["terraform_apply"].member && binding.service_account_id == google_service_account.identities[key].name])
+      deploy_job_permissions  = toset(google_project_iam_custom_role.deploy_jobs.permissions)
+      deploy_job_relations    = google_project_iam_custom_role.deploy_jobs.role_id == "accessDeployJobs" && length(google_cloud_run_v2_job_iam_member.deploy_jobs) == 2 && alltrue([for binding in values(google_cloud_run_v2_job_iam_member.deploy_jobs) : binding.member == google_service_account.identities["deploy"].member && contains([google_cloud_run_v2_job.migration.name, google_cloud_run_v2_job.roster_import.name], binding.name)])
+      bootstrap_deploy_count  = length([for binding in values(google_cloud_run_v2_job_iam_member.deploy_jobs) : binding if binding.name == google_cloud_run_v2_job.bootstrap_admin.name])
+      invoker_binding_count   = length([google_cloud_run_v2_job_iam_member.bootstrap_invoker])
+      public_invoker_count    = length([for binding in [google_cloud_run_v2_job_iam_member.bootstrap_invoker] : binding if binding.member == "allUsers" || binding.member == "allAuthenticatedUsers"])
+      scheduled_target_count  = length([for scheduler in google_cloud_scheduler_job.logical_export_nightly : scheduler if strcontains(try(scheduler.http_target[0].uri, ""), "/jobs/")])
+      bootstrap_workflow_service_binding_count = length([for binding in concat(
+        [google_cloud_run_v2_service_iam_member.api_public_invoker, google_cloud_run_v2_service_iam_member.worker_task_invoker],
+        values(google_cloud_run_v2_service_iam_member.deploy_services),
+        values(google_cloud_run_v2_service_iam_member.rollback_services),
+      ) : binding if binding.member == google_service_account.identities["admin_bootstrap"].member])
+      report_writer_exact = google_storage_bucket_iam_member.roster_report_writer.bucket == google_storage_bucket.private["roster"].name && google_storage_bucket_iam_member.roster_report_writer.role == "roles/storage.objectCreator" && google_storage_bucket_iam_member.roster_report_writer.member == google_service_account.identities["migration"].member && google_storage_bucket_iam_member.roster_report_writer.condition[0].expression == "resource.name == \"projects/_/buckets/${google_storage_bucket.private["roster"].name}/objects/${trimprefix(var.roster_report_uri, "gs://${google_storage_bucket.private["roster"].name}/")}\""
     }
     observability = {
       dashboard_count                  = length(google_monitoring_dashboard.access)
