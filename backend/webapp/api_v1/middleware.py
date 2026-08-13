@@ -41,6 +41,14 @@ def current_request_session():
     return session
 
 
+def _account_role(value: object) -> Literal["user", "admin"]:
+    if value == "user":
+        return "user"
+    if value == "admin":
+        return "admin"
+    raise SessionReauthenticationRequired
+
+
 def close_request_session(error=None) -> None:
     context = g.pop("identity_db_context", None)
     if context is None:
@@ -70,31 +78,25 @@ def require_access_token(view):
         authorization = request.headers.get("Authorization", "")
         parts = authorization.split(" ")
         if len(parts) != 2 or parts[0] != "Bearer" or not parts[1]:
-            return _failure(
-                "authentication_required", "Authentication is required.", 401
-            )
+            return _failure("authentication_required", "Authentication is required.", 401)
         try:
             context = session_scope()
             db_session = context.__enter__()
             g.identity_db_context = context
             g.identity_db_session = db_session
-            stored, account = resolve_access_session(
-                db_session, access_token=parts[1], now=datetime.now(UTC)
-            )
+            stored, account = resolve_access_session(db_session, access_token=parts[1], now=datetime.now(UTC))
             g.actor = Actor(
                 account.id,
                 account.staff_member_id,
                 stored.id,
-                account.role,
+                _account_role(account.role),
                 account.auth_version,
                 account.must_change_pin,
             )
         except SessionReauthenticationRequired:
             g.identity_db_failed = True
             close_request_session()
-            return _failure(
-                "authentication_required", "Authentication is required.", 401
-            )
+            return _failure("authentication_required", "Authentication is required.", 401)
         except (DatabaseUnavailable, SQLAlchemyError):
             g.identity_db_failed = True
             close_request_session()
@@ -104,13 +106,8 @@ def require_access_token(view):
                 503,
                 retryable=True,
             )
-        if (
-            g.actor.must_change_pin
-            and request.path not in MUST_CHANGE_PIN_ALLOWED_PATHS
-        ):
-            return _failure(
-                "pin_change_required", "Change the temporary PIN to continue.", 403
-            )
+        if g.actor.must_change_pin and request.path not in MUST_CHANGE_PIN_ALLOWED_PATHS:
+            return _failure("pin_change_required", "Change the temporary PIN to continue.", 403)
         return view(*args, **kwargs)
 
     return wrapped
@@ -133,9 +130,7 @@ def require_pin_changed(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         if current_actor().must_change_pin:
-            return _failure(
-                "pin_change_required", "Change the temporary PIN to continue.", 403
-            )
+            return _failure("pin_change_required", "Change the temporary PIN to continue.", 403)
         return view(*args, **kwargs)
 
     return wrapped
@@ -145,9 +140,7 @@ def require_admin_elevation(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         try:
-            touch_admin_elevation(
-                current_request_session(), current_actor(), datetime.now(UTC)
-            )
+            touch_admin_elevation(current_request_session(), current_actor(), datetime.now(UTC))
         except AdminElevationRequired:
             return _failure(
                 "admin_elevation_required",

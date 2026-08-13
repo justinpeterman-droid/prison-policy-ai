@@ -70,9 +70,7 @@ def test_shared_surname_does_not_cross_contaminate():
         ],
         "officer_last": "Smith",
     }
-    out = enforce_naming(
-        "I observed Inmate Smith fighting. Sgt Smith responded.", slots
-    )
+    out = enforce_naming("I observed Inmate Smith fighting. Sgt Smith responded.", slots)
     assert "inmate Smith, John ADC# 123456" in out  # mid-sentence -> lowercase
     assert "Sgt Robert Smith" in out
     assert "Inmate Sgt" not in out
@@ -89,10 +87,7 @@ def test_replacement_never_destroys_surrounding_text():
         ],
         "officer_last": "Jones",
     }
-    text = (
-        "Inmate Jones refused orders. Cpl Jones applied restraints. "
-        "Inmate Jones complied."
-    )
+    text = "Inmate Jones refused orders. Cpl Jones applied restraints. Inmate Jones complied."
     out = enforce_naming(text, slots)
     # Every word of the original narrative survives.
     for fragment in ("refused orders", "applied restraints", "complied"):

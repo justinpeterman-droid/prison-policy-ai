@@ -19,9 +19,7 @@ class RecordingAuditWriter:
         return uuid4()
 
 
-def test_rotation_persists_only_hashes_and_replay_revokes_family(
-    db_session, fictional_user_tokens, identity_fixed_now
-):
+def test_rotation_persists_only_hashes_and_replay_revokes_family(db_session, fictional_user_tokens, identity_fixed_now):
     audit = RecordingAuditWriter()
     old_raw = fictional_user_tokens.renewal_token
     rotated = renew_session(
@@ -35,9 +33,7 @@ def test_rotation_persists_only_hashes_and_replay_revokes_family(
     )
     db_session.flush()
     stored = db_session.get(AccessSession, fictional_user_tokens.session_id)
-    history = db_session.scalar(
-        select(RenewalTokenHistory).where(RenewalTokenHistory.session_id == stored.id)
-    )
+    history = db_session.scalar(select(RenewalTokenHistory).where(RenewalTokenHistory.session_id == stored.id))
     assert stored.renewal_token_hash == hash_token(rotated.renewal_token)
     assert history.token_hash == hash_token(old_raw)
     assert old_raw.encode("utf-8") not in stored.renewal_token_hash
@@ -59,9 +55,7 @@ def test_rotation_persists_only_hashes_and_replay_revokes_family(
 def test_device_mismatch_requires_reauthentication_without_rotation(
     db_session, fictional_user_tokens, identity_fixed_now
 ):
-    before = db_session.get(
-        AccessSession, fictional_user_tokens.session_id
-    ).renewal_token_hash
+    before = db_session.get(AccessSession, fictional_user_tokens.session_id).renewal_token_hash
     with pytest.raises(SessionReauthenticationRequired):
         renew_session(
             db_session,
@@ -72,12 +66,7 @@ def test_device_mismatch_requires_reauthentication_without_rotation(
             audit_writer=RecordingAuditWriter(),
             request_id="request-device-1",
         )
-    assert (
-        db_session.get(
-            AccessSession, fictional_user_tokens.session_id
-        ).renewal_token_hash
-        == before
-    )
+    assert db_session.get(AccessSession, fictional_user_tokens.session_id).renewal_token_hash == before
 
 
 def test_replay_revocation_commits_before_error_is_exposed(db_session_factory):
@@ -88,12 +77,8 @@ def test_replay_revocation_commits_before_error_is_exposed(db_session_factory):
 
     now = datetime(2026, 8, 12, 15, 0, tzinfo=UTC)
     with db_session_factory.begin() as session:
-        account = seed_fictional_account(
-            session, employee_number="TEST-7101", role="user", pin="Z9Y8X7", now=now
-        )
-        issued = issue_fictional_tokens(
-            session, account=account, device_id="device-replay-commit-0001", now=now
-        )
+        account = seed_fictional_account(session, employee_number="TEST-7101", role="user", pin="Z9Y8X7", now=now)
+        issued = issue_fictional_tokens(session, account=account, device_id="device-replay-commit-0001", now=now)
         session_id = issued.session_id
         old_renewal = issued.renewal_token
 

@@ -124,9 +124,7 @@ def test_revision_rows_reject_update(db_session, fictional_report):
 
     with pytest.raises(DBAPIError, match="immutable"):
         db_session.execute(
-            text(
-                "UPDATE report_revisions SET reason='autosave' WHERE report_id=:report_id"
-            ),
+            text("UPDATE report_revisions SET reason='autosave' WHERE report_id=:report_id"),
             {"report_id": report_id},
         )
         db_session.flush()

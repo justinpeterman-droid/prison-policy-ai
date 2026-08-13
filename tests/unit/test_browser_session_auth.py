@@ -82,12 +82,8 @@ def test_browser_session_resolves_attributed_actor_and_slides_idle_expiry():
         ("admin", "active", False),
     ],
 )
-def test_browser_session_rejects_non_admin_or_inactive_identity(
-    role, status, staff_active
-):
-    browser, _access, account, staff = _rows(
-        role=role, status=status, staff_active=staff_active
-    )
+def test_browser_session_rejects_non_admin_or_inactive_identity(role, status, staff_active):
+    browser, _access, account, staff = _rows(role=role, status=status, staff_active=staff_active)
     with pytest.raises(BrowserSessionInvalid):
         resolve_browser_session(
             FakeSession(browser, account, staff),
@@ -183,9 +179,7 @@ def test_identity_enabled_app_does_not_treat_disabled_legacy_gate_as_admin(
     monkeypatch.setattr(app_module, "ADMIN_CODE", "")
     monkeypatch.setattr(review_routes, "REVIEW_LAB_ENABLED", True)
     monkeypatch.setenv("ACCESS_API_ENABLED", "true")
-    monkeypatch.setenv(
-        "DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test"
-    )
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test")
     monkeypatch.setenv("IDENTITY_HASH_PEPPER", "p" * 32)
     monkeypatch.setenv("CURSOR_SIGNING_KEY", "c" * 32)
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://review.example.gov")

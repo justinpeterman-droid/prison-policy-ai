@@ -77,9 +77,7 @@ if rc != 0:
     print(f"ERROR: {stderr}")
     sys.exit(1)
 
-pdf_uris = [
-    line.strip() for line in stdout.split("\n") if line.strip().endswith(".pdf")
-]
+pdf_uris = [line.strip() for line in stdout.split("\n") if line.strip().endswith(".pdf")]
 print(f"  Found {len(pdf_uris)} PDFs")
 
 # Limit for testing

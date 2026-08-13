@@ -234,9 +234,7 @@ def test_search_filter_names_must_be_stable_codes():
     ],
 )
 def test_stable_id_fields_require_uuid_values(key):
-    action = next(
-        action for action, fields in AUDIT_ACTION_FIELDS.items() if key in fields
-    )
+    action = next(action for action, fields in AUDIT_ACTION_FIELDS.items() if key in fields)
 
     with pytest.raises(ValueError):
         validate_details(action, {key: "Fictional Officer raw identity text"})

@@ -102,8 +102,7 @@ def test_worker_rejects_full_task_resource_in_delivery_header():
     processor = FakeProcessor()
     headers = _headers()
     headers["X-CloudTasks-TaskName"] = (
-        "projects/fictional-project/locations/us-central1/queues/"
-        f"fictional-report-jobs/tasks/ai-job-{JOB_ID}"
+        f"projects/fictional-project/locations/us-central1/queues/fictional-report-jobs/tasks/ai-job-{JOB_ID}"
     )
 
     response = _client(processor).post(

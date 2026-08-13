@@ -115,9 +115,7 @@ _client = None
 def _get_client() -> genai.Client:
     global _client
     if _client is None:
-        _client = genai.Client(
-            vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION
-        )
+        _client = genai.Client(vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION)
     return _client
 
 
@@ -198,15 +196,12 @@ def classify_incident(notes: str) -> dict:
                         {
                             "code": code,
                             "inmate": c.get("inmate", ""),
-                            "description": c.get("description")
-                            or charge_catalog[code]["description"],
+                            "description": c.get("description") or charge_catalog[code]["description"],
                         }
                     )
         result["charges_applicable"] = normalized_charges
         # Fill in charge descriptions from catalog (backward compat for UI)
-        result["charge_descriptions"] = {
-            c["code"]: c["description"] for c in normalized_charges
-        }
+        result["charge_descriptions"] = {c["code"]: c["description"] for c in normalized_charges}
         return result
     except (json.JSONDecodeError, KeyError) as e:
         # With response_schema this should be unreachable. If it ever fires,
@@ -214,8 +209,7 @@ def classify_incident(notes: str) -> dict:
         # questions, so make it loud and mark the result as degraded rather
         # than passing off a guess as a real classification.
         logger.error(
-            "Classification JSON parse failed despite response_schema: "
-            "%s — falling back to other_rule_violation",
+            "Classification JSON parse failed despite response_schema: %s — falling back to other_rule_violation",
             e,
         )
         return {

@@ -92,14 +92,7 @@ def test_account_creation_rolls_back_when_audit_fails(db_session_factory):
                     uuid4(),
                 )
         with db_session_factory() as session:
-            assert (
-                session.scalar(
-                    select(func.count(Account.id)).where(
-                        Account.staff_member_id == staff_id
-                    )
-                )
-                == 0
-            )
+            assert session.scalar(select(func.count(Account.id)).where(Account.staff_member_id == staff_id)) == 0
     finally:
         with db_session_factory.begin() as session:
             session.execute(delete(StaffMember).where(StaffMember.id == staff_id))

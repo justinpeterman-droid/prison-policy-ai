@@ -46,16 +46,12 @@ class TestSearchBody:
 
 class TestClassifyError:
     def test_missing_credentials(self):
-        category, status = classify_error(
-            RuntimeError("Your default credentials were not found")
-        )
+        category, status = classify_error(RuntimeError("Your default credentials were not found"))
         assert category == "credentials" and status == 503
 
     def test_model_not_found_is_its_own_category(self):
         # The M-1 failure mode: a model id that doesn't exist in this project.
-        category, status = classify_error(
-            RuntimeError("Publisher Model `gemini-9.9-pro` was not found")
-        )
+        category, status = classify_error(RuntimeError("Publisher Model `gemini-9.9-pro` was not found"))
         assert category == "model" and status == 503
 
     def test_search_api_error(self):

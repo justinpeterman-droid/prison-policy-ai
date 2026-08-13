@@ -110,9 +110,7 @@ def _authorize_incident(session: Session, actor: Actor, incident_id: UUID) -> In
     # Lock before the live access query so a report save/transfer cannot race the
     # base-revision decision. Report-access revocation takes the report lock
     # first; this route holds no report lock unless a report is explicitly bound.
-    incident = session.scalar(
-        select(Incident).where(Incident.id == incident_id).with_for_update()
-    )
+    incident = session.scalar(select(Incident).where(Incident.id == incident_id).with_for_update())
     if incident is None:
         raise IncidentNotFound("Incident not found.")
     view = get_incident(session, actor, incident_id)
@@ -145,9 +143,7 @@ def _authorize_bound_report(
 ) -> None:
     if command.report_id is None:
         return
-    report = session.scalar(
-        select(Report).where(Report.id == command.report_id).with_for_update()
-    )
+    report = session.scalar(select(Report).where(Report.id == command.report_id).with_for_update())
     if report is None or report.incident_id != command.incident_id:
         raise IncidentNotFound("Incident not found.")
     live_access = session.scalar(
@@ -394,9 +390,7 @@ def apply_job_result(
         or job.lease_expires_at <= fixed
     ):
         raise StaleJobClaim("job claim is no longer current")
-    incident = session.scalar(
-        select(Incident).where(Incident.id == job.incident_id).with_for_update()
-    )
+    incident = session.scalar(select(Incident).where(Incident.id == job.incident_id).with_for_update())
     if incident is None:
         raise JobNotFound("Job not found.")
     account = session.get(Account, job.requested_by_account_id)
@@ -441,9 +435,7 @@ def apply_job_result(
     job.completed_at = fixed
     job.claim_token = None
     job.lease_expires_at = None
-    latency_ms = max(
-        0, min(int((fixed - job.created_at).total_seconds() * 1000), 1_000_000_000)
-    )
+    latency_ms = max(0, min(int((fixed - job.created_at).total_seconds() * 1000), 1_000_000_000))
     _append_audit(
         session,
         writer,

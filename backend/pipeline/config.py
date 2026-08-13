@@ -57,9 +57,7 @@ MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", "global")
 AGENT_BUILDER_LOCATION = os.getenv("AGENT_BUILDER_LOCATION", "global")
 AGENT_BUILDER_COLLECTION = os.getenv("AGENT_BUILDER_COLLECTION", "default_collection")
 AGENT_BUILDER_ENGINE_ID = os.getenv("AGENT_BUILDER_ENGINE_ID", "prison-policies-engine")
-AGENT_BUILDER_SERVING_CONFIG = os.getenv(
-    "AGENT_BUILDER_SERVING_CONFIG", "default_search"
-)
+AGENT_BUILDER_SERVING_CONFIG = os.getenv("AGENT_BUILDER_SERVING_CONFIG", "default_search")
 
 
 def serving_config_path() -> str:
@@ -140,9 +138,7 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 REVIEW_LAB_ENABLED = _env_bool("REVIEW_LAB_ENABLED")
 REVIEW_BUCKET = os.getenv("REVIEW_BUCKET", ROSTER_BUCKET or "")
-REVIEW_OBJECT_PREFIX = os.getenv(
-    "REVIEW_OBJECT_PREFIX", "review-lab/submissions"
-).strip("/")
+REVIEW_OBJECT_PREFIX = os.getenv("REVIEW_OBJECT_PREFIX", "review-lab/submissions").strip("/")
 
 
 def legacy_report_mode() -> str:
@@ -153,9 +149,7 @@ def legacy_report_mode() -> str:
     """
     value = os.getenv("LEGACY_REPORT_MODE", "restricted").strip().lower()
     if value not in {"pilot_fallback", "restricted"}:
-        raise RuntimeError(
-            "LEGACY_REPORT_MODE must be 'pilot_fallback' or 'restricted'"
-        )
+        raise RuntimeError("LEGACY_REPORT_MODE must be 'pilot_fallback' or 'restricted'")
     return value
 
 

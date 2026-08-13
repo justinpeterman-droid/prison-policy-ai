@@ -28,11 +28,7 @@ def roster_checksum(records: list[dict]) -> str:
 
 def _required_text(record: dict, field: str, maximum: int) -> str:
     value = str(record.get(field) or "").strip()
-    if (
-        not value
-        or len(value) > maximum
-        or any(ord(character) < 32 for character in value)
-    ):
+    if not value or len(value) > maximum or any(ord(character) < 32 for character in value):
         raise ValueError(f"roster {field} is invalid")
     return value
 
@@ -77,13 +73,7 @@ def import_roster(
     validated = _validate(records)
     employee_numbers = [record["employee_number"] for record in validated]
     existing_rows = (
-        list(
-            session.scalars(
-                select(StaffMember).where(
-                    StaffMember.employee_number.in_(employee_numbers)
-                )
-            ).all()
-        )
+        list(session.scalars(select(StaffMember).where(StaffMember.employee_number.in_(employee_numbers))).all())
         if employee_numbers
         else []
     )
@@ -103,9 +93,7 @@ def import_roster(
         if actual != expected:
             raise ValueError("roster conflict with existing staff data")
 
-    absent = [
-        record for record in validated if record["employee_number"] not in existing
-    ]
+    absent = [record for record in validated if record["employee_number"] not in existing]
     if apply and absent:
         session.add_all([StaffMember(**record, is_active=True) for record in absent])
         session.flush()

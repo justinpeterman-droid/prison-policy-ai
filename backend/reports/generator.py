@@ -43,16 +43,12 @@ def _get_client() -> genai.Client:
     """Return a per-thread genai.Client — httpx clients are not thread-safe."""
     client = getattr(_thread_local, "client", None)
     if client is None:
-        client = genai.Client(
-            vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION
-        )
+        client = genai.Client(vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION)
         _thread_local.client = client
     return client
 
 
-def _generate(
-    system_prompt: str, user_prompt: str, describe: str = "report generation"
-) -> str:
+def _generate(system_prompt: str, user_prompt: str, describe: str = "report generation") -> str:
     def _call():
         response = _get_client().models.generate_content(
             model=PRO_MODEL,
@@ -151,9 +147,7 @@ def _clean_report(text: str) -> str:
 # ── Per-report generators (all receive structured data ONLY) ──────
 
 
-def generate_first_person(
-    slots: dict, auto_content: list[dict] | None = None, reporter_index: int = 0
-) -> str:
+def generate_first_person(slots: dict, auto_content: list[dict] | None = None, reporter_index: int = 0) -> str:
     prompt = FIRST_PERSON_PROMPT.format(
         rank=_fmt(slots.get("rank")),
         officer_first=_fmt(slots.get("officer_first")),
@@ -168,9 +162,7 @@ def generate_first_person(
     return _clean_report(_generate(REPORT_STYLE_SYSTEM, prompt))
 
 
-def generate_supervisor_summary(
-    slots: dict, auto_content: list[dict] | None = None
-) -> str:
+def generate_supervisor_summary(slots: dict, auto_content: list[dict] | None = None) -> str:
     prompt = SUPERVISOR_SUMMARY_PROMPT.format(
         date=_fmt(slots.get("date")),
         time=_fmt(slots.get("time")),
@@ -195,9 +187,7 @@ def generate_cover_letter(slots: dict, auto_content: list[dict] | None = None) -
     return _clean_report(_generate(REPORT_STYLE_SYSTEM, prompt))
 
 
-def generate_disciplinary(
-    slots: dict, first_person_report: str, auto_content: list[dict] | None = None
-) -> str:
+def generate_disciplinary(slots: dict, first_person_report: str, auto_content: list[dict] | None = None) -> str:
     charges = slots.get("charges", "")
     prompt = DISCIPLINARY_PROMPT.format(
         rank=_fmt(slots.get("rank")),
@@ -235,9 +225,7 @@ def generate_investigation(slots: dict, auto_content: list[dict] | None = None) 
         disposition=_esc(_fmt(slots.get("investigation_disposition"), "(none stated)")),
         quotes=_esc(_quotes_str(slots)),
     )
-    return _clean_report(
-        _generate(REPORT_STYLE_SYSTEM, prompt, describe="investigation report")
-    )
+    return _clean_report(_generate(REPORT_STYLE_SYSTEM, prompt, describe="investigation report"))
 
 
 def has_charges(slots: dict) -> bool:
@@ -339,9 +327,7 @@ def generate_all_reports(
         key, text, failed = _run(
             "disciplinary",
             "Disciplinary supplement",
-            lambda: generate_disciplinary(
-                slots, reports.get("first_person", ""), auto_content
-            ),
+            lambda: generate_disciplinary(slots, reports.get("first_person", ""), auto_content),
         )
         reports[key] = text
         if failed:
@@ -358,9 +344,7 @@ def generate_all_reports(
     return reports
 
 
-def generate_disciplinary_only(
-    slots: dict, first_person: str, auto_content: list[dict] | None = None
-) -> dict:
+def generate_disciplinary_only(slots: dict, first_person: str, auto_content: list[dict] | None = None) -> dict:
     """Generate just the disciplinary supplement, for the deferred second pass.
 
     Returns the same `{key: text}` shape as `generate_all_reports` — including
@@ -377,12 +361,8 @@ def generate_disciplinary_only(
 
     started = time.monotonic()
     try:
-        text = enforce_naming(
-            generate_disciplinary(slots, first_person, auto_content), slots
-        )
-        logger.info(
-            "Generated disciplinary supplement in %.1fs", time.monotonic() - started
-        )
+        text = enforce_naming(generate_disciplinary(slots, first_person, auto_content), slots)
+        logger.info("Generated disciplinary supplement in %.1fs", time.monotonic() - started)
         return {"disciplinary": text}
     except Exception:
         logger.error("Disciplinary supplement generation failed", exc_info=True)

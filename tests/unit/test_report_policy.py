@@ -24,37 +24,25 @@ def _report(identities):
     )
 
 
-@pytest.mark.parametrize(
-    "policy", [can_read_report, can_edit_report, can_export_report]
-)
+@pytest.mark.parametrize("policy", [can_read_report, can_edit_report, can_export_report])
 def test_owner_and_preparer_are_authorized(policy, identities):
     report = _report(identities)
     assert policy(_actor(identities.owner), report) is True
     assert policy(_actor(identities.preparer), report) is True
 
 
-@pytest.mark.parametrize(
-    "policy", [can_read_report, can_edit_report, can_export_report]
-)
+@pytest.mark.parametrize("policy", [can_read_report, can_edit_report, can_export_report])
 def test_unrelated_user_is_denied(policy, identities):
     assert policy(_actor(identities.unrelated), _report(identities)) is False
 
 
-@pytest.mark.parametrize(
-    "policy", [can_read_report, can_edit_report, can_export_report]
-)
+@pytest.mark.parametrize("policy", [can_read_report, can_edit_report, can_export_report])
 def test_admin_is_authorized_without_client_owned_relationship(policy, identities):
-    assert (
-        policy(_actor(identities.unrelated, role="admin"), _report(identities)) is True
-    )
+    assert policy(_actor(identities.unrelated, role="admin"), _report(identities)) is True
 
 
-@pytest.mark.parametrize(
-    "policy", [can_read_report, can_edit_report, can_export_report]
-)
-def test_client_supplied_role_like_report_attributes_do_not_grant_access(
-    policy, identities
-):
+@pytest.mark.parametrize("policy", [can_read_report, can_edit_report, can_export_report])
+def test_client_supplied_role_like_report_attributes_do_not_grant_access(policy, identities):
     report = _report(identities)
     report.owner_staff_member_id = identities.unrelated
     report.actor_role = "admin"

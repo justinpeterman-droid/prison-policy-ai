@@ -123,9 +123,7 @@ def test_access_and_revision_constraints_are_bounded_and_append_oriented():
     assert "ck_report_access_relationship" in _constraint_names(ReportAccess)
     assert "uq_incident_revisions_parent_number" in _constraint_names(IncidentRevision)
     assert "uq_report_revisions_parent_number" in _constraint_names(ReportRevision)
-    assert "ck_incident_revisions_number_nonnegative" in _constraint_names(
-        IncidentRevision
-    )
+    assert "ck_incident_revisions_number_nonnegative" in _constraint_names(IncidentRevision)
     assert "ck_report_revisions_number_nonnegative" in _constraint_names(ReportRevision)
     assert isinstance(IncidentRevision.__table__.c.snapshot.type, JSONB)
     assert isinstance(ReportRevision.__table__.c.snapshot.type, JSONB)
@@ -160,8 +158,6 @@ def test_all_reporting_foreign_keys_are_explicit():
     }
     for model in (Incident, IncidentRevision, Report, ReportAccess, ReportRevision):
         targets = {
-            foreign_key.target_fullname
-            for column in model.__table__.columns
-            for foreign_key in column.foreign_keys
+            foreign_key.target_fullname for column in model.__table__.columns for foreign_key in column.foreign_keys
         }
         assert targets == expected[model.__tablename__]

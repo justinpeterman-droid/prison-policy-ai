@@ -4,9 +4,7 @@ import json
 from pathlib import Path
 
 
-def chunk_text(
-    text: str, source: str, chunk_size: int = 1000, overlap: int = 200
-) -> list[dict]:
+def chunk_text(text: str, source: str, chunk_size: int = 1000, overlap: int = 200) -> list[dict]:
     """Split text into overlapping chunks with metadata."""
     chunks = []
     start = 0
@@ -32,9 +30,7 @@ def chunk_text(
     return chunks
 
 
-def chunk_all(
-    reviewed_dir: Path, out_dir: Path, chunk_size: int = 1000, overlap: int = 200
-) -> Path:
+def chunk_all(reviewed_dir: Path, out_dir: Path, chunk_size: int = 1000, overlap: int = 200) -> Path:
     """Chunk all reviewed files → chunks/all_chunks.jsonl."""
     out_dir.mkdir(parents=True, exist_ok=True)
     reviewed = sorted(reviewed_dir.glob("*.txt"))

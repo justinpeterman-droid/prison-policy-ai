@@ -81,19 +81,56 @@ def test_bearer_resolution_stores_actor_not_raw_token(monkeypatch):
         return {
             "role": current_actor().role,
             "g_keys": sorted(g.__dict__),
-            "session_open_during_view": scope_state["entered"]
-            and not scope_state["exited"],
+            "session_open_during_view": scope_state["entered"] and not scope_state["exited"],
         }
 
-    response = app.test_client().get(
-        "/protected", headers={"Authorization": "Bearer fictional-token"}
-    )
+    response = app.test_client().get("/protected", headers={"Authorization": "Bearer fictional-token"})
     assert response.status_code == 200
     assert response.get_json()["role"] == "admin"
     assert response.get_json()["session_open_during_view"] is True
     assert scope_state["exited"] is True
     assert "fictional-token" not in response.get_data(as_text=True)
     assert "bearer" not in response.get_json()["g_keys"]
+
+
+def test_bearer_resolution_rejects_unrecognized_authoritative_role(monkeypatch):
+    import backend.webapp.api_v1.middleware as middleware
+
+    account_id, staff_id, session_id = uuid4(), uuid4(), uuid4()
+    stored = SimpleNamespace(id=session_id)
+    account = SimpleNamespace(
+        id=account_id,
+        staff_member_id=staff_id,
+        role="fictional-unsupported-role",
+        auth_version=2,
+        must_change_pin=False,
+    )
+
+    class Scope:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, *_args):
+            return False
+
+    monkeypatch.setattr(middleware, "session_scope", lambda: Scope())
+    monkeypatch.setattr(
+        middleware,
+        "resolve_access_session",
+        lambda *_args, **_kwargs: (stored, account),
+    )
+    app = Flask(__name__)
+    app.teardown_request(close_request_session)
+
+    @app.get("/protected")
+    @require_access_token
+    def protected():
+        return {"role": current_actor().role}
+
+    response = app.test_client().get("/protected", headers={"Authorization": "Bearer fictional-token"})
+
+    assert response.status_code == 401
+    assert response.get_json()["error"]["code"] == "authentication_required"
 
 
 def test_protected_mutation_maps_domain_failure_without_500(monkeypatch):
@@ -130,9 +167,7 @@ def test_protected_mutation_maps_domain_failure_without_500(monkeypatch):
 
     monkeypatch.setattr(app_mod, "ACCESS_CODE", "legacy-user")
     monkeypatch.setenv("ACCESS_API_ENABLED", "true")
-    monkeypatch.setenv(
-        "DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test"
-    )
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test")
     monkeypatch.setenv("IDENTITY_HASH_PEPPER", "p" * 32)
     monkeypatch.setenv("CURSOR_SIGNING_KEY", "c" * 32)
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://review.example.gov")

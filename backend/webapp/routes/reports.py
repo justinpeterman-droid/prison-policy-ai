@@ -64,9 +64,7 @@ def legacy_report_control():
     return None
 
 
-_LOCATION_MAP_PATH = (
-    Path(__file__).parent.parent.parent.parent / "templates" / "location_map.json"
-)
+_LOCATION_MAP_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "location_map.json"
 
 
 @lru_cache(maxsize=1)
@@ -167,9 +165,7 @@ def _to_12h(value):
     """
     if not value:
         return value
-    core = re.sub(
-        r"^(approximately|approx\.?|~)\s*", "", str(value).strip(), flags=re.I
-    ).strip()
+    core = re.sub(r"^(approximately|approx\.?|~)\s*", "", str(value).strip(), flags=re.I).strip()
     m = re.match(r"^(\d{1,2}):?(\d{2})\s*([ap])\.?\s*m\.?$", core, re.I)
     if m:  # already 12-hour, just canonicalize
         return f"{int(m.group(1))}:{m.group(2)} {m.group(3).lower()}m"
@@ -259,9 +255,7 @@ def _apply_gap_defaults(category: str, gaps: list) -> None:
         slot = g.get("slot")
         if slot == "medical_disposition":
             g["default"] = (
-                "Seen by Infirmary staff"
-                if category in MEDICAL_SEEN_CATEGORIES
-                else "N/A - no injuries reported"
+                "Seen by Infirmary staff" if category in MEDICAL_SEEN_CATEGORIES else "N/A - no injuries reported"
             )
         elif slot == "drug_test_disposition":
             g["default"] = "N/A"
@@ -295,10 +289,7 @@ def _format_inmates(slots: dict) -> str:
         if p.get("role") != "inmate" or not p.get("last"):
             continue
         first = _titlecase(p.get("first")) or FIRST_NAME_NEEDED
-        parts.append(
-            f"Inmate {_titlecase(p.get('last', ''))}, {first} "
-            f"ADC#{p.get('adc_number') or 'UNKNOWN'}"
-        )
+        parts.append(f"Inmate {_titlecase(p.get('last', ''))}, {first} ADC#{p.get('adc_number') or 'UNKNOWN'}")
     return ", ".join(parts)
 
 
@@ -319,18 +310,13 @@ def _apply_first_name_answers(slots: dict, answers: dict) -> None:
             continue
         last = key.split("::", 1)[1]
         for p in slots.get("persons", []):
-            if (
-                p.get("role") == "inmate"
-                and p.get("last") == last
-                and not p.get("first")
-            ):
+            if p.get("role") == "inmate" and p.get("last") == last and not p.get("first"):
                 p["first"] = _titlecase(val)
 
 
 def _format_employees(slots: dict) -> str:
     return ", ".join(
-        f"{p.get('rank', '')} {_titlecase(p.get('first', ''))} "
-        f"{_titlecase(p.get('last', ''))}".strip()
+        f"{p.get('rank', '')} {_titlecase(p.get('first', ''))} {_titlecase(p.get('last', ''))}".strip()
         for p in slots.get("persons", [])
         if p.get("role") == "security_staff" and p.get("last")
     )
@@ -397,6 +383,21 @@ def _parse_rank(full_name: str) -> str:
     return ""
 
 
+def _generate_legacy_reports(notes: str, classification: dict) -> dict:
+    """Adapt the legacy one-shot route to the current structured generator."""
+    category = classification.get("incident_type")
+    if not isinstance(category, str) or not category:
+        raise ValueError("classification is missing an incident type")
+    extracted = report_service.extract_incident_notes(notes, category, FileStaffProvider())
+    slots = extracted.get("slots")
+    if not isinstance(slots, dict):
+        raise ValueError("extraction is missing structured slots")
+    auto_content = extracted.get("auto_content")
+    if not isinstance(auto_content, list):
+        auto_content = []
+    return generate_all_reports(slots, category, auto_content)
+
+
 @reports_bp.route("/reports")
 def reports_page():
     return render_template(
@@ -437,9 +438,7 @@ def reports_extract():
     if not notes or not category:
         return jsonify({"error": "notes and category required"}), 400
     try:
-        return jsonify(
-            report_service.extract_incident_notes(notes, category, FileStaffProvider())
-        )
+        return jsonify(report_service.extract_incident_notes(notes, category, FileStaffProvider()))
     except Exception as exc:
         category, status = classify_error(exc)
         logger.exception("Extraction failed [category=%s]", category)
@@ -488,9 +487,7 @@ def _prepare_generation(data: dict) -> dict:
 
     for key, val in answers.items():
         if key.startswith("officer_identity_") and val:
-            added = add_staff_from_gap_answer(
-                key.replace("officer_identity_", ""), str(val)
-            )
+            added = add_staff_from_gap_answer(key.replace("officer_identity_", ""), str(val))
             if added:
                 logger.info("Persisted new staff to roster from gap answer")
         elif key.startswith("officer_fields_") and val:
@@ -499,8 +496,7 @@ def _prepare_generation(data: dict) -> dict:
             name_hint = key.replace("officer_fields_", "")
             for p in slots.get("persons", []):
                 if p.get("role") == "security_staff" and (
-                    p.get("last", "").lower() == name_hint.lower()
-                    or p.get("name", "").lower() == name_hint.lower()
+                    p.get("last", "").lower() == name_hint.lower() or p.get("name", "").lower() == name_hint.lower()
                 ):
                     p["first"] = _titlecase(str(val))
                     logger.info("Filled a missing staff field from gap answer")
@@ -517,9 +513,7 @@ def _prepare_generation(data: dict) -> dict:
     # year and month are prefixed automatically.
     last3 = slots.get("incident_number_last3") or answers.get("incident_number_last3")
     if last3 and not slots.get("incident_number"):
-        slots["incident_number"] = _build_incident_number(
-            last3, incident_date=slots.get("date")
-        )
+        slots["incident_number"] = _build_incident_number(last3, incident_date=slots.get("date"))
     # Inmate drug test defaults to N/A unless the officer chose otherwise.
     if not slots.get("drug_test_disposition"):
         slots["drug_test_disposition"] = "N/A"
@@ -535,9 +529,7 @@ def _prepare_generation(data: dict) -> dict:
             slots["escort_destination"] = RESTRICTIVE_HOUSING
         elif "restrictive" not in dest.lower():
             slots["escort_destination"] = (
-                f"Infirmary, then {RESTRICTIVE_HOUSING}"
-                if "infirmary" in dest.lower()
-                else RESTRICTIVE_HOUSING
+                f"Infirmary, then {RESTRICTIVE_HOUSING}" if "infirmary" in dest.lower() else RESTRICTIVE_HOUSING
             )
 
     # Re-resolve auto_content with answered slots
@@ -580,9 +572,7 @@ def _prepare_generation(data: dict) -> dict:
         # Do not log the name itself (PII); just note parsing happened.
         logger.debug("Parsed officer_name from gap answer into rank/first/last")
 
-    elif reporters := [
-        p for p in slots.get("persons", []) if p.get("role") == "security_staff"
-    ]:
+    elif reporters := [p for p in slots.get("persons", []) if p.get("role") == "security_staff"]:
         slots = bind_reporter(slots, reporters[0])
         reporter = reporters[0]
 
@@ -729,8 +719,7 @@ def _finalize_generation(reports: dict, ctx: dict) -> dict:
         logger.error("Generation failed for: %s", ", ".join(generation_errors))
 
     logger.info(
-        "Generate → %d reports, %d invented-fact flags, %d markers, "
-        "style %.2f (%d blocking)",
+        "Generate → %d reports, %d invented-fact flags, %d markers, style %.2f (%d blocking)",
         len(reports),
         len(flags),
         len(markers),
@@ -811,26 +800,20 @@ def reports_api():
             len(classification.get("charges_applicable", [])),
         )
 
-        reports = generate_all_reports(notes, classification)
+        reports = _generate_legacy_reports(notes, classification)
 
         # Extract officer info for preview
         officer = _find_person(classification, "reporting_officer")
         last, first, middle = _parse_name(officer.get("name", ""))
 
         # Extract inmates
-        inmates = [
-            p
-            for p in classification.get("persons_involved", [])
-            if p.get("role") == "inmate"
-        ]
+        inmates = [p for p in classification.get("persons_involved", []) if p.get("role") == "inmate"]
         inmate_names = ", ".join(i.get("name", "") for i in inmates)
 
         return jsonify(
             {
                 "incident_type": classification.get("incident_type"),
-                "label": classification.get(
-                    "label", classification.get("incident_type", "")
-                ),
+                "label": classification.get("label", classification.get("incident_type", "")),
                 "forms_required": classification.get("forms_required", []),
                 "charges": classification.get("charges_applicable", []),
                 "charge_descriptions": classification.get("charge_descriptions", {}),
@@ -891,9 +874,7 @@ def reports_download():
     metadata = data.get("metadata")
     if isinstance(metadata, dict) and metadata:
         metadata = {k: str(v) for k, v in metadata.items() if isinstance(k, str)}
-        logger.info(
-            "Document download from reviewed metadata — %d fields", len(metadata)
-        )
+        logger.info("Document download from reviewed metadata — %d fields", len(metadata))
         try:
             return _send_filled(metadata)
         except Exception:
@@ -908,17 +889,13 @@ def reports_download():
 
     try:
         classification = classify_incident(notes)
-        reports = generate_all_reports(notes, classification)
+        reports = _generate_legacy_reports(notes, classification)
 
         narrative = reports.get("first_person", "")
         officer = _find_person(classification, "reporting_officer")
         last, first, middle = _parse_name(officer.get("name", ""))
 
-        inmates = [
-            p
-            for p in classification.get("persons_involved", [])
-            if p.get("role") == "inmate"
-        ]
+        inmates = [p for p in classification.get("persons_involved", []) if p.get("role") == "inmate"]
         inmate_names = ", ".join(i.get("name", "") for i in inmates)
 
         metadata = {

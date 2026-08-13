@@ -65,9 +65,7 @@ def page_from_rows(rows: list, limit: int) -> Page:
     return Page(items, next_cursor)
 
 
-def list_staff(
-    session: Session, *, cursor: dict | None, limit: int, query: str | None
-) -> Page:
+def list_staff(session: Session, *, cursor: dict | None, limit: int, query: str | None) -> Page:
     page_size = min(max(int(limit), 1), 100)
     statement = select(StaffMember)
     if query:
@@ -89,13 +87,7 @@ def list_staff(
                 and_(StaffMember.created_at == created_at, StaffMember.id > staff_id),
             )
         )
-    rows = list(
-        session.scalars(
-            statement.order_by(StaffMember.created_at, StaffMember.id).limit(
-                page_size + 1
-            )
-        )
-    )
+    rows = list(session.scalars(statement.order_by(StaffMember.created_at, StaffMember.id).limit(page_size + 1)))
     return page_from_rows(rows, page_size)
 
 
@@ -117,11 +109,7 @@ def ensure_not_last_active_admin(
     role: str,
     status: str,
 ) -> None:
-    removes_target = (
-        target.role == "admin"
-        and target.status == "active"
-        and (role != "admin" or status != "active")
-    )
+    removes_target = target.role == "admin" and target.status == "active" and (role != "admin" or status != "active")
     if removes_target and not any(item.id != target.id for item in active_admins):
         raise LastActiveAdminError("cannot remove the last active Admin")
 
@@ -171,12 +159,7 @@ def create_staff(
     if set(payload) != required:
         raise ValueError("staff payload is invalid")
     employee_number = normalize_employee_number(payload["employee_number"])
-    if (
-        session.scalar(
-            select(StaffMember.id).where(StaffMember.employee_number == employee_number)
-        )
-        is not None
-    ):
+    if session.scalar(select(StaffMember.id).where(StaffMember.employee_number == employee_number)) is not None:
         raise DuplicateEmployeeNumberError("employee number already exists")
     if any(not isinstance(payload[key], str) for key in required):
         raise ValueError("staff payload is invalid")
@@ -240,9 +223,7 @@ def update_staff(
     }
     if not payload or not set(payload) <= allowed:
         raise ValueError("staff payload is invalid")
-    staff = session.scalar(
-        select(StaffMember).where(StaffMember.id == staff_id).with_for_update()
-    )
+    staff = session.scalar(select(StaffMember).where(StaffMember.id == staff_id).with_for_update())
     if staff is None:
         raise LookupError("staff member not found")
     changed = []
@@ -252,15 +233,11 @@ def update_staff(
                 raise ValueError("staff payload is invalid")
         elif not isinstance(value, str):
             raise ValueError("staff payload is invalid")
-        normalized = (
-            normalize_employee_number(value) if key == "employee_number" else value
-        )
+        normalized = normalize_employee_number(value) if key == "employee_number" else value
         if key == "employee_number" and len(normalized) > 64:
             raise ValueError("staff payload is invalid")
         bounds = {"rank": 64, "first_name": 100, "last_name": 100, "shift": 16}
-        if key in bounds and (
-            len(normalized) > bounds[key] or (key != "rank" and not normalized)
-        ):
+        if key in bounds and (len(normalized) > bounds[key] or (key != "rank" and not normalized)):
             raise ValueError("staff payload is invalid")
         if getattr(staff, key) != normalized:
             setattr(staff, key, normalized)
@@ -294,15 +271,10 @@ def create_account_for_staff(
     audit_writer: AuditWriter,
     request_id: str,
 ) -> TemporaryPinResult:
-    staff = session.scalar(
-        select(StaffMember).where(StaffMember.id == staff_id).with_for_update()
-    )
+    staff = session.scalar(select(StaffMember).where(StaffMember.id == staff_id).with_for_update())
     if staff is None:
         raise LookupError("staff member not found")
-    if (
-        session.scalar(select(Account.id).where(Account.staff_member_id == staff_id))
-        is not None
-    ):
+    if session.scalar(select(Account.id).where(Account.staff_member_id == staff_id)) is not None:
         raise AccountAlreadyExistsError("staff member already has an account")
     try:
         with session.begin_nested():
@@ -320,9 +292,7 @@ def create_account_for_staff(
         raise AccountAlreadyExistsError("staff member already has an account") from None
 
 
-def _revoke_account_sessions(
-    session: Session, account_id: UUID, now: datetime
-) -> list[UUID]:
+def _revoke_account_sessions(session: Session, account_id: UUID, now: datetime) -> list[UUID]:
     rows = list(
         session.scalars(
             select(AccessSession)
@@ -354,20 +324,12 @@ def change_account_role_or_status(
     if role not in {"user", "admin"} or status not in {"active", "deactivated"}:
         raise ValueError("account role or status is invalid")
     active_admins = lock_active_admins(session)
-    target = next(
-        (item for item in active_admins if item.id == target_account_id), None
-    )
+    target = next((item for item in active_admins if item.id == target_account_id), None)
     if target is None:
-        target = session.scalar(
-            select(Account).where(Account.id == target_account_id).with_for_update()
-        )
+        target = session.scalar(select(Account).where(Account.id == target_account_id).with_for_update())
     if target is None:
         raise LookupError("account not found")
-    if (
-        target.role == "admin"
-        and target.status == "active"
-        and (role != "admin" or status != "active")
-    ):
+    if target.role == "admin" and target.status == "active" and (role != "admin" or status != "active"):
         ensure_not_last_active_admin(target, active_admins, role=role, status=status)
     old_role, old_status = target.role, target.status
     if old_status == "locked" and status == "active":
@@ -395,9 +357,7 @@ def change_account_role_or_status(
     else:
         action = "admin.account_reactivated"
         details = {"target_account_id": str(target.id)}
-    _audit_admin(
-        session, audit_writer, actor, action, "account", target.id, details, request_id
-    )
+    _audit_admin(session, audit_writer, actor, action, "account", target.id, details, request_id)
     return target
 
 
@@ -410,14 +370,10 @@ def reset_account_pin(
     audit_writer: AuditWriter,
     request_id: str,
 ) -> TemporaryPinResult:
-    account = session.scalar(
-        select(Account).where(Account.id == target_account_id).with_for_update()
-    )
+    account = session.scalar(select(Account).where(Account.id == target_account_id).with_for_update())
     if account is None:
         raise LookupError("account not found")
-    staff = session.scalar(
-        select(StaffMember).where(StaffMember.id == account.staff_member_id)
-    )
+    staff = session.scalar(select(StaffMember).where(StaffMember.id == account.staff_member_id))
     if staff is None:
         raise LookupError("account not found")
     temporary_pin = generate_temporary_pin(staff.employee_number)
@@ -439,9 +395,7 @@ def reset_account_pin(
         {"target_account_id": str(account.id)},
         request_id,
     )
-    return TemporaryPinResult(
-        account.id, temporary_pin, account.temporary_pin_expires_at
-    )
+    return TemporaryPinResult(account.id, temporary_pin, account.temporary_pin_expires_at)
 
 
 def unlock_account(
@@ -456,17 +410,10 @@ def unlock_account(
     if actor is None:
         reset_failed_attempts(session_or_account)
         return None
-    if (
-        target_account_id is None
-        or now is None
-        or audit_writer is None
-        or request_id is None
-    ):
+    if target_account_id is None or now is None or audit_writer is None or request_id is None:
         raise ValueError("unlock account context is invalid")
     session = session_or_account
-    account = session.scalar(
-        select(Account).where(Account.id == target_account_id).with_for_update()
-    )
+    account = session.scalar(select(Account).where(Account.id == target_account_id).with_for_update())
     if account is None:
         raise LookupError("account not found")
     if account.status != "locked":
@@ -501,11 +448,7 @@ def list_accounts(session: Session, *, cursor: dict | None, limit: int) -> Page:
                 and_(Account.created_at == created_at, Account.id > account_id),
             )
         )
-    rows = list(
-        session.scalars(
-            statement.order_by(Account.created_at, Account.id).limit(page_size + 1)
-        )
-    )
+    rows = list(session.scalars(statement.order_by(Account.created_at, Account.id).limit(page_size + 1)))
     return page_from_rows(rows, page_size)
 
 
@@ -530,13 +473,7 @@ def list_account_sessions(
                 ),
             )
         )
-    rows = list(
-        session.scalars(
-            statement.order_by(AccessSession.created_at, AccessSession.id).limit(
-                page_size + 1
-            )
-        )
-    )
+    rows = list(session.scalars(statement.order_by(AccessSession.created_at, AccessSession.id).limit(page_size + 1)))
     return page_from_rows(rows, page_size)
 
 
@@ -551,23 +488,17 @@ def revoke_account_sessions(
     audit_writer: AuditWriter,
     request_id: str,
 ) -> list[UUID]:
-    account = session.scalar(
-        select(Account).where(Account.id == target_account_id).with_for_update()
-    )
+    account = session.scalar(select(Account).where(Account.id == target_account_id).with_for_update())
     if account is None:
         raise LookupError("account not found")
     if scope == "one" and target_session_id is not None:
         target_session = session.scalar(
-            select(AccessSession)
-            .where(AccessSession.id == target_session_id)
-            .with_for_update(nowait=True)
+            select(AccessSession).where(AccessSession.id == target_session_id).with_for_update(nowait=True)
         )
         if target_session is None or target_session.account_id != target_account_id:
             raise LookupError("session not found")
         if target_session.revoked_at is not None:
-            raise AccountConflictError(
-                "the session state changed; reload and try again"
-            )
+            raise AccountConflictError("the session state changed; reload and try again")
         rows = [target_session]
     elif scope != "all" or target_session_id is not None:
         raise ValueError("session revocation scope is invalid")
@@ -635,9 +566,7 @@ def record_failed_attempt(account: Account, now: datetime) -> int | None:
     return minutes
 
 
-def _new_account(
-    staff_member: StaffMember, role: str, now: datetime
-) -> tuple[Account, TemporaryPinResult]:
+def _new_account(staff_member: StaffMember, role: str, now: datetime) -> tuple[Account, TemporaryPinResult]:
     if role not in {"user", "admin"}:
         raise ValueError("account role is invalid")
     temporary_pin = generate_temporary_pin(staff_member.employee_number)
@@ -666,20 +595,12 @@ def create_account(
     actor_account_id: UUID,
     actor_staff_member_id: UUID,
 ) -> TemporaryPinResult:
-    if not isinstance(actor_account_id, UUID) or not isinstance(
-        actor_staff_member_id, UUID
-    ):
+    if not isinstance(actor_account_id, UUID) or not isinstance(actor_staff_member_id, UUID):
         raise ValueError("authenticated account and staff actors are required")
-    locked_staff = session.scalar(
-        select(StaffMember).where(StaffMember.id == staff_member.id).with_for_update()
-    )
+    locked_staff = session.scalar(select(StaffMember).where(StaffMember.id == staff_member.id).with_for_update())
     if locked_staff is None or not locked_staff.is_active:
         raise ValueError("active staff member is required")
-    existing = session.scalar(
-        select(Account)
-        .where(Account.staff_member_id == locked_staff.id)
-        .with_for_update()
-    )
+    existing = session.scalar(select(Account).where(Account.staff_member_id == locked_staff.id).with_for_update())
     if existing is not None:
         raise ValueError("staff member already has an account")
     account, pending_result = _new_account(locked_staff, role, now)
@@ -698,9 +619,7 @@ def create_account(
             details={"target_account_id": str(account.id), "role": role},
         ),
     )
-    return TemporaryPinResult(
-        account.id, pending_result.temporary_pin, pending_result.expires_at
-    )
+    return TemporaryPinResult(account.id, pending_result.temporary_pin, pending_result.expires_at)
 
 
 def bootstrap_first_admin(
@@ -724,9 +643,7 @@ def bootstrap_first_admin(
     )
     if session.scalar(select(func.count(Account.id))) != 0:
         raise InitialAdminBootstrapRefused("initial Admin bootstrap is closed")
-    staff_member = session.scalar(
-        select(StaffMember).where(StaffMember.id == staff_member_id).with_for_update()
-    )
+    staff_member = session.scalar(select(StaffMember).where(StaffMember.id == staff_member_id).with_for_update())
     if staff_member is None or not staff_member.is_active:
         raise InitialAdminBootstrapRefused("approved active staff member is required")
     account, pending_result = _new_account(staff_member, "admin", now)
@@ -748,9 +665,7 @@ def bootstrap_first_admin(
             },
         ),
     )
-    return TemporaryPinResult(
-        account.id, pending_result.temporary_pin, pending_result.expires_at
-    )
+    return TemporaryPinResult(account.id, pending_result.temporary_pin, pending_result.expires_at)
 
 
 def _audit_failure(
@@ -814,18 +729,12 @@ def verify_login_pin(
         raise InvalidCredentials(GENERIC_CREDENTIAL_MESSAGE)
 
     pin_valid = verify_pin(account.pin_hash, pin)
-    if (
-        account.status == "locked"
-        and account.locked_until is not None
-        and account.locked_until <= now
-    ):
+    if account.status == "locked" and account.locked_until is not None and account.locked_until <= now:
         account.status = "active"
         account.failed_attempts = 0
         account.locked_until = None
     if account.status != "active":
-        _audit_failure(
-            session, audit_writer, account, request_id, "account_locked_or_deactivated"
-        )
+        _audit_failure(session, audit_writer, account, request_id, "account_locked_or_deactivated")
         raise InvalidCredentials(GENERIC_CREDENTIAL_MESSAGE)
     if not account.staff_member.is_active:
         _audit_failure(session, audit_writer, account, request_id, "staff_inactive")
@@ -835,9 +744,7 @@ def verify_login_pin(
         and account.temporary_pin_expires_at is not None
         and account.temporary_pin_expires_at <= now
     ):
-        _audit_failure(
-            session, audit_writer, account, request_id, "temporary_pin_expired"
-        )
+        _audit_failure(session, audit_writer, account, request_id, "temporary_pin_expired")
         raise InvalidCredentials(GENERIC_CREDENTIAL_MESSAGE)
     if not pin_valid:
         minutes = record_failed_attempt(account, now)

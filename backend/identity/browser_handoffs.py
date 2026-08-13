@@ -54,19 +54,9 @@ def issue_browser_handoff(
     request_id: str,
     step_up_token: str,
 ) -> BrowserHandoffResult:
-    access_session = session.scalar(
-        select(AccessSession)
-        .where(AccessSession.id == actor.session_id)
-        .with_for_update()
-    )
-    account = session.scalar(
-        select(Account).where(Account.id == actor.account_id).with_for_update()
-    )
-    staff = session.scalar(
-        select(StaffMember)
-        .where(StaffMember.id == actor.staff_member_id)
-        .with_for_update()
-    )
+    access_session = session.scalar(select(AccessSession).where(AccessSession.id == actor.session_id).with_for_update())
+    account = session.scalar(select(Account).where(Account.id == actor.account_id).with_for_update())
+    staff = session.scalar(select(StaffMember).where(StaffMember.id == actor.staff_member_id).with_for_update())
     if (
         actor.role != "admin"
         or access_session is None
@@ -139,11 +129,7 @@ def redeem_browser_handoff(
         digest = hash_token(raw_token)
     except ValueError:
         raise _invalid_handoff() from None
-    handoff = session.scalar(
-        select(BrowserHandoff)
-        .where(BrowserHandoff.token_hash == digest)
-        .with_for_update()
-    )
+    handoff = session.scalar(select(BrowserHandoff).where(BrowserHandoff.token_hash == digest).with_for_update())
     if (
         handoff is None
         or handoff.purpose != "review_lab"
@@ -153,17 +139,11 @@ def redeem_browser_handoff(
     ):
         raise _invalid_handoff()
     access_session = session.scalar(
-        select(AccessSession)
-        .where(AccessSession.id == handoff.session_id)
-        .with_for_update()
+        select(AccessSession).where(AccessSession.id == handoff.session_id).with_for_update()
     )
-    account = session.scalar(
-        select(Account).where(Account.id == handoff.account_id).with_for_update()
-    )
+    account = session.scalar(select(Account).where(Account.id == handoff.account_id).with_for_update())
     staff = session.scalar(
-        select(StaffMember)
-        .where(StaffMember.id == account.staff_member_id)
-        .with_for_update()
+        select(StaffMember).where(StaffMember.id == account.staff_member_id).with_for_update()
         if account is not None
         else select(StaffMember).where(false())
     )
@@ -226,35 +206,16 @@ def resolve_browser_session(
         digest = hash_token(cookie_value)
     except ValueError:
         raise BrowserSessionInvalid("Review Lab access is unavailable.") from None
-    stored = session.scalar(
-        select(BrowserSession)
-        .where(BrowserSession.token_hash == digest)
-        .with_for_update()
-    )
-    if (
-        stored is None
-        or stored.purpose != "review_lab"
-        or stored.revoked_at is not None
-        or stored.expires_at <= now
-    ):
+    stored = session.scalar(select(BrowserSession).where(BrowserSession.token_hash == digest).with_for_update())
+    if stored is None or stored.purpose != "review_lab" or stored.revoked_at is not None or stored.expires_at <= now:
         raise BrowserSessionInvalid("Review Lab access is unavailable.")
-    account = session.scalar(
-        select(Account).where(Account.id == stored.account_id).with_for_update()
-    )
+    account = session.scalar(select(Account).where(Account.id == stored.account_id).with_for_update())
     staff = session.scalar(
-        select(StaffMember)
-        .where(StaffMember.id == account.staff_member_id)
-        .with_for_update()
+        select(StaffMember).where(StaffMember.id == account.staff_member_id).with_for_update()
         if account is not None
         else select(StaffMember).where(false())
     )
-    if (
-        account is None
-        or staff is None
-        or account.role != "admin"
-        or account.status != "active"
-        or not staff.is_active
-    ):
+    if account is None or staff is None or account.role != "admin" or account.status != "active" or not staff.is_active:
         raise BrowserSessionInvalid("Review Lab access is unavailable.")
     stored.last_used_at = now
     stored.expires_at = now + timedelta(minutes=30)

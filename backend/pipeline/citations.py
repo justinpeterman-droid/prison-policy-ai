@@ -56,11 +56,7 @@ MIN_SUPPORTED_RATIO = 0.5
 
 def _content_words(text: str) -> set[str]:
     """Lowercased content words, minus stopwords and very short tokens."""
-    return {
-        w
-        for w in _WORD.findall((text or "").lower())
-        if len(w) > 2 and w not in _STOPWORDS
-    }
+    return {w for w in _WORD.findall((text or "").lower()) if len(w) > 2 and w not in _STOPWORDS}
 
 
 def _sentences(text: str) -> list[str]:
@@ -95,9 +91,7 @@ def infer_citations(
     """
     if not contexts:
         return [], False
-    sentences = [
-        s for s in _sentences(answer) if len(_content_words(s)) >= MIN_SENTENCE_WORDS
-    ]
+    sentences = [s for s in _sentences(answer) if len(_content_words(s)) >= MIN_SENTENCE_WORDS]
     if not sentences:
         return [], False
 
@@ -152,9 +146,7 @@ def renumber(answer: str, cited: list[int]) -> tuple[str, dict]:
     return _MARKER.sub(_repl, answer or ""), mapping
 
 
-def build_grounded(
-    answer: str, contexts: list[dict], infer: bool = False
-) -> tuple[str, list[dict], bool]:
+def build_grounded(answer: str, contexts: list[dict], infer: bool = False) -> tuple[str, list[dict], bool]:
     """Post-process a cited answer.
 
     Args:

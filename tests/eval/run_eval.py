@@ -164,9 +164,7 @@ def main() -> int:
     print(f"  wrote {out}  ({scorecard['elapsed_s']}s)")
 
     # Non-zero exit if any hard failure, so CI/scripts can gate on it.
-    hard_fail = any(
-        r.get("gate_ok") is False or r.get("answer_pass") is False for r in results
-    )
+    hard_fail = any(r.get("gate_ok") is False or r.get("answer_pass") is False for r in results)
     return 1 if hard_fail else 0
 
 

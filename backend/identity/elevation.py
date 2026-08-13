@@ -56,11 +56,7 @@ def step_up_deadline(now: datetime) -> datetime:
 
 
 def _elevation(session: Session, actor):
-    return session.scalar(
-        select(AdminElevation)
-        .where(AdminElevation.session_id == actor.session_id)
-        .with_for_update()
-    )
+    return session.scalar(select(AdminElevation).where(AdminElevation.session_id == actor.session_id).with_for_update())
 
 
 def elevation_is_active(session: Session, actor, now: datetime) -> bool:
@@ -90,19 +86,9 @@ def confirm_admin_pin(
 ) -> ElevationResult:
     if purpose not in ALL_ADMIN_CONFIRMATION_PURPOSES:
         raise ValueError("admin confirmation purpose is invalid")
-    access_session = session.scalar(
-        select(AccessSession)
-        .where(AccessSession.id == actor.session_id)
-        .with_for_update()
-    )
-    account = session.scalar(
-        select(Account).where(Account.id == actor.account_id).with_for_update()
-    )
-    staff = session.scalar(
-        select(StaffMember)
-        .where(StaffMember.id == actor.staff_member_id)
-        .with_for_update()
-    )
+    access_session = session.scalar(select(AccessSession).where(AccessSession.id == actor.session_id).with_for_update())
+    account = session.scalar(select(Account).where(Account.id == actor.account_id).with_for_update())
+    staff = session.scalar(select(StaffMember).where(StaffMember.id == actor.staff_member_id).with_for_update())
     if (
         account is None
         or access_session is None
@@ -193,11 +179,7 @@ def consume_step_up(
         digest = hash_token(raw_token)
     except ValueError:
         raise StepUpRequired("Administrator PIN confirmation is required.") from None
-    row = session.scalar(
-        select(AdminStepUpToken)
-        .where(AdminStepUpToken.token_hash == digest)
-        .with_for_update()
-    )
+    row = session.scalar(select(AdminStepUpToken).where(AdminStepUpToken.token_hash == digest).with_for_update())
     if (
         row is None
         or row.session_id != actor.session_id

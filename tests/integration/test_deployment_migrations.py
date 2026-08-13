@@ -41,16 +41,11 @@ def test_migration_history_is_one_linear_head():
     script = ScriptDirectory.from_config(migration._config())
     assert len(script.get_heads()) == 1
     revisions = list(script.walk_revisions())
-    assert all(
-        revision.down_revision is None or isinstance(revision.down_revision, str)
-        for revision in revisions
-    )
+    assert all(revision.down_revision is None or isinstance(revision.down_revision, str) for revision in revisions)
 
 
 def test_schema_constraint_contract_is_structural_not_name_only():
-    contract = migration._constraint_contract(
-        migration.Base.metadata.tables["accounts"]
-    )
+    contract = migration._constraint_contract(migration.Base.metadata.tables["accounts"])
     assert contract["primary_key"] == ("id",)
     assert ("staff_member_id",) in contract["unique"]
     assert (("staff_member_id",), "staff_members", ("id",)) in contract["foreign_keys"]
@@ -63,24 +58,18 @@ def test_schema_constraint_contract_is_structural_not_name_only():
     }
     role_signature = contract["checks"]["ck_accounts_account_role"]
     assert migration._check_signature("role IN ('user')") != role_signature
-    assert migration._check_signature(
-        "failed_attempts = 0"
-    ) != migration._check_signature("failed_attempts >= 0")
+    assert migration._check_signature("failed_attempts = 0") != migration._check_signature("failed_attempts >= 0")
     assert (
-        migration._check_signature(
-            "role::text = ANY (ARRAY['user'::character varying, 'admin'::character varying])"
-        )
+        migration._check_signature("role::text = ANY (ARRAY['user'::character varying, 'admin'::character varying])")
         == role_signature
     )
-    assert migration._check_signature(
-        "error_code ~ '^[a-z]+$'"
-    ) != migration._check_signature("error_code !~ '^[a-z]+$'")
-    assert migration._check_signature(
-        "result_reference - 'reports'"
-    ) != migration._check_signature("result_reference")
-    assert migration._check_signature(
-        "result_reference->'reports'"
-    ) != migration._check_signature("result_reference->>'reports'")
+    assert migration._check_signature("error_code ~ '^[a-z]+$'") != migration._check_signature(
+        "error_code !~ '^[a-z]+$'"
+    )
+    assert migration._check_signature("result_reference - 'reports'") != migration._check_signature("result_reference")
+    assert migration._check_signature("result_reference->'reports'") != migration._check_signature(
+        "result_reference->>'reports'"
+    )
 
 
 def test_verification_script_runs_from_repository_root_without_database(monkeypatch):
@@ -108,22 +97,16 @@ def test_verify_checks_expected_schema_contract(db_engine):
     }
 
 
-def test_upgrade_is_idempotent_after_fictional_service_insert(
-    db_session, identity_fixed_now
-):
+def test_upgrade_is_idempotent_after_fictional_service_insert(db_session, identity_fixed_now):
     seed_fictional_staff_and_accounts(db_session, identity_fixed_now)
     db_session.commit()
     assert migration.upgrade() == "20260812_0005"
     assert migration.upgrade() == "20260812_0005"
     inspector = inspect(db_session.get_bind())
-    assert {"staff_members", "accounts", "incidents", "reports", "ai_jobs"} <= set(
-        inspector.get_table_names()
-    )
+    assert {"staff_members", "accounts", "incidents", "reports", "ai_jobs"} <= set(inspector.get_table_names())
 
 
-def test_fresh_database_exercises_only_supported_index_downgrade(
-    db_engine, monkeypatch
-):
+def test_fresh_database_exercises_only_supported_index_downgrade(db_engine, monkeypatch):
     """Create a disposable DB at 0004 so no destructive revision is traversed."""
     base_url = make_url(os.environ["TEST_DATABASE_URL"])
     database_name = f"op06_lifecycle_{uuid4().hex}"
@@ -134,20 +117,14 @@ def test_fresh_database_exercises_only_supported_index_downgrade(
         connection.execute(text(f'CREATE DATABASE "{database_name}"'))
     isolated_engine = create_engine(isolated_url)
     try:
-        monkeypatch.setenv(
-            "DATABASE_URL", isolated_url.render_as_string(hide_password=False)
-        )
+        monkeypatch.setenv("DATABASE_URL", isolated_url.render_as_string(hide_password=False))
         config = migration._config()
         command.upgrade(config, "20260812_0004")
         command.downgrade(config, "20260812_0003")
         with isolated_engine.connect() as connection:
             inspector = inspect(connection)
-            assert {"staff_members", "accounts", "incidents", "reports"} <= set(
-                inspector.get_table_names()
-            )
-            incident_indexes = {
-                item["name"] for item in inspector.get_indexes("incidents")
-            }
+            assert {"staff_members", "accounts", "incidents", "reports"} <= set(inspector.get_table_names())
+            incident_indexes = {item["name"] for item in inspector.get_indexes("incidents")}
         assert "ix_incidents_extracted_facts_gin" not in incident_indexes
         command.upgrade(config, "20260812_0004")
         command.upgrade(config, "head")

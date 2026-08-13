@@ -63,20 +63,13 @@ def add_staff():
     if not last or not emp:
         return jsonify({"error": "Last name and employee number are required."}), 400
     if shift not in VALID_SHIFTS:
-        return jsonify(
-            {
-                "error": f"Invalid shift '{shift}'. Must be one of: {', '.join(sorted(VALID_SHIFTS))}"
-            }
-        ), 400
+        return jsonify({"error": f"Invalid shift '{shift}'. Must be one of: {', '.join(sorted(VALID_SHIFTS))}"}), 400
 
     def mutate(data: dict):
         # Duplicate check runs inside the mutation so it is re-evaluated after a
         # write conflict — otherwise two simultaneous adds of the same employee
         # number would both pass a check made before either wrote.
-        if any(
-            s.get("employee_number", "").strip().lower() == emp.lower()
-            for s in data.get("staff", [])
-        ):
+        if any(s.get("employee_number", "").strip().lower() == emp.lower() for s in data.get("staff", [])):
             return "duplicate"
         data.setdefault("staff", []).append(
             {
@@ -101,9 +94,7 @@ def add_staff():
 def update_staff(emp_id):
     """Update a staff member's fields (shift reassign, name fix, etc.)."""
     body = request.get_json(silent=True) or {}
-    new_employee_number = (
-        body["employee_number"].strip() if "employee_number" in body else None
-    )
+    new_employee_number = body["employee_number"].strip() if "employee_number" in body else None
 
     # Validate before mutating so a bad shift is rejected without a round-trip.
     new_shift = body["shift"].strip().upper() if "shift" in body else None
@@ -112,15 +103,11 @@ def update_staff(emp_id):
 
     def mutate(data: dict):
         for person in data.get("staff", []):
-            if (person.get("employee_number") or "").strip().casefold() == (
-                emp_id or ""
-            ).strip().casefold():
+            if (person.get("employee_number") or "").strip().casefold() == (emp_id or "").strip().casefold():
                 if new_employee_number is not None:
                     candidate = new_employee_number.casefold()
                     if any(
-                        other is not person
-                        and (other.get("employee_number") or "").strip().casefold()
-                        == candidate
+                        other is not person and (other.get("employee_number") or "").strip().casefold() == candidate
                         for other in data.get("staff", [])
                     ):
                         return "duplicate"
@@ -154,9 +141,7 @@ def delete_staff(emp_id):
 
     def mutate(data: dict):
         staff = data.get("staff", [])
-        kept = [
-            s for s in staff if s.get("employee_number", "").strip() != emp_id.strip()
-        ]
+        kept = [s for s in staff if s.get("employee_number", "").strip() != emp_id.strip()]
         if len(kept) == len(staff):
             return None  # not found — nothing to write
         data["staff"] = kept

@@ -61,9 +61,7 @@ def test_fingerprints_are_sha256_digests(key):
 def test_fingerprints_track_the_real_source_files():
     provenance = collect_provenance()
 
-    assert provenance["classification_prompt_sha256"] == file_sha256(
-        PROVENANCE_SOURCES["classification"]
-    )
+    assert provenance["classification_prompt_sha256"] == file_sha256(PROVENANCE_SOURCES["classification"])
     assert provenance["template_sha256"] == file_sha256(PROVENANCE_SOURCES["template"])
 
 

@@ -7,6 +7,7 @@ from flask import Blueprint, current_app, g, request
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.identity.accounts import InvalidCredentials
+from backend.identity.audit import AuditWriter
 from backend.identity.config import IdentitySettings
 from backend.identity.sessions import (
     SessionReauthenticationRequired,
@@ -79,7 +80,7 @@ def _token_data(pair: SessionTokenPair) -> dict[str, object]:
     }
 
 
-def _dependencies() -> tuple[IdentitySettings, object]:
+def _dependencies() -> tuple[IdentitySettings, AuditWriter]:
     settings: IdentitySettings = current_app.config["IDENTITY_SETTINGS"]
     audit_writer = current_app.config.get("AUDIT_WRITER")
     if audit_writer is None:
@@ -92,12 +93,8 @@ def _dependencies() -> tuple[IdentitySettings, object]:
     return settings, audit_writer
 
 
-def _consume_login_limits(
-    db_session, payload: dict, settings: IdentitySettings
-) -> None:
-    if not current_app.config.get("AUTH_RATE_LIMITS_ENABLED", True) or not hasattr(
-        db_session, "execute"
-    ):
+def _consume_login_limits(db_session, payload: dict, settings: IdentitySettings) -> None:
+    if not current_app.config.get("AUTH_RATE_LIMITS_ENABLED", True) or not hasattr(db_session, "execute"):
         return
     pepper = settings.identity_hash_pepper or ""
     try:
@@ -137,9 +134,7 @@ def _consume_login_limits(
             pepper=pepper,
         ),
     ]
-    exceeded = [
-        decision.retry_after_seconds for decision in decisions if not decision.allowed
-    ]
+    exceeded = [decision.retry_after_seconds for decision in decisions if not decision.allowed]
     if exceeded:
         raise ApiError(
             "rate_limited",
@@ -178,9 +173,7 @@ def _mutation(action: str, payload: dict, operation):
                 now=now,
             )
         except RequestInProgress as error:
-            raise ApiError(
-                "request_in_progress", str(error), status=409, retryable=True
-            ) from None
+            raise ApiError("request_in_progress", str(error), status=409, retryable=True) from None
         except IdempotencyConflict as error:
             raise ApiError("idempotency_conflict", str(error), status=409) from None
         except ValueError as error:
@@ -210,9 +203,7 @@ def _mutation(action: str, payload: dict, operation):
         raise ApiError("invalid_credentials", str(error), status=401) from None
     except SessionReauthenticationRequired as error:
         db_session.rollback()
-        raise ApiError(
-            "session_reauthentication_required", str(error), status=401
-        ) from None
+        raise ApiError("session_reauthentication_required", str(error), status=401) from None
     except ValueError as error:
         db_session.rollback()
         raise ApiError("validation_failed", str(error), status=400) from None
@@ -234,9 +225,7 @@ def _validated_device_id(payload: dict, settings: IdentitySettings) -> str:
     try:
         hash_device_id(value, settings.identity_hash_pepper or "")
     except ValueError:
-        raise ApiError(
-            "validation_failed", "The request body is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "The request body is invalid.", status=400) from None
     return value
 
 
@@ -249,11 +238,7 @@ def _validated_pin(payload: dict) -> str:
 
 def _validated_renewal_token(payload: dict) -> str:
     value = _required_string(payload, "renewal_token")
-    if (
-        not 40 <= len(value) <= 512
-        or not value.isascii()
-        or any(character.isspace() for character in value)
-    ):
+    if not 40 <= len(value) <= 512 or not value.isascii() or any(character.isspace() for character in value):
         raise ApiError("validation_failed", "The request body is invalid.", status=400)
     return value
 
@@ -360,9 +345,7 @@ def logout_all_route():
 def change_pin_route():
     payload = _json_object({"current_pin", "new_pin"})
     settings: IdentitySettings = current_app.config["IDENTITY_SETTINGS"]
-    device_id = _validated_device_id(
-        {"device_id": request.headers.get("X-Device-ID", "")}, settings
-    )
+    device_id = _validated_device_id({"device_id": request.headers.get("X-Device-ID", "")}, settings)
 
     def operation(db_session, actor, now):
         pair = change_pin(
@@ -391,9 +374,7 @@ def sessions_route():
     actor = current_actor()
     try:
         db_session = current_request_session()
-        rows = list_sessions(
-            db_session, account_id=actor.account_id, current_session_id=actor.session_id
-        )
+        rows = list_sessions(db_session, account_id=actor.account_id, current_session_id=actor.session_id)
         return success(
             [
                 {
@@ -464,9 +445,7 @@ def admin_step_up_route():
                 now=now,
             )
         except RequestInProgress as error:
-            raise ApiError(
-                "request_in_progress", str(error), status=409, retryable=True
-            ) from None
+            raise ApiError("request_in_progress", str(error), status=409, retryable=True) from None
         except IdempotencyConflict as error:
             raise ApiError("idempotency_conflict", str(error), status=409) from None
         if claim.replayed:
@@ -493,6 +472,8 @@ def admin_step_up_route():
         }
         reference = dict(data)
         if result.step_up_token is not None:
+            if result.step_up_expires_at is None:
+                raise RuntimeError("step-up result is inconsistent")
             data["step_up_token"] = result.step_up_token
             data["step_up_expires_at"] = _timestamp(result.step_up_expires_at)
             reference = {

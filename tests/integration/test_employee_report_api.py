@@ -85,9 +85,7 @@ def test_unrelated_admin_is_concealed_on_every_ordinary_report_operation(
     body,
 ):
     admin = fictional_staff_and_accounts.admin
-    headers = _headers_for_account(
-        db_session, admin, identity_fixed_now, "admin-unrelated"
-    )
+    headers = _headers_for_account(db_session, admin, identity_fixed_now, "admin-unrelated")
     if method in {"patch", "post"}:
         headers = _headers(headers, f"admin-unrelated-{method}-{len(path_suffix)}-0001")
     report_id = shared_report.id
@@ -105,18 +103,12 @@ def test_unrelated_admin_is_concealed_on_every_ordinary_report_operation(
         assert verification.get(Report, report_id).current_revision_number == 1
         assert (
             verification.scalar(
-                select(func.count())
-                .select_from(ReportRevision)
-                .where(ReportRevision.report_id == report_id)
+                select(func.count()).select_from(ReportRevision).where(ReportRevision.report_id == report_id)
             )
             == 1
         )
         assert (
-            verification.scalar(
-                select(func.count())
-                .select_from(AuditEvent)
-                .where(AuditEvent.target_id == report_id)
-            )
+            verification.scalar(select(func.count()).select_from(AuditEvent).where(AuditEvent.target_id == report_id))
             == 0
         )
         assert (
@@ -150,15 +142,11 @@ def test_admin_with_live_employee_relationship_uses_ordinary_report_routes(
     headers = _headers_for_account(db_session, admin, identity_fixed_now, relationship)
     db_session.commit()
 
-    listed = api_client.get(
-        f"/api/v1/reports?relationship={relationship}", headers=headers
-    )
+    listed = api_client.get(f"/api/v1/reports?relationship={relationship}", headers=headers)
     detail = api_client.get(f"/api/v1/reports/{report.id}", headers=headers)
 
     assert listed.status_code == detail.status_code == 200
-    assert [item["report_id"] for item in listed.json["data"]["items"]] == [
-        str(report.id)
-    ]
+    assert [item["report_id"] for item in listed.json["data"]["items"]] == [str(report.id)]
     assert detail.json["data"]["report_id"] == str(report.id)
 
 
@@ -171,20 +159,12 @@ def test_owner_and_preparer_lists_reference_same_canonical_report(
 ):
     db_session.commit()
 
-    owned = api_client.get(
-        "/api/v1/reports?relationship=owned", headers=owner_bearer_headers
-    )
-    prepared = api_client.get(
-        "/api/v1/reports?relationship=prepared", headers=preparer_bearer_headers
-    )
+    owned = api_client.get("/api/v1/reports?relationship=owned", headers=owner_bearer_headers)
+    prepared = api_client.get("/api/v1/reports?relationship=prepared", headers=preparer_bearer_headers)
 
     assert owned.status_code == prepared.status_code == 200
-    assert [item["report_id"] for item in owned.json["data"]["items"]] == [
-        str(shared_report.id)
-    ]
-    assert [item["report_id"] for item in prepared.json["data"]["items"]] == [
-        str(shared_report.id)
-    ]
+    assert [item["report_id"] for item in owned.json["data"]["items"]] == [str(shared_report.id)]
+    assert [item["report_id"] for item in prepared.json["data"]["items"]] == [str(shared_report.id)]
     assert "content" not in owned.json["data"]["items"][0]
     assert "narrative" not in owned.json["data"]["items"][0]
 
@@ -197,9 +177,7 @@ def test_authorization_precedes_cursor_validation_and_conceals_report(
 ):
     db_session.commit()
 
-    detail = api_client.get(
-        f"/api/v1/reports/{shared_report.id}", headers=unrelated_bearer_headers
-    )
+    detail = api_client.get(f"/api/v1/reports/{shared_report.id}", headers=unrelated_bearer_headers)
     history = api_client.get(
         f"/api/v1/reports/{shared_report.id}/revisions?cursor=not-a-cursor",
         headers=unrelated_bearer_headers,
@@ -230,9 +208,7 @@ def test_queue_filters_and_cursor_are_bounded_and_authorized_in_sql(
         owner=fictional_staff_and_accounts.user,
         preparer=fictional_staff_and_accounts.preparer,
     )
-    unrelated_incident = make_incident(
-        db_session, fictional_staff_and_accounts.unrelated
-    )
+    unrelated_incident = make_incident(db_session, fictional_staff_and_accounts.unrelated)
     make_report(
         db_session,
         incident=unrelated_incident,
@@ -248,22 +224,15 @@ def test_queue_filters_and_cursor_are_bounded_and_authorized_in_sql(
         "&updated_at_from=2026-08-12T00:00:00Z&updated_at_to=2026-08-13T00:00:00Z",
         headers=owner_bearer_headers,
     )
-    first = api_client.get(
-        "/api/v1/reports?relationship=owned&limit=1", headers=owner_bearer_headers
-    )
+    first = api_client.get("/api/v1/reports?relationship=owned&limit=1", headers=owner_bearer_headers)
     second = api_client.get(
-        "/api/v1/reports?relationship=owned&limit=1&cursor="
-        + first.json["data"]["next_cursor"],
+        "/api/v1/reports?relationship=owned&limit=1&cursor=" + first.json["data"]["next_cursor"],
         headers=owner_bearer_headers,
     )
-    too_large = api_client.get(
-        "/api/v1/reports?relationship=owned&limit=51", headers=owner_bearer_headers
-    )
+    too_large = api_client.get("/api/v1/reports?relationship=owned&limit=51", headers=owner_bearer_headers)
 
     assert filtered.status_code == 200
-    assert [item["report_id"] for item in filtered.json["data"]["items"]] == [
-        str(shared_report.id)
-    ]
+    assert [item["report_id"] for item in filtered.json["data"]["items"]] == [str(shared_report.id)]
     assert first.status_code == second.status_code == 200
     assert first.json["data"]["next_cursor"]
     assert {
@@ -286,9 +255,7 @@ def test_detail_history_and_revision_detail_are_exact_and_authorized(
         headers=_headers(preparer_bearer_headers, "report-fictional-save-0001"),
         json=_save_body("Fictional second revision."),
     )
-    detail = api_client.get(
-        f"/api/v1/reports/{shared_report.id}", headers=owner_bearer_headers
-    )
+    detail = api_client.get(f"/api/v1/reports/{shared_report.id}", headers=owner_bearer_headers)
     history = api_client.get(
         f"/api/v1/reports/{shared_report.id}/revisions?limit=1",
         headers=owner_bearer_headers,
@@ -298,13 +265,7 @@ def test_detail_history_and_revision_detail_are_exact_and_authorized(
         headers=owner_bearer_headers,
     )
 
-    assert (
-        saved.status_code
-        == detail.status_code
-        == history.status_code
-        == revision.status_code
-        == 200
-    )
+    assert saved.status_code == detail.status_code == history.status_code == revision.status_code == 200
     assert detail.json["data"]["report_id"] == str(shared_report.id)
     assert detail.json["data"]["content"]["narrative"] == "Fictional second revision."
     assert set(history.json["data"]["items"][0]) == {
@@ -372,10 +333,7 @@ def test_restore_copies_history_forward_without_mutating_source(
 
     assert restored.status_code == 200
     assert restored.json["data"]["current_revision_number"] == 3
-    assert (
-        restored.json["data"]["content"]["narrative"]
-        == "Fictional initial report narrative."
-    )
+    assert restored.json["data"]["content"]["narrative"] == "Fictional initial report narrative."
     with db_session_factory() as verification:
         source = verification.get(ReportRevision, source_id)
         assert source.revision_number == 1
@@ -462,9 +420,10 @@ def test_status_changes_are_revisions_and_archiving_is_reversible(
                 AuditEvent.action == "report.status_changed",
             )
         ).all()
-        assert [
-            (row.details["old_status"], row.details["new_status"]) for row in events
-        ] == [("in_progress", "archived"), ("archived", "in_progress")]
+        assert [(row.details["old_status"], row.details["new_status"]) for row in events] == [
+            ("in_progress", "archived"),
+            ("archived", "in_progress"),
+        ]
 
 
 def test_idempotent_replay_remains_stable_after_later_changes(
@@ -476,17 +435,13 @@ def test_idempotent_replay_remains_stable_after_later_changes(
     db_session.commit()
     headers = _headers(owner_bearer_headers, "report-stable-replay-0001")
     body = _save_body("Fictional replayed content.")
-    first = api_client.patch(
-        f"/api/v1/reports/{shared_report.id}", headers=headers, json=body
-    )
+    first = api_client.patch(f"/api/v1/reports/{shared_report.id}", headers=headers, json=body)
     api_client.patch(
         f"/api/v1/reports/{shared_report.id}",
         headers=_headers(owner_bearer_headers, "report-later-save-0001"),
         json=_save_body("Fictional later content.", base=2),
     )
-    replay = api_client.patch(
-        f"/api/v1/reports/{shared_report.id}", headers=headers, json=body
-    )
+    replay = api_client.patch(f"/api/v1/reports/{shared_report.id}", headers=headers, json=body)
 
     assert first.status_code == replay.status_code == 200
     assert replay.json["data"] == first.json["data"]
@@ -521,17 +476,13 @@ def test_audit_failure_rolls_back_revision_current_row_and_idempotency(
         assert report.current_revision_number == 1
         assert (
             verification.scalar(
-                select(func.count())
-                .select_from(ReportRevision)
-                .where(ReportRevision.report_id == report_id)
+                select(func.count()).select_from(ReportRevision).where(ReportRevision.report_id == report_id)
             )
             == 1
         )
         assert (
             verification.scalar(
-                select(func.count())
-                .select_from(IdempotencyRecord)
-                .where(IdempotencyRecord.action == "report.save")
+                select(func.count()).select_from(IdempotencyRecord).where(IdempotencyRecord.action == "report.save")
             )
             == 0
         )
@@ -550,13 +501,9 @@ def test_database_failure_maps_to_safe_retryable_503(
     monkeypatch.setattr(
         reports_api,
         "get_report",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            SQLAlchemyError("fictional database outage")
-        ),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(SQLAlchemyError("fictional database outage")),
     )
-    response = api_client.get(
-        f"/api/v1/reports/{shared_report.id}", headers=owner_bearer_headers
-    )
+    response = api_client.get(f"/api/v1/reports/{shared_report.id}", headers=owner_bearer_headers)
 
     assert response.status_code == 503
     assert response.json["error"] == {

@@ -68,9 +68,7 @@ def _confirm_admin_pin(api_client, headers, purpose, key):
 @pytest.fixture
 def elevated_admin_bearer_headers(api_client, admin_bearer_headers, db_session):
     db_session.commit()
-    _confirm_admin_pin(
-        api_client, admin_bearer_headers, "admin_center", "admin-elevate-0001"
-    )
+    _confirm_admin_pin(api_client, admin_bearer_headers, "admin_center", "admin-elevate-0001")
     return admin_bearer_headers
 
 
@@ -157,9 +155,7 @@ def test_admin_without_elevation_is_rejected(
 ):
     db_session.commit()
 
-    response = api_client.get(
-        f"/api/v1/admin/reports/{shared_report.id}", headers=admin_bearer_headers
-    )
+    response = api_client.get(f"/api/v1/admin/reports/{shared_report.id}", headers=admin_bearer_headers)
 
     assert response.status_code == 403
     assert response.json["error"]["code"] == "admin_elevation_required"
@@ -198,9 +194,7 @@ def test_restore_requires_purpose_scoped_step_up(
 
     missing = api_client.post(
         f"/api/v1/admin/reports/{shared_report.id}/restore",
-        headers=_headers(
-            elevated_admin_bearer_headers, "admin-restore-missing-step-up-0001"
-        ),
+        headers=_headers(elevated_admin_bearer_headers, "admin-restore-missing-step-up-0001"),
         json={"revision_number": 1},
     )
 
@@ -224,9 +218,7 @@ def test_restore_rejects_wrong_purpose_step_up_token(
 
     response = api_client.post(
         f"/api/v1/admin/reports/{shared_report.id}/restore",
-        headers=_headers(
-            elevated_admin_bearer_headers, "admin-restore-wrong-purpose-0001"
-        )
+        headers=_headers(elevated_admin_bearer_headers, "admin-restore-wrong-purpose-0001")
         | {"X-Admin-Step-Up": wrong_purpose["step_up_token"]},
         json={"revision_number": 1},
     )
@@ -252,9 +244,7 @@ def test_restore_rejects_replayed_step_up_token(
 
     replay = api_client.post(
         f"/api/v1/admin/reports/{shared_report.id}/restore",
-        headers=_headers(
-            elevated_admin_bearer_headers, "admin-restore-replay-token-0002"
-        )
+        headers=_headers(elevated_admin_bearer_headers, "admin-restore-replay-token-0002")
         | report_restore_step_up_headers,
         json={"revision_number": 1},
     )
@@ -356,10 +346,7 @@ def test_admin_edit_reuses_shared_save_service_with_admin_edit_reason(
 
     assert response.status_code == 200
     assert response.json["data"]["current_revision_number"] == 2
-    assert (
-        response.json["data"]["content"]["narrative"]
-        == "Fictional admin-authored correction."
-    )
+    assert response.json["data"]["content"]["narrative"] == "Fictional admin-authored correction."
     with db_session_factory() as verification:
         revision = verification.scalar(
             select(ReportRevision).where(
@@ -368,9 +355,7 @@ def test_admin_edit_reuses_shared_save_service_with_admin_edit_reason(
             )
         )
         assert revision.reason == "admin_edit"
-        assert (
-            revision.editor_staff_member_id == fictional_admin_account.staff_member_id
-        )
+        assert revision.editor_staff_member_id == fictional_admin_account.staff_member_id
 
 
 def test_admin_edit_optimistic_concurrency_conflict(
@@ -402,12 +387,8 @@ def test_admin_edit_idempotent_replay_is_stable(
     headers = _headers(elevated_admin_bearer_headers, "admin-edit-replay-0001")
     body = _save_body("Fictional replayed admin edit.")
 
-    first = api_client.patch(
-        f"/api/v1/admin/reports/{shared_report.id}", headers=headers, json=body
-    )
-    replay = api_client.patch(
-        f"/api/v1/admin/reports/{shared_report.id}", headers=headers, json=body
-    )
+    first = api_client.patch(f"/api/v1/admin/reports/{shared_report.id}", headers=headers, json=body)
+    replay = api_client.patch(f"/api/v1/admin/reports/{shared_report.id}", headers=headers, json=body)
 
     assert first.status_code == replay.status_code == 200
     assert first.json["data"] == replay.json["data"]
@@ -476,25 +457,19 @@ def test_admin_restore_uses_closed_source_revision_body(
     db_session.commit()
     api_client.patch(
         f"/api/v1/admin/reports/{shared_report.id}",
-        headers=_headers(
-            elevated_admin_bearer_headers, "admin-restore-prior-save-0001"
-        ),
+        headers=_headers(elevated_admin_bearer_headers, "admin-restore-prior-save-0001"),
         json=_save_body("Fictional content before admin restore."),
     )
 
     response = api_client.post(
         f"/api/v1/admin/reports/{shared_report.id}/restore",
-        headers=_headers(elevated_admin_bearer_headers, "admin-restore-0001")
-        | report_restore_step_up_headers,
+        headers=_headers(elevated_admin_bearer_headers, "admin-restore-0001") | report_restore_step_up_headers,
         json={"revision_number": 1},
     )
 
     assert response.status_code == 200
     assert response.json["data"]["current_revision_number"] == 3
-    assert (
-        response.json["data"]["content"]["narrative"]
-        == "Fictional initial report narrative."
-    )
+    assert response.json["data"]["content"]["narrative"] == "Fictional initial report narrative."
     with db_session_factory() as verification:
         source = verification.scalar(
             select(ReportRevision).where(
@@ -515,8 +490,7 @@ def test_admin_restore_uses_closed_source_revision_body(
 
 def test_admin_restore_rejects_obsolete_revision_scoped_path(api_client):
     response = api_client.post(
-        "/api/v1/admin/reports/00000000-0000-4000-8000-000000000041/"
-        "revisions/1/restore",
+        "/api/v1/admin/reports/00000000-0000-4000-8000-000000000041/revisions/1/restore",
         json={},
     )
     assert response.status_code == 404
@@ -539,8 +513,7 @@ def test_admin_transfer_replaces_access_and_creates_ownership_revision(
 
     response = api_client.post(
         f"/api/v1/admin/reports/{shared_report.id}/transfer",
-        headers=_headers(elevated_admin_bearer_headers, "admin-transfer-0001")
-        | report_transfer_step_up_headers,
+        headers=_headers(elevated_admin_bearer_headers, "admin-transfer-0001") | report_transfer_step_up_headers,
         json={
             "new_owner_staff_id": str(new_owner.staff_member_id),
             "reason": "Fictional reassignment for coverage.",
@@ -548,9 +521,7 @@ def test_admin_transfer_replaces_access_and_creates_ownership_revision(
     )
 
     assert response.status_code == 200
-    assert response.json["data"]["reporting_staff_member_id"] == str(
-        new_owner.staff_member_id
-    )
+    assert response.json["data"]["reporting_staff_member_id"] == str(new_owner.staff_member_id)
     with db_session_factory() as verification:
         report = verification.get(Report, shared_report.id)
         assert report.reporting_staff_member_id == new_owner.staff_member_id
@@ -560,9 +531,7 @@ def test_admin_transfer_replaces_access_and_creates_ownership_revision(
                 ReportAccess.revoked_at.is_(None),
             )
         ).all()
-        assert {row.staff_member_id for row in live_access} >= {
-            new_owner.staff_member_id
-        }
+        assert {row.staff_member_id for row in live_access} >= {new_owner.staff_member_id}
         events = verification.scalars(
             select(AuditEvent).where(
                 AuditEvent.target_id == shared_report.id,
@@ -615,14 +584,10 @@ def test_admin_transfer_rejects_blank_reason(
 
     response = api_client.post(
         f"/api/v1/admin/reports/{shared_report.id}/transfer",
-        headers=_headers(
-            elevated_admin_bearer_headers, "admin-transfer-blank-reason-0001"
-        )
+        headers=_headers(elevated_admin_bearer_headers, "admin-transfer-blank-reason-0001")
         | report_transfer_step_up_headers,
         json={
-            "new_owner_staff_id": str(
-                fictional_staff_and_accounts.unrelated.staff_member_id
-            ),
+            "new_owner_staff_id": str(fictional_staff_and_accounts.unrelated.staff_member_id),
             "reason": "   ",
         },
     )
@@ -649,8 +614,7 @@ def test_admin_transfer_idempotent_replay_is_stable(
 
     first = api_client.post(
         f"/api/v1/admin/reports/{shared_report.id}/transfer",
-        headers=_headers(elevated_admin_bearer_headers, idem_key)
-        | report_transfer_step_up_headers,
+        headers=_headers(elevated_admin_bearer_headers, idem_key) | report_transfer_step_up_headers,
         json=body,
     )
     # A step-up token is single-use even on an idempotent replay -- the
@@ -665,8 +629,7 @@ def test_admin_transfer_idempotent_replay_is_stable(
     replay = api_client.post(
         f"/api/v1/admin/reports/{shared_report.id}/transfer",
         headers=(
-            _headers(elevated_admin_bearer_headers, idem_key)
-            | {"X-Admin-Step-Up": fresh_step_up["step_up_token"]}
+            _headers(elevated_admin_bearer_headers, idem_key) | {"X-Admin-Step-Up": fresh_step_up["step_up_token"]}
         ),
         json=body,
     )
@@ -691,12 +654,8 @@ def test_admin_transfer_replay_preserves_original_ownership_after_later_transfer
     db_session.commit()
     transfer_a_key = "admin-transfer-a-0001"
     transfer_a_body = {
-        "new_owner_staff_id": str(
-            fictional_staff_and_accounts.unrelated.staff_member_id
-        ),
-        "new_preparer_staff_id": str(
-            fictional_staff_and_accounts.preparer.staff_member_id
-        ),
+        "new_owner_staff_id": str(fictional_staff_and_accounts.unrelated.staff_member_id),
+        "new_preparer_staff_id": str(fictional_staff_and_accounts.preparer.staff_member_id),
         "reason": "Fictional first ownership transfer.",
     }
     first = api_client.post(
@@ -722,20 +681,13 @@ def test_admin_transfer_replay_preserves_original_ownership_after_later_transfer
             "X-Admin-Step-Up": transfer_b_step_up["step_up_token"],
         },
         json={
-            "new_owner_staff_id": str(
-                fictional_staff_and_accounts.user.staff_member_id
-            ),
-            "new_preparer_staff_id": str(
-                fictional_staff_and_accounts.preparer.staff_member_id
-            ),
+            "new_owner_staff_id": str(fictional_staff_and_accounts.user.staff_member_id),
+            "new_preparer_staff_id": str(fictional_staff_and_accounts.preparer.staff_member_id),
             "reason": "Fictional second ownership transfer.",
         },
     )
     assert second.status_code == 200
-    assert (
-        second.json["data"]["reporting_staff_member_id"]
-        != (first.json["data"]["reporting_staff_member_id"])
-    )
+    assert second.json["data"]["reporting_staff_member_id"] != (first.json["data"]["reporting_staff_member_id"])
 
     replay_step_up = _confirm_admin_pin(
         api_client,
@@ -889,22 +841,15 @@ def test_admin_revision_history_exposes_full_attribution(
         "is_current",
     }
     assert "content" not in item
-    assert (
-        detail.json["data"]["content"]["narrative"]
-        == "Fictional initial report narrative."
-    )
+    assert detail.json["data"]["content"]["narrative"] == "Fictional initial report narrative."
     assert UUID(item["editor_account_id"])
 
 
 def test_admin_report_openapi_rejects_empty_filters_and_matches_runtime_contracts():
-    document = yaml.safe_load(
-        Path("openapi/access-v1.yaml").read_text(encoding="utf-8")
-    )
+    document = yaml.safe_load(Path("openapi/access-v1.yaml").read_text(encoding="utf-8"))
     paths = document["paths"]
     search_parameters = {
-        item["name"]: item["schema"]
-        for item in paths["/api/v1/admin/reports"]["get"]["parameters"]
-        if "name" in item
+        item["name"]: item["schema"] for item in paths["/api/v1/admin/reports"]["get"]["parameters"] if "name" in item
     }
     for name in {
         "sort",
@@ -927,9 +872,7 @@ def test_admin_report_openapi_rejects_empty_filters_and_matches_runtime_contract
     transfer = schemas["AdminReportTransferRequest"]
     preparer_options = transfer["properties"]["new_preparer_staff_id"]["oneOf"]
     assert {option.get("type") for option in preparer_options} == {None, "null"}
-    assert any(
-        option.get("$ref") == "#/components/schemas/Uuid" for option in preparer_options
-    )
+    assert any(option.get("$ref") == "#/components/schemas/Uuid" for option in preparer_options)
 
     expected_conflicts = {
         "#/components/schemas/ReportRevisionConflictEnvelope",
@@ -938,8 +881,6 @@ def test_admin_report_openapi_rejects_empty_filters_and_matches_runtime_contract
         "#/components/schemas/ClientUpgradeRequiredEnvelope",
     }
     for suffix in ("restore", "transfer"):
-        response = paths[f"/api/v1/admin/reports/{{report_id}}/{suffix}"]["post"][
-            "responses"
-        ]["409"]
+        response = paths[f"/api/v1/admin/reports/{{report_id}}/{suffix}"]["post"]["responses"]["409"]
         options = response["content"]["application/json"]["schema"]["oneOf"]
         assert {option["$ref"] for option in options} == expected_conflicts

@@ -17,10 +17,7 @@ def main(argv=None) -> int:
     parser.add_argument("--limit", type=int, default=100)
     args = parser.parse_args(argv)
     summary = dispatch_pending(limit=args.limit)
-    print(
-        f"dispatched={summary.dispatched} failed={summary.failed} "
-        f"pending={summary.pending}"
-    )
+    print(f"dispatched={summary.dispatched} failed={summary.failed} pending={summary.pending}")
     return 0 if summary.failed == 0 else 1
 
 

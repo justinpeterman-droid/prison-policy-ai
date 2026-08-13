@@ -152,9 +152,7 @@ def test_renewal_rotates_hashes_preserves_nonpersistent_absolute_expiry():
         audit_writer=audit,
         request_id="request-renew-1",
     )
-    history = next(
-        value for value in session.added if isinstance(value, RenewalTokenHistory)
-    )
+    history = next(value for value in session.added if isinstance(value, RenewalTokenHistory))
     assert history.token_hash == old_renewal_hash
     assert current.renewal_token_hash == hash_token(rotated.renewal_token)
     assert rotated.renewal_expires_at == NOW + timedelta(hours=12)
@@ -213,9 +211,7 @@ def test_list_sessions_returns_only_safe_summary_fields():
         settings=SETTINGS,
     )
     session = FakeSession(setup.added)
-    summaries = list_sessions(
-        session, account_id=account.id, current_session_id=pair.session_id
-    )
+    summaries = list_sessions(session, account_id=account.id, current_session_id=pair.session_id)
     assert len(summaries) == 1 and summaries[0].current is True
     assert set(summaries[0].__dict__) == {
         "session_id",

@@ -123,15 +123,9 @@ def test_enabled_admin_can_open_the_lab(monkeypatch, fake_store):
     assert "Field notes" in response.get_data(as_text=True)
 
 
-def test_review_page_has_review_controls_readonly_notes_and_versioned_script(
-    monkeypatch, fake_store
-):
+def test_review_page_has_review_controls_readonly_notes_and_versioned_script(monkeypatch, fake_store):
     app = configured_app(monkeypatch, enabled=True, store=fake_store)
-    body = (
-        logged_in(app, ADMIN)
-        .get("/review-lab?demo=inmate_fight_dayroom")
-        .get_data(as_text=True)
-    )
+    body = logged_in(app, ADMIN).get("/review-lab?demo=inmate_fight_dayroom").get_data(as_text=True)
 
     assert 'id="reviewSubmit"' in body
     assert 'id="reviewScore"' in body
@@ -141,9 +135,7 @@ def test_review_page_has_review_controls_readonly_notes_and_versioned_script(
     assert "/static/js/review-lab.js?v=" in body
 
 
-def test_ordinary_reports_page_has_no_review_controls_or_readonly_notes(
-    monkeypatch, fake_store
-):
+def test_ordinary_reports_page_has_no_review_controls_or_readonly_notes(monkeypatch, fake_store):
     app = configured_app(monkeypatch, enabled=True, store=fake_store)
     body = logged_in(app, ADMIN).get("/reports").get_data(as_text=True)
 
@@ -155,14 +147,10 @@ def test_ordinary_reports_page_has_no_review_controls_or_readonly_notes(
 def test_review_lab_navigation_is_admin_and_feature_flag_only(monkeypatch, fake_store):
     enabled = configured_app(monkeypatch, enabled=True, store=fake_store)
     assert "/review-lab" in logged_in(enabled, ADMIN).get("/").get_data(as_text=True)
-    assert "/review-lab" not in logged_in(enabled, REGULAR).get("/").get_data(
-        as_text=True
-    )
+    assert "/review-lab" not in logged_in(enabled, REGULAR).get("/").get_data(as_text=True)
 
     disabled = configured_app(monkeypatch, enabled=False, store=fake_store)
-    assert "/review-lab" not in logged_in(disabled, ADMIN).get("/").get_data(
-        as_text=True
-    )
+    assert "/review-lab" not in logged_in(disabled, ADMIN).get("/").get_data(as_text=True)
 
 
 def test_review_lab_script_is_served(monkeypatch, fake_store):
@@ -177,9 +165,7 @@ def test_review_lab_script_is_served(monkeypatch, fake_store):
 def test_admin_submission_is_validated_saved_and_returned(monkeypatch, fake_store):
     app = configured_app(monkeypatch, enabled=True, store=fake_store)
 
-    response = logged_in(app, ADMIN).post(
-        "/api/review-lab/submissions", json=valid_payload()
-    )
+    response = logged_in(app, ADMIN).post("/api/review-lab/submissions", json=valid_payload())
 
     assert response.status_code == 201
     body = response.get_json()
@@ -191,9 +177,7 @@ def test_admin_submission_is_validated_saved_and_returned(monkeypatch, fake_stor
 def test_invalid_submission_returns_400(monkeypatch, fake_store):
     app = configured_app(monkeypatch, enabled=True, store=fake_store)
 
-    response = logged_in(app, ADMIN).post(
-        "/api/review-lab/submissions", json={"scenario_id": "not-a-demo"}
-    )
+    response = logged_in(app, ADMIN).post("/api/review-lab/submissions", json={"scenario_id": "not-a-demo"})
 
     assert response.status_code == 400
     assert "error" in response.get_json()
@@ -202,9 +186,7 @@ def test_invalid_submission_returns_400(monkeypatch, fake_store):
 def test_storage_failure_returns_503(monkeypatch):
     app = configured_app(monkeypatch, enabled=True, store=UnavailableStore())
 
-    response = logged_in(app, ADMIN).post(
-        "/api/review-lab/submissions", json=valid_payload()
-    )
+    response = logged_in(app, ADMIN).post("/api/review-lab/submissions", json=valid_payload())
 
     assert response.status_code == 503
     assert "saved" in response.get_json()["error"].lower()
@@ -213,9 +195,7 @@ def test_storage_failure_returns_503(monkeypatch):
 def test_admin_can_list_download_and_export_saved_reviews(monkeypatch, fake_store):
     app = configured_app(monkeypatch, enabled=True, store=fake_store)
     client = logged_in(app, ADMIN)
-    created = client.post(
-        "/api/review-lab/submissions", json=valid_payload()
-    ).get_json()
+    created = client.post("/api/review-lab/submissions", json=valid_payload()).get_json()
     submission_id = created["submission_id"]
 
     listing = client.get("/api/review-lab/submissions").get_json()

@@ -21,9 +21,7 @@ MODEL_NAME = "gemini-2.5-flash"
 
 PDF_DIR = Path(r"C:\Users\justi\OneDrive\Desktop\ADC Policies")
 OUTPUT_DIR = Path(r"C:\Users\justi\workspace\prison-policy-ai\data\ocr_output")
-PROGRESS_FILE = Path(
-    r"C:\Users\justi\workspace\prison-policy-ai\scripts\ocr_progress.json"
-)
+PROGRESS_FILE = Path(r"C:\Users\justi\workspace\prison-policy-ai\scripts\ocr_progress.json")
 
 MIN_TEXT_CHARS = 50
 DELAY_SECONDS = 2
@@ -90,9 +88,7 @@ def process_pdf(pdf_path, model, progress):
                     err = str(e)[:200]
                     print(f"    Page {i + 1} OCR FAILED: {err}")
                     all_text.append(f"--- Page {i + 1} (OCR FAILED: {err}) ---")
-                    progress.setdefault("failed", []).append(
-                        {"pdf": pdf_name, "page": i + 1, "error": err}
-                    )
+                    progress.setdefault("failed", []).append({"pdf": pdf_name, "page": i + 1, "error": err})
 
         doc.close()
 
@@ -106,9 +102,7 @@ def process_pdf(pdf_path, model, progress):
         progress["total_pages_ocrd"] += pages_ocrd
         save_progress(progress)
 
-        print(
-            f"    → {out_path} ({len(full_text):,} chars) [{pages_text} text, {pages_ocrd} OCR]"
-        )
+        print(f"    → {out_path} ({len(full_text):,} chars) [{pages_text} text, {pages_ocrd} OCR]")
         return {
             "pdf": pdf_name,
             "pages": num_pages,
@@ -155,10 +149,7 @@ def main():
         scanned = []
         for pdf_path, num_pages in pdfs:
             doc = fitz.open(str(pdf_path))
-            has_text = any(
-                len(doc[i].get_text().strip()) >= MIN_TEXT_CHARS
-                for i in range(num_pages)
-            )
+            has_text = any(len(doc[i].get_text().strip()) >= MIN_TEXT_CHARS for i in range(num_pages))
             doc.close()
             if not has_text:
                 scanned.append(pdf_path)

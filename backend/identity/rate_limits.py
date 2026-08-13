@@ -74,11 +74,7 @@ def consume_limit(
         if allowed
         else max(
             1,
-            math.ceil(
-                (
-                    row.window_started_at + timedelta(seconds=WINDOW_SECONDS) - now
-                ).total_seconds()
-            ),
+            math.ceil((row.window_started_at + timedelta(seconds=WINDOW_SECONDS) - now).total_seconds()),
         )
     )
     return RateLimitDecision(allowed, retry)

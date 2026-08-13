@@ -35,32 +35,22 @@ class GooglePrivateObjectStore:
 
     def __init__(self, client=None):
         if client is None:
-            from google.cloud import storage
+            from google.cloud.storage import Client
 
-            client = storage.Client()
+            client = Client()
         self._client = client
 
     @staticmethod
     def _location(uri: str) -> tuple[str, str]:
         parsed = urlparse(uri)
         object_name = parsed.path.lstrip("/")
-        if (
-            parsed.scheme != "gs"
-            or not parsed.netloc
-            or not object_name
-            or parsed.query
-            or parsed.fragment
-        ):
+        if parsed.scheme != "gs" or not parsed.netloc or not object_name or parsed.query or parsed.fragment:
             raise ValueError("private object URI is invalid")
         return parsed.netloc, object_name
 
     def read(self, uri: str, *, max_bytes: int) -> bytes:
         bucket, object_name = self._location(uri)
-        payload = (
-            self._client.bucket(bucket)
-            .blob(object_name)
-            .download_as_bytes(start=0, end=max_bytes)
-        )
+        payload = self._client.bucket(bucket).blob(object_name).download_as_bytes(start=0, end=max_bytes)
         if len(payload) > max_bytes:
             raise ValueError("private object exceeds maximum size")
         return payload
@@ -107,11 +97,7 @@ def _text(row: dict[str, Any], key: str, maximum: int) -> str | None:
     if not isinstance(value, str):
         return None
     value = value.strip()
-    if (
-        not value
-        or len(value) > maximum
-        or any(ord(character) < 32 for character in value)
-    ):
+    if not value or len(value) > maximum or any(ord(character) < 32 for character in value):
         return None
     return value
 
@@ -155,14 +141,11 @@ def build_roster_plan(
     source_sha256 = hashlib.sha256(exact_bytes).hexdigest()
     findings: list[RosterFinding] = []
     if expected_sha256 is not None and (
-        not re.fullmatch(r"[0-9a-f]{64}", expected_sha256)
-        or expected_sha256 != source_sha256
+        not re.fullmatch(r"[0-9a-f]{64}", expected_sha256) or expected_sha256 != source_sha256
     ):
         findings.append(RosterFinding("source_hash_mismatch"))
     if not isinstance(rows, list) or not isinstance(corrections, dict):
-        return RosterImportPlan(
-            source_sha256, (RosterFinding("invalid_source_schema"),), (), ()
-        )
+        return RosterImportPlan(source_sha256, (RosterFinding("invalid_source_schema"),), (), ())
 
     existing = [_existing_values(row) for row in existing_staff]
     by_employee = {row["employee_number"]: row for row in existing}
@@ -214,9 +197,7 @@ def build_roster_plan(
     updates: list[dict[str, str]] = []
     for row_number, row in normalized_rows:
         current = by_employee.get(row["employee_number"])
-        name_matches = by_name.get(
-            (row["first_name"].casefold(), row["last_name"].casefold()), []
-        )
+        name_matches = by_name.get((row["first_name"].casefold(), row["last_name"].casefold()), [])
         try:
             approved_id = _approved_target(corrections, row["employee_number"])
         except (KeyError, TypeError, ValueError):
@@ -248,16 +229,12 @@ def build_roster_plan(
 
     if set(corrections) != used_corrections:
         findings.append(RosterFinding("unapproved_correction"))
-    unique_findings = tuple(
-        dict.fromkeys((finding.code, finding.row_number) for finding in findings)
-    )
+    unique_findings = tuple(dict.fromkeys((finding.code, finding.row_number) for finding in findings))
     closed_findings = tuple(RosterFinding(*finding) for finding in unique_findings)
     if closed_findings:
         inserts = []
         updates = []
-    return RosterImportPlan(
-        source_sha256, closed_findings, tuple(inserts), tuple(updates)
-    )
+    return RosterImportPlan(source_sha256, closed_findings, tuple(inserts), tuple(updates))
 
 
 def apply_roster_plan(
@@ -269,10 +246,7 @@ def apply_roster_plan(
 ) -> RosterImportResult:
     if not plan.ready:
         raise ValueError("roster plan is not approved for apply")
-    if (
-        source_bytes is not None
-        and hashlib.sha256(source_bytes).hexdigest() != plan.source_sha256
-    ):
+    if source_bytes is not None and hashlib.sha256(source_bytes).hexdigest() != plan.source_sha256:
         raise ValueError("approved source hash changed before apply")
     UUID(import_run_id)
     session = session_factory()
@@ -292,11 +266,7 @@ def apply_roster_plan(
                 import_roster(session, service_rows, apply=True)
             for update in plan.updates:
                 staff_id = UUID(update["staff_member_id"])
-                staff = session.scalar(
-                    select(StaffMember)
-                    .where(StaffMember.id == staff_id)
-                    .with_for_update()
-                )
+                staff = session.scalar(select(StaffMember).where(StaffMember.id == staff_id).with_for_update())
                 if staff is None:
                     raise ValueError("approved roster mapping changed before apply")
                 for key in _ROW_KEYS:
@@ -325,18 +295,14 @@ def _decode_source(payload: bytes) -> list[dict[str, Any]]:
 
 
 def _current_migration_revision(session: Session) -> str:
-    revision = session.execute(
-        text("SELECT version_num FROM alembic_version")
-    ).scalar_one()
+    revision = session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-z_]{1,64}", revision):
         raise RuntimeError("migration revision is invalid")
     return revision
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Validation-first controlled roster import"
-    )
+    parser = argparse.ArgumentParser(description="Validation-first controlled roster import")
     parser.add_argument("--source-uri", required=True)
     parser.add_argument("--corrections-uri", required=True)
     parser.add_argument("--report-uri", required=True)

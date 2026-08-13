@@ -15,12 +15,7 @@ class TestContainsAny:
         assert contains_any("nothing here", "prea") is False
 
     def test_synonym_list_any_of(self):
-        assert (
-            contains_any(
-                "Prison Rape Elimination Act", ["PREA", "Prison Rape Elimination Act"]
-            )
-            is True
-        )
+        assert contains_any("Prison Rape Elimination Act", ["PREA", "Prison Rape Elimination Act"]) is True
         assert contains_any("unrelated", ["PREA", "sexual misconduct"]) is False
 
     def test_empty_text(self):

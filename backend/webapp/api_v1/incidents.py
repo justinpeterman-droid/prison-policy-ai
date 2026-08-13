@@ -68,9 +68,7 @@ def _body(*, exact: set[str] | None = None, allowed: set[str] | None = None) -> 
     if not isinstance(value, dict):
         raise ApiError("validation_failed", "The request body is invalid.", status=400)
     keys = set(value)
-    if (exact is not None and keys != exact) or (
-        allowed is not None and (not keys or not keys <= allowed)
-    ):
+    if (exact is not None and keys != exact) or (allowed is not None and (not keys or not keys <= allowed)):
         raise ApiError("validation_failed", "The request body is invalid.", status=400)
     return value
 
@@ -173,9 +171,7 @@ def _handle_write(operation):
         return success(_view_data(result), status=status)
     except RequestInProgress as error:
         db.rollback()
-        raise ApiError(
-            "request_in_progress", str(error), status=409, retryable=True
-        ) from None
+        raise ApiError("request_in_progress", str(error), status=409, retryable=True) from None
     except IdempotencyConflict as error:
         db.rollback()
         raise ApiError("idempotency_conflict", str(error), status=409) from None
@@ -192,9 +188,7 @@ def _handle_write(operation):
         raise ApiError("not_found", "Incident not found.", status=404) from None
     except (ValidationError, ValueError):
         db.rollback()
-        raise ApiError(
-            "validation_failed", "The incident request is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "The incident request is invalid.", status=400) from None
     except IntegrityError:
         db.rollback()
         raise ApiError(
@@ -233,13 +227,9 @@ def _handle_write(operation):
 def create_route():
     payload = _body(exact=CREATE_FIELDS)
     try:
-        model = SaveIncidentRequest.model_validate(
-            {"field_notes": payload["field_notes"]}
-        )
+        model = SaveIncidentRequest.model_validate({"field_notes": payload["field_notes"]})
     except ValidationError:
-        raise ApiError(
-            "validation_failed", "The incident request is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "The incident request is invalid.", status=400) from None
     req_id, version = _metadata()
     return _handle_write(
         lambda db: (
@@ -262,11 +252,7 @@ def create_route():
 @require_access_token
 def get_route(incident_id: UUID):
     try:
-        return success(
-            _view_data(
-                get_incident(current_request_session(), current_actor(), incident_id)
-            )
-        )
+        return success(_view_data(get_incident(current_request_session(), current_actor(), incident_id)))
     except IncidentNotFound:
         raise ApiError("not_found", "Incident not found.", status=404) from None
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
@@ -284,15 +270,11 @@ def get_route(incident_id: UUID):
 def save_route(incident_id: UUID):
     payload = _body(allowed=SAVE_FIELDS)
     if "field_notes" not in payload or "base_revision_number" not in payload:
-        raise ApiError(
-            "validation_failed", "The incident request is invalid.", status=400
-        )
+        raise ApiError("validation_failed", "The incident request is invalid.", status=400)
     try:
         model = SaveIncidentRequest.model_validate_json(json.dumps(payload))
     except ValidationError:
-        raise ApiError(
-            "validation_failed", "The incident request is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "The incident request is invalid.", status=400) from None
     _validate_if_match(model.base_revision_number)
     req_id, version = _metadata()
     return _handle_write(
@@ -332,15 +314,11 @@ def revision_list_route(incident_id: UUID):
         return success(
             {
                 "items": [_revision_summary(row) for row in page.items],
-                "next_cursor": encode_cursor(page.next_cursor, key)
-                if page.next_cursor
-                else None,
+                "next_cursor": encode_cursor(page.next_cursor, key) if page.next_cursor else None,
             }
         )
     except (InvalidCursor, ValueError):
-        raise ApiError(
-            "validation_failed", "Revision pagination is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "Revision pagination is invalid.", status=400) from None
     except IncidentNotFound:
         raise ApiError("not_found", "Incident not found.", status=404) from None
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
@@ -359,9 +337,7 @@ def revision_list_route(incident_id: UUID):
 @require_access_token
 def revision_detail_route(incident_id: UUID, revision_number: int):
     try:
-        row = get_incident_revision(
-            current_request_session(), current_actor(), incident_id, revision_number
-        )
+        row = get_incident_revision(current_request_session(), current_actor(), incident_id, revision_number)
         return success(_revision_data(row))
     except (IncidentNotFound, IncidentRevisionNotFound):
         raise ApiError("not_found", "Incident not found.", status=404) from None

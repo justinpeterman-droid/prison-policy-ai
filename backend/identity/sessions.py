@@ -48,9 +48,7 @@ class SessionSummary:
 
 def _profile(account: Account) -> dict[str, str | None]:
     staff = account.staff_member
-    display_name = " ".join(
-        part for part in (staff.rank, staff.first_name, staff.last_name) if part
-    )
+    display_name = " ".join(part for part in (staff.rank, staff.first_name, staff.last_name) if part)
     return {
         "staff_id": str(staff.id),
         "employee_number": staff.employee_number,
@@ -102,9 +100,7 @@ def create_session(
     access = issue_credential()
     renewal = issue_credential()
     renewal_seconds = (
-        settings.persistent_renewal_ttl_seconds
-        if persistent
-        else settings.nonpersistent_renewal_ttl_seconds
+        settings.persistent_renewal_ttl_seconds if persistent else settings.nonpersistent_renewal_ttl_seconds
     )
     stored = AccessSession(
         account_id=account.id,
@@ -171,9 +167,7 @@ def login(
     return pair
 
 
-def _account_for_session(
-    session: Session, stored: AccessSession, *, lock: bool = False
-) -> Account | None:
+def _account_for_session(session: Session, stored: AccessSession, *, lock: bool = False) -> Account | None:
     statement = (
         select(Account)
         .join(StaffMember, Account.staff_member_id == StaffMember.id)
@@ -183,9 +177,7 @@ def _account_for_session(
         statement = statement.with_for_update(of=(Account, StaffMember))
     account = session.scalar(statement)
     if account is not None and "staff_member" not in account.__dict__:
-        account.staff_member = session.scalar(
-            select(StaffMember).where(StaffMember.id == account.staff_member_id)
-        )
+        account.staff_member = session.scalar(select(StaffMember).where(StaffMember.id == account.staff_member_id))
     return account
 
 
@@ -227,23 +219,15 @@ def renew_session(
 ) -> SessionTokenPair:
     supplied_hash = hash_token(supplied_renewal_token)
     current = session.scalar(
-        select(AccessSession)
-        .where(AccessSession.renewal_token_hash == supplied_hash)
-        .with_for_update()
+        select(AccessSession).where(AccessSession.renewal_token_hash == supplied_hash).with_for_update()
     )
     if current is None:
         history = session.scalar(
-            select(RenewalTokenHistory)
-            .where(RenewalTokenHistory.token_hash == supplied_hash)
-            .with_for_update()
+            select(RenewalTokenHistory).where(RenewalTokenHistory.token_hash == supplied_hash).with_for_update()
         )
         if history is None:
             raise SessionReauthenticationRequired()
-        current = session.scalar(
-            select(AccessSession)
-            .where(AccessSession.id == history.session_id)
-            .with_for_update()
-        )
+        current = session.scalar(select(AccessSession).where(AccessSession.id == history.session_id).with_for_update())
         if current is None:
             raise SessionReauthenticationRequired()
         account = _account_for_session(session, current)
@@ -269,9 +253,7 @@ def renew_session(
     account = _account_for_session(session, current, lock=True)
     if account is None:
         raise SessionReauthenticationRequired()
-    expected_device_hash = hash_device_id(
-        device_id, settings.identity_hash_pepper or ""
-    )
+    expected_device_hash = hash_device_id(device_id, settings.identity_hash_pepper or "")
     if (
         current.revoked_at is not None
         or current.renewal_expires_at <= now
@@ -298,9 +280,7 @@ def renew_session(
     current.access_expires_at = now + timedelta(seconds=settings.access_ttl_seconds)
     current.last_used_at = now
     if current.persistent:
-        current.renewal_expires_at = now + timedelta(
-            seconds=settings.persistent_renewal_ttl_seconds
-        )
+        current.renewal_expires_at = now + timedelta(seconds=settings.persistent_renewal_ttl_seconds)
     audit_writer.append(
         session,
         AuditEventInput(
@@ -324,11 +304,7 @@ def resolve_access_session(
     access_token: str,
     now: datetime,
 ) -> tuple[AccessSession, Account]:
-    stored = session.scalar(
-        select(AccessSession).where(
-            AccessSession.access_token_hash == hash_token(access_token)
-        )
-    )
+    stored = session.scalar(select(AccessSession).where(AccessSession.access_token_hash == hash_token(access_token)))
     if stored is None:
         raise SessionReauthenticationRequired()
     account = _account_for_session(session, stored)
@@ -352,11 +328,7 @@ def revoke_session(
     audit_writer: AuditWriter,
     request_id: str,
 ) -> int:
-    target = session.scalar(
-        select(AccessSession)
-        .where(AccessSession.id == target_session_id)
-        .with_for_update()
-    )
+    target = session.scalar(select(AccessSession).where(AccessSession.id == target_session_id).with_for_update())
     if target is None or target.account_id != actor_account_id:
         raise SessionReauthenticationRequired()
     account = _account_for_session(session, target)
@@ -395,9 +367,7 @@ def logout_all(
             .with_for_update()
         ).all()
     )
-    account = session.scalar(
-        select(Account).where(Account.id == account_id).with_for_update()
-    )
+    account = session.scalar(select(Account).where(Account.id == account_id).with_for_update())
     if account is None:
         raise SessionReauthenticationRequired()
     account.auth_version += 1
@@ -444,15 +414,11 @@ def change_pin(
         )
         .with_for_update()
     )
-    account = session.scalar(
-        select(Account).where(Account.id == account_id).with_for_update()
-    )
+    account = session.scalar(select(Account).where(Account.id == account_id).with_for_update())
     if account is None or current is None:
         raise SessionReauthenticationRequired()
     if "staff_member" not in account.__dict__:
-        account.staff_member = session.scalar(
-            select(StaffMember).where(StaffMember.id == account.staff_member_id)
-        )
+        account.staff_member = session.scalar(select(StaffMember).where(StaffMember.id == account.staff_member_id))
     expected_device = hash_device_id(device_id, settings.identity_hash_pepper or "")
     if (
         current.revoked_at is not None
@@ -500,9 +466,7 @@ def change_pin(
     current.access_expires_at = now + timedelta(seconds=settings.access_ttl_seconds)
     current.last_used_at = now
     if current.persistent:
-        current.renewal_expires_at = now + timedelta(
-            seconds=settings.persistent_renewal_ttl_seconds
-        )
+        current.renewal_expires_at = now + timedelta(seconds=settings.persistent_renewal_ttl_seconds)
     audit_writer.append(
         session,
         AuditEventInput(

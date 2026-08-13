@@ -15,9 +15,7 @@ from backend.persistence.models import Account, StaffMember
 
 
 NOW = datetime(2026, 8, 12, 15, 0, tzinfo=UTC)
-SETTINGS = IdentitySettings(
-    True, "postgresql+psycopg://fictional.invalid/test", "p" * 32, "c" * 32
-)
+SETTINGS = IdentitySettings(True, "postgresql+psycopg://fictional.invalid/test", "p" * 32, "c" * 32)
 
 
 class FakeSession:

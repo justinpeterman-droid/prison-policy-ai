@@ -8,9 +8,7 @@ CHUNK_SIZE = 1000  # characters (matching existing pipeline)
 CHUNK_OVERLAP = 200
 
 INPUT_DIR = Path(r"C:\Users\justi\workspace\prison-policy-ai\data\ocr_output")
-OUTPUT_FILE = Path(
-    r"C:\Users\justi\workspace\prison-policy-ai\data\ocr_chunks_v3.jsonl"
-)
+OUTPUT_FILE = Path(r"C:\Users\justi\workspace\prison-policy-ai\data\ocr_chunks_v3.jsonl")
 
 
 def chunk_text(text, source, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):

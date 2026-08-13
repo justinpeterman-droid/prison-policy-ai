@@ -131,18 +131,14 @@ def _parse_timestamp(value: str) -> datetime:
             raise ValueError
         return parsed.astimezone(UTC)
     except (TypeError, ValueError):
-        raise ApiError(
-            "validation_failed", "Audit filters are invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "Audit filters are invalid.", status=400) from None
 
 
 def _parse_uuid(value: str) -> UUID:
     try:
         return UUID(value)
     except (TypeError, ValueError):
-        raise ApiError(
-            "validation_failed", "Audit filters are invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "Audit filters are invalid.", status=400) from None
 
 
 def _read_filters(source: dict[str, str]) -> dict[str, object]:
@@ -151,29 +147,21 @@ def _read_filters(source: dict[str, str]) -> dict[str, object]:
     filters: dict[str, object] = {}
     for key, value in source.items():
         if not isinstance(value, str) or not value:
-            raise ApiError(
-                "validation_failed", "Audit filters are invalid.", status=400
-            )
+            raise ApiError("validation_failed", "Audit filters are invalid.", status=400)
         if key in {"occurred_at_from", "occurred_at_to"}:
             filters[key] = _parse_timestamp(value)
         elif key in {"actor_account_id", "actor_staff_member_id", "target_id"}:
             filters[key] = _parse_uuid(value)
         elif key == "result":
             if value not in {"success", "denied", "failed"}:
-                raise ApiError(
-                    "validation_failed", "Audit filters are invalid.", status=400
-                )
+                raise ApiError("validation_failed", "Audit filters are invalid.", status=400)
             filters[key] = value
         elif key == "action_family":
             if not _ACTION_FAMILY.fullmatch(value):
-                raise ApiError(
-                    "validation_failed", "Audit filters are invalid.", status=400
-                )
+                raise ApiError("validation_failed", "Audit filters are invalid.", status=400)
             filters[key] = value
         elif len(value) > 120:
-            raise ApiError(
-                "validation_failed", "Audit filters are invalid.", status=400
-            )
+            raise ApiError("validation_failed", "Audit filters are invalid.", status=400)
         else:
             filters[key] = value
     return filters
@@ -181,9 +169,7 @@ def _read_filters(source: dict[str, str]) -> dict[str, object]:
 
 def _body_filters(value: object) -> dict[str, object]:
     if not isinstance(value, dict) or not set(value) <= _FILTERS:
-        raise ApiError(
-            "validation_failed", "Audit export input is invalid.", status=400
-        )
+        raise ApiError("validation_failed", "Audit export input is invalid.", status=400)
     return _read_filters({key: str(item) for key, item in value.items()})
 
 
@@ -219,13 +205,9 @@ def _event(row: AuditEvent) -> dict[str, object]:
     """Return only the immutable event representation that Access may display."""
     return {
         "event_id": str(row.id),
-        "occurred_at": row.occurred_at.astimezone(UTC)
-        .isoformat()
-        .replace("+00:00", "Z"),
+        "occurred_at": row.occurred_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
         "actor_account_id": str(row.actor_account_id) if row.actor_account_id else None,
-        "actor_staff_member_id": str(row.actor_staff_member_id)
-        if row.actor_staff_member_id
-        else None,
+        "actor_staff_member_id": str(row.actor_staff_member_id) if row.actor_staff_member_id else None,
         "action": row.action,
         "target_type": row.target_type,
         "target_id": str(row.target_id) if row.target_id else None,
@@ -244,9 +226,7 @@ def _csv(rows: list[AuditEvent]) -> bytes:
     return stream.getvalue().encode("utf-8")
 
 
-def _selection_statement(
-    filters: dict[str, object], reference: dict[str, object] | None = None
-) -> Select:
+def _selection_statement(filters: dict[str, object], reference: dict[str, object] | None = None) -> Select:
     statement = _statement(filters)
     if reference is not None:
         try:
@@ -259,8 +239,7 @@ def _selection_statement(
                 status=409,
             ) from None
         statement = statement.where(
-            tuple_(AuditEvent.occurred_at, AuditEvent.id)
-            <= tuple_(literal(occurred), literal(event_id))
+            tuple_(AuditEvent.occurred_at, AuditEvent.id) <= tuple_(literal(occurred), literal(event_id))
         )
     return statement
 
@@ -270,11 +249,7 @@ def _selection_statement(
 @require_role("admin")
 @require_admin_elevation
 def list_events():
-    raw = {
-        key: value
-        for key, value in request.args.items()
-        if key not in {"cursor", "limit"}
-    }
+    raw = {key: value for key, value in request.args.items() if key not in {"cursor", "limit"}}
     filters = _read_filters(raw)
     try:
         limit = parse_page_size(request.args.get("limit", "50"))
@@ -285,14 +260,11 @@ def list_events():
             occurred = _parse_timestamp(str(cursor_data.get("occurred_at", "")))
             event_id = _parse_uuid(str(cursor_data.get("event_id", "")))
             statement = statement.where(
-                tuple_(AuditEvent.occurred_at, AuditEvent.id)
-                > tuple_(occurred, event_id)
+                tuple_(AuditEvent.occurred_at, AuditEvent.id) > tuple_(literal(occurred), literal(event_id))
             )
         rows = list(current_request_session().scalars(statement.limit(limit + 1)))
     except (InvalidCursor, ValueError):
-        raise ApiError(
-            "validation_failed", "Pagination input is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "Pagination input is invalid.", status=400) from None
     except (DatabaseUnavailable, SQLAlchemyError):
         g.identity_db_failed = True
         raise ApiError(
@@ -307,9 +279,7 @@ def list_events():
         last = page[-1]
         next_cursor = encode_cursor(
             {
-                "occurred_at": last.occurred_at.astimezone(UTC)
-                .isoformat()
-                .replace("+00:00", "Z"),
+                "occurred_at": last.occurred_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
                 "event_id": str(last.id),
             },
             _cursor_key(),
@@ -326,18 +296,14 @@ def export_events():
     """Produce a one-time, fixed-column audit CSV after Admin step-up."""
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict) or set(payload) != {"filters", "format", "reason"}:
-        raise ApiError(
-            "validation_failed", "Audit export input is invalid.", status=400
-        )
+        raise ApiError("validation_failed", "Audit export input is invalid.", status=400)
     if (
         payload["format"] != "csv"
         or not isinstance(payload["reason"], str)
         or not payload["reason"].strip()
         or len(payload["reason"]) > 500
     ):
-        raise ApiError(
-            "validation_failed", "Audit export input is invalid.", status=400
-        )
+        raise ApiError("validation_failed", "Audit export input is invalid.", status=400)
     filters = _body_filters(payload["filters"])
     key = request.headers.get("Idempotency-Key", "")
     if not key:
@@ -375,9 +341,7 @@ def export_events():
             ) from None
         rows = list(
             db.scalars(
-                _selection_statement(
-                    filters, claim.response_reference if claim.replayed else None
-                ).limit(10_001)
+                _selection_statement(filters, claim.response_reference if claim.replayed else None).limit(10_001)
             )
         )
         if len(rows) > 10_000:
@@ -386,9 +350,7 @@ def export_events():
                 "Narrow the audit filters before exporting.",
                 status=409,
             )
-        export_id = str(
-            (claim.response_reference or {}).get("export_id", claim.record_id)
-        )
+        export_id = str((claim.response_reference or {}).get("export_id", claim.record_id))
         data = _csv(rows)
         if not claim.replayed:
             current_app.config["AUDIT_WRITER"].append(
@@ -409,9 +371,7 @@ def export_events():
                 last = rows[-1]
                 reference = {
                     "export_id": export_id,
-                    "selection_end_occurred_at": last.occurred_at.astimezone(UTC)
-                    .isoformat()
-                    .replace("+00:00", "Z"),
+                    "selection_end_occurred_at": last.occurred_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
                     "selection_end_event_id": str(last.id),
                 }
             else:
@@ -429,18 +389,10 @@ def export_events():
             )
         digest = base64.b64encode(hashlib.sha256(data).digest()).decode("ascii")
     except (IdempotencyConflict, RequestInProgress) as error:
-        code = (
-            "request_in_progress"
-            if isinstance(error, RequestInProgress)
-            else "idempotency_conflict"
-        )
-        raise ApiError(
-            code, "The export request conflicts with an existing request.", status=409
-        ) from None
+        code = "request_in_progress" if isinstance(error, RequestInProgress) else "idempotency_conflict"
+        raise ApiError(code, "The export request conflicts with an existing request.", status=409) from None
     except ValueError:
-        raise ApiError(
-            "validation_failed", "Audit export input is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "Audit export input is invalid.", status=400) from None
     except (DatabaseUnavailable, SQLAlchemyError):
         g.identity_db_failed = True
         raise ApiError(
@@ -450,9 +402,7 @@ def export_events():
             retryable=True,
         ) from None
     response = current_app.response_class(data, mimetype="text/csv")
-    response.headers["Content-Disposition"] = (
-        f'attachment; filename="audit-events-{export_id}.csv"'
-    )
+    response.headers["Content-Disposition"] = f'attachment; filename="audit-events-{export_id}.csv"'
     response.headers["Digest"] = f"sha-256={digest}"
     response.headers["X-Export-ID"] = export_id
     response.headers["X-Audit-Row-Count"] = str(len(rows))

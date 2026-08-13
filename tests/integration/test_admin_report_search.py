@@ -55,9 +55,7 @@ def _confirm_admin_pin(api_client, headers, purpose, key):
 @pytest.fixture
 def elevated_admin_bearer_headers(api_client, admin_bearer_headers, db_session):
     db_session.commit()
-    _confirm_admin_pin(
-        api_client, admin_bearer_headers, "admin_center", "admin-elevate-search-0001"
-    )
+    _confirm_admin_pin(api_client, admin_bearer_headers, "admin_center", "admin-elevate-search-0001")
     return admin_bearer_headers
 
 
@@ -78,9 +76,7 @@ def test_admin_search_filters_structured_inmate_adc_number(
     fictional_staff_and_accounts,
     identity_fixed_now,
 ):
-    matching_incident = make_incident(
-        db_session, fictional_staff_and_accounts.preparer, identity_fixed_now
-    )
+    matching_incident = make_incident(db_session, fictional_staff_and_accounts.preparer, identity_fixed_now)
     matching_incident.extracted_facts = {
         "persons": [
             {
@@ -141,9 +137,7 @@ def test_admin_search_writes_one_bounded_audit_event_with_names_only(
     fictional_staff_and_accounts,
     identity_fixed_now,
 ):
-    incident = make_incident(
-        db_session, fictional_staff_and_accounts.preparer, identity_fixed_now
-    )
+    incident = make_incident(db_session, fictional_staff_and_accounts.preparer, identity_fixed_now)
     incident.category = "fictional_use_of_force"
     make_report(
         db_session,
@@ -179,9 +173,7 @@ def test_admin_search_pagination_default_and_max_page_size(
     api_client,
     elevated_admin_bearer_headers,
 ):
-    response = api_client.get(
-        "/api/v1/admin/reports?limit=101", headers=elevated_admin_bearer_headers
-    )
+    response = api_client.get("/api/v1/admin/reports?limit=101", headers=elevated_admin_bearer_headers)
 
     assert response.status_code == 400
     assert response.json["error"]["code"] == "validation_failed"
@@ -206,9 +198,7 @@ def test_admin_search_rejects_empty_string_field(
     api_client,
     elevated_admin_bearer_headers,
 ):
-    response = api_client.get(
-        "/api/v1/admin/reports?category=", headers=elevated_admin_bearer_headers
-    )
+    response = api_client.get("/api/v1/admin/reports?category=", headers=elevated_admin_bearer_headers)
 
     assert response.status_code == 400
     assert response.json["error"]["code"] == "validation_failed"
@@ -221,9 +211,7 @@ def test_admin_search_cursor_pagination_walks_all_results(
     fictional_staff_and_accounts,
     identity_fixed_now,
 ):
-    incident_a = make_incident(
-        db_session, fictional_staff_and_accounts.preparer, identity_fixed_now
-    )
+    incident_a = make_incident(db_session, fictional_staff_and_accounts.preparer, identity_fixed_now)
     report_a = make_report(
         db_session,
         incident=incident_a,
@@ -245,9 +233,7 @@ def test_admin_search_cursor_pagination_walks_all_results(
     )
     db_session.commit()
 
-    first = api_client.get(
-        "/api/v1/admin/reports?limit=1", headers=elevated_admin_bearer_headers
-    )
+    first = api_client.get("/api/v1/admin/reports?limit=1", headers=elevated_admin_bearer_headers)
     second = api_client.get(
         "/api/v1/admin/reports?limit=1&cursor=" + first.json["data"]["next_cursor"],
         headers=elevated_admin_bearer_headers,

@@ -66,16 +66,12 @@ def _timestamp(value: datetime | None) -> str | None:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _json_object(
-    *, exact: set[str] | None = None, allowed: set[str] | None = None
-) -> dict:
+def _json_object(*, exact: set[str] | None = None, allowed: set[str] | None = None) -> dict:
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         raise ApiError("validation_failed", "The request body is invalid.", status=400)
     keys = set(payload)
-    if (exact is not None and keys != exact) or (
-        allowed is not None and (not keys or not keys <= allowed)
-    ):
+    if (exact is not None and keys != exact) or (allowed is not None and (not keys or not keys <= allowed)):
         raise ApiError("validation_failed", "The request body is invalid.", status=400)
     return payload
 
@@ -146,9 +142,7 @@ def _page_inputs() -> tuple[int, dict | None]:
         cursor = request.args.get("cursor")
         return limit, decode_cursor(cursor, _cursor_key()) if cursor else None
     except ValueError:
-        raise ApiError(
-            "validation_failed", "Pagination input is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "Pagination input is invalid.", status=400) from None
 
 
 def _mutation(
@@ -186,9 +180,7 @@ def _mutation(
                 now=now,
             )
         except RequestInProgress as error:
-            raise ApiError(
-                "request_in_progress", str(error), status=409, retryable=True
-            ) from None
+            raise ApiError("request_in_progress", str(error), status=409, retryable=True) from None
         except IdempotencyConflict as error:
             raise ApiError("idempotency_conflict", str(error), status=409) from None
         if claim.replayed:
@@ -208,9 +200,7 @@ def _mutation(
                     "The one-time value cannot be replayed; request a new value.",
                     status=409,
                 )
-            replay_data = _rehydrate_replay(
-                db_session, action, claim.response_reference or {}
-            )
+            replay_data = _rehydrate_replay(db_session, action, claim.response_reference or {})
             db_session.commit()
             return success(replay_data, status=claim.response_status or 200)
         data, stable_reference = operation(db_session, actor, now, claim.record_id)
@@ -252,9 +242,7 @@ def _mutation(
         raise
     except IntegrityError:
         db_session.rollback()
-        raise ApiError(
-            "account_conflict", "The account changed; reload and try again.", status=409
-        ) from None
+        raise ApiError("account_conflict", "The account changed; reload and try again.", status=409) from None
     except OperationalError as error:
         db_session.rollback()
         sqlstate = getattr(getattr(error, "orig", None), "sqlstate", None)
@@ -314,9 +302,7 @@ def staff_list_route():
     return success(
         {
             "items": [_staff_data(row) for row in page.items],
-            "next_cursor": encode_cursor(page.next_cursor, _cursor_key())
-            if page.next_cursor
-            else None,
+            "next_cursor": encode_cursor(page.next_cursor, _cursor_key()) if page.next_cursor else None,
         }
     )
 
@@ -328,9 +314,7 @@ def staff_list_route():
 @require_step_up("staff_write")
 @require_admin_elevation
 def staff_create_route():
-    payload = _json_object(
-        exact={"employee_number", "rank", "first_name", "last_name", "shift"}
-    )
+    payload = _json_object(exact={"employee_number", "rank", "first_name", "last_name", "shift"})
     return _mutation(
         "admin.staff_create",
         "staff_write",
@@ -395,9 +379,7 @@ def account_list_route():
     return success(
         {
             "items": [_account_data(row) for row in page.items],
-            "next_cursor": encode_cursor(page.next_cursor, _cursor_key())
-            if page.next_cursor
-            else None,
+            "next_cursor": encode_cursor(page.next_cursor, _cursor_key()) if page.next_cursor else None,
         }
     )
 
@@ -413,9 +395,7 @@ def account_create_route():
     try:
         staff_id = UUID(payload["staff_id"])
     except (TypeError, ValueError):
-        raise ApiError(
-            "validation_failed", "The request body is invalid.", status=400
-        ) from None
+        raise ApiError("validation_failed", "The request body is invalid.", status=400) from None
 
     def operation(db, actor, now, claim_id):
         result = create_account_for_staff(
@@ -486,9 +466,7 @@ def account_update_route(account_id: UUID):
 @require_admin_elevation
 def account_reset_pin_route(account_id: UUID):
     if request.data:
-        raise ApiError(
-            "validation_failed", "This operation does not accept a body.", status=400
-        )
+        raise ApiError("validation_failed", "This operation does not accept a body.", status=400)
     payload = {"account_id": str(account_id)}
 
     def operation(db, actor, now, claim_id):
@@ -524,9 +502,7 @@ def account_reset_pin_route(account_id: UUID):
 @require_admin_elevation
 def account_unlock_route(account_id: UUID):
     if request.data:
-        raise ApiError(
-            "validation_failed", "This operation does not accept a body.", status=400
-        )
+        raise ApiError("validation_failed", "This operation does not accept a body.", status=400)
     payload = {"account_id": str(account_id)}
 
     def operation(db, actor, now, _claim):
@@ -578,16 +554,12 @@ def account_sessions_route(account_id: UUID):
                 }
                 for row in page.items
             ],
-            "next_cursor": encode_cursor(page.next_cursor, _cursor_key())
-            if page.next_cursor
-            else None,
+            "next_cursor": encode_cursor(page.next_cursor, _cursor_key()) if page.next_cursor else None,
         }
     )
 
 
-@admin_bp.post(
-    "/accounts/<uuid:account_id>/revoke-sessions", endpoint="account_revoke_sessions"
-)
+@admin_bp.post("/accounts/<uuid:account_id>/revoke-sessions", endpoint="account_revoke_sessions")
 @require_access_token
 @require_role("admin")
 @require_compatible_write
@@ -602,9 +574,7 @@ def account_revoke_sessions_route(account_id: UUID):
         try:
             session_id = UUID(payload["session_id"])
         except (TypeError, ValueError):
-            raise ApiError(
-                "validation_failed", "The request body is invalid.", status=400
-            ) from None
+            raise ApiError("validation_failed", "The request body is invalid.", status=400) from None
     else:
         raise ApiError("validation_failed", "The request body is invalid.", status=400)
     canonical = {"account_id": str(account_id), **payload}
@@ -628,9 +598,7 @@ def account_revoke_sessions_route(account_id: UUID):
         }
         return data, data
 
-    return _mutation(
-        "admin.account_revoke_sessions", "account_revoke_sessions", canonical, operation
-    )
+    return _mutation("admin.account_revoke_sessions", "account_revoke_sessions", canonical, operation)
 
 
 @admin_bp.post("/review-lab-handoffs", endpoint="review_lab_handoff_issue")
@@ -641,9 +609,7 @@ def account_revoke_sessions_route(account_id: UUID):
 def review_lab_handoff_issue_route():
     g.api_action = "admin_review_lab_handoff_issue"
     if request.data:
-        raise ApiError(
-            "validation_failed", "This operation does not accept a body.", status=400
-        )
+        raise ApiError("validation_failed", "This operation does not accept a body.", status=400)
 
     def operation(db, actor, now, _claim_id):
         result = issue_browser_handoff(

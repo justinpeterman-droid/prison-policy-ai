@@ -70,9 +70,7 @@ def _constraint_contract(table) -> ConstraintContract:
     foreign_keys: set[tuple[tuple[str, ...], str, tuple[str, ...]]] = set()
     checks: dict[str, tuple[str, ...]] = {}
     for constraint in table.constraints:
-        columns: tuple[str, ...] = tuple(
-            sorted(str(column.name) for column in constraint.columns)
-        )
+        columns: tuple[str, ...] = tuple(sorted(str(column.name) for column in constraint.columns))
         if isinstance(constraint, PrimaryKeyConstraint):
             primary_key = columns
         elif isinstance(constraint, UniqueConstraint):
@@ -132,9 +130,7 @@ def _schema_matches(inspector) -> bool:
         return False
     for table_name, table in Base.metadata.tables.items():
         expected_columns = set(table.columns.keys())
-        actual_columns = {
-            column["name"] for column in inspector.get_columns(table_name)
-        }
+        actual_columns = {column["name"] for column in inspector.get_columns(table_name)}
         if expected_columns != actual_columns:
             return False
 
@@ -145,11 +141,7 @@ def _schema_matches(inspector) -> bool:
             return False
 
         expected = _constraint_contract(table)
-        actual_primary_key = tuple(
-            sorted(
-                inspector.get_pk_constraint(table_name).get("constrained_columns") or ()
-            )
-        )
+        actual_primary_key = tuple(sorted(inspector.get_pk_constraint(table_name).get("constrained_columns") or ()))
         if expected["primary_key"] != actual_primary_key:
             return False
         actual_unique_columns: set[tuple[str, ...]] = {
@@ -160,27 +152,18 @@ def _schema_matches(inspector) -> bool:
             return False
         actual_foreign_keys: set[tuple[tuple[str, ...], str, tuple[str, ...]]] = {
             (
-                tuple(
-                    sorted(
-                        str(name) for name in (item.get("constrained_columns") or ())
-                    )
-                ),
+                tuple(sorted(str(name) for name in (item.get("constrained_columns") or ()))),
                 str(item.get("referred_table") or ""),
-                tuple(
-                    sorted(str(name) for name in (item.get("referred_columns") or ()))
-                ),
+                tuple(sorted(str(name) for name in (item.get("referred_columns") or ()))),
             )
             for item in inspector.get_foreign_keys(table_name)
         }
         if not expected["foreign_keys"] <= actual_foreign_keys:
             return False
         actual_checks = [
-            _check_signature(item.get("sqltext") or "")
-            for item in inspector.get_check_constraints(table_name)
+            _check_signature(item.get("sqltext") or "") for item in inspector.get_check_constraints(table_name)
         ]
-        if any(
-            signature not in actual_checks for signature in expected["checks"].values()
-        ):
+        if any(signature not in actual_checks for signature in expected["checks"].values()):
             return False
     return True
 
@@ -196,9 +179,7 @@ def verify() -> dict[str, str]:
     engine = create_engine(database_url)
     try:
         with engine.connect() as connection:
-            revision = connection.exec_driver_sql(
-                "SELECT version_num FROM alembic_version"
-            ).scalar_one()
+            revision = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
             schema_ok = _schema_matches(inspect(connection))
     finally:
         engine.dispose()

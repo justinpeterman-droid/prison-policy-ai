@@ -50,16 +50,8 @@ def test_every_employee_report_operation_has_closed_fictional_examples_and_error
                     assert examples
                     for example in examples.values():
                         value = example["value"]
-                        assert (
-                            "fictional" in str(value).lower()
-                            or "example" in str(value).lower()
-                        )
-                        assert (
-                            list(
-                                _validator(document, media["schema"]).iter_errors(value)
-                            )
-                            == []
-                        )
+                        assert "fictional" in str(value).lower() or "example" in str(value).lower()
+                        assert list(_validator(document, media["schema"]).iter_errors(value)) == []
 
 
 def test_report_request_schemas_are_closed_and_reject_client_owned_identity():
@@ -86,14 +78,7 @@ def test_report_request_schemas_are_closed_and_reject_client_owned_identity():
             & set(properties)
         )
         example = schema["example"]
-        assert (
-            list(
-                _validator(
-                    document, {"$ref": f"#/components/schemas/{name}"}
-                ).iter_errors(example)
-            )
-            == []
-        )
+        assert list(_validator(document, {"$ref": f"#/components/schemas/{name}"}).iter_errors(example)) == []
         assert list(
             _validator(document, {"$ref": f"#/components/schemas/{name}"}).iter_errors(
                 example | {"actor_account_id": "00000000-0000-4000-8000-000000000099"}
@@ -116,9 +101,7 @@ def test_report_summaries_and_conflicts_exclude_sensitive_content():
 
 def test_report_patch_409_oneof_executes_every_actual_safe_conflict_envelope():
     document = _document()
-    response = document["paths"]["/api/v1/reports/{report_id}"]["patch"]["responses"][
-        "409"
-    ]
+    response = document["paths"]["/api/v1/reports/{report_id}"]["patch"]["responses"]["409"]
     media = response["content"]["application/json"]
     assert {branch["$ref"] for branch in media["schema"]["oneOf"]} == {
         "#/components/schemas/ReportRevisionConflictEnvelope",

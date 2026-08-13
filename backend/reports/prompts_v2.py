@@ -77,9 +77,7 @@ STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
 # duplicated into every user prompt). Braces are single here because this text is
 # never run through str.format — the per-report templates below still are.
 REPORT_STYLE_SYSTEM = (
-    STYLE_RULES.replace("{{", "{")
-    .replace("}}", "}")
-    .replace("REQUIRED SENTENCES below", "REQUIRED SENTENCES provided")
+    STYLE_RULES.replace("{{", "{").replace("}}", "}").replace("REQUIRED SENTENCES below", "REQUIRED SENTENCES provided")
 )
 
 FIRST_PERSON_PROMPT = (

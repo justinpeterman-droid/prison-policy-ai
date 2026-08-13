@@ -146,9 +146,7 @@ class AdminReportFilters:
     modified_at_to: datetime | None = None
 
 
-ADMIN_REPORT_FILTER_FIELDS: tuple[str, ...] = tuple(
-    AdminReportFilters.__dataclass_fields__
-)
+ADMIN_REPORT_FILTER_FIELDS: tuple[str, ...] = tuple(AdminReportFilters.__dataclass_fields__)
 ADMIN_REPORT_SEARCH_SORTS: dict[str, bool] = {
     "updated_at_desc": True,
     "updated_at_asc": False,
@@ -175,9 +173,7 @@ class AdminReportSearchPage:
 
 def _content_payload(value: IncidentSnapshotV1 | SaveIncidentRequest) -> dict:
     if isinstance(value, SaveIncidentRequest):
-        value = IncidentSnapshotV1.model_validate(
-            value.model_dump(exclude={"base_revision_number", "reason"})
-        )
+        value = IncidentSnapshotV1.model_validate(value.model_dump(exclude={"base_revision_number", "reason"}))
     return IncidentSnapshotV1.model_validate(value).model_dump(mode="json")
 
 
@@ -185,18 +181,14 @@ def _server_snapshot(content: dict, reporting_staff_ids: tuple[UUID, ...]) -> di
     return {
         **content,
         SERVER_METADATA_KEY: {
-            REPORTING_STAFF_IDS_KEY: [
-                str(staff_id) for staff_id in reporting_staff_ids
-            ],
+            REPORTING_STAFF_IDS_KEY: [str(staff_id) for staff_id in reporting_staff_ids],
         },
     }
 
 
 def _selection_from_snapshot(snapshot: dict) -> tuple[UUID, ...]:
     metadata = snapshot.get(SERVER_METADATA_KEY, {})
-    values = (
-        metadata.get(REPORTING_STAFF_IDS_KEY, []) if isinstance(metadata, dict) else []
-    )
+    values = metadata.get(REPORTING_STAFF_IDS_KEY, []) if isinstance(metadata, dict) else []
     if not isinstance(values, list):
         raise RuntimeError("incident server metadata is invalid")
     try:
@@ -206,14 +198,8 @@ def _selection_from_snapshot(snapshot: dict) -> tuple[UUID, ...]:
 
 
 def _content_from_snapshot(snapshot: dict) -> dict:
-    content = {
-        key: value
-        for key, value in snapshot.items()
-        if key not in {SERVER_METADATA_KEY, "provenance"}
-    }
-    return IncidentSnapshotV1.model_validate_json(json.dumps(content)).model_dump(
-        mode="json"
-    )
+    content = {key: value for key, value in snapshot.items() if key not in {SERVER_METADATA_KEY, "provenance"}}
+    return IncidentSnapshotV1.model_validate_json(json.dumps(content)).model_dump(mode="json")
 
 
 @event.listens_for(Session, "before_flush")
@@ -231,9 +217,7 @@ def _carry_incident_server_metadata(session, _flush_context, _instances) -> None
                 IncidentRevision.incident_id == revision.incident_id,
                 IncidentRevision.snapshot.has_key(SERVER_METADATA_KEY),
             )
-            .order_by(
-                IncidentRevision.revision_number.desc(), IncidentRevision.id.desc()
-            )
+            .order_by(IncidentRevision.revision_number.desc(), IncidentRevision.id.desc())
             .limit(1)
         )
         if previous is not None:
@@ -273,9 +257,7 @@ def _normalize_selection(values: object) -> tuple[UUID, ...]:
     return tuple(normalized)
 
 
-def _active_selection(
-    session: Session, normalized: tuple[UUID, ...]
-) -> tuple[UUID, ...]:
+def _active_selection(session: Session, normalized: tuple[UUID, ...]) -> tuple[UUID, ...]:
     rows = session.scalars(
         select(StaffMember).where(
             StaffMember.id.in_(normalized),
@@ -316,9 +298,7 @@ def get_incident(session: Session, actor: Actor, incident_id: UUID) -> IncidentV
     incident = session.get(Incident, incident_id)
     if incident is None:
         raise IncidentNotFound("Incident not found.")
-    reporting_staff_ids = _selection_from_snapshot(
-        _latest_revision(session, incident_id).snapshot
-    )
+    reporting_staff_ids = _selection_from_snapshot(_latest_revision(session, incident_id).snapshot)
     if not _can_access_incident(session, actor, incident, reporting_staff_ids):
         raise IncidentNotFound("Incident not found.")
     return IncidentView(incident, reporting_staff_ids)
@@ -351,9 +331,7 @@ def _append_audit(
     )
 
 
-def _apply_content(
-    incident: Incident, validated: IncidentSnapshotV1, payload: dict
-) -> None:
+def _apply_content(incident: Incident, validated: IncidentSnapshotV1, payload: dict) -> None:
     for field in (
         "incident_date",
         "incident_time",
@@ -371,21 +349,15 @@ def _apply_content(
         setattr(
             incident,
             field,
-            getattr(validated, field)
-            if field in {"incident_date", "incident_time"}
-            else payload[field],
+            getattr(validated, field) if field in {"incident_date", "incident_time"} else payload[field],
         )
 
 
-def _view_from_reference(
-    session: Session, actor: Actor, reference: dict
-) -> IncidentView:
+def _view_from_reference(session: Session, actor: Actor, reference: dict) -> IncidentView:
     try:
         incident_id = UUID(str(reference["incident_id"]))
         revision_number = int(reference["revision_number"])
-        reporting_staff_ids = tuple(
-            UUID(str(value)) for value in reference["reporting_staff_ids"]
-        )
+        reporting_staff_ids = tuple(UUID(str(value)) for value in reference["reporting_staff_ids"])
         status = str(reference["status"])
     except (KeyError, TypeError, ValueError):
         raise RuntimeError("idempotency reference is invalid") from None
@@ -411,8 +383,7 @@ def _view_from_reference(
 def _response_reference(view: IncidentView) -> dict[str, object]:
     return {
         "incident_id": str(view.incident.id),
-        "revision_number": view.revision_number
-        or view.incident.current_revision_number,
+        "revision_number": view.revision_number or view.incident.current_revision_number,
         "reporting_staff_ids": [str(value) for value in view.reporting_staff_ids],
         "status": view.status or view.incident.status,
     }
@@ -471,9 +442,7 @@ def create_incident(
         editor_account_id=actor.account_id,
         editor_staff_member_id=actor.staff_member_id,
         snapshot=_server_snapshot(content, selection),
-        changed_fields={
-            "fields": ["field_notes"] if content.get("field_notes") else []
-        },
+        changed_fields={"fields": ["field_notes"] if content.get("field_notes") else []},
         reason="manual_save",
         client_version=client_version,
         request_id=request_id,
@@ -536,12 +505,8 @@ def save_incident_record(
     if claim.replayed:
         return _view_from_reference(session, actor, claim.response_reference or {})
     current = get_incident(session, actor, incident_id)
-    content = IncidentSnapshotV1.model_validate(
-        validated.model_dump(exclude={"base_revision_number", "reason"})
-    )
-    incident = session.scalar(
-        select(Incident).where(Incident.id == incident_id).with_for_update()
-    )
+    content = IncidentSnapshotV1.model_validate(validated.model_dump(exclude={"base_revision_number", "reason"}))
+    incident = session.scalar(select(Incident).where(Incident.id == incident_id).with_for_update())
     if incident is None:
         raise IncidentNotFound("Incident not found.")
     if incident.current_revision_number != validated.base_revision_number:
@@ -632,9 +597,7 @@ def list_incident_revisions(
     cursor: dict[str, str] | None = None,
 ) -> IncidentRevisionPage:
     get_incident(session, actor, incident_id)
-    statement = select(IncidentRevision).where(
-        IncidentRevision.incident_id == incident_id
-    )
+    statement = select(IncidentRevision).where(IncidentRevision.incident_id == incident_id)
     if cursor:
         cursor_id = UUID(cursor["id"])
         cursor_row = session.scalar(
@@ -643,10 +606,7 @@ def list_incident_revisions(
                 IncidentRevision.id == cursor_id,
             )
         )
-        if (
-            cursor_row is None
-            or cursor_row.created_at.isoformat() != cursor["created_at"]
-        ):
+        if cursor_row is None or cursor_row.created_at.isoformat() != cursor["created_at"]:
             raise ValueError("revision cursor is invalid")
         statement = statement.where(
             or_(
@@ -703,11 +663,7 @@ def restore_incident_record(
     client_version: str,
     audit_writer: AuditWriter | None = None,
 ) -> IncidentView:
-    if (
-        not isinstance(revision_number, int)
-        or isinstance(revision_number, bool)
-        or revision_number < 1
-    ):
+    if not isinstance(revision_number, int) or isinstance(revision_number, bool) or revision_number < 1:
         raise ValueError("revision_number must be a positive integer")
     fixed = now or datetime.now(UTC)
     canonical = {"incident_id": str(incident_id), "revision_number": revision_number}
@@ -722,15 +678,11 @@ def restore_incident_record(
     if claim.replayed:
         return _view_from_reference(session, actor, claim.response_reference or {})
     current = get_incident(session, actor, incident_id)
-    incident = session.scalar(
-        select(Incident).where(Incident.id == incident_id).with_for_update()
-    )
+    incident = session.scalar(select(Incident).where(Incident.id == incident_id).with_for_update())
     if incident is None:
         raise IncidentNotFound("Incident not found.")
     source = get_incident_revision(session, actor, incident_id, revision_number)
-    validated = IncidentSnapshotV1.model_validate_json(
-        json.dumps(_content_from_snapshot(source.snapshot))
-    )
+    validated = IncidentSnapshotV1.model_validate_json(json.dumps(_content_from_snapshot(source.snapshot)))
     payload = validated.model_dump(mode="json")
     previous = IncidentSnapshotV1.model_validate(
         {
@@ -808,9 +760,7 @@ def incident_revision_content(revision: IncidentRevision) -> dict:
 
 
 def _display_name(staff: StaffMember) -> str:
-    return " ".join(
-        part for part in (staff.rank, staff.first_name, staff.last_name) if part
-    )
+    return " ".join(part for part in (staff.rank, staff.first_name, staff.last_name) if part)
 
 
 def _authorized_report_statement(actor: Actor, report_id: UUID | None = None):
@@ -836,9 +786,7 @@ def _lock_authorized_report(
     report_id: UUID,
 ) -> Report:
     """Lock the report, then its live employee access, in one transaction."""
-    report = session.scalar(
-        select(Report).where(Report.id == report_id).with_for_update()
-    )
+    report = session.scalar(select(Report).where(Report.id == report_id).with_for_update())
     if report is None:
         raise ReportNotFound("Report not found.")
     access = session.scalar(
@@ -868,14 +816,8 @@ def _report_revision_view(
         raise RuntimeError("report revision editor is unavailable")
     return ReportView(
         report=report,
-        content=ReportContentV1.model_validate(revision.snapshot).model_dump(
-            mode="json"
-        ),
-        revision_number=(
-            revision.revision_number
-            if current_revision_number is None
-            else current_revision_number
-        ),
+        content=ReportContentV1.model_validate(revision.snapshot).model_dump(mode="json"),
+        revision_number=(revision.revision_number if current_revision_number is None else current_revision_number),
         status=status or report.status,
         updated_at=revision.created_at,
         editor_staff_member_id=revision.editor_staff_member_id,
@@ -950,9 +892,7 @@ def list_reports(
     if updated_at_to is not None:
         statement = statement.where(Report.updated_at <= updated_at_to)
     if cursor:
-        cursor_time = datetime.fromisoformat(
-            cursor["created_at"].replace("Z", "+00:00")
-        )
+        cursor_time = datetime.fromisoformat(cursor["created_at"].replace("Z", "+00:00"))
         cursor_id = UUID(cursor["id"])
         statement = statement.where(
             or_(
@@ -1002,10 +942,7 @@ def list_report_revisions(
                 ReportRevision.id == cursor_id,
             )
         )
-        if (
-            cursor_row is None
-            or cursor_row.created_at.isoformat() != cursor["created_at"]
-        ):
+        if cursor_row is None or cursor_row.created_at.isoformat() != cursor["created_at"]:
             raise ValueError("revision cursor is invalid")
         statement = statement.where(
             or_(
@@ -1091,10 +1028,7 @@ def list_report_revisions_admin(
                 ReportRevision.id == cursor_id,
             )
         )
-        if (
-            cursor_row is None
-            or cursor_row.created_at.isoformat() != cursor["created_at"]
-        ):
+        if cursor_row is None or cursor_row.created_at.isoformat() != cursor["created_at"]:
             raise ValueError("revision cursor is invalid")
         statement = statement.where(
             or_(
@@ -1140,9 +1074,7 @@ def get_report_revision_admin(
 
 
 def _inmate_adc_numbers(extracted_facts: object) -> tuple[str, ...]:
-    persons = (
-        extracted_facts.get("persons") if isinstance(extracted_facts, dict) else None
-    )
+    persons = extracted_facts.get("persons") if isinstance(extracted_facts, dict) else None
     if not isinstance(persons, list):
         return ()
     numbers: list[str] = []
@@ -1184,9 +1116,7 @@ def admin_search_reports(
     if sort not in ADMIN_REPORT_SEARCH_SORTS:
         raise ValueError("sort is invalid")
     descending = ADMIN_REPORT_SEARCH_SORTS[sort]
-    sort_column = (
-        Report.updated_at if sort.startswith("updated_at") else Report.created_at
-    )
+    sort_column = Report.updated_at if sort.startswith("updated_at") else Report.created_at
 
     current_revision = aliased(ReportRevision)
     statement = (
@@ -1205,17 +1135,11 @@ def admin_search_reports(
     if filters.incident_id is not None:
         statement = statement.where(Report.incident_id == filters.incident_id)
     if filters.reporting_staff_id is not None:
-        statement = statement.where(
-            Report.reporting_staff_member_id == filters.reporting_staff_id
-        )
+        statement = statement.where(Report.reporting_staff_member_id == filters.reporting_staff_id)
     if filters.preparer_staff_id is not None:
-        statement = statement.where(
-            Report.prepared_by_staff_member_id == filters.preparer_staff_id
-        )
+        statement = statement.where(Report.prepared_by_staff_member_id == filters.preparer_staff_id)
     if filters.incident_date_from is not None:
-        statement = statement.where(
-            Incident.incident_date >= filters.incident_date_from
-        )
+        statement = statement.where(Incident.incident_date >= filters.incident_date_from)
     if filters.incident_date_to is not None:
         statement = statement.where(Incident.incident_date <= filters.incident_date_to)
     if filters.created_at_from is not None:
@@ -1233,9 +1157,7 @@ def admin_search_reports(
     if filters.status is not None:
         statement = statement.where(Report.status == filters.status)
     if filters.last_editor_staff_id is not None:
-        statement = statement.where(
-            current_revision.editor_staff_member_id == filters.last_editor_staff_id
-        )
+        statement = statement.where(current_revision.editor_staff_member_id == filters.last_editor_staff_id)
     if filters.modified_at_from is not None:
         statement = statement.where(Report.updated_at >= filters.modified_at_from)
     if filters.modified_at_to is not None:
@@ -1251,14 +1173,10 @@ def admin_search_reports(
     if len(inmate_person) > 1:
         # JSONB containment keeps all requested attributes on the same inmate
         # object and is accelerated by 0004's jsonb_path_ops GIN index.
-        statement = statement.where(
-            Incident.extracted_facts.contains({"persons": [inmate_person]})
-        )
+        statement = statement.where(Incident.extracted_facts.contains({"persons": [inmate_person]}))
 
     if cursor:
-        cursor_time = datetime.fromisoformat(
-            cursor["created_at"].replace("Z", "+00:00")
-        )
+        cursor_time = datetime.fromisoformat(cursor["created_at"].replace("Z", "+00:00"))
         cursor_id = UUID(cursor["id"])
         if descending:
             statement = statement.where(
@@ -1274,11 +1192,7 @@ def admin_search_reports(
                     and_(sort_column == cursor_time, Report.id > cursor_id),
                 )
             )
-    order = (
-        (sort_column.desc(), Report.id.desc())
-        if descending
-        else (sort_column.asc(), Report.id.asc())
-    )
+    order = (sort_column.desc(), Report.id.desc()) if descending else (sort_column.asc(), Report.id.asc())
     rows = session.execute(statement.order_by(*order).limit(limit + 1)).all()
     page_rows = rows[:limit]
     items = [
@@ -1293,18 +1207,10 @@ def admin_search_reports(
     next_cursor = None
     if len(rows) > limit:
         last_report = page_rows[-1][0]
-        sort_value = (
-            last_report.updated_at
-            if sort.startswith("updated_at")
-            else last_report.created_at
-        )
+        sort_value = last_report.updated_at if sort.startswith("updated_at") else last_report.created_at
         next_cursor = {"created_at": sort_value.isoformat(), "id": str(last_report.id)}
 
-    provided_filters = sorted(
-        name
-        for name in ADMIN_REPORT_FILTER_FIELDS
-        if getattr(filters, name) is not None
-    )
+    provided_filters = sorted(name for name in ADMIN_REPORT_FILTER_FIELDS if getattr(filters, name) is not None)
     writer = audit_writer or PostgresAuditWriter()
     writer.append(
         session,
@@ -1397,18 +1303,12 @@ def _report_view_from_reference_admin(
         current_revision_number = int(reference["current_revision_number"])
         status = str(reference["status"])
         reporting_staff_member_id = UUID(str(reference["reporting_staff_member_id"]))
-        reporting_officer_display_name = str(
-            reference["reporting_officer_display_name"]
-        )
-        prepared_by_staff_member_id = UUID(
-            str(reference["prepared_by_staff_member_id"])
-        )
+        reporting_officer_display_name = str(reference["reporting_officer_display_name"])
+        prepared_by_staff_member_id = UUID(str(reference["prepared_by_staff_member_id"]))
         preparer_display_name = str(reference["preparer_display_name"])
         editor_staff_member_id = UUID(str(reference["editor_staff_member_id"]))
         editor_display_name = str(reference["editor_display_name"])
-        updated_at = datetime.fromisoformat(
-            str(reference["updated_at"]).replace("Z", "+00:00")
-        )
+        updated_at = datetime.fromisoformat(str(reference["updated_at"]).replace("Z", "+00:00"))
     except (KeyError, TypeError, ValueError):
         raise RuntimeError("idempotency reference is invalid") from None
     if (
@@ -1479,9 +1379,7 @@ def save_report_admin_record(
         now=fixed,
     )
     if claim.replayed:
-        return _report_view_from_reference_admin(
-            session, claim.response_reference or {}
-        )
+        return _report_view_from_reference_admin(session, claim.response_reference or {})
     try:
         revision = save_report(
             session,
@@ -1532,9 +1430,7 @@ def restore_report_admin_record(
         now=fixed,
     )
     if claim.replayed:
-        return _report_view_from_reference_admin(
-            session, claim.response_reference or {}
-        )
+        return _report_view_from_reference_admin(session, claim.response_reference or {})
     try:
         revision = restore_report(
             session,
@@ -1578,9 +1474,7 @@ def transfer_report_ownership_record(
     canonical = {
         "report_id": str(report_id),
         "new_owner_staff_id": str(new_owner_staff_id),
-        "new_preparer_staff_id": (
-            str(new_preparer_staff_id) if new_preparer_staff_id else None
-        ),
+        "new_preparer_staff_id": (str(new_preparer_staff_id) if new_preparer_staff_id else None),
         "reason": reason,
     }
     claim = claim_idempotency(
@@ -1592,9 +1486,7 @@ def transfer_report_ownership_record(
         now=fixed,
     )
     if claim.replayed:
-        return _report_view_from_reference_admin(
-            session, claim.response_reference or {}
-        )
+        return _report_view_from_reference_admin(session, claim.response_reference or {})
     try:
         revision = transfer_report_ownership(
             session,
@@ -1646,9 +1538,7 @@ def save_report_record(
         now=fixed,
     )
     if claim.replayed:
-        return _report_view_from_reference(
-            session, actor, claim.response_reference or {}
-        )[0]
+        return _report_view_from_reference(session, actor, claim.response_reference or {})[0]
     revision = save_report(
         session,
         actor,
@@ -1702,9 +1592,7 @@ def save_report_status_record(
         now=fixed,
     )
     if claim.replayed:
-        return _report_view_from_reference(
-            session, actor, claim.response_reference or {}
-        )[0]
+        return _report_view_from_reference(session, actor, claim.response_reference or {})[0]
     revision = save_report_status(
         session,
         actor,
@@ -1752,9 +1640,7 @@ def restore_report_record(
         now=fixed,
     )
     if claim.replayed:
-        return _report_view_from_reference(
-            session, actor, claim.response_reference or {}
-        )[0]
+        return _report_view_from_reference(session, actor, claim.response_reference or {})[0]
     try:
         revision = restore_report(
             session,
@@ -1811,9 +1697,7 @@ def create_report_recovery_record(
         now=fixed,
     )
     if claim.replayed:
-        return _report_view_from_reference(
-            session, actor, claim.response_reference or {}
-        )
+        return _report_view_from_reference(session, actor, claim.response_reference or {})
     try:
         recovery = create_recovery_revision(
             session,
@@ -1840,9 +1724,7 @@ def create_report_recovery_record(
         session,
         claim,
         response_status=201,
-        response_reference=_report_reference(
-            view, operation_revision_number=recovery.revision_number
-        ),
+        response_reference=_report_reference(view, operation_revision_number=recovery.revision_number),
         now=fixed,
     )
     session.flush()

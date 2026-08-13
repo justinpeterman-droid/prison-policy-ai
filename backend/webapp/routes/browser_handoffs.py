@@ -32,9 +32,7 @@ def redeem_handoff_route():
         return failure("validation_failed", "The request body is invalid.", 400)
     token = payload.get("token")
     if not isinstance(token, str) or not 40 <= len(token) <= 512:
-        return failure(
-            "handoff_invalid", "This Review Lab link is invalid or expired.", 401
-        )
+        return failure("handoff_invalid", "This Review Lab link is invalid or expired.", 401)
     try:
         with session_scope() as db_session:
             result = redeem_browser_handoff(
@@ -55,9 +53,7 @@ def redeem_handoff_route():
         )
         return response
     except HandoffInvalid:
-        return failure(
-            "handoff_invalid", "This Review Lab link is invalid or expired.", 401
-        )
+        return failure("handoff_invalid", "This Review Lab link is invalid or expired.", 401)
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
         return failure(
             "dependency_unavailable",

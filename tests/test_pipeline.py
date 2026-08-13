@@ -36,9 +36,7 @@ _pipeline_config = importlib.import_module("backend.pipeline.config")
 FAST_MODEL = _pipeline_config.FAST_MODEL
 MODEL_LOCATION = _pipeline_config.MODEL_LOCATION
 PRO_MODEL = _pipeline_config.PRO_MODEL
-load_demo_scenarios = importlib.import_module(
-    "backend.reports.demo_scenarios"
-).load_demo_scenarios
+load_demo_scenarios = importlib.import_module("backend.reports.demo_scenarios").load_demo_scenarios
 _gap_answers = importlib.import_module("backend.reports.gap_answers")
 build_incident_number = _gap_answers.build_incident_number
 merge_gap_answers = _gap_answers.merge_gap_answers
@@ -91,16 +89,12 @@ def build_manifest(
             "initial_blocking": initial_blocking,
             "final_blocking": final_blocking,
         },
-        "errors": [
-            {"step": step_name, "message": message} for step_name, message in errors
-        ],
+        "errors": [{"step": step_name, "message": message} for step_name, message in errors],
         "artifacts": sorted(artifacts),
     }
 
 
-def resolve_demo_gaps(
-    category: str, slots: dict, scenario: dict | None
-) -> tuple[dict, dict, dict, dict]:
+def resolve_demo_gaps(category: str, slots: dict, scenario: dict | None) -> tuple[dict, dict, dict, dict]:
     initial = find_gaps(category, slots)
     scenario = scenario or {}
     answers = dict(scenario.get("demo_answers") or {})
@@ -125,9 +119,7 @@ def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _diff_dicts(
-    a: dict, b: dict, label_a: str = "previous", label_b: str = "current"
-) -> list[str]:
+def _diff_dicts(a: dict, b: dict, label_a: str = "previous", label_b: str = "current") -> list[str]:
     """Return a human-readable list of differences between two dicts."""
     lines = []
     all_keys = sorted(set(a.keys()) | set(b.keys()))
@@ -176,11 +168,7 @@ def run_pipeline(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if notes is None:
-        notes = (
-            (scenario or {}).get("notes")
-            if scenario
-            else fixture_path.read_text(encoding="utf-8")
-        )
+        notes = (scenario or {}).get("notes") if scenario else fixture_path.read_text(encoding="utf-8")
     notes = notes.strip()
     if not notes:
         print(f"  WARN {name}: empty fixture — skipping")
@@ -199,11 +187,7 @@ def run_pipeline(
 
     def finish(exit_code: int) -> int:
         timing["total"] = round(time.time() - t0, 2)
-        artifacts = [
-            item.name
-            for item in out_dir.iterdir()
-            if item.is_file() and item.name != "manifest.json"
-        ]
+        artifacts = [item.name for item in out_dir.iterdir() if item.is_file() and item.name != "manifest.json"]
         manifest = build_manifest(
             run_id=run_id,
             name=name,
@@ -269,20 +253,14 @@ def run_pipeline(
             # Preserve the model extraction, then resolve separately recorded
             # demo-only answers before generation.
             extracted_slots = slots
-            slots, initial_gap_result, gap_result, demo_answers = resolve_demo_gaps(
-                category, extracted_slots, scenario
-            )
+            slots, initial_gap_result, gap_result, demo_answers = resolve_demo_gaps(category, extracted_slots, scenario)
             if roster_gaps:
-                initial_gap_result["gaps"] = (
-                    initial_gap_result.get("gaps", []) + roster_gaps
-                )
+                initial_gap_result["gaps"] = initial_gap_result.get("gaps", []) + roster_gaps
                 initial_gap_result["blocking_remaining"] = sum(
                     1 for g in initial_gap_result["gaps"] if g.get("blocking")
                 )
                 gap_result["gaps"] = gap_result.get("gaps", []) + roster_gaps
-                gap_result["blocking_remaining"] = sum(
-                    1 for g in gap_result["gaps"] if g.get("blocking")
-                )
+                gap_result["blocking_remaining"] = sum(1 for g in gap_result["gaps"] if g.get("blocking"))
 
             initial_blocking = initial_gap_result.get("blocking_remaining", 0)
             final_blocking = gap_result.get("blocking_remaining", 0)
@@ -331,9 +309,7 @@ def run_pipeline(
         officers = security_staff(slots)
         if officers:
             bound_slots = bind_reporter(slots, officers[0])
-        elif reporters := [
-            p for p in slots.get("persons", []) if p.get("role") == "security_staff"
-        ]:
+        elif reporters := [p for p in slots.get("persons", []) if p.get("role") == "security_staff"]:
             bound_slots = bind_reporter(slots, reporters[0])
         else:
             bound_slots = dict(slots)
@@ -355,10 +331,7 @@ def run_pipeline(
 
         n_flags = len(flags)
         report_names = list(reports.keys())
-        synopsis = {
-            k: (v[:120] + "..." if isinstance(v, str) and len(v) > 120 else v)
-            for k, v in reports.items()
-        }
+        synopsis = {k: (v[:120] + "..." if isinstance(v, str) and len(v) > 120 else v) for k, v in reports.items()}
         _save_json(
             {"timing": timing, "errors": errors, "flags": flags, "synopsis": synopsis},
             out_dir / "05_summary.json",
@@ -387,8 +360,7 @@ def run_pipeline(
     ]
     if classification:
         summary_lines.append(
-            f"Incident type: {classification.get('incident_type')} "
-            f"({classification.get('label', '?')})"
+            f"Incident type: {classification.get('incident_type')} ({classification.get('label', '?')})"
         )
         summary_lines.append(f"Charges: {classification.get('charges_applicable', [])}")
         persons = classification.get("persons_involved", [])
@@ -397,9 +369,7 @@ def run_pipeline(
     summary_lines.append("")
     if slots:
         summary_lines.append(f"Persons: {len(slots.get('persons', []))}")
-        summary_lines.append(
-            f"Narrative facts: {len(slots.get('narrative_facts', []))}"
-        )
+        summary_lines.append(f"Narrative facts: {len(slots.get('narrative_facts', []))}")
         summary_lines.append(f"Quotes: {len(slots.get('quotes', []))}")
     summary_lines.append("")
     for report_type, text in reports.items():
@@ -472,9 +442,7 @@ def run_pipeline(
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Run field notes through the report pipeline"
-    )
+    parser = argparse.ArgumentParser(description="Run field notes through the report pipeline")
     parser.add_argument(
         "fixture",
         nargs="?",
@@ -492,15 +460,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Compare against previous snapshot after running",
     )
-    parser.add_argument(
-        "--all", action="store_true", help="Run all fixtures in tests/fixtures/"
-    )
+    parser.add_argument("--all", action="store_true", help="Run all fixtures in tests/fixtures/")
     parser.add_argument(
         "--demo",
         metavar="ID",
         default=None,
-        help="Run a demo scenario from templates/demo_notes.json "
-        "by id (use --demo list to see them)",
+        help="Run a demo scenario from templates/demo_notes.json by id (use --demo list to see them)",
     )
     parser.add_argument(
         "--output-dir",
@@ -511,9 +476,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def run_demo_batch(
-    *, output_root: Path, step: str = "generate", compare: bool = False, runner=None
-) -> int:
+def run_demo_batch(*, output_root: Path, step: str = "generate", compare: bool = False, runner=None) -> int:
     run_one = runner or run_pipeline
     exit_code = 0
     for scenario in load_demo_scenarios():
@@ -553,10 +516,7 @@ def main():
             )
         match = next((s for s in scenarios if s["id"] == args.demo), None)
         if match is None:
-            print(
-                f"No demo scenario with id {args.demo!r}. "
-                f"Known ids: {', '.join(s['id'] for s in scenarios)}"
-            )
+            print(f"No demo scenario with id {args.demo!r}. Known ids: {', '.join(s['id'] for s in scenarios)}")
             return 1
         return run_pipeline(
             step=args.step,
@@ -577,9 +537,7 @@ def main():
             print(f"\n{'=' * 60}")
             print(f"  {fp.stem}")
             print(f"{'=' * 60}")
-            rc = run_pipeline(
-                fp, step=args.step, compare=args.compare, output_root=args.output_dir
-            )
+            rc = run_pipeline(fp, step=args.step, compare=args.compare, output_root=args.output_dir)
             if rc != 0:
                 exit_code = 1
         return exit_code
@@ -602,9 +560,7 @@ def main():
                 print(f"  {f.stem}")
             return 1
 
-    return run_pipeline(
-        fp, step=args.step, compare=args.compare, output_root=args.output_dir
-    )
+    return run_pipeline(fp, step=args.step, compare=args.compare, output_root=args.output_dir)
 
 
 if __name__ == "__main__":

@@ -49,9 +49,7 @@ def test_policy_question_operation_exists_with_required_headers():
     refs = {item.get("$ref") for item in operation.get("parameters", [])}
     assert "#/components/parameters/XClientVersion" in refs
     assert "#/components/parameters/IdempotencyKey" in refs
-    request_id = next(
-        item for item in operation["parameters"] if item.get("name") == "X-Request-ID"
-    )
+    request_id = next(item for item in operation["parameters"] if item.get("name") == "X-Request-ID")
     assert request_id["required"] is True
     assert operation["requestBody"]["required"] is True
 
@@ -142,22 +140,14 @@ def test_policy_duplicate_key_documents_no_replay():
     assert "idempotency_conflict" in described
     assert "client_upgrade_required" in described
     # The contract must be explicit that a duplicate is not replayed.
-    assert (
-        "not stored" in described
-        or "never stored" in described
-        or "no replay" in described
-    )
+    assert "not stored" in described or "never stored" in described or "no replay" in described
 
 
 def test_every_policy_example_is_fictional_and_validates():
     document = _document()
     operation = document["paths"][POLICY_PATH]["post"]
     bodies = [operation["requestBody"]["content"]["application/json"]]
-    bodies += [
-        media
-        for response in operation["responses"].values()
-        for media in response.get("content", {}).values()
-    ]
+    bodies += [media for response in operation["responses"].values() for media in response.get("content", {}).values()]
     for media in bodies:
         if "schema" not in media:
             continue

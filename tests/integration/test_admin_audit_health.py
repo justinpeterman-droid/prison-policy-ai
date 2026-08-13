@@ -31,9 +31,7 @@ def _elevate(client, headers):
     assert response.status_code == 200, response.get_json()
 
 
-def test_elevated_overview_health_and_audit_list_are_safe(
-    api_client, admin_bearer_headers, db_session, monkeypatch
-):
+def test_elevated_overview_health_and_audit_list_are_safe(api_client, admin_bearer_headers, db_session, monkeypatch):
     import backend.webapp.api_v1.admin_health as health_api
 
     db_session.commit()
@@ -44,9 +42,7 @@ def test_elevated_overview_health_and_audit_list_are_safe(
         lambda signal, result, **_fields: signals.append((signal, result)),
     )
     _elevate(api_client, admin_bearer_headers)
-    overview = api_client.get(
-        "/api/v1/admin/overview", headers=_headers(admin_bearer_headers, "overview")
-    )
+    overview = api_client.get("/api/v1/admin/overview", headers=_headers(admin_bearer_headers, "overview"))
     assert overview.status_code == 200
     assert set(overview.get_json()["data"]) == {
         "reports",
@@ -55,9 +51,7 @@ def test_elevated_overview_health_and_audit_list_are_safe(
         "recent_audit_events",
         "build",
     }
-    health = api_client.get(
-        "/api/v1/admin/health", headers=_headers(admin_bearer_headers, "health")
-    )
+    health = api_client.get("/api/v1/admin/health", headers=_headers(admin_bearer_headers, "health"))
     assert health.status_code == 200, health.get_json()
     payload = health.get_json()["data"]
     assert payload["status"] in {"Operational", "Degraded", "Unavailable"}
@@ -67,11 +61,11 @@ def test_elevated_overview_health_and_audit_list_are_safe(
         "queue",
         "backup_restore",
     }
-    assert next(
-        item["status"]
-        for item in payload["components"]
-        if item["component"] == "policy_search"
-    ) in {"Operational", "Degraded", "Unavailable"}
+    assert next(item["status"] for item in payload["components"] if item["component"] == "policy_search") in {
+        "Operational",
+        "Degraded",
+        "Unavailable",
+    }
     for signal in ("dependency_health", "queue_health", "backup_restore_health"):
         assert signal in {name for name, _result in signals}
 
@@ -209,9 +203,7 @@ def test_health_emits_bucketed_queue_age_and_failed_stage_latency(
     assert queued.status_code == 202, queued.get_json()
     job = db_session.get(AiJob, queued.get_json()["data"]["id"])
     assert job is not None
-    pending_outbox = db_session.scalar(
-        select(TaskOutbox).where(TaskOutbox.ai_job_id == job.id)
-    )
+    pending_outbox = db_session.scalar(select(TaskOutbox).where(TaskOutbox.ai_job_id == job.id))
     assert pending_outbox is not None
     pending_outbox.created_at = now - timedelta(minutes=45)
 
@@ -267,27 +259,20 @@ def test_health_emits_bucketed_queue_age_and_failed_stage_latency(
     ) in signals
 
 
-def test_audit_export_requires_step_up_and_has_fixed_safe_columns(
-    api_client, admin_bearer_headers, db_session
-):
+def test_audit_export_requires_step_up_and_has_fixed_safe_columns(api_client, admin_bearer_headers, db_session):
     db_session.commit()
     _elevate(api_client, admin_bearer_headers)
-    headers = _headers(admin_bearer_headers, "audit-export") | {
-        "Idempotency-Key": "rp10-audit-export-0001"
-    }
+    headers = _headers(admin_bearer_headers, "audit-export") | {"Idempotency-Key": "rp10-audit-export-0001"}
     body = {
         "filters": {"action_family": "admin"},
         "format": "csv",
         "reason": "Fictional records fixture.",
     }
-    denied = api_client.post(
-        "/api/v1/admin/audit-events/export", headers=headers, json=body
-    )
+    denied = api_client.post("/api/v1/admin/audit-events/export", headers=headers, json=body)
     assert denied.status_code == 403
     step = api_client.post(
         "/api/v1/auth/admin-step-up",
-        headers=_headers(admin_bearer_headers, "audit-step")
-        | {"Idempotency-Key": "rp10-audit-step-0001"},
+        headers=_headers(admin_bearer_headers, "audit-step") | {"Idempotency-Key": "rp10-audit-step-0001"},
         json={"pin": ADMIN_PIN, "purpose": "audit_export"},
     )
     token = step.get_json()["data"]["step_up_token"]
@@ -306,8 +291,7 @@ def test_audit_export_requires_step_up_and_has_fixed_safe_columns(
     assert len(response.headers["Digest"].removeprefix("sha-256=")) == 44
     replay_step = api_client.post(
         "/api/v1/auth/admin-step-up",
-        headers=_headers(admin_bearer_headers, "audit-step-replay")
-        | {"Idempotency-Key": "rp10-audit-step-0002"},
+        headers=_headers(admin_bearer_headers, "audit-step-replay") | {"Idempotency-Key": "rp10-audit-step-0002"},
         json={"pin": ADMIN_PIN, "purpose": "audit_export"},
     )
     replay = api_client.post(

@@ -48,9 +48,7 @@ from backend.reports.deterministic_docx import ZIP_ENTRY_TIMESTAMP, normalize_do
 from backend.reports.filler import TEMPLATE_PATH, fill_template
 
 
-EXPORT_MIME_TYPE = (
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-)
+EXPORT_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 BULK_EXPORT_MIME_TYPE = "application/zip"
 #: Release-1 ceiling on one bulk operation (Admin client design).
 BULK_EXPORT_MAX_DOCUMENTS = 100
@@ -62,9 +60,7 @@ MANIFEST_SCHEMA_VERSION = 1
 EXPORT_TEMP_PREFIX = "prison-policy-export-"
 BULK_ARCHIVE_NAME = "report-export.zip"
 
-_EXPORT_NAMESPACE = uuid5(
-    NAMESPACE_URL, "https://prison-policy.invalid/exports/document"
-)
+_EXPORT_NAMESPACE = uuid5(NAMESPACE_URL, "https://prison-policy.invalid/exports/document")
 _BULK_NAMESPACE = uuid5(NAMESPACE_URL, "https://prison-policy.invalid/exports/bulk")
 
 #: Placeholder names the 005 template understands. Anything else a client put
@@ -194,9 +190,7 @@ def revision_metadata(report: Report, revision: ReportRevision) -> dict[str, str
     make two exports of one immutable revision differ. Every volatile value is
     therefore derived here from the revision's own timestamp.
     """
-    snapshot = (
-        deepcopy(revision.snapshot) if isinstance(revision.snapshot, dict) else {}
-    )
+    snapshot = deepcopy(revision.snapshot) if isinstance(revision.snapshot, dict) else {}
     editable = snapshot.get("editable_fields")
     metadata: dict[str, str] = {}
     if isinstance(editable, dict):
@@ -380,9 +374,7 @@ def _manifest_document(
             for item in failures
         ],
         "filter_names": filter_names,
-        "idempotency_recorded_at": recorded_at.astimezone(UTC)
-        .isoformat()
-        .replace("+00:00", "Z"),
+        "idempotency_recorded_at": recorded_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
         "reason": reason,
         "reports": [
             {
@@ -500,8 +492,7 @@ def bulk_reference(result: BulkExportResult) -> dict[str, object]:
         "format": "docx_zip",
         "ok": ",".join(document.revision_id.hex for document in result.documents),
         "failed": ",".join(
-            f"{item.report_id.hex}{_FAILURE_LETTERS[item.reason_code]}"
-            f"{item.revision_number or 0}"
+            f"{item.report_id.hex}{_FAILURE_LETTERS[item.reason_code]}{item.revision_number or 0}"
             for item in result.failures
         ),
         "report_count": len(result.documents),

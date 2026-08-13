@@ -22,13 +22,8 @@ def test_pages_publishes_only_static_forms():
 
 
 def test_github_environment_policy_is_external_and_exact():
-    policy = (ROOT / "docs" / "operations" / "github-environment-policy.md").read_text(
-        encoding="utf-8"
-    )
-    assert (
-        "GitHub administrators configure these environments outside Terraform and repository workflows."
-        in policy
-    )
+    policy = (ROOT / "docs" / "operations" / "github-environment-policy.md").read_text(encoding="utf-8")
+    assert "GitHub administrators configure these environments outside Terraform and repository workflows." in policy
     assert "Store completed records in the agency-approved system of record." in policy
     for environment in (
         "test",

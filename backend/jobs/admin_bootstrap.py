@@ -43,9 +43,9 @@ class GoogleBootstrapRequestReader:
 
     def __init__(self, client=None):
         if client is None:
-            from google.cloud import storage
+            from google.cloud.storage import Client
 
-            client = storage.Client()
+            client = Client()
         self._client = client
 
     def read_exact(self, *, bucket: str, object_name: str, max_bytes: int) -> bytes:
@@ -129,20 +129,13 @@ def load_bootstrap_request(
         raise ValueError("bootstrap request is invalid")
     object_name = parsed.path.lstrip("/")
     match = re.fullmatch(
-        re.escape(expected_prefix)
-        + r"([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.json",
+        re.escape(expected_prefix) + r"([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.json",
         object_name,
     )
     if not match:
         raise ValueError("bootstrap request is invalid")
-    body = storage_client.read_exact(
-        bucket=expected_bucket, object_name=object_name, max_bytes=4096
-    )
-    if (
-        not isinstance(body, bytes)
-        or len(body) > 4096
-        or hashlib.sha256(body).hexdigest() != expected_sha256
-    ):
+    body = storage_client.read_exact(bucket=expected_bucket, object_name=object_name, max_bytes=4096)
+    if not isinstance(body, bytes) or len(body) > 4096 or hashlib.sha256(body).hexdigest() != expected_sha256:
         raise ValueError("bootstrap request is invalid")
     try:
         data = json.loads(body)
@@ -190,16 +183,12 @@ def execute_admin_bootstrap(
             now=now,
             audit_writer=PostgresAuditWriter(),
             operation_id=request.operation_id,
-            approval_reference_sha256=hashlib.sha256(
-                request.approval_reference.encode("utf-8")
-            ).hexdigest(),
+            approval_reference_sha256=hashlib.sha256(request.approval_reference.encode("utf-8")).hexdigest(),
         )
     except InitialAdminBootstrapRefused:
         session.rollback()
         session.close()
-        return AdminBootstrapResult(
-            request.operation_id, "bootstrap_refused", None, None
-        )
+        return AdminBootstrapResult(request.operation_id, "bootstrap_refused", None, None)
     except Exception:
         session.rollback()
         session.close()
@@ -231,9 +220,7 @@ def execute_admin_bootstrap(
                 None,
                 None,
             )
-        return AdminBootstrapResult(
-            request.operation_id, "pin_version_add_failed", None, None
-        )
+        return AdminBootstrapResult(request.operation_id, "pin_version_add_failed", None, None)
     except Exception:
         session.rollback()
         session.close()
@@ -250,9 +237,7 @@ def execute_admin_bootstrap(
         payload = None
 
     prefix = initial_admin_pin_secret.rstrip("/") + "/versions/"
-    if not isinstance(name, str) or not re.fullmatch(
-        re.escape(prefix) + r"[1-9][0-9]*", name
-    ):
+    if not isinstance(name, str) or not re.fullmatch(re.escape(prefix) + r"[1-9][0-9]*", name):
         session.rollback()
         session.close()
         return AdminBootstrapResult(
@@ -274,18 +259,14 @@ def execute_admin_bootstrap(
             reference,
         )
     session.close()
-    return AdminBootstrapResult(
-        request.operation_id, "bootstrapped", expires_at, reference
-    )
+    return AdminBootstrapResult(request.operation_id, "bootstrapped", expires_at, reference)
 
 
 def _safe_result(result: AdminBootstrapResult) -> dict[str, object]:
     values = asdict(result)
     values["operation_id"] = str(result.operation_id)
     values["expires_at"] = (
-        result.expires_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
-        if result.expires_at is not None
-        else None
+        result.expires_at.astimezone(UTC).isoformat().replace("+00:00", "Z") if result.expires_at is not None else None
     )
     return values
 
@@ -298,16 +279,9 @@ def main(argv: list[str] | None = None) -> int:
 
     database_url = os.environ.get("DATABASE_URL")
     expected_bucket = os.environ.get("ADMIN_BOOTSTRAP_REQUEST_BUCKET")
-    expected_prefix = os.environ.get(
-        "ADMIN_BOOTSTRAP_REQUEST_PREFIX", "admin-bootstrap-requests/"
-    )
+    expected_prefix = os.environ.get("ADMIN_BOOTSTRAP_REQUEST_PREFIX", "admin-bootstrap-requests/")
     secret_parent = os.environ.get("INITIAL_ADMIN_PIN_SECRET")
-    if (
-        not database_url
-        or not expected_bucket
-        or not expected_prefix
-        or not secret_parent
-    ):
+    if not database_url or not expected_bucket or not expected_prefix or not secret_parent:
         return 1
 
     try:

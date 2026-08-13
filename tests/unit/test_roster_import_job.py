@@ -77,9 +77,7 @@ def test_roster_plan_accepts_a_matching_canonical_hash():
             "shift": "D",
         }
     ]
-    digest = hashlib.sha256(
-        json.dumps(rows, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
+    digest = hashlib.sha256(json.dumps(rows, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     plan = build_roster_plan(rows, corrections={}, expected_sha256=digest)
     assert plan.ready
     assert plan.source_sha256 == digest
@@ -97,9 +95,7 @@ def test_roster_hash_is_over_exact_approved_source_bytes():
     ]
     exact_bytes = b'{"staff": [ {"employee_number":"FX-200"} ]}\n'
     digest = hashlib.sha256(exact_bytes).hexdigest()
-    plan = build_roster_plan(
-        rows, corrections={}, expected_sha256=digest, source_bytes=exact_bytes
-    )
+    plan = build_roster_plan(rows, corrections={}, expected_sha256=digest, source_bytes=exact_bytes)
     assert plan.ready
     assert plan.source_sha256 == digest
 
@@ -164,9 +160,7 @@ def test_apply_refuses_hash_recheck_mismatch_before_opening_transaction():
     assert called is False
 
 
-def test_validation_cli_writes_private_findings_and_prints_safe_counts(
-    monkeypatch, capsys
-):
+def test_validation_cli_writes_private_findings_and_prints_safe_counts(monkeypatch, capsys):
     source = json.dumps(
         {
             "staff": [
@@ -203,9 +197,7 @@ def test_validation_cli_writes_private_findings_and_prints_safe_counts(
         "backend.jobs.roster_import.create_engine",
         lambda *args, **kwargs: SimpleNamespace(dispose=lambda: None),
     )
-    monkeypatch.setattr(
-        "backend.jobs.roster_import.sessionmaker", lambda **kwargs: Session
-    )
+    monkeypatch.setattr("backend.jobs.roster_import.sessionmaker", lambda **kwargs: Session)
     monkeypatch.setattr(
         "backend.jobs.roster_import._current_migration_revision",
         lambda session: "20260812_0005",
@@ -250,9 +242,7 @@ def test_private_report_adapter_enforces_create_only_generation():
             assert bucket == "fixture"
             return Bucket()
 
-    GooglePrivateObjectStore(Client()).write(
-        "gs://fixture/reports/result.json", b'{"safe":"fixture"}'
-    )
+    GooglePrivateObjectStore(Client()).write("gs://fixture/reports/result.json", b'{"safe":"fixture"}')
     assert calls == [
         (
             (b'{"safe":"fixture"}',),
