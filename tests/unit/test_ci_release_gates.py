@@ -1,4 +1,6 @@
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -41,3 +43,17 @@ def test_container_security_uses_fixed_provenance_checked_tooling():
     assert "grype-version: 0.117.0" in text
     assert "cosign verify" in text
     assert "insecure-ignore-tlog" not in text
+    assert text.count("docker build --tag prison-policy-ai:ci .") == 3
+    assert "permissions: {contents: read}" in text
+    assert "name: grype-sarif" in text
+
+
+def test_sensitive_output_rejects_real_secret_beside_fictional_marker(tmp_path):
+    candidate = tmp_path / "output.txt"
+    candidate.write_text("fixture-id\nprivate_key=real-secret\n", encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/ci/check_sensitive_output.py"), "--paths", str(candidate)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1

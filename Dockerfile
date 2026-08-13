@@ -1,4 +1,4 @@
-FROM node:22-slim AS web-build
+FROM node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 AS web-build
 
 WORKDIR /src
 COPY frontend/web/package.json frontend/web/package-lock.json /src/frontend/web/
@@ -7,7 +7,7 @@ RUN npm ci --legacy-peer-deps --no-audit --no-fund
 COPY frontend/web/ /src/frontend/web/
 RUN npm run build
 
-FROM python:3.14-slim AS build
+FROM python:3.14-slim@sha256:ce40764625a4ff50df3548277632e7f96c4e77fe75fa848aae9885476e7df5a4 AS build
 
 WORKDIR /app
 

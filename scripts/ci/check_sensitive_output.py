@@ -20,7 +20,7 @@ FORBIDDEN = (
     "employee_id",
     "inmate_id",
 )
-FIXTURES = ("fixture-", "example.invalid", "fake-")
+FIXTURE_VALUE = re.compile(r"(?:fixture-|fake-)[a-z0-9_-]+|https?://[^\s]+\.invalid", re.I)
 
 
 def paths(args: argparse.Namespace) -> list[Path]:
@@ -47,11 +47,13 @@ def main() -> int:
                 text = path.read_text(encoding="utf-8")
             except UnicodeDecodeError:
                 continue
-            lowered = text.lower()
-            if any(re.search(rf"\\b{re.escape(term)}\\b\\s*[:=]", lowered) for term in FORBIDDEN) and not any(
-                marker in lowered for marker in FIXTURES
-            ):
-                bad.append(str(path))
+            for line in text.splitlines():
+                lowered = line.lower()
+                if any(
+                    re.search(rf"\b{re.escape(term)}\b\s*[:=]", lowered) for term in FORBIDDEN
+                ) and not FIXTURE_VALUE.search(line):
+                    bad.append(str(path))
+                    break
     if bad:
         print("sensitive-output gate failed:\n" + "\n".join(bad), file=sys.stderr)
         return 1
