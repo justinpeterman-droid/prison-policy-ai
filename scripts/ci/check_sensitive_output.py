@@ -22,21 +22,33 @@ FORBIDDEN = (
 )
 FIXTURE_VALUE = re.compile(r"^\s*(?:fixture-|fake-|fictional-)[a-z0-9_-]+|local-(?:user|admin)|slut\s*$", re.I)
 ASSIGNMENT = re.compile(
-    r"\b(?:password|private_key|authorization|bearer|service_account|access_code|admin_code|temporary_pin|employee_id|inmate_id)\b\s*[:=]\s*(?:['\"]([^'\"]+)['\"]|([^\s,}\]]+))",
+    r"\b(?:password|private_key|authorization|bearer|service_account|access_code|admin_code|temporary_pin|employee_id|inmate_id)\b\s*[:=]\s*(?:"
+    r"(os\.getenv\(\s*(?:'[^']*'|\"[^\"]*\")(?:\s*,\s*(?:'[^']*'|\"[^\"]*\"))?\s*\))"
+    r"|['\"]([^'\"]+)['\"]|([^\s,;}\]]+))",
+    re.I,
+)
+GETENV_VALUE = re.compile(
+    r"^os\.getenv\(\s*(?:'[^']*'|\"[^\"]*\")(?:\s*,\s*(?:'(?P<single>[^']*)'|\"(?P<double>[^\"]*)\"))?\s*\)$",
     re.I,
 )
 
 
 def is_explicitly_nonsecret(value: str) -> bool:
     """Permit only source syntax that cannot itself contain a credential value."""
-    normalized = value.strip().strip("`;,)")
+    normalized = value.strip().strip("`;,")
+    if normalized.lower().startswith("os.getenv("):
+        getenv = GETENV_VALUE.fullmatch(normalized)
+        if not getenv:
+            return False
+        fallback = next((part for part in getenv.groupdict().values() if part is not None), None)
+        return fallback is None or not fallback.strip() or bool(FIXTURE_VALUE.fullmatch(fallback.strip()))
     if (
         not normalized
         or normalized in {'""', "''", "str", "Bearer", "UpdateGrant", "!0"}
         or FIXTURE_VALUE.fullmatch(normalized)
     ):
         return True
-    return normalized.startswith(("os.getenv(", "request.", "google_", "generate_temporary_pin(", "${", "{", "[", "<"))
+    return normalized.startswith(("request.", "google_", "generate_temporary_pin(", "${", "{", "[", "<"))
 
 
 def paths(args: argparse.Namespace) -> list[Path]:
@@ -65,10 +77,11 @@ def main() -> int:
                 continue
             for line in text.splitlines():
                 lowered = line.lower()
-                value = ASSIGNMENT.search(line)
                 strict = path.suffix.lower() in {".sarif", ".log"} or "output" in path.parts
-                assignment_value = next((part for part in value.groups() if part is not None), None) if value else None
-                if assignment_value and not is_explicitly_nonsecret(assignment_value):
+                assignment_values = (
+                    next(part for part in match.groups() if part is not None) for match in ASSIGNMENT.finditer(line)
+                )
+                if any(not is_explicitly_nonsecret(value) for value in assignment_values):
                     bad.append(str(path))
                     break
                 if strict and any(re.search(rf"\b{re.escape(term)}\b\s*[:=]", lowered) for term in FORBIDDEN):

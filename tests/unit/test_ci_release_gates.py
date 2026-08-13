@@ -170,6 +170,50 @@ def test_sensitive_output_allows_explicit_fictional_unquoted_values(tmp_path):
     assert result.returncode == 0
 
 
+def test_sensitive_output_checks_every_assignment_on_a_line(tmp_path):
+    candidate = tmp_path / "source.py"
+    password_key = "pass" + "word"
+    employee_key = "employee" + "_id"
+    candidate.write_text(
+        f"{password_key}='fictional-pass'; {employee_key}=123\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/ci/check_sensitive_output.py"), "--paths", str(candidate)]
+    )
+    assert result.returncode == 1
+
+
+def test_sensitive_output_rejects_nonfictional_getenv_literal_fallback(tmp_path):
+    candidate = tmp_path / "source.py"
+    password_key = "pass" + "word"
+    candidate.write_text(
+        f"{password_key}=os.getenv('PASSWORD', 'real-secret')\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/ci/check_sensitive_output.py"), "--paths", str(candidate)]
+    )
+    assert result.returncode == 1
+
+
+def test_sensitive_output_allows_getenv_without_nonfictional_literal(tmp_path):
+    candidate = tmp_path / "source.py"
+    password_key = "pass" + "word"
+    code_key = "access" + "_code"
+    admin_key = "admin" + "_code"
+    candidate.write_text(
+        f"{password_key}=os.getenv('PASSWORD')\n"
+        f"{code_key}=os.getenv('ACCESS_CODE', 'fictional-access')\n"
+        f"{admin_key}=os.getenv('ADMIN_CODE', '')\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/ci/check_sensitive_output.py"), "--paths", str(candidate)]
+    )
+    assert result.returncode == 0
+
+
 def test_sbom_validator_rejects_missing_and_forged_provenance(tmp_path, monkeypatch):
     module = _load_sbom_validator()
     output, provenance = _validator_inputs(tmp_path)
