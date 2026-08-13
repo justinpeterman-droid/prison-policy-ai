@@ -68,7 +68,7 @@ No deletion is authorized. Generated `pages-dist/`, SBOM/report outputs, caches,
 - `requirements-dev.in` references application requirements plus pytest, coverage, Ruff, mypy, pip-audit, pip-tools, OpenAPI validation, PostgreSQL support. `requirements-dev.lock` pins/hashes every transitive dependency.
 - `pyproject.toml` provides Ruff format/lint, mypy Python 3.12 plus explicit overrides, and existing pytest paths/markers while preserving `pytest.ini`.
 - CI runs Python 3.12 and 3.14, PostgreSQL 17 integration, OpenAPI, security/redaction, and existing policy/report/Word regressions without production credentials.
-- Base image is the official `python:3.14-slim` image pinned to a reviewed full 64-hex-character `sha256` digest resolved from the official manifest. Do not retain a symbolic digest or tag-only reference in the implementation. The multi-stage image installs runtime-only dependencies, runs non-root, has a health check, retains command override, and excludes Access/Terraform/release/test/operational sources.
+- Base image is the reviewed Chainguard Python 3.14 runtime `chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d`, resolved from its public Docker Registry manifest on 2026-08-13 after the current Docker Official `python:3.14-slim` digest was found to retain fixable Critical/High CVEs. Do not retain a symbolic digest or tag-only reference in the implementation. The multi-stage image installs runtime-only dependencies, runs non-root, has a health check, retains command override, and excludes Access/Terraform/release/test/operational sources. CI must continue to reject any fixable Critical/High runtime finding and validate the exact runtime digest's SBOM and signature/provenance before release.
 - Sensitive-output validator scans tracked text/test output/SARIF/SBOM/logs for forbidden secret/PII keys with only explicit fictional allowlists.
 - SBOM validator requires SPDX metadata, exact image digest, package licenses, and no environment values/file contents. Container workflow builds without pushing, scans OS/Python/Docker/IaC, fails on fixable Critical/High, uploads safe artifacts, and provides provenance.
 - Codacy is supplemental/non-authoritative and may not mask native required-check failure.
@@ -86,7 +86,7 @@ python -m pytest tests/unit/test_pages_publish_scope.py tests/unit/test_ci_relea
 
 Expected red: Pages scope is too broad, workflows/scripts are absent, and base image is mutable. Do not count unrelated collection failures.
 3. Generate the hashed lock only with the plan commands. Network access to official package/provider registries is acceptable; credentials and private indexes are not.
-4. Resolve/review the official Python base manifest rather than inventing a digest.
+4. Resolve/review the reconciled hardened Python 3.14 base manifest rather than inventing a digest.
 5. Implement checks/workflows/image/Pages/governance, then run:
 
 ```powershell

@@ -1436,7 +1436,7 @@ Create `pyproject.toml` with Ruff formatting/lint rules, mypy Python 3.12 compat
 
 - [ ] **Step 5: Pin and harden the runtime image**
 
-Resolve the official `python:3.14-slim` manifest and replace the `FROM` line with `python:3.14-slim@sha256:` followed by the reviewed 64-hex digest. Use a build stage, install only deployed dependencies, create a non-root application user, copy only runtime/Alembic assets with owned permissions, and retain overridable API/worker/job commands. The test assertion is the authoritative format check; do not paste an unverified digest into the plan.
+Use the reconciled hardened Python 3.14 runtime `chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d`. It replaces the Docker Official `python:3.14-slim` requirement because the reviewed 2026-08-13 official digest retained fixable Critical/High CVEs. Use a build stage, install only deployed dependencies, preserve the runtime image's non-root execution, copy only runtime/Alembic assets with owned permissions, and retain overridable API/worker/job commands. CI must still fail on any fixable Critical/High runtime finding and must bind an SBOM plus verified signature/provenance to the exact digest. The test assertion is the authoritative format check; do not paste an unverified digest into the plan.
 
 - [ ] **Step 6: Implement sensitive-output, workflow-pin, and SBOM validators**
 
