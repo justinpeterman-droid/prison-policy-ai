@@ -46,7 +46,10 @@ dependency or external approval.
   commits `1ae8bca` and `4e682a7`; final independent re-review READY,
   fresh focused PostgreSQL verification passed 40 tests, and full PostgreSQL
   integration passed 170 tests with one existing opt-in skip.
-- [ ] 016 RP-07 — Private worker/dispatcher.
+- [x] 016 RP-07 — Private worker/dispatcher. `LOCAL`
+  commits `98ef263` and `9c43b1b`; final independent re-review READY,
+  fresh focused PostgreSQL verification passed 54 tests, and full PostgreSQL
+  integration passed 189 tests with one existing opt-in skip.
 - [x] 017 RP-08 — Policy Expert API. `LOCAL bf2baff`; PR #80 open (draft)
   against `integration/access-cloud-run-rp02` (no migration, so based on the
   integration tip rather than stacked); focused policy/browser-parity suite
