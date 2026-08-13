@@ -122,6 +122,51 @@ variable "labels" {
   }
 }
 
+variable "notification_channel_ids" {
+  type    = set(string)
+  default = []
+}
+variable "billing_account_id" {
+  description = "Externally authorized billing account for this environment; never commit an account value."
+  type        = string
+  validation {
+    condition     = length(trimspace(var.billing_account_id)) > 0
+    error_message = "billing_account_id must be supplied from the external billing authorization gate."
+  }
+}
+variable "monthly_budget_amount" {
+  description = "Externally approved monthly USD budget amount."
+  type        = number
+  validation {
+    condition     = var.monthly_budget_amount > 0
+    error_message = "monthly_budget_amount must be a positive externally approved amount."
+  }
+}
+variable "budget_pubsub_topic" {
+  description = "Externally approved Pub/Sub topic used for budget routing."
+  type        = string
+  validation {
+    condition     = can(regex("^projects/[^/]+/topics/[^/]+$", var.budget_pubsub_topic))
+    error_message = "budget_pubsub_topic must be a full projects/.../topics/... resource name."
+  }
+}
+variable "observability_owner_role" {
+  description = "Role, not a person or contact destination, responsible for alert triage."
+  type        = string
+  validation {
+    condition     = length(trimspace(var.observability_owner_role)) > 0 && !can(regex("(?i)(@|https?://|token|secret|pin)", var.observability_owner_role))
+    error_message = "observability_owner_role must be a non-sensitive owner role, not contact or credential data."
+  }
+}
+variable "sensitive_log_scanner_metric_type" {
+  description = "Externally confirmed metric emitted only when the sensitive-log scanner fails; production gate remains closed until supplied."
+  type        = string
+  validation {
+    condition     = can(regex("^(logging.googleapis.com/user|custom.googleapis.com)/[a-z][a-z0-9_/.-]{0,199}$", var.sensitive_log_scanner_metric_type))
+    error_message = "sensitive_log_scanner_metric_type must be an externally confirmed bounded Google Monitoring metric type."
+  }
+}
+
 variable "image_digest" {
   type        = string
   description = "Artifact Registry image reference pinned by sha256 digest."

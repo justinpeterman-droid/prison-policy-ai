@@ -2,6 +2,10 @@ output "api_service_account_email" {
   value = google_service_account.api.email
 }
 
+output "logical_backup_service_account_email" {
+  value = google_service_account.logical_backup.email
+}
+
 output "worker_service_account_email" {
   value = google_service_account.worker.email
 }
