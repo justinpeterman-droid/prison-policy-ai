@@ -30,7 +30,7 @@ variable "wif_trust" {
   type = map(object({
     github_environment = string
     workflow_refs      = set(string)
-    workflow_claim     = string
+    workflow_claims    = set(string)
     ref_pattern        = string
   }))
 
@@ -51,8 +51,21 @@ variable "wif_trust" {
   }
 
   validation {
-    condition     = alltrue([for trust in values(var.wif_trust) : contains(["workflow_ref", "job_workflow_ref"], trust.workflow_claim)])
-    error_message = "workflow_claim must be workflow_ref or job_workflow_ref."
+    condition     = alltrue([for trust in values(var.wif_trust) : length(trust.workflow_claims) > 0 && length(setsubtract(trust.workflow_claims, toset(["workflow_ref", "job_workflow_ref"]))) == 0])
+    error_message = "workflow_claims must contain only workflow_ref and/or job_workflow_ref."
+  }
+
+  validation {
+    condition = try(
+      var.wif_trust["terraform-plan"].workflow_claims == toset(["workflow_ref", "job_workflow_ref"]) &&
+      var.wif_trust["terraform-apply"].workflow_claims == toset(["job_workflow_ref"]) &&
+      var.wif_trust["deploy"].workflow_claims == toset(["workflow_ref"]) &&
+      var.wif_trust["rollback"].workflow_claims == toset(["workflow_ref"]) &&
+      var.wif_trust["admin-bootstrap"].workflow_claims == toset(["workflow_ref"]) &&
+      var.wif_trust["access-release"].workflow_claims == toset(["workflow_ref"]),
+      false,
+    )
+    error_message = "workflow_claims must match the approved top-level and reusable workflow trust contract."
   }
 }
 

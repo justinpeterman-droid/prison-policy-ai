@@ -47,13 +47,24 @@ locals {
       role_id = local.role_ids.access_release
     }
   } : {})
+
+  workflow_claim_bindings = merge([
+    for workflow_name, workflow in local.workflow_accounts : {
+      for claim in var.wif_trust[workflow_name].workflow_claims :
+      "${workflow_name}-${claim}" => {
+        account      = workflow.account
+        claim        = claim
+        workflow_ref = one(var.wif_trust[workflow_name].workflow_refs)
+      }
+    }
+  ]...)
 }
 
 resource "google_service_account" "identities" {
   for_each     = local.service_account_roles
   project      = var.project_id
   account_id   = "access-${local.environment_id}-${each.value}"
-  display_name = "Access ${each.key} (${var.environment})"
+  display_name = "Access ${each.value}"
   depends_on   = [terraform_data.services_ready]
 }
 
@@ -116,7 +127,7 @@ resource "google_storage_bucket_iam_member" "terraform_plan_state_read" {
   condition {
     title       = "AccessTerraformPlanState"
     description = "Read only this environment's Terraform state objects."
-    expression  = "resource.name.startsWith(\"projects/_/buckets/${var.state_bucket_name}/objects/access/${var.environment}/\")"
+    expression  = "resource.name == \"projects/_/buckets/${var.state_bucket_name}\" || resource.name.startsWith(\"projects/_/buckets/${var.state_bucket_name}/objects/access/${var.environment}/\")"
   }
 
   depends_on = [terraform_data.services_ready]
@@ -130,7 +141,7 @@ resource "google_storage_bucket_iam_member" "terraform_apply_state_write" {
   condition {
     title       = "AccessTerraformApplyState"
     description = "Manage only this environment's Terraform state objects."
-    expression  = "resource.name.startsWith(\"projects/_/buckets/${var.state_bucket_name}/objects/access/${var.environment}/\")"
+    expression  = "resource.name == \"projects/_/buckets/${var.state_bucket_name}\" || resource.name.startsWith(\"projects/_/buckets/${var.state_bucket_name}/objects/access/${var.environment}/\")"
   }
 
   depends_on = [terraform_data.services_ready]
@@ -218,27 +229,29 @@ resource "google_iam_workload_identity_pool_provider" "workflow" {
   project                            = var.project_id
   workload_identity_pool_id          = google_iam_workload_identity_pool.workflow.workload_identity_pool_id
   workload_identity_pool_provider_id = each.value.role_id
-  display_name                       = "Access ${each.value.role_id} WIF (${local.environment_id})"
+  display_name                       = "Access ${each.value.role_id} (${local.environment_id})"
 
-  attribute_mapping = {
-    "google.subject"             = "assertion.sub"
-    "attribute.repository"       = "assertion.repository"
-    "attribute.ref"              = "assertion.ref"
-    "attribute.environment"      = "assertion.environment"
+  attribute_mapping = merge({
+    "google.subject"        = "assertion.sub"
+    "attribute.repository"  = "assertion.repository"
+    "attribute.ref"         = "assertion.ref"
+    "attribute.environment" = "assertion.environment"
+    }, contains(var.wif_trust[each.key].workflow_claims, "workflow_ref") ? {
+    "attribute.workflow_ref" = "assertion.workflow_ref"
+    } : {}, contains(var.wif_trust[each.key].workflow_claims, "job_workflow_ref") ? {
     "attribute.job_workflow_ref" = "assertion.job_workflow_ref"
-    "attribute.workflow_ref"     = "assertion.workflow_ref"
-  }
+  } : {})
 
-  attribute_condition = "assertion.repository == \"${var.github_repository}\" && assertion.ref == \"${var.wif_trust[each.key].ref_pattern}\" && assertion.environment == \"${var.wif_trust[each.key].github_environment}\" && assertion.${var.wif_trust[each.key].workflow_claim} in [${join(", ", [for ref in sort(tolist(var.wif_trust[each.key].workflow_refs)) : format("%q", ref)])}]"
+  attribute_condition = "assertion.repository == \"${var.github_repository}\" && assertion.ref == \"${var.wif_trust[each.key].ref_pattern}\" && assertion.environment == \"${var.wif_trust[each.key].github_environment}\" && (${join(" || ", [for claim in sort(tolist(var.wif_trust[each.key].workflow_claims)) : "has(assertion.${claim}) && assertion.${claim} in [${join(", ", [for ref in sort(tolist(var.wif_trust[each.key].workflow_refs)) : format("%q", ref)])}"])})"
 
   oidc { issuer_uri = "https://token.actions.githubusercontent.com" }
 }
 
 resource "google_service_account_iam_member" "workflow_impersonation" {
-  for_each           = local.workflow_accounts
+  for_each           = local.workflow_claim_bindings
   service_account_id = google_service_account.identities[each.value.account].name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.workflow.name}/attribute.${var.wif_trust[each.key].workflow_claim}/${one(var.wif_trust[each.key].workflow_refs)}"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.workflow.name}/attribute.${each.value.claim}/${each.value.workflow_ref}"
 }
 
 # Secrets are bound individually below. No workflow account appears in a

@@ -59,29 +59,37 @@ def test_workflow_identities_have_distinct_wif_and_secret_boundaries():
     assert 'rollback_traffic' not in identities
 
 
-def test_workflow_impersonation_is_scoped_to_the_exact_workflow_ref():
+def test_workflow_impersonation_is_scoped_to_exact_permitted_workflow_claims():
     identities = read("identities.tf")
-    assert 'attribute.${var.wif_trust[each.key].workflow_claim}/${one(var.wif_trust[each.key].workflow_refs)}' in identities
-    assert 'assertion.${var.wif_trust[each.key].workflow_claim}' in identities
+    variables = read("variables.tf")
+    assert re.search(r"workflow_claims\s*=\s*set\(string\)", variables)
+    assert 'contains(var.wif_trust[each.key].workflow_claims, "job_workflow_ref") ? {' in identities
+    assert '"attribute.job_workflow_ref" = "assertion.job_workflow_ref"' in identities
+    assert 'for claim in sort(tolist(var.wif_trust[each.key].workflow_claims))' in identities
+    assert 'attribute.${each.value.claim}/${each.value.workflow_ref}' in identities
 
 
-def test_top_level_workflows_use_workflow_ref_and_rollback_is_distinct():
+def test_workflow_claims_follow_top_level_and_reusable_boundaries():
     test_main = (TEST_ROOT / "main.tf").read_text(encoding="utf-8")
     production_main = (PRODUCTION_ROOT / "main.tf").read_text(encoding="utf-8")
     assert 'rollback-test.yml@refs/heads/main' in test_main
     assert 'deploy-test.yml@refs/heads/main' in test_main
     assert 'rollback-production.yml@refs/heads/main' in production_main
     assert 'deploy-production.yml@refs/heads/main' in production_main
-    assert 'workflow_claim     = "job_workflow_ref"' not in test_main
-    assert 'workflow_claim     = "job_workflow_ref"' not in production_main
-    assert test_main.count('workflow_claim     = "workflow_ref"') == 6
-    assert production_main.count('workflow_claim     = "workflow_ref"') == 6
+    for text in (test_main, production_main):
+        assert 'workflow_claim     =' not in text
+        assert 'terraform-plan' in text
+        assert 'workflow_claims    = toset(["workflow_ref", "job_workflow_ref"])' in text
+        assert 'workflow_claims    = toset(["job_workflow_ref"])' in text
+        assert text.count('workflow_claims    = toset(["workflow_ref"])') == 4
 
 
 def test_wif_display_names_use_short_physical_environment_id():
     identities = read("identities.tf")
-    assert re.search(r'display_name\s*=\s*"Access \$\{each\.value\.role_id\} WIF \(\$\{local\.environment_id\}\)"', identities)
+    assert re.search(r'display_name\s*=\s*"Access \$\{each\.value\.role_id\} \(\$\{local\.environment_id\}\)"', identities)
     assert 'WIF (${var.environment})' not in identities
+    assert 'display_name = "Access ${each.key} (${var.environment})"' not in identities
+    assert 'display_name = "Access ${each.value}"' in identities
 
 
 def test_terraform_apply_never_receives_broad_secret_administration():
@@ -103,6 +111,7 @@ def test_terraform_state_iam_is_prefix_scoped_for_plan_and_apply():
     assert 'roles/storage.objectViewer' in identities
     assert 'roles/storage.objectAdmin' in identities
     assert 'objects/access/${var.environment}/' in identities
+    assert 'resource.name == \\"projects/_/buckets/${var.state_bucket_name}\\"' in identities
     assert 'variable "state_bucket_name"' in module_variables
 
 
