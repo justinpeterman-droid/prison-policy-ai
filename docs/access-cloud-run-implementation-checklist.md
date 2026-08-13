@@ -58,12 +58,13 @@ dependency or external approval.
   30 expected PostgreSQL skips; full unit/contract passed 1,285 and PostgreSQL
   integration passed 189 with one existing opt-in skip (one time-sensitive
   Admin fixture retry passed in isolation).
-- [x] 018 RP-09 — Word exports. `LOCAL 242452f`; PR #81 open (draft), stacked
-  on RP-08 only (RP-06 now merged); full regression 1,500 passed/1 skipped on
-  PostgreSQL 17; independent review pending. Rebase onto merged RP-06 required
-  three reconciliations: the `Export.byte_length`→`size_bytes` rename, removal
-  of stale duplicate OpenAPI job paths that were silently reverting RP-06's
-  hardened parameters, and the PostgreSQL 17 finding below.
+- [x] 018 RP-09 — Word exports. `REVIEWED` rebased implementation `00fbd78`,
+  integrated by merge `7f6e243`; independent re-review READY. The rebase
+  preserves RP-08 hardening, sorts every ZIP member (including manifest), and
+  suppresses the internal selection query's search audit so the bulk route
+  writes only its route-specific audit. Required export/filler tests passed 75;
+  full unit/contract passed 1,295 and PostgreSQL integration passed 244 with
+  one existing opt-in skip.
 - [ ] 019 RP-10 — Reporting operations and legacy controls.
 
 ## Google Cloud and delivery infrastructure
