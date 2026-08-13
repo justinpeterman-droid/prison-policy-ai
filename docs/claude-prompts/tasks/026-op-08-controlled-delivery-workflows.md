@@ -39,6 +39,7 @@ Create only:
 - `.github/workflows/terraform-plan.yml`
 - `.github/workflows/terraform-apply.yml`
 - `.github/workflows/deploy-test.yml`
+- `.github/workflows/rollback-test.yml`
 - `.github/workflows/deploy-production.yml`
 - `.github/workflows/rollback-production.yml`
 - `.github/workflows/bootstrap-first-admin.yml`
@@ -77,6 +78,7 @@ No deletion is authorized in this task. Specifically, do not recreate or touch t
 - Metadata/receipt binds repository, workflow name/numeric ID/run ID/job workflow ref, protected environment, full ref, source commit, digest, registry hash plus six values, root, purpose, plan hash, artifact numeric ID/name. Plan permissions are only the exact four read/OIDC/deployment permissions in the plan.
 - `terraform-apply.yml` is `workflow_call` only. Before download it queries Actions/workflow/run/artifact and Deployments APIs read-only and validates current repo, expected origin workflow/path/ID, run success, protected environment, `refs/heads/main`, commit, receipt/hash, nonexpired exact numeric artifact ID and name tied to run. It downloads by numeric ID only, rejects extra/symlink members, recomputes binary hash, validates metadata/registry, then applies the exact saved plan after proper approval. It never replans or downloads by name alone.
 - `deploy-test.yml` builds/pushes a test candidate once in the future protected workflow, resolves digest, validates SBOM/provenance/registry, calls plan and apply using all provenance values, then migration/verification, same-digest worker/API, fictional E2E/contract/load/failure tests, and attested descriptor. Workflow cannot access production/real data.
+- `rollback-test.yml` is manual and test-only under the existing `test` environment. It authenticates only as the distinct test rollback identity, verifies reviewed prior test revisions, and changes only test service traffic/revision selection. It never builds, applies Terraform, invokes jobs, accesses secrets, or accesses production.
 - `deploy-production.yml` is manual, consumes unchanged descriptor/hash and all six plan provenance values plus approval. It validates before download/apply, obtains separate production apply/deploy approvals, records prior revisions/traffic, verifies backup/PITR, runs migration/verification, worker, API `--no-traffic`, then exact candidate allocations 1, 10, 50, 100 with managed-host smoke/traffic/threshold gates.
 - Failure restores 100% API traffic and worker to verified prior revisions, leaves expanded schema/data intact, exits nonzero.
 - Terraform lifecycle ignore is narrowly limited to revision image/traffic fields; never IAM, ingress, secrets, service account, or configuration.
@@ -150,6 +152,7 @@ $allowed = @(
     '.github/workflows/terraform-plan.yml'
     '.github/workflows/terraform-apply.yml'
     '.github/workflows/deploy-test.yml'
+    '.github/workflows/rollback-test.yml'
     '.github/workflows/deploy-production.yml'
     '.github/workflows/rollback-production.yml'
     '.github/workflows/bootstrap-first-admin.yml'
