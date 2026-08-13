@@ -1424,7 +1424,7 @@ Expected: FAIL because Pages uploads `path: .`, required workflows/scripts are a
 Create `requirements-dev.in` referencing the application requirements plus pytest, coverage, Ruff, mypy, pip-audit, pip-tools, OpenAPI validation, and PostgreSQL test support. Generate `requirements-dev.lock` with hashes:
 
 ```powershell
-python -m piptools compile --generate-hashes --resolver=backtracking --output-file=requirements-dev.lock requirements-dev.in
+python -m piptools compile --generate-hashes --allow-unsafe --resolver=backtracking --output-file=requirements-dev.lock requirements-dev.in
 python -m pip install --require-hashes --requirement requirements-dev.lock
 ```
 

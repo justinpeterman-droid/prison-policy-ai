@@ -85,7 +85,7 @@ python -m pytest tests/unit/test_pages_publish_scope.py tests/unit/test_ci_relea
 ```
 
 Expected red: Pages scope is too broad, workflows/scripts are absent, and base image is mutable. Do not count unrelated collection failures.
-3. Generate the hashed lock only with the plan commands. Network access to official package/provider registries is acceptable; credentials and private indexes are not.
+3. Generate the hashed lock only with the plan commands. Because pip-tools classifies `pip` and `setuptools` as unsafe and otherwise omits them, use `--allow-unsafe` with `--generate-hashes` so those declared build tools are present and hashed in the lock. Network access to official package/provider registries is acceptable; credentials and private indexes are not.
 4. Resolve/review the reconciled hardened Python 3.14 base manifest rather than inventing a digest.
 5. Implement checks/workflows/image/Pages/governance, then run:
 
