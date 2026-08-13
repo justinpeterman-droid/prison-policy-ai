@@ -65,7 +65,14 @@ dependency or external approval.
   writes only its route-specific audit. Required export/filler tests passed 75;
   full unit/contract passed 1,295 and PostgreSQL integration passed 244 with
   one existing opt-in skip.
-- [ ] 019 RP-10 — Reporting operations and legacy controls.
+- [x] 019 RP-10 — Reporting operations and legacy controls. `REVIEWED`
+  implementation `646a998`, integrated by merge `2390f14`; independent
+  re-review READY. Adds the exact nine-field client policy, elevated safe
+  overview/audit/health routes, fixed-column replayable audit CSV export,
+  allowlisted operational telemetry, and explicit legacy pilot/restricted
+  controls with a visible transient-history warning. Focused RP-10 tests
+  passed 14; unit/contract passed 1,266 with 30 expected skips; related
+  PostgreSQL integration passed 39.
 
 ## Google Cloud and delivery infrastructure
 
