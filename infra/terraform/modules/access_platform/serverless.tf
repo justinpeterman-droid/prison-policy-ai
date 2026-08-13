@@ -6,12 +6,26 @@ resource "google_artifact_registry_repository" "backend" {
   depends_on    = [terraform_data.services_ready]
 }
 
+resource "google_project_iam_member" "terraform_apply_run_admin" {
+  project = var.project_id
+  role    = "roles/run.admin"
+  member  = google_service_account.identities["terraform_apply"].member
+}
+
+locals {
+  cloud_run_labels = merge(var.labels, {
+    source       = var.source_commit
+    release      = substr(replace(lower(var.release_version), "/[^a-z0-9_-]/", "-"), 0, 63)
+    image_digest = substr(sha256(var.image_digest), 0, 63)
+  })
+}
+
 resource "google_cloud_run_v2_service" "api" {
   name     = "access-${var.environment}-api"
   project  = var.project_id
   location = var.region
   ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
-  labels   = merge(var.labels, { source = var.source_commit, release = var.release_version, image_digest = substr(sha256(var.image_digest), 0, 63) })
+  labels   = local.cloud_run_labels
 
   template {
     service_account                  = google_service_account.identities["api"].email
@@ -225,7 +239,7 @@ resource "google_cloud_run_v2_service" "worker" {
   project  = var.project_id
   location = var.region
   ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
-  labels   = merge(var.labels, { source = var.source_commit, release = var.release_version, image_digest = substr(sha256(var.image_digest), 0, 63) })
+  labels   = local.cloud_run_labels
 
   template {
     service_account                  = google_service_account.identities["worker"].email
@@ -314,6 +328,14 @@ resource "google_cloud_run_v2_service_iam_member" "worker_task_invoker" {
   member   = "serviceAccount:${google_service_account.identities["task_invoker"].email}"
 }
 
+resource "google_cloud_run_v2_service_iam_member" "api_public_invoker" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.api.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
 resource "google_artifact_registry_repository_iam_member" "deploy_writer" {
   project    = var.project_id
   location   = var.region
@@ -327,16 +349,22 @@ resource "google_cloud_run_v2_service_iam_member" "deploy_services" {
   project  = var.project_id
   location = var.region
   name     = each.value
-  role     = "roles/run.admin"
+  role     = google_project_iam_custom_role.deploy_revision.name
   member   = google_service_account.identities["deploy"].member
 }
 
 resource "google_project_iam_custom_role" "rollback_traffic" {
-  project     = var.project_id
-  role_id     = "accessRollbackTraffic"
-  title       = "Access rollback traffic only"
-  permissions = ["run.services.get", "run.services.updateTraffic"]
-  depends_on  = [terraform_data.services_ready]
+  project = var.project_id
+  role_id = "accessRollbackTraffic"
+  title   = "Access rollback traffic only"
+  permissions = [
+    "run.operations.get",
+    "run.revisions.get",
+    "run.revisions.list",
+    "run.services.get",
+    "run.services.update",
+  ]
+  depends_on = [terraform_data.services_ready]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "rollback_services" {

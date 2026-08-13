@@ -67,6 +67,12 @@ locals {
     terraform-apply-service-account-admin   = { account = "terraform_apply", role = "roles/iam.serviceAccountAdmin" }
     terraform-apply-workload-identity-admin = { account = "terraform_apply", role = "roles/iam.workloadIdentityPoolAdmin" }
     terraform-apply-project-iam-admin       = { account = "terraform_apply", role = "roles/resourcemanager.projectIamAdmin" }
+    terraform-apply-artifact-registry-admin = { account = "terraform_apply", role = "roles/artifactregistry.admin" }
+    terraform-apply-cloud-tasks-admin       = { account = "terraform_apply", role = "roles/cloudtasks.admin" }
+    terraform-apply-storage-admin           = { account = "terraform_apply", role = "roles/storage.admin" }
+    terraform-apply-dns-admin               = { account = "terraform_apply", role = "roles/dns.admin" }
+    terraform-apply-load-balancer-admin     = { account = "terraform_apply", role = "roles/compute.loadBalancerAdmin" }
+    terraform-apply-security-admin          = { account = "terraform_apply", role = "roles/compute.securityAdmin" }
   }
 
   state_iam_bindings = {
@@ -146,6 +152,21 @@ resource "google_project_iam_custom_role" "terraform_apply_secret_containers" {
     "secretmanager.secrets.list",
     "secretmanager.secrets.setIamPolicy",
     "secretmanager.secrets.update",
+  ]
+  depends_on = [terraform_data.services_ready]
+}
+
+resource "google_project_iam_custom_role" "deploy_revision" {
+  project     = var.project_id
+  role_id     = "accessDeployRevision"
+  title       = "Access deployment revisions only"
+  description = "Deploy reviewed Cloud Run revisions without administering services."
+  permissions = [
+    "run.operations.get",
+    "run.revisions.get",
+    "run.revisions.list",
+    "run.services.get",
+    "run.services.update",
   ]
   depends_on = [terraform_data.services_ready]
 }

@@ -27,6 +27,12 @@ resource "google_storage_bucket" "private" {
       with_state         = "ARCHIVED"
     }
   }
+  dynamic "retention_policy" {
+    for_each = each.key == "logical_backup" ? [true] : []
+    content {
+      retention_period = 2592000
+    }
+  }
   depends_on = [terraform_data.services_ready]
 }
 
