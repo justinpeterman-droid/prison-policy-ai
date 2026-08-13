@@ -77,13 +77,28 @@ output "terraform_test_contract" {
     }
     iam = {
       project_binding_count = length(google_project_iam_member.least_privilege) + 1
-      project_roles         = sort(concat([for key, binding in google_project_iam_member.least_privilege : key == "terraform-apply-secret-container-admin" ? "custom:secret-container-admin" : binding.role], [google_project_iam_member.terraform_apply_run_admin.role]))
+      project_roles         = sort(concat([for key, binding in google_project_iam_member.least_privilege : key == "terraform-apply-secret-container-admin" ? "custom:secret-container-admin" : binding.role], ["custom:op04-infrastructure"]))
       exact_relations = {
         for key, binding in google_project_iam_member.least_privilege : key => binding.member == google_service_account.identities[local.project_iam_bindings[key].account].member && binding.role == local.project_iam_bindings[key].role
       }
+      op04_infrastructure_relation = google_project_iam_member.terraform_apply_op04_infrastructure.role == google_project_iam_custom_role.terraform_apply_op04_infrastructure.name && google_project_iam_member.terraform_apply_op04_infrastructure.member == google_service_account.identities["terraform_apply"].member
       custom_role = {
         id_category = google_project_iam_custom_role.terraform_apply_secret_containers.role_id == "accessSecretContainerAdmin"
-        permissions = sort(google_project_iam_custom_role.terraform_apply_secret_containers.permissions)
+        secret_payload_permission_count = length([
+          for permission in google_project_iam_custom_role.terraform_apply_secret_containers.permissions : permission
+          if permission == "secretmanager.versions.access" || permission == "secretmanager.versions.get"
+        ])
+      }
+      op04_infrastructure_role = {
+        id_category = google_project_iam_custom_role.terraform_apply_op04_infrastructure.role_id == "accessOp04Infrastructure"
+        iam_role_lifecycle_count = length([
+          for permission in google_project_iam_custom_role.terraform_apply_op04_infrastructure.permissions : permission
+          if startswith(permission, "iam.roles.")
+        ])
+        forbidden_data_plane_permission_count = length([
+          for permission in google_project_iam_custom_role.terraform_apply_op04_infrastructure.permissions : permission
+          if startswith(permission, "storage.objects.") || startswith(permission, "cloudtasks.tasks.") || permission == "artifactregistry.repositories.uploadArtifacts" || startswith(permission, "run.jobs.") || permission == "run.services.updateTraffic" || startswith(permission, "secretmanager.")
+        ])
       }
       state_binding_count           = length(google_storage_bucket_iam_member.terraform_state)
       state_roles                   = sort([for binding in values(google_storage_bucket_iam_member.terraform_state) : binding.role])
@@ -98,7 +113,6 @@ output "terraform_test_contract" {
       api_internal_lb_ingress      = google_cloud_run_v2_service.api.ingress == "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
       worker_internal_ingress      = google_cloud_run_v2_service.worker.ingress == "INGRESS_TRAFFIC_INTERNAL_ONLY"
       service_label_relations      = { api = alltrue([for value in values(google_cloud_run_v2_service.api.labels) : can(regex("^[a-z0-9_-]{0,63}$", value))]), worker = alltrue([for value in values(google_cloud_run_v2_service.worker.labels) : can(regex("^[a-z0-9_-]{0,63}$", value))]) }
-      cloud_run_iam_bindings       = concat([google_cloud_run_v2_service_iam_member.api_public_invoker, google_cloud_run_v2_service_iam_member.worker_task_invoker], values(google_cloud_run_v2_service_iam_member.deploy_services), values(google_cloud_run_v2_service_iam_member.rollback_services))
       api_public_invoker_count     = length([for binding in concat([google_cloud_run_v2_service_iam_member.api_public_invoker, google_cloud_run_v2_service_iam_member.worker_task_invoker], values(google_cloud_run_v2_service_iam_member.deploy_services), values(google_cloud_run_v2_service_iam_member.rollback_services)) : binding if binding.name == google_cloud_run_v2_service.api.name && binding.role == "roles/run.invoker" && binding.member == "allUsers"])
       non_api_public_invoker_count = length([for binding in concat([google_cloud_run_v2_service_iam_member.api_public_invoker, google_cloud_run_v2_service_iam_member.worker_task_invoker], values(google_cloud_run_v2_service_iam_member.deploy_services), values(google_cloud_run_v2_service_iam_member.rollback_services)) : binding if binding.member == "allUsers" && binding.name != google_cloud_run_v2_service.api.name])
       worker_task_invoker_count    = length([for binding in concat([google_cloud_run_v2_service_iam_member.api_public_invoker, google_cloud_run_v2_service_iam_member.worker_task_invoker], values(google_cloud_run_v2_service_iam_member.deploy_services), values(google_cloud_run_v2_service_iam_member.rollback_services)) : binding if binding.name == google_cloud_run_v2_service.worker.name && binding.role == "roles/run.invoker" && binding.member == "serviceAccount:${google_service_account.identities["task_invoker"].email}"])
@@ -108,13 +122,13 @@ output "terraform_test_contract" {
       uniform_access_count         = length([for bucket in values(google_storage_bucket.private) : bucket if bucket.uniform_bucket_level_access])
       versioned_bucket_count       = length([for bucket in values(google_storage_bucket.private) : bucket if bucket.versioning[0].enabled])
       logical_backup_retention     = try(tostring(google_storage_bucket.private["logical_backup"].retention_policy[0].retention_period) == "2592000", false)
-      storage_iam_bindings         = concat([google_storage_bucket_iam_member.release_api_read, google_storage_bucket_iam_member.bootstrap_request_read, google_storage_bucket_iam_member.roster_migration_read, google_storage_bucket_iam_member.review_api_read], google_storage_bucket_iam_member.release_access_release_write)
       release_api_viewer_count     = length([for binding in concat([google_storage_bucket_iam_member.release_api_read, google_storage_bucket_iam_member.bootstrap_request_read, google_storage_bucket_iam_member.roster_migration_read, google_storage_bucket_iam_member.review_api_read], google_storage_bucket_iam_member.release_access_release_write) : binding if binding.bucket == google_storage_bucket.private["release"].name && binding.role == "roles/storage.objectViewer" && binding.member == google_service_account.identities["api"].member])
       release_other_viewer_count   = length([for binding in concat([google_storage_bucket_iam_member.release_api_read, google_storage_bucket_iam_member.bootstrap_request_read, google_storage_bucket_iam_member.roster_migration_read, google_storage_bucket_iam_member.review_api_read], google_storage_bucket_iam_member.release_access_release_write) : binding if binding.bucket == google_storage_bucket.private["release"].name && binding.role == "roles/storage.objectViewer" && binding.member != google_service_account.identities["api"].member])
       bootstrap_prefix_exact       = google_storage_bucket_iam_member.bootstrap_request_read.role == "roles/storage.objectViewer" && google_storage_bucket_iam_member.bootstrap_request_read.member == google_service_account.identities["bootstrap"].member && google_storage_bucket_iam_member.bootstrap_request_read.condition[0].expression == "resource.name.startsWith(\"projects/_/buckets/${google_storage_bucket.private["configuration"].name}/objects/admin-bootstrap-requests/\")"
       api_only_update_grant        = length([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env if env.name == "CLIENT_UPDATE_GRANT_KEY" && env.value_source[0].secret_key_ref[0].secret == google_secret_manager_secret.containers["client-update-grant-key"].secret_id]) == 1 && length([for env in google_cloud_run_v2_service.worker.template[0].containers[0].env : env if env.name == "CLIENT_UPDATE_GRANT_KEY"]) == 0
       api_only_release_bucket      = length([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env if env.name == "ACCESS_RELEASE_BUCKET" && env.value == google_storage_bucket.private["release"].name]) == 1 && length([for env in google_cloud_run_v2_service.worker.template[0].containers[0].env : env if env.name == "ACCESS_RELEASE_BUCKET"]) == 0
-      api_secret_source_relations  = { for category, secret in { database = "access-database-url", pepper = "identity-hash-pepper", cursor = "cursor-signing-key", update_grant = "client-update-grant-key" } : category => length([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env if try(env.value_source[0].secret_key_ref[0].secret == google_secret_manager_secret.containers[secret].secret_id, false)]) == 1 }
+      api_secret_source_relations  = { for category, secret in { database = "access-database-url", pepper = "identity-hash-pepper", cursor = "cursor-signing-key", update_grant = "client-update-grant-key", legacy_access = "legacy-access-code", legacy_admin = "legacy-admin-code", feedback = "github-feedback-token" } : category => length([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env if try(env.value_source[0].secret_key_ref[0].secret == google_secret_manager_secret.containers[secret].secret_id, false)]) == 1 }
+      worker_database_only         = length([for env in google_cloud_run_v2_service.worker.template[0].containers[0].env : env if try(env.value_source[0].secret_key_ref[0].secret == google_secret_manager_secret.containers["access-database-url"].secret_id, false)]) == 1 && length([for env in google_cloud_run_v2_service.worker.template[0].containers[0].env : env if length(env.value_source) > 0]) == 1
       cloud_armor_attached         = google_compute_backend_service.api.security_policy == google_compute_security_policy.edge.id
       http_redirect_count          = length([google_compute_global_forwarding_rule.http])
       deploy_scoped_relations      = { artifact = google_artifact_registry_repository_iam_member.deploy_writer.repository == google_artifact_registry_repository.backend.name && google_artifact_registry_repository_iam_member.deploy_writer.role == "roles/artifactregistry.writer", services = length(google_cloud_run_v2_service_iam_member.deploy_services) == 2 && alltrue([for binding in values(google_cloud_run_v2_service_iam_member.deploy_services) : binding.role == google_project_iam_custom_role.deploy_revision.name && binding.member == google_service_account.identities["deploy"].member]) }

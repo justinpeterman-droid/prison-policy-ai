@@ -87,7 +87,7 @@ variable "image_digest" {
 variable "source_commit" {
   type = string
   validation {
-    condition     = can(regex("^[0-9a-f]{40}$", var.source_commit))
+    condition     = can(regex("^[0-9a-f]{40}$", var.source_commit)) && (var.environment == "test" || var.source_commit != "0000000000000000000000000000000000000000")
     error_message = "source_commit must be a 40-character lowercase hexadecimal revision."
   }
 }

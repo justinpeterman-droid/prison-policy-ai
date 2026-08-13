@@ -2,6 +2,12 @@
 
 This runbook is for an authorized human operator after an approved deployment. Agents do not run these commands against any cloud environment.
 
+First-apply gate: an authorized human must pre-grant the terraform-apply
+identity the reviewed OP-04 control-plane role. Terraform cannot create or
+grant permissions it does not already hold. That role excludes artifact upload
+or build, Storage object access, Cloud Tasks payload operations, secret reads,
+migration invocation, and traffic/revision deployment.
+
 Verify, read-only:
 
 - DNS resolves the managed hostname to the approved load-balancer address.

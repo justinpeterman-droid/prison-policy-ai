@@ -108,6 +108,11 @@ override_resource {
   values          = { name = "projects/slut-access-production-fixture/roles/accessSecretContainerAdmin" }
   override_during = plan
 }
+override_resource {
+  target          = module.access_platform.google_project_iam_custom_role.terraform_apply_op04_infrastructure
+  values          = { name = "projects/slut-access-production-fixture/roles/accessOp04Infrastructure" }
+  override_during = plan
+}
 
 run "private_platform_contract" {
   command = plan
@@ -118,7 +123,7 @@ run "private_platform_contract" {
     state_bucket_name            = "slut-access-production-fixture"
     labels                       = { fixture = "op03" }
     image_digest                 = "example.invalid/access/fixture@sha256:0000000000000000000000000000000000000000000000000000000000000000"
-    source_commit                = "0000000000000000000000000000000000000000"
+    source_commit                = "1111111111111111111111111111111111111111"
     release_version              = "development"
     api_version                  = "v1"
     latest_client_version        = "development"
@@ -186,11 +191,11 @@ run "private_platform_contract" {
   }
 
   assert {
-    condition = module.access_platform.terraform_test_contract.iam.project_binding_count == 22 && length(module.access_platform.terraform_test_contract.iam.project_roles) == 22 && length(setsubtract(toset(module.access_platform.terraform_test_contract.iam.project_roles), toset([
-      "roles/cloudsql.client", "roles/cloudtasks.enqueuer", "roles/viewer", "roles/iam.securityReviewer", "roles/secretmanager.viewer", "roles/compute.networkAdmin", "roles/servicenetworking.networksAdmin", "roles/cloudsql.admin", "roles/iam.serviceAccountAdmin", "roles/iam.workloadIdentityPoolAdmin", "roles/resourcemanager.projectIamAdmin", "roles/artifactregistry.admin", "roles/run.admin", "roles/cloudtasks.admin", "roles/storage.admin", "roles/dns.admin", "roles/compute.loadBalancerAdmin", "roles/compute.securityAdmin", "custom:secret-container-admin",
+    condition = module.access_platform.terraform_test_contract.iam.project_binding_count == 16 && length(module.access_platform.terraform_test_contract.iam.project_roles) == 16 && length(setsubtract(toset(module.access_platform.terraform_test_contract.iam.project_roles), toset([
+      "roles/cloudsql.client", "roles/cloudtasks.enqueuer", "roles/viewer", "roles/iam.securityReviewer", "roles/secretmanager.viewer", "roles/compute.networkAdmin", "roles/servicenetworking.networksAdmin", "roles/cloudsql.admin", "roles/iam.serviceAccountAdmin", "roles/iam.workloadIdentityPoolAdmin", "roles/resourcemanager.projectIamAdmin", "custom:secret-container-admin", "custom:op04-infrastructure",
       ]))) == 0 && length(setsubtract(toset([
-      "roles/cloudsql.client", "roles/cloudtasks.enqueuer", "roles/viewer", "roles/iam.securityReviewer", "roles/secretmanager.viewer", "roles/compute.networkAdmin", "roles/servicenetworking.networksAdmin", "roles/cloudsql.admin", "roles/iam.serviceAccountAdmin", "roles/iam.workloadIdentityPoolAdmin", "roles/resourcemanager.projectIamAdmin", "roles/artifactregistry.admin", "roles/run.admin", "roles/cloudtasks.admin", "roles/storage.admin", "roles/dns.admin", "roles/compute.loadBalancerAdmin", "roles/compute.securityAdmin", "custom:secret-container-admin",
-    ]), toset(module.access_platform.terraform_test_contract.iam.project_roles))) == 0 && length([for role in module.access_platform.terraform_test_contract.iam.project_roles : role if role == "roles/cloudsql.client"]) == 4 && alltrue(values(module.access_platform.terraform_test_contract.iam.exact_relations)) && module.access_platform.terraform_test_contract.iam.custom_role.id_category && !contains(toset(module.access_platform.terraform_test_contract.iam.custom_role.permissions), "secretmanager.versions.access") && !contains(toset(module.access_platform.terraform_test_contract.iam.custom_role.permissions), "secretmanager.versions.get")
+      "roles/cloudsql.client", "roles/cloudtasks.enqueuer", "roles/viewer", "roles/iam.securityReviewer", "roles/secretmanager.viewer", "roles/compute.networkAdmin", "roles/servicenetworking.networksAdmin", "roles/cloudsql.admin", "roles/iam.serviceAccountAdmin", "roles/iam.workloadIdentityPoolAdmin", "roles/resourcemanager.projectIamAdmin", "custom:secret-container-admin", "custom:op04-infrastructure",
+    ]), toset(module.access_platform.terraform_test_contract.iam.project_roles))) == 0 && length([for role in module.access_platform.terraform_test_contract.iam.project_roles : role if role == "roles/cloudsql.client"]) == 4 && alltrue(values(module.access_platform.terraform_test_contract.iam.exact_relations)) && module.access_platform.terraform_test_contract.iam.op04_infrastructure_relation && module.access_platform.terraform_test_contract.iam.custom_role.id_category && module.access_platform.terraform_test_contract.iam.custom_role.secret_payload_permission_count == 0 && module.access_platform.terraform_test_contract.iam.op04_infrastructure_role.id_category && module.access_platform.terraform_test_contract.iam.op04_infrastructure_role.iam_role_lifecycle_count == 4 && module.access_platform.terraform_test_contract.iam.op04_infrastructure_role.forbidden_data_plane_permission_count == 0
     error_message = "The complete project IAM collection must retain only the reviewed management and runtime roles."
   }
 
@@ -250,7 +255,7 @@ run "private_platform_contract" {
   }
 
   assert {
-    condition     = module.access_platform.terraform_test_contract.serverless.api_only_update_grant && module.access_platform.terraform_test_contract.serverless.api_only_release_bucket && alltrue(values(module.access_platform.terraform_test_contract.serverless.api_secret_source_relations)) && module.access_platform.terraform_test_contract.serverless.cloud_armor_attached && module.access_platform.terraform_test_contract.serverless.http_redirect_count == 1 && alltrue(values(module.access_platform.terraform_test_contract.serverless.deploy_scoped_relations)) && alltrue(values(module.access_platform.terraform_test_contract.serverless.rollback_scoped_relations)) && module.access_platform.terraform_test_contract.serverless.access_release_scoped
+    condition     = module.access_platform.terraform_test_contract.serverless.api_only_update_grant && module.access_platform.terraform_test_contract.serverless.api_only_release_bucket && alltrue(values(module.access_platform.terraform_test_contract.serverless.api_secret_source_relations)) && module.access_platform.terraform_test_contract.serverless.worker_database_only && module.access_platform.terraform_test_contract.serverless.cloud_armor_attached && module.access_platform.terraform_test_contract.serverless.http_redirect_count == 1 && alltrue(values(module.access_platform.terraform_test_contract.serverless.deploy_scoped_relations)) && alltrue(values(module.access_platform.terraform_test_contract.serverless.rollback_scoped_relations)) && module.access_platform.terraform_test_contract.serverless.access_release_scoped
     error_message = "Only API may receive the update grant and release bucket; HTTP must redirect to HTTPS."
   }
 }

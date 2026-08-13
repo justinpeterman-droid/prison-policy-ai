@@ -6,11 +6,6 @@ resource "google_artifact_registry_repository" "backend" {
   depends_on    = [terraform_data.services_ready]
 }
 
-resource "google_project_iam_member" "terraform_apply_run_admin" {
-  project = var.project_id
-  role    = "roles/run.admin"
-  member  = google_service_account.identities["terraform_apply"].member
-}
 
 locals {
   cloud_run_labels = merge(var.labels, {

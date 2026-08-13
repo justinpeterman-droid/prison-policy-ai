@@ -67,12 +67,6 @@ locals {
     terraform-apply-service-account-admin   = { account = "terraform_apply", role = "roles/iam.serviceAccountAdmin" }
     terraform-apply-workload-identity-admin = { account = "terraform_apply", role = "roles/iam.workloadIdentityPoolAdmin" }
     terraform-apply-project-iam-admin       = { account = "terraform_apply", role = "roles/resourcemanager.projectIamAdmin" }
-    terraform-apply-artifact-registry-admin = { account = "terraform_apply", role = "roles/artifactregistry.admin" }
-    terraform-apply-cloud-tasks-admin       = { account = "terraform_apply", role = "roles/cloudtasks.admin" }
-    terraform-apply-storage-admin           = { account = "terraform_apply", role = "roles/storage.admin" }
-    terraform-apply-dns-admin               = { account = "terraform_apply", role = "roles/dns.admin" }
-    terraform-apply-load-balancer-admin     = { account = "terraform_apply", role = "roles/compute.loadBalancerAdmin" }
-    terraform-apply-security-admin          = { account = "terraform_apply", role = "roles/compute.securityAdmin" }
   }
 
   state_iam_bindings = {
@@ -169,6 +163,32 @@ resource "google_project_iam_custom_role" "deploy_revision" {
     "run.services.update",
   ]
   depends_on = [terraform_data.services_ready]
+}
+
+# First apply requires an authorized external bootstrap grant; Terraform cannot
+# create or grant the management role before it already has that authority.
+resource "google_project_iam_custom_role" "terraform_apply_op04_infrastructure" {
+  project     = var.project_id
+  role_id     = "accessOp04Infrastructure"
+  title       = "Access OP04 infrastructure control plane"
+  description = "Manage OP04 configuration and IAM only; no data-plane operations."
+  permissions = [
+    "artifactregistry.repositories.create", "artifactregistry.repositories.delete", "artifactregistry.repositories.get", "artifactregistry.repositories.getIamPolicy", "artifactregistry.repositories.list", "artifactregistry.repositories.setIamPolicy", "artifactregistry.repositories.update",
+    "cloudtasks.queues.create", "cloudtasks.queues.delete", "cloudtasks.queues.get", "cloudtasks.queues.getIamPolicy", "cloudtasks.queues.list", "cloudtasks.queues.setIamPolicy", "cloudtasks.queues.update",
+    "storage.buckets.create", "storage.buckets.delete", "storage.buckets.get", "storage.buckets.getIamPolicy", "storage.buckets.list", "storage.buckets.setIamPolicy", "storage.buckets.update",
+    "dns.changes.create", "dns.changes.get", "dns.changes.list", "dns.managedZones.get", "dns.resourceRecordSets.create", "dns.resourceRecordSets.delete", "dns.resourceRecordSets.list",
+    "compute.addresses.create", "compute.addresses.delete", "compute.addresses.get", "compute.backendServices.create", "compute.backendServices.delete", "compute.backendServices.get", "compute.backendServices.update", "compute.globalAddresses.create", "compute.globalAddresses.delete", "compute.globalAddresses.get", "compute.globalForwardingRules.create", "compute.globalForwardingRules.delete", "compute.globalForwardingRules.get", "compute.networkEndpointGroups.create", "compute.networkEndpointGroups.delete", "compute.networkEndpointGroups.get", "compute.securityPolicies.create", "compute.securityPolicies.delete", "compute.securityPolicies.get", "compute.securityPolicies.update", "compute.sslCertificates.create", "compute.sslCertificates.delete", "compute.sslCertificates.get", "compute.targetHttpProxies.create", "compute.targetHttpProxies.delete", "compute.targetHttpProxies.get", "compute.targetHttpsProxies.create", "compute.targetHttpsProxies.delete", "compute.targetHttpsProxies.get", "compute.urlMaps.create", "compute.urlMaps.delete", "compute.urlMaps.get", "compute.urlMaps.update",
+    "iam.roles.create", "iam.roles.delete", "iam.roles.get", "iam.roles.update",
+    "run.operations.get", "run.services.create", "run.services.delete", "run.services.get", "run.services.getIamPolicy", "run.services.list", "run.services.setIamPolicy", "run.services.update",
+  ]
+  depends_on = [terraform_data.services_ready]
+}
+
+resource "google_project_iam_member" "terraform_apply_op04_infrastructure" {
+  project    = var.project_id
+  role       = google_project_iam_custom_role.terraform_apply_op04_infrastructure.name
+  member     = google_service_account.identities["terraform_apply"].member
+  depends_on = [google_project_iam_custom_role.terraform_apply_op04_infrastructure]
 }
 
 
