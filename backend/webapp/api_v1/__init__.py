@@ -86,6 +86,7 @@ def prepare_api_request():
         "api_v1.jobs_api.submit_generate": "ai_job_submit",
         "api_v1.jobs_api.submit_disciplinary": "ai_job_submit",
         "api_v1.jobs_api.status": "ai_job_read",
+        "api_v1.policy_api.ask": "policy_question",
     }.get(request.endpoint or "", "unknown")
     if request.endpoint != "api_v1.client_policy":
         if getattr(g, "client_version", None) is None:
@@ -174,6 +175,10 @@ api_v1_bp.register_blueprint(admin_reports_bp, url_prefix="/admin/reports")
 from backend.webapp.api_v1.jobs import jobs_bp
 
 api_v1_bp.register_blueprint(jobs_bp)
+
+from backend.webapp.api_v1.policy import policy_bp
+
+api_v1_bp.register_blueprint(policy_bp, url_prefix="/policy")
 
 
 @api_v1_bp.get("/me", endpoint="me")

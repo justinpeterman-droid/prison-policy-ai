@@ -38,6 +38,9 @@ Require clean tracked/index state; tolerate only untouched pre-existing `.superp
 
 ## Exact allowed files
 
+- Modify: `backend/pipeline/query.py` — **only** safe query-metadata logging
+  and end-to-end deadline propagation through credential, search, gate, and
+  answer calls.
 - Modify: `backend/webapp/routes/chat.py`
 - Create: `backend/webapp/api_v1/policy.py`
 - Modify: `backend/webapp/api_v1/__init__.py`
@@ -45,7 +48,9 @@ Require clean tracked/index state; tolerate only untouched pre-existing `.superp
 - Create: `tests/unit/test_policy_v1.py`
 - Create: `tests/contract/test_policy_examples.py`
 
-Consume-only: query/retrieval/citation/error helpers, plans/specs, prior APIs/tests. No engine/retrieval prompt/index, DB model, report, worker, legacy response, README, Access, or infra edits.
+Consume-only: retrieval/citation/error helpers, plans/specs, prior APIs/tests.
+No engine/retrieval prompt/index, DB model, report, worker, legacy response,
+README, Access, or infra edits.
 
 ## Locked interfaces and wire rules
 
