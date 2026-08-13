@@ -48,16 +48,6 @@ locals {
     }
   } : {})
 
-  workflow_claim_bindings = merge([
-    for workflow_name, workflow in local.workflow_accounts : {
-      for claim in var.wif_trust[workflow_name].workflow_claims :
-      "${workflow_name}-${claim}" => {
-        account      = workflow.account
-        claim        = claim
-        workflow_ref = one(var.wif_trust[workflow_name].workflow_refs)
-      }
-    }
-  ]...)
 }
 
 resource "google_service_account" "identities" {
@@ -231,16 +221,15 @@ resource "google_iam_workload_identity_pool_provider" "workflow" {
   workload_identity_pool_provider_id = each.value.role_id
   display_name                       = "Access ${each.value.role_id} (${local.environment_id})"
 
-  attribute_mapping = merge({
+  # Only standard claims that GitHub issues to every supported caller are
+  # mapped. Workflow-path claims are evaluated directly in the provider
+  # condition, so a reusable-only claim is never required as an attribute.
+  attribute_mapping = {
     "google.subject"        = "assertion.sub"
     "attribute.repository"  = "assertion.repository"
     "attribute.ref"         = "assertion.ref"
     "attribute.environment" = "assertion.environment"
-    }, contains(var.wif_trust[each.key].workflow_claims, "workflow_ref") ? {
-    "attribute.workflow_ref" = "assertion.workflow_ref"
-    } : {}, contains(var.wif_trust[each.key].workflow_claims, "job_workflow_ref") ? {
-    "attribute.job_workflow_ref" = "assertion.job_workflow_ref"
-  } : {})
+  }
 
   attribute_condition = "assertion.repository == \"${var.github_repository}\" && assertion.ref == \"${var.wif_trust[each.key].ref_pattern}\" && assertion.environment == \"${var.wif_trust[each.key].github_environment}\" && (${join(" || ", [for claim in sort(tolist(var.wif_trust[each.key].workflow_claims)) : "has(assertion.${claim}) && assertion.${claim} in [${join(", ", [for ref in sort(tolist(var.wif_trust[each.key].workflow_refs)) : format("%q", ref)])}"])})"
 
@@ -248,10 +237,10 @@ resource "google_iam_workload_identity_pool_provider" "workflow" {
 }
 
 resource "google_service_account_iam_member" "workflow_impersonation" {
-  for_each           = local.workflow_claim_bindings
+  for_each           = local.workflow_accounts
   service_account_id = google_service_account.identities[each.value.account].name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.workflow.name}/attribute.${each.value.claim}/${each.value.workflow_ref}"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.workflow.name}/attribute.repository/${var.github_repository}"
 }
 
 # Secrets are bound individually below. No workflow account appears in a

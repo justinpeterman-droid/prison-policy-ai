@@ -62,11 +62,14 @@ def test_workflow_identities_have_distinct_wif_and_secret_boundaries():
 def test_workflow_impersonation_is_scoped_to_exact_permitted_workflow_claims():
     identities = read("identities.tf")
     variables = read("variables.tf")
+    outputs = read("outputs.tf")
     assert re.search(r"workflow_claims\s*=\s*set\(string\)", variables)
-    assert 'contains(var.wif_trust[each.key].workflow_claims, "job_workflow_ref") ? {' in identities
-    assert '"attribute.job_workflow_ref" = "assertion.job_workflow_ref"' in identities
+    assert '"attribute.job_workflow_ref"' not in identities
+    assert '"attribute.workflow_ref"' not in identities
     assert 'for claim in sort(tolist(var.wif_trust[each.key].workflow_claims))' in identities
-    assert 'attribute.${each.value.claim}/${each.value.workflow_ref}' in identities
+    assert 'for_each           = local.workflow_accounts' in identities
+    assert 'attribute.repository/${var.github_repository}' in identities
+    assert 'output "terraform_test_contract"' in outputs
 
 
 def test_workflow_claims_follow_top_level_and_reusable_boundaries():
