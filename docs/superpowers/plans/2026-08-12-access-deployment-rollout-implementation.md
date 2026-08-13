@@ -510,6 +510,7 @@ git commit -m "infra: establish isolated terraform state roots"
 - Consumes: OP-02 provider/environment roots; OP-01 EXT-05 and EXT-16 evidence; externally approved `project_id`, `source_repository`, WIF issuer inputs, Cloud SQL tier, and secret custodians.
 - Produces: module inputs `environment`, `project_id`, `region`, `network_name`, `database_instance_name`, `database_name`, `sql_tier`, `github_repository`, `github_ref_pattern`, `enable_access_release_identity`, and `wif_trust`. `wif_trust` is a map keyed exactly by `terraform-plan`, `terraform-apply`, `deploy`, `rollback`, `admin-bootstrap`, and `access-release`; each value contains `github_environment`, `workflow_refs`, and `ref_pattern` and must agree with `docs/operations/github-environment-policy.md`.
 - Produces runtime identity outputs `api_service_account_email`, `worker_service_account_email`, `task_invoker_service_account_email`, `migration_service_account_email`, and `bootstrap_service_account_email`; workflow identity outputs `terraform_plan_service_account_email`, `terraform_apply_service_account_email`, `deploy_service_account_email`, `rollback_service_account_email`, `admin_bootstrap_service_account_email`, and nullable `access_release_service_account_email`; and WIF outputs `terraform_plan_wif_provider_name`, `terraform_apply_wif_provider_name`, `deploy_wif_provider_name`, `rollback_wif_provider_name`, `admin_bootstrap_wif_provider_name`, and nullable `access_release_wif_provider_name`, in addition to `network_id`, `private_subnet_id`, `database_instance_connection_name`, `database_private_ip`, `database_name`, and `secret_resource_ids`.
+- Google physical IDs use a short, provider-valid mapping without changing those stable outputs: environment IDs are `test` and `prod` (for `production`); role IDs are `api`, `worker`, `task-invoker`, `migration`, `bootstrap`, `tf-plan`, `tf-apply`, `deploy`, `rollback`, `admin-bootstrap`, and `release`. Service-account IDs are exactly `access-${environment_id}-${role_id}`. One WIF pool per environment is exactly `access-${environment_id}-wif`, with distinct provider IDs using the same role IDs. This preserves strict separate identities/providers while honoring Google's 30-character service-account and 32-character pool limits.
 - Produces Secret Manager containers named `access-database-url`, `identity-hash-pepper`, `cursor-signing-key`, `client-update-grant-key`, `legacy-access-code`, `legacy-admin-code`, `github-feedback-token`, `flask-session-secret`, and `initial-admin-pin`; no `google_secret_manager_secret_version` resource is permitted.
 - Produces the bootstrap-runtime IAM boundary: Cloud SQL Client, accessor on `access-database-url`, and `roles/secretmanager.secretVersionAdder` on `initial-admin-pin`, with no secret-version access. OP-04 adds only the exact private `admin-bootstrap-requests/` configuration-bucket object-read binding; OP-06 adds only exact invocation of `access-{environment}-bootstrap-admin` to the `admin-bootstrap` workflow identity. The API alone receives accessor on `client-update-grant-key`.
 - Produces no GitHub environment, GitHub reviewer/branch policy, database password, connection string, WIF credential, service-account key, or secret value.
@@ -562,20 +563,11 @@ def test_terraform_never_manages_secret_values_or_keys():
 
 def test_runtime_identities_are_single_purpose():
     identities = read("identities.tf")
-    for account_id in [
-        "api",
-        "worker",
-        "task-invoker",
-        "migration",
-        "bootstrap",
-        "terraform-plan",
-        "terraform-apply",
-        "deploy",
-        "rollback",
-        "admin-bootstrap",
-        "access-release",
-    ]:
-        assert f'account_id   = "access-${{var.environment}}-{account_id}"' in identities
+    assert 'environment_id = var.environment == "production" ? "prod" : "test"' in identities
+    for role_id in ["api", "worker", "task-invoker", "migration", "bootstrap", "tf-plan", "tf-apply", "deploy", "rollback", "admin-bootstrap", "release"]:
+        assert f'"{role_id}"' in identities
+    assert 'account_id   = "access-${local.environment_id}-${each.value}"' in identities
+    assert 'workload_identity_pool_id = "access-${local.environment_id}-wif"' in identities
 
 
 def test_workflow_identities_have_distinct_wif_and_secret_boundaries():
