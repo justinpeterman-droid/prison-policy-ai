@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 from flask import Flask, g, request, redirect, render_template, make_response, jsonify
 
-from backend.pipeline.config import ACCESS_CODE, ADMIN_CODE, logger
+from backend.pipeline.config import ACCESS_CODE, ADMIN_CODE, legacy_report_mode, logger
 from backend.webapp.assets import init_assets
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
@@ -151,6 +151,13 @@ def create_app() -> Flask:
         static_folder=str(STATIC_DIR),
     )
 
+    # Validate the rollout switch at startup. A typo must never silently open
+    # legacy report generation, and pilot mode remains conspicuous in logs.
+    report_mode = legacy_report_mode()
+    if report_mode == "pilot_fallback":
+        logger.warning("Legacy report pilot fallback is enabled; reports remain transient.")
+    app.config["LEGACY_REPORT_MODE"] = report_mode
+
     # Cap request bodies: field notes are text, so 1 MB is far more than any
     # real report. Prevents an oversized paste (or abuse) from running up
     # Vertex AI cost. Flask returns 413 automatically when exceeded.
@@ -204,7 +211,34 @@ def create_app() -> Flask:
         return {
             "is_admin": _request_is_admin(),
             "review_lab_enabled": REVIEW_LAB_ENABLED,
+            "legacy_report_pilot_warning": (
+                "Pilot fallback: legacy reports are transient and are not centralized history."
+                if app.config["LEGACY_REPORT_MODE"] == "pilot_fallback" else None
+            ),
         }
+
+    @app.after_request
+    def inject_legacy_pilot_banner(response):
+        """Render the fixed transient-history warning without touching templates."""
+        if (
+            app.config["LEGACY_REPORT_MODE"] != "pilot_fallback"
+            or response.mimetype != "text/html"
+            or response.status_code != 200
+            or request.path.startswith("/api/")
+        ):
+            return response
+        body = response.get_data()
+        marker = b"</body>"
+        if marker not in body:
+            return response
+        banner = (
+            b'<aside role="status" data-legacy-pilot-warning="true">'
+            b'Pilot fallback: legacy reports are transient and are not centralized history.'
+            b'</aside>'
+        )
+        response.set_data(body.replace(marker, banner + marker, 1))
+        response.headers["Content-Length"] = str(len(response.get_data()))
+        return response
 
     @app.before_request
     def auth_gate():

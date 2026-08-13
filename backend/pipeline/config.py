@@ -133,6 +133,20 @@ REVIEW_BUCKET = os.getenv("REVIEW_BUCKET", ROSTER_BUCKET or "")
 REVIEW_OBJECT_PREFIX = os.getenv(
     "REVIEW_OBJECT_PREFIX", "review-lab/submissions").strip("/")
 
+
+def legacy_report_mode() -> str:
+    """Return the explicit release-1 legacy browser report mode.
+
+    It is read at request time so isolated tests and controlled rollout
+    environments can exercise both modes without reloading every legacy route.
+    """
+    value = os.getenv("LEGACY_REPORT_MODE", "restricted").strip().lower()
+    if value not in {"pilot_fallback", "restricted"}:
+        raise RuntimeError(
+            "LEGACY_REPORT_MODE must be 'pilot_fallback' or 'restricted'"
+        )
+    return value
+
 # Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 logging.basicConfig(level=getattr(logging, LOG_LEVEL))
