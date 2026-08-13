@@ -13,6 +13,34 @@ module "access_platform" {
   enable_access_release_identity = false
   state_bucket_name              = var.state_bucket_name
   labels                         = merge(var.labels, { system = "access" })
+  image_digest                   = "example.invalid/access/test@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  source_commit                  = "0000000000000000000000000000000000000000"
+  release_version                = "development"
+  api_version                    = "v1"
+  latest_client_version          = "development"
+  minimum_client_version         = "development"
+  minimum_server_version         = "development"
+  release_notes                  = "Development fixture release."
+  managed_hostname               = "test.example.invalid"
+  dns_zone_name                  = "test-zone"
+  image_repository_id            = "access-test-images"
+  queue_max_attempts             = 5
+  gcp_model_location             = "us-central1"
+  agent_builder_location         = "global"
+  agent_builder_collection       = "default_collection"
+  agent_builder_engine_id        = "fixture-engine"
+  agent_builder_serving_config   = "default_search"
+  fast_model                     = "fixture-fast-model-pinned"
+  pro_model                      = "fixture-pro-model-pinned"
+  legacy_report_mode             = "disabled"
+  review_object_prefix           = "review-lab/"
+  log_level                      = "INFO"
+  api_min_instances              = 0
+  api_max_instances              = 10
+  api_max_concurrency            = 20
+  worker_min_instances           = 0
+  worker_max_instances           = 10
+  worker_max_concurrency         = 4
 
   wif_trust = {
     terraform-plan = {

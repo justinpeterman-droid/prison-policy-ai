@@ -208,4 +208,29 @@ run "private_platform_contract" {
     condition     = toset(module.access_platform.terraform_test_contract.workflow_claim_categories["deploy"]) == toset(["workflow_ref"]) && toset(module.access_platform.terraform_test_contract.workflow_claim_categories["rollback"]) == toset(["workflow_ref"]) && toset(module.access_platform.terraform_test_contract.workflow_claim_categories["admin-bootstrap"]) == toset(["workflow_ref"]) && toset(module.access_platform.terraform_test_contract.workflow_claim_categories["access-release"]) == toset(["workflow_ref"])
     error_message = "Deploy, rollback, bootstrap, and release must permit top-level workflow claims only."
   }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.serverless.api_image == module.access_platform.terraform_test_contract.serverless.worker_image && endswith(module.access_platform.terraform_test_contract.serverless.api_image, "@sha256:0000000000000000000000000000000000000000000000000000000000000000") && module.access_platform.terraform_test_contract.serverless.api_ingress == "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER" && module.access_platform.terraform_test_contract.serverless.worker_ingress == "INGRESS_TRAFFIC_INTERNAL_ONLY"
+    error_message = "API and worker must use the same immutable digest with their distinct private ingress settings."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.serverless.worker_invoker_count == 1 && toset(module.access_platform.terraform_test_contract.serverless.worker_invoker_roles) == toset(["roles/run.invoker"]) && module.access_platform.terraform_test_contract.serverless.queue_enqueuer_count == 1 && toset(module.access_platform.terraform_test_contract.serverless.queue_enqueuer_roles) == toset(["roles/cloudtasks.enqueuer"])
+    error_message = "Only the task invoker may invoke the worker and only the API identity may enqueue work."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.serverless.bucket_count == 5 && module.access_platform.terraform_test_contract.serverless.public_prevention_count == 5 && module.access_platform.terraform_test_contract.serverless.uniform_access_count == 5 && module.access_platform.terraform_test_contract.serverless.versioned_bucket_count == 5
+    error_message = "All five storage buckets must be private, uniform, and versioned."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.serverless.release_reader_count == 1 && toset(module.access_platform.terraform_test_contract.serverless.release_reader_roles) == toset(["roles/storage.objectViewer"]) && module.access_platform.terraform_test_contract.serverless.release_reader_is_api && module.access_platform.terraform_test_contract.serverless.release_worker_binding_count == 0 && module.access_platform.terraform_test_contract.serverless.bootstrap_reader_count == 1 && toset(module.access_platform.terraform_test_contract.serverless.bootstrap_reader_roles) == toset(["roles/storage.objectViewer"]) && module.access_platform.terraform_test_contract.serverless.bootstrap_reader_is_bootstrap && alltrue([for prefix in module.access_platform.terraform_test_contract.serverless.bootstrap_prefixes : strcontains(prefix, "/objects/admin-bootstrap-requests/")])
+    error_message = "Release access must be API read-only and bootstrap access must remain prefix-only read-only."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.serverless.api_grant_key_count == 1 && module.access_platform.terraform_test_contract.serverless.worker_grant_key_count == 0 && module.access_platform.terraform_test_contract.serverless.api_release_bucket_count == 1 && module.access_platform.terraform_test_contract.serverless.worker_release_bucket_count == 0 && module.access_platform.terraform_test_contract.serverless.http_redirect_count == 1
+    error_message = "Only API may receive the update grant and release bucket; HTTP must redirect to HTTPS."
+  }
 }

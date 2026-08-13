@@ -25,6 +25,18 @@ output "database_private_ip" { value = google_sql_database_instance.postgres.pri
 output "database_name" { value = google_sql_database.application.name }
 output "secret_resource_ids" { value = { for name, secret in google_secret_manager_secret.containers : name => secret.id } }
 output "services_ready" { value = terraform_data.services_ready.output }
+output "api_service_name" { value = google_cloud_run_v2_service.api.name }
+output "worker_service_name" { value = google_cloud_run_v2_service.worker.name }
+output "api_revision_uri" { value = google_cloud_run_v2_service.api.uri }
+output "worker_uri" { value = google_cloud_run_v2_service.worker.uri }
+output "queue_name" { value = google_cloud_tasks_queue.worker.name }
+output "managed_hostname" { value = var.managed_hostname }
+output "load_balancer_ip" { value = google_compute_global_address.api.address }
+output "release_bucket_name" { value = google_storage_bucket.private["release"].name }
+output "configuration_bucket_name" { value = google_storage_bucket.private["configuration"].name }
+output "logical_backup_bucket_name" { value = google_storage_bucket.private["logical_backup"].name }
+output "roster_bucket_name" { value = google_storage_bucket.private["roster"].name }
+output "review_bucket_name" { value = google_storage_bucket.private["review"].name }
 
 # Native tests consume only this non-secret, resource-derived contract. It is
 # not a runtime/client interface. Every IAM/secret metric comes from the full
@@ -86,6 +98,36 @@ output "terraform_test_contract" {
       deploy_runtime_roles          = { for identity, binding in google_service_account_iam_member.deploy_runtime_user : identity => binding.role }
       exact_deploy_relations        = { for key, binding in google_service_account_iam_member.deploy_runtime_user : key => binding.member == google_service_account.identities["deploy"].member && binding.role == "roles/iam.serviceAccountUser" }
       workflow_impersonation_roles  = { for identity, binding in google_service_account_iam_member.workflow_impersonation : identity => binding.role }
+    }
+    serverless = {
+      api_image                     = google_cloud_run_v2_service.api.template[0].containers[0].image
+      worker_image                  = google_cloud_run_v2_service.worker.template[0].containers[0].image
+      api_ingress                   = google_cloud_run_v2_service.api.ingress
+      worker_ingress                = google_cloud_run_v2_service.worker.ingress
+      worker_invoker_count          = length([google_cloud_run_v2_service_iam_member.worker_task_invoker])
+      worker_invoker_roles          = [google_cloud_run_v2_service_iam_member.worker_task_invoker.role]
+      worker_invoker_members        = [google_cloud_run_v2_service_iam_member.worker_task_invoker.member]
+      queue_enqueuer_count          = length([google_cloud_tasks_queue_iam_member.api_enqueuer])
+      queue_enqueuer_roles          = [google_cloud_tasks_queue_iam_member.api_enqueuer.role]
+      bucket_count                  = length(google_storage_bucket.private)
+      public_prevention_count       = length([for bucket in values(google_storage_bucket.private) : bucket if bucket.public_access_prevention == "enforced"])
+      uniform_access_count          = length([for bucket in values(google_storage_bucket.private) : bucket if bucket.uniform_bucket_level_access])
+      versioned_bucket_count        = length([for bucket in values(google_storage_bucket.private) : bucket if bucket.versioning[0].enabled])
+      release_reader_count          = length([google_storage_bucket_iam_member.release_api_read])
+      release_reader_roles          = [google_storage_bucket_iam_member.release_api_read.role]
+      release_reader_members        = [google_storage_bucket_iam_member.release_api_read.member]
+      release_reader_is_api         = google_storage_bucket_iam_member.release_api_read.member == google_service_account.identities["api"].member
+      release_worker_binding_count  = length([for binding in [google_storage_bucket_iam_member.release_api_read] : binding if binding.member == google_service_account.identities["worker"].member])
+      bootstrap_reader_count        = length([google_storage_bucket_iam_member.bootstrap_request_read])
+      bootstrap_reader_roles        = [google_storage_bucket_iam_member.bootstrap_request_read.role]
+      bootstrap_prefixes            = [google_storage_bucket_iam_member.bootstrap_request_read.condition[0].expression]
+      bootstrap_reader_is_bootstrap = google_storage_bucket_iam_member.bootstrap_request_read.member == google_service_account.identities["bootstrap"].member
+      api_grant_key_count           = length([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env if env.name == "CLIENT_UPDATE_GRANT_KEY"])
+      worker_grant_key_count        = length([for env in google_cloud_run_v2_service.worker.template[0].containers[0].env : env if env.name == "CLIENT_UPDATE_GRANT_KEY"])
+      api_release_bucket_count      = length([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env if env.name == "ACCESS_RELEASE_BUCKET"])
+      worker_release_bucket_count   = length([for env in google_cloud_run_v2_service.worker.template[0].containers[0].env : env if env.name == "ACCESS_RELEASE_BUCKET"])
+      cloud_armor_policy_name       = google_compute_backend_service.api.security_policy
+      http_redirect_count           = length([google_compute_global_forwarding_rule.http])
     }
     bootstrap_environment     = var.wif_trust["admin-bootstrap"].github_environment
     workflow_claim_categories = { for name, trust in var.wif_trust : name => sort(tolist(trust.workflow_claims)) }
