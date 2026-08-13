@@ -2,7 +2,7 @@
 
 Date: 2026-08-13
 
-Branch: `fix/quality-mypy-baseline`
+Branch: `fix/quality-mypy-review-round1`
 
 Verification interpreter: `C:\Temp\op07-piptools-verify-20260813\venv\Scripts\python.exe`
 
@@ -50,6 +50,25 @@ The implementation made the following meaningful corrections:
 No dependency, mypy, Ruff, or pytest configuration was changed.
 
 ## Behavior proof
+
+### Review remediation: missing shift classification
+
+The first review identified that the typing-oriented roster narrowing had changed
+the predecessor classification for an absent shift. A focused regression test was
+written first and failed with both `invalid_shift` and `missing_required_field`.
+`build_roster_plan` now handles `shift is None` explicitly, emits only
+`invalid_shift` for that condition, and continues before constructing the typed
+row. Missing first name, last name, or rank still emits
+`missing_required_field`, including when one of those fields is missing alongside
+the shift. The complete focused roster-import file passes with 9 tests.
+
+### Review remediation: formatter baseline
+
+The first review also reproduced 33 Task-2 Python files that Ruff would reformat
+because the edits had left mixed line endings. Ruff 0.11.2 formatted the complete
+required scope (`backend`, `tests`, and `scripts`), including the new regression
+test. The exact formatter gate now reports all 237 Python files formatted, and the
+exact lint gate reports no diagnostics.
 
 ### Missing staff during PIN reset
 
@@ -100,16 +119,28 @@ All commands below used the lock-verified interpreter named above. The database-
    All checks passed!
    ```
 
-3. `python -m pytest tests/unit tests/security -q`
+3. `python -m ruff format --check backend tests scripts`
 
    ```text
-   1274 passed, 30 skipped, 1 warning in 7.08s
+   237 files already formatted
    ```
 
-4. `python -m pytest tests/integration tests/contract tests/security -q`
+4. `python -m pytest tests/unit/test_roster_import_job.py -q`
 
    ```text
-   297 passed, 1 skipped, 2 warnings in 142.69s
+   9 passed in 0.29s
+   ```
+
+5. `python -m pytest tests/unit tests/security -q`
+
+   ```text
+   1275 passed, 30 skipped, 1 warning in 7.24s
+   ```
+
+6. `python -m pytest tests/integration tests/contract tests/security -q`
+
+   ```text
+   297 passed, 1 skipped, 2 warnings in 130.78s
    ```
 
 The warnings are dependency deprecations from `google.genai` and `openapi-spec-validator`; no project test failed. The skipped tests are existing conditional skips.

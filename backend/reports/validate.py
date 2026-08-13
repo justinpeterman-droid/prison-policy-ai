@@ -267,6 +267,7 @@ def _resolve_auto_content(
     for item in list(category.get("auto_content", [])) + list(universal):
         if not _condition_met(item.get("condition", "always"), slots):
             continue
+
         def replace_slot(match: re.Match[str]) -> str:
             name = match.group(1)
             value = slots.get(name)

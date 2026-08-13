@@ -97,7 +97,9 @@ def upload_chunks_to_gcs(chunks_path: Path) -> str:
     """Upload chunk file to GCS, return gs:// path."""
     storage = import_module("google.cloud.storage")
     if not isinstance(storage, _StorageModule):
-        raise RuntimeError("Google Cloud Storage module does not match the expected API")
+        raise RuntimeError(
+            "Google Cloud Storage module does not match the expected API"
+        )
     client = storage.Client(project=PROJECT_ID)
     bucket = client.bucket(BUCKET_NAME)
     if not bucket.exists():

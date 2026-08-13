@@ -341,13 +341,9 @@ def _filters_from_raw(values: Mapping[str, str]) -> AdminReportFilters:
         preparer_staff_id=_optional_filter(
             values, "preparer_staff_id", _parse_uuid_filter
         ),
-        incident_date_from=_optional_filter(
-            values, "incident_date_from", _parse_date
-        ),
+        incident_date_from=_optional_filter(values, "incident_date_from", _parse_date),
         incident_date_to=_optional_filter(values, "incident_date_to", _parse_date),
-        created_at_from=_optional_filter(
-            values, "created_at_from", _parse_datetime
-        ),
+        created_at_from=_optional_filter(values, "created_at_from", _parse_datetime),
         created_at_to=_optional_filter(values, "created_at_to", _parse_datetime),
         inmate_first_name=_optional_filter(
             values, "inmate_first_name", _parse_text_filter
@@ -369,9 +365,7 @@ def _filters_from_raw(values: Mapping[str, str]) -> AdminReportFilters:
         last_editor_staff_id=_optional_filter(
             values, "last_editor_staff_id", _parse_uuid_filter
         ),
-        modified_at_from=_optional_filter(
-            values, "modified_at_from", _parse_datetime
-        ),
+        modified_at_from=_optional_filter(values, "modified_at_from", _parse_datetime),
         modified_at_to=_optional_filter(values, "modified_at_to", _parse_datetime),
     )
 

@@ -191,9 +191,14 @@ def build_roster_plan(
         last_name = _text(row, "last_name", 100)
         rank = _text(row, "rank", 64)
         shift = _text(row, "shift", 1)
+        if shift is None:
+            findings.append(RosterFinding("invalid_shift", row_number))
+            if first_name is None or last_name is None or rank is None:
+                findings.append(RosterFinding("missing_required_field", row_number))
+            continue
         if shift not in _SHIFTS:
             findings.append(RosterFinding("invalid_shift", row_number))
-        if first_name is None or last_name is None or rank is None or shift is None:
+        if first_name is None or last_name is None or rank is None:
             findings.append(RosterFinding("missing_required_field", row_number))
             continue
         values: dict[str, str] = {

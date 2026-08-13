@@ -221,6 +221,7 @@ def dispatch_pending(
     for row in outbox.pending(limit=limit, now=fixed):
         request = {"parent": config.parent, "task": _task(config, row.ai_job_id)}
         try:
+
             def create_task():
                 return tasks_client.create_task(request=request)
 
