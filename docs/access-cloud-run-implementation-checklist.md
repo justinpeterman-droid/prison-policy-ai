@@ -42,7 +42,10 @@ dependency or external approval.
   commits `3954b92` and `e361eba`; PR #78 merged into
   `integration/access-cloud-run-rp02`; final independent re-review READY,
   fresh focused PostgreSQL verification passed 53 tests.
-- [ ] 015 RP-06 — AI jobs/outbox.
+- [x] 015 RP-06 — AI jobs/outbox. `LOCAL`
+  commits `1ae8bca` and `4e682a7`; final independent re-review READY,
+  fresh focused PostgreSQL verification passed 40 tests, and full PostgreSQL
+  integration passed 170 tests with one existing opt-in skip.
 - [ ] 016 RP-07 — Private worker/dispatcher.
 - [ ] 017 RP-08 — Policy Expert API.
 - [ ] 018 RP-09 — Word exports.
