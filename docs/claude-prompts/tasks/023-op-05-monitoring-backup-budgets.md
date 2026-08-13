@@ -95,7 +95,10 @@ python -m json.tool infra/monitoring/dashboards/client-versions.json | Out-Null
 terraform fmt -check -recursive infra/terraform
 terraform -chdir=infra/terraform/environments/test init -backend=false
 terraform -chdir=infra/terraform/environments/test validate
-terraform -chdir=infra/terraform/environments/test test -test-directory=../../tests
+New-Item -ItemType Directory -Force infra/terraform/environments/test/tests | Out-Null
+Copy-Item infra/terraform/tests/access_platform.tftest.hcl infra/terraform/environments/test/tests/access_platform.tftest.hcl -Force
+terraform -chdir=infra/terraform/environments/test test -test-directory=tests
+Remove-Item -LiteralPath infra/terraform/environments/test/tests -Recurse -Force
 python -m pytest infra/terraform/tests/test_observability_contract.py -q
 git diff --check
 ```
