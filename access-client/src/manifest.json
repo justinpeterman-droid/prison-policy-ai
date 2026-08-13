@@ -1,0 +1,58 @@
+{
+    "schema_version":  1,
+    "database":  "SLUT-Client.accdb",
+    "objects":  [
+                    {
+                        "type":  "macro",
+                        "name":  "AutoExec",
+                        "path":  "macros/AutoExec.txt",
+                        "order":  10,
+                        "sha256":  "c4f39e348afe3c3e84d34389c27608b47e58f910989b91711a2c99e172d72ae3"
+                    },
+                    {
+                        "type":  "form",
+                        "name":  "frmErrorDialog",
+                        "path":  "forms/frmErrorDialog.txt",
+                        "order":  20,
+                        "sha256":  "b3888d62a62db1f331eab3d8df9239ff4469d563a409e1c8342f2a8b736fbdb7"
+                    },
+                    {
+                        "type":  "form",
+                        "name":  "frmLogin",
+                        "path":  "forms/frmLogin.txt",
+                        "order":  30,
+                        "sha256":  "89db31a9afa7ea8c7dd742c1fc4c5baf85c8950827f7130be3eaf34ef6bebdcd"
+                    },
+                    {
+                        "type":  "form",
+                        "name":  "frmShell",
+                        "path":  "forms/frmShell.txt",
+                        "order":  40,
+                        "sha256":  "cf17584a06bd3d7056cf89f37be5f4da5a9e4e8570b0bed1ae3a4700739fc8a2"
+                    },
+                    {
+                        "type":  "module",
+                        "name":  "JsonConverter",
+                        "path":  "../vendor/json/JsonConverter.bas",
+                        "order":  50,
+                        "vendor":  true,
+                        "sha256":  "1c240aa3c7ef536c25bf44061b02b0fadeb39bfb449f67c419822650e23f6169"
+                    },
+                    {
+                        "type":  "module",
+                        "name":  "TestAssert",
+                        "path":  "../tests/vba/TestAssert.bas",
+                        "order":  60,
+                        "test_only":  true,
+                        "sha256":  "4a4c6b98c70525d43f737529a9bb0ed67c2279085dbbb3bd37efc90f07ddbb86"
+                    },
+                    {
+                        "type":  "module",
+                        "name":  "TestRunner",
+                        "path":  "../tests/vba/TestRunner.bas",
+                        "order":  70,
+                        "test_only":  true,
+                        "sha256":  "8782f57072a02fd632c4992a0f76e1f20edc80bf44dc49f6c571914af6c5ba6d"
+                    }
+                ]
+}

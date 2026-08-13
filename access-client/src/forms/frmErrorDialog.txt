@@ -1,0 +1,59 @@
+Version =21
+VersionRequired =20
+PublishOption =1
+Checksum =2118747619
+Begin Form
+    RecordSelectors = NotDefault
+    NavigationButtons = NotDefault
+    DividingLines = NotDefault
+    AllowDesignChanges = NotDefault
+    DefaultView =0
+    TabularFamily =0
+    PictureAlignment =2
+    DatasheetGridlinesBehavior =3
+    GridX =24
+    GridY =24
+    Width =8884
+    DatasheetFontHeight =11
+    Right =12338
+    Bottom =4995
+    DatasheetGridlinesColor =15263976
+    RecSrcDt = Begin
+        0x6eaf7c17f294e640
+    End
+    GUID = Begin
+        0x21dc5a59c7fcc442b558353066e05ace
+    End
+    NameMap = Begin
+        0x0acc0e5500000000000000000000000000000000000000000c00000005000000 ,
+        0x0000000000000000000000000000
+    End
+    DatasheetFontName ="Aptos"
+    FilterOnLoad =0
+    ShowPageMargins =0
+    DisplayOnSharePointSite =1
+    DatasheetAlternateBackColor =15921906
+    DatasheetGridlinesColor12 =0
+    FitToScreen =1
+    DatasheetBackThemeColorIndex =1
+    BorderThemeColorIndex =3
+    ThemeFontIndex =1
+    ForeThemeColorIndex =0
+    AlternateBackThemeColorIndex =1
+    AlternateBackShade =95.0
+    NoSaveCTIWhenDisabled =1
+    Begin
+        Begin Section
+            Height =7560
+            Name ="Detail"
+            GUID = Begin
+                0x8235f8ebd84ea1488a2f9f0561161528
+            End
+            AutoHeight =1
+            AlternateBackColor =15921906
+            AlternateBackThemeColorIndex =1
+            AlternateBackShade =95.0
+            BackThemeColorIndex =1
+        End
+    End
+End
