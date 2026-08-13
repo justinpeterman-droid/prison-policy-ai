@@ -277,6 +277,17 @@ def test_sensitive_output_fails_closed_for_json_nested_utf8_and_missing_paths(tm
         assert result.returncode == 1
 
 
+def test_sensitive_output_accepts_known_access_binary_artifact(tmp_path):
+    candidate = tmp_path / "source.accdb"
+    candidate.write_bytes(b"\x00\xff\x00Access-binary")
+
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/ci/check_sensitive_output.py"), "--paths", str(candidate)]
+    )
+
+    assert result.returncode == 0
+
+
 def test_sbom_validator_rejects_missing_and_forged_provenance(tmp_path, monkeypatch):
     module = _load_sbom_validator()
     output, provenance = _validator_inputs(tmp_path)

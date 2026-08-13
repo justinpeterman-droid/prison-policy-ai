@@ -14,7 +14,7 @@ FORBIDDEN = (
     "password", "private_key", "authorization", "bearer", "service_account",
     "access_code", "admin_code", "temporary_pin", "employee_id", "inmate_id",
 )
-BINARY_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".docx", ".pdf", ".mp4", ".woff", ".woff2"}
+BINARY_SUFFIXES = {".accdb", ".png", ".jpg", ".jpeg", ".webp", ".docx", ".pdf", ".mp4", ".woff", ".woff2"}
 STRUCTURED_SUFFIXES = {".json", ".sarif", ".spdx"}
 FIXTURE_VALUE = re.compile(r"(?:fixture-|fake-|fictional-)[a-z0-9_-]+|local-(?:user|admin)|slut", re.I)
 ASSIGNMENT = re.compile(
