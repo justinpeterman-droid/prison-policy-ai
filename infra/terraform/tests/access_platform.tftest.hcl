@@ -52,8 +52,22 @@ run "private_platform_contract" {
   }
 
   assert {
-    condition     = module.access_platform.terraform_test_contract.secrets.binding_count == 12 && module.access_platform.terraform_test_contract.secrets.update_grant.role == "roles/secretmanager.secretAccessor" && module.access_platform.terraform_test_contract.secrets.bootstrap.database_role == "roles/secretmanager.secretAccessor" && module.access_platform.terraform_test_contract.secrets.bootstrap.pin_role == "roles/secretmanager.secretVersionAdder"
+    condition     = module.access_platform.terraform_test_contract.secrets.binding_count == 12 && length([for role in module.access_platform.terraform_test_contract.secrets.binding_roles : role if role == "roles/secretmanager.secretAccessor"]) == 11 && length([for role in module.access_platform.terraform_test_contract.secrets.binding_roles : role if role == "roles/secretmanager.secretVersionAdder"]) == 1 && module.access_platform.terraform_test_contract.secrets.update_grant.role == "roles/secretmanager.secretAccessor" && module.access_platform.terraform_test_contract.secrets.bootstrap.database_role == "roles/secretmanager.secretAccessor" && module.access_platform.terraform_test_contract.secrets.bootstrap.pin_role == "roles/secretmanager.secretVersionAdder"
     error_message = "Update-grant, bootstrap PIN, and workflow secret-access boundaries must remain least privilege."
+  }
+
+  assert {
+    condition = module.access_platform.terraform_test_contract.iam.project_binding_count == 15 && length(module.access_platform.terraform_test_contract.iam.known_project_roles) == 14 && length(setsubtract(toset(module.access_platform.terraform_test_contract.iam.known_project_roles), toset([
+      "roles/cloudsql.client", "roles/cloudtasks.enqueuer", "roles/viewer", "roles/iam.securityReviewer", "roles/secretmanager.viewer", "roles/compute.networkAdmin", "roles/servicenetworking.networksAdmin", "roles/cloudsql.admin", "roles/iam.serviceAccountAdmin", "roles/iam.workloadIdentityPoolAdmin", "roles/resourcemanager.projectIamAdmin",
+      ]))) == 0 && length(setsubtract(toset([
+      "roles/cloudsql.client", "roles/cloudtasks.enqueuer", "roles/viewer", "roles/iam.securityReviewer", "roles/secretmanager.viewer", "roles/compute.networkAdmin", "roles/servicenetworking.networksAdmin", "roles/cloudsql.admin", "roles/iam.serviceAccountAdmin", "roles/iam.workloadIdentityPoolAdmin", "roles/resourcemanager.projectIamAdmin",
+    ]), toset(module.access_platform.terraform_test_contract.iam.known_project_roles))) == 0 && length([for role in module.access_platform.terraform_test_contract.iam.known_project_roles : role if role == "roles/cloudsql.client"]) == 4 && module.access_platform.terraform_test_contract.iam.custom_role.id == "accessSecretContainerAdmin" && !contains(toset(module.access_platform.terraform_test_contract.iam.custom_role.permissions), "secretmanager.versions.access") && !contains(toset(module.access_platform.terraform_test_contract.iam.custom_role.permissions), "secretmanager.versions.get")
+    error_message = "The complete project IAM collection must retain only the reviewed management and runtime roles."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.iam.state_binding_count == 2 && toset(module.access_platform.terraform_test_contract.iam.state_roles) == toset(["roles/storage.objectViewer", "roles/storage.objectAdmin"]) && module.access_platform.terraform_test_contract.iam.service_account_binding_count == (module.access_platform.database_name == "access_production" ? 9 : 8) && length([for role in module.access_platform.terraform_test_contract.iam.service_account_roles : role if role == "roles/iam.serviceAccountUser"]) == 3 && length([for role in module.access_platform.terraform_test_contract.iam.service_account_roles : role if role == "roles/iam.workloadIdentityUser"]) == (module.access_platform.database_name == "access_production" ? 6 : 5)
+    error_message = "All state, deploy, and workflow service-account bindings must remain exact and distinct."
   }
 
   assert {
@@ -64,6 +78,11 @@ run "private_platform_contract" {
   assert {
     condition     = module.access_platform.terraform_test_contract.wif.workflow_identity_mapping_count == module.access_platform.terraform_test_contract.wif.provider_count
     error_message = "Every workflow account must have a separate provider-specific identity category."
+  }
+
+  assert {
+    condition     = toset(keys(module.access_platform.terraform_test_contract.wif.provider_ids_by_identity)) == (module.access_platform.database_name == "access_production" ? toset(["terraform-plan", "terraform-apply", "deploy", "rollback", "admin-bootstrap", "access-release"]) : toset(["terraform-plan", "terraform-apply", "deploy", "rollback", "admin-bootstrap"])) && alltrue([for role in values(module.access_platform.terraform_test_contract.wif.impersonation_roles_by_identity) : role == "roles/iam.workloadIdentityUser"]) && toset(keys(module.access_platform.terraform_test_contract.iam.deploy_runtime_roles)) == toset(["api", "worker", "migration"]) && alltrue([for role in values(module.access_platform.terraform_test_contract.iam.deploy_runtime_roles) : role == "roles/iam.serviceAccountUser"])
+    error_message = "Every reviewed workflow must have exactly its own provider and impersonation role; deploy may use only API, worker, and migration runtimes."
   }
 
   assert {

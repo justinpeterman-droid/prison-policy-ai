@@ -71,11 +71,15 @@ def test_workflow_impersonation_is_scoped_to_exact_permitted_workflow_claims():
     assert '"attribute.workflow_identity" = "\\"${each.key}\\"' in identities
     assert 'attribute.workflow_identity/${each.key}' in identities
     assert 'attribute.repository/${var.github_repository}' not in identities
+    assert 'google_iam_workload_identity_pool.workflow.name}/attribute.workflow_identity/${each.key}' in identities
+    assert 'projects/${var.project_id}/locations/global/workloadIdentityPools/' not in identities
     assert 'output "terraform_test_contract"' in outputs
     assert 'distinct_account_id_count' in outputs
     assert 'distinct_provider_id_count' in outputs
     assert 'provider_specific_binding_count' in outputs
     assert 'google_secret_manager_secret_iam_member.api_client_update_grant_key' in outputs
+    assert 'google_project_iam_member.terraform_plan_viewer' in outputs
+    assert 'google_service_account_iam_member.deploy_runtime_user' in outputs
 
 
 def test_workflow_claims_follow_top_level_and_reusable_boundaries():

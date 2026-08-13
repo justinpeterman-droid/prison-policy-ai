@@ -68,15 +68,18 @@ output "terraform_test_contract" {
       id_lengths                = [for account in values(google_service_account.identities) : length(account.account_id)]
     }
     wif = {
-      provider_count              = length(google_iam_workload_identity_pool_provider.workflow)
-      distinct_provider_id_count  = length(toset([for provider in values(google_iam_workload_identity_pool_provider.workflow) : provider.workload_identity_pool_provider_id]))
-      provider_id_lengths         = [for provider in values(google_iam_workload_identity_pool_provider.workflow) : length(provider.workload_identity_pool_provider_id)]
-      pool_id_length              = length(google_iam_workload_identity_pool.workflow.workload_identity_pool_id)
-      impersonation_binding_count = length(google_service_account_iam_member.workflow_impersonation)
-      provider_specific_binding_count = length([
-        for name, binding in google_service_account_iam_member.workflow_impersonation : binding
-        if endswith(binding.member, "/attribute.workflow_identity/${name}")
-      ])
+      provider_count                  = length(google_iam_workload_identity_pool_provider.workflow)
+      distinct_provider_id_count      = length(toset([for provider in values(google_iam_workload_identity_pool_provider.workflow) : provider.workload_identity_pool_provider_id]))
+      provider_id_lengths             = [for provider in values(google_iam_workload_identity_pool_provider.workflow) : length(provider.workload_identity_pool_provider_id)]
+      pool_id_length                  = length(google_iam_workload_identity_pool.workflow.workload_identity_pool_id)
+      impersonation_binding_count     = length(google_service_account_iam_member.workflow_impersonation)
+      provider_specific_binding_count = length(google_service_account_iam_member.workflow_impersonation)
+      provider_ids_by_identity = {
+        for identity, provider in google_iam_workload_identity_pool_provider.workflow : identity => provider.workload_identity_pool_provider_id
+      }
+      impersonation_roles_by_identity = {
+        for identity, binding in google_service_account_iam_member.workflow_impersonation : identity => binding.role
+      }
       workflow_identity_mapping_count = length([
         for name, provider in google_iam_workload_identity_pool_provider.workflow : provider
         if provider.attribute_mapping["attribute.workflow_identity"] == format("%q", name)
@@ -123,12 +126,87 @@ output "terraform_test_contract" {
         google_secret_manager_secret_iam_member.bootstrap_database,
         google_secret_manager_secret_iam_member.bootstrap_initial_pin_adder,
       ])
+      binding_roles = sort([
+        google_secret_manager_secret_iam_member.api_database.role,
+        google_secret_manager_secret_iam_member.api_identity_pepper.role,
+        google_secret_manager_secret_iam_member.api_cursor_key.role,
+        google_secret_manager_secret_iam_member.api_client_update_grant_key.role,
+        google_secret_manager_secret_iam_member.api_legacy_access.role,
+        google_secret_manager_secret_iam_member.api_legacy_admin.role,
+        google_secret_manager_secret_iam_member.api_feedback.role,
+        google_secret_manager_secret_iam_member.api_session.role,
+        google_secret_manager_secret_iam_member.worker_database.role,
+        google_secret_manager_secret_iam_member.migration_database.role,
+        google_secret_manager_secret_iam_member.bootstrap_database.role,
+        google_secret_manager_secret_iam_member.bootstrap_initial_pin_adder.role,
+      ])
       update_grant = {
         role = google_secret_manager_secret_iam_member.api_client_update_grant_key.role
       }
       bootstrap = {
         database_role = google_secret_manager_secret_iam_member.bootstrap_database.role
         pin_role      = google_secret_manager_secret_iam_member.bootstrap_initial_pin_adder.role
+      }
+    }
+    iam = {
+      project_binding_count = length([
+        google_project_iam_member.api_sql_client,
+        google_project_iam_member.api_task_enqueuer,
+        google_project_iam_member.worker_sql_client,
+        google_project_iam_member.migration_sql_client,
+        google_project_iam_member.bootstrap_sql_client,
+        google_project_iam_member.terraform_plan_viewer,
+        google_project_iam_member.terraform_plan_security_reviewer,
+        google_project_iam_member.terraform_plan_secret_metadata,
+        google_project_iam_member.terraform_apply_network_admin,
+        google_project_iam_member.terraform_apply_service_networking,
+        google_project_iam_member.terraform_apply_sql_admin,
+        google_project_iam_member.terraform_apply_secret_container_admin,
+        google_project_iam_member.terraform_apply_service_account_admin,
+        google_project_iam_member.terraform_apply_workload_identity_admin,
+        google_project_iam_member.terraform_apply_project_iam_admin,
+      ])
+      known_project_roles = sort([
+        google_project_iam_member.api_sql_client.role,
+        google_project_iam_member.api_task_enqueuer.role,
+        google_project_iam_member.worker_sql_client.role,
+        google_project_iam_member.migration_sql_client.role,
+        google_project_iam_member.bootstrap_sql_client.role,
+        google_project_iam_member.terraform_plan_viewer.role,
+        google_project_iam_member.terraform_plan_security_reviewer.role,
+        google_project_iam_member.terraform_plan_secret_metadata.role,
+        google_project_iam_member.terraform_apply_network_admin.role,
+        google_project_iam_member.terraform_apply_service_networking.role,
+        google_project_iam_member.terraform_apply_sql_admin.role,
+        google_project_iam_member.terraform_apply_service_account_admin.role,
+        google_project_iam_member.terraform_apply_workload_identity_admin.role,
+        google_project_iam_member.terraform_apply_project_iam_admin.role,
+      ])
+      custom_role = {
+        id          = google_project_iam_custom_role.terraform_apply_secret_containers.role_id
+        permissions = sort(google_project_iam_custom_role.terraform_apply_secret_containers.permissions)
+      }
+      state_binding_count = length([
+        google_storage_bucket_iam_member.terraform_plan_state_read,
+        google_storage_bucket_iam_member.terraform_apply_state_write,
+      ])
+      state_roles = sort([
+        google_storage_bucket_iam_member.terraform_plan_state_read.role,
+        google_storage_bucket_iam_member.terraform_apply_state_write.role,
+      ])
+      service_account_binding_count = length(concat(
+        values(google_service_account_iam_member.deploy_runtime_user),
+        values(google_service_account_iam_member.workflow_impersonation),
+      ))
+      service_account_roles = sort(concat(
+        [for binding in values(google_service_account_iam_member.deploy_runtime_user) : binding.role],
+        [for binding in values(google_service_account_iam_member.workflow_impersonation) : binding.role],
+      ))
+      deploy_runtime_roles = {
+        for identity, binding in google_service_account_iam_member.deploy_runtime_user : identity => binding.role
+      }
+      workflow_impersonation_roles = {
+        for identity, binding in google_service_account_iam_member.workflow_impersonation : identity => binding.role
       }
     }
     bootstrap_environment     = var.wif_trust["admin-bootstrap"].github_environment

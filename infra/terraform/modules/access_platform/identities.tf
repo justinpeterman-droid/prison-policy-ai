@@ -242,7 +242,7 @@ resource "google_service_account_iam_member" "workflow_impersonation" {
   for_each           = local.workflow_accounts
   service_account_id = google_service_account.identities[each.value.account].name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/projects/${var.project_id}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.workflow.workload_identity_pool_id}/attribute.workflow_identity/${each.key}"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.workflow.name}/attribute.workflow_identity/${each.key}"
 }
 
 # Secrets are bound individually below. No workflow account appears in a
