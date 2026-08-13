@@ -197,8 +197,8 @@ run "private_platform_contract" {
   }
 
   assert {
-    condition     = module.access_platform.terraform_test_contract.observability.alert_policy_count == 16
-    error_message = "OP-05 must retain all always-on alerts while the export workflow is externally gated."
+    condition     = module.access_platform.terraform_test_contract.observability.alert_policy_count == 17
+    error_message = "OP-05 must retain all always-on alerts, including distinct failed-job latency, while the export workflow is externally gated."
   }
 
   assert {

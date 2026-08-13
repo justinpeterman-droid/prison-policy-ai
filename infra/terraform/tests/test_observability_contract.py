@@ -150,7 +150,11 @@ def test_native_platform_alerts_scope_each_resource_exactly():
     assert 'metric.label.\\"result\\"=\\"failed\\"' in observability
     assert 'metric.label.\\"stage\\"=\\"failed\\"' in observability
     assert 'metric.label.\\"job_type\\"=~\\"^(classify|extract|generate|disciplinary)$\\"' in observability
-    assert 'metric.label.\\"result\\"=\\"degraded\\"' not in observability
+    assert 'metric.label.\\"latency_bucket\\"=~\\"^(1m_to_5m|5m_or_more)$\\"' in observability
+    assert 'metric.label.\\"oldest_age_bucket\\"=~\\"^(30m_to_2h|2h_or_more)$\\"' in observability
+    queue_age = observability.split('resource "google_monitoring_alert_policy" "queue_age_documented"', 1)[1].split('resource "google_monitoring_alert_policy"', 1)[0]
+    assert 'metric.label.\\"stage\\"=\\"failed\\"' not in queue_age
+    assert 'metric.label.\\"job_type\\"' not in queue_age
 
 
 def test_dashboards_are_templated_to_exact_resources_and_do_not_invent_sources():
@@ -163,6 +167,8 @@ def test_dashboards_are_templated_to_exact_resources_and_do_not_invent_sources()
     assert 'metric.label.\\"result\\"=\\"failed\\"' in jobs
     assert 'metric.label.\\"stage\\"=\\"failed\\"' in jobs
     assert 'metric.label.\\"job_type\\"=~\\"^(classify|extract|generate|disciplinary)$\\"' in jobs
+    assert 'metric.label.\\"latency_bucket\\"=~\\"^(less_than_1s|1s_to_10s|10s_to_60s|1m_to_5m|5m_or_more|unknown)$\\"' in jobs
+    assert 'metric.label.\\"oldest_age_bucket\\"=~\\"^(30m_to_2h|2h_or_more)$\\"' in jobs
     assert "Cloud SQL memory and availability" not in database
     assert "Migration revision" not in database
     assert "Backup and PITR evidence gate" in database

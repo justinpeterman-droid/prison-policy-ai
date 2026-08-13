@@ -9,6 +9,7 @@ locals {
     sql_backup              = { filter = "metric.type=\"logging.googleapis.com/user/access_backup_restore_health\" AND metric.label.\"result\"=\"unavailable\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
     ai_provider_repeat_risk = { filter = "metric.type=\"custom.googleapis.com/ai_provider_repeat_risk_total\"", comparison = "COMPARISON_GT", threshold = 0, duration = "60s" }
     ai_job_failure          = { filter = "metric.type=\"logging.googleapis.com/user/access_queue_health\" AND metric.label.\"result\"=\"failed\" AND metric.label.\"stage\"=\"failed\" AND metric.label.\"job_type\"=~\"^(classify|extract|generate|disciplinary)$\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
+    ai_job_latency          = { filter = "metric.type=\"logging.googleapis.com/user/access_queue_health\" AND metric.label.\"result\"=\"failed\" AND metric.label.\"stage\"=\"failed\" AND metric.label.\"job_type\"=~\"^(classify|extract|generate|disciplinary)$\" AND metric.label.\"latency_bucket\"=~\"^(1m_to_5m|5m_or_more)$\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
     policy_search           = { filter = "metric.type=\"logging.googleapis.com/user/access_dependency_health\" AND metric.label.\"dependency\"=\"policy_search\" AND metric.label.\"result\"=\"unavailable\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
     sensitive_log_scanner   = { filter = "metric.type=\"${var.sensitive_log_scanner_metric_type}\"", comparison = "COMPARISON_GT", threshold = 0, duration = "60s" }
   }
@@ -253,7 +254,7 @@ resource "google_monitoring_alert_policy" "queue_age_documented" {
   conditions {
     display_name = "threshold"
     condition_threshold {
-      filter          = "metric.type=\"logging.googleapis.com/user/access_queue_health\" AND metric.label.\"result\"=\"failed\" AND metric.label.\"stage\"=\"failed\" AND metric.label.\"job_type\"=~\"^(classify|extract|generate|disciplinary)$\""
+      filter          = "metric.type=\"logging.googleapis.com/user/access_queue_health\" AND metric.label.\"oldest_age_bucket\"=~\"^(30m_to_2h|2h_or_more)$\""
       comparison      = "COMPARISON_GT"
       threshold_value = 0
       duration        = "60s"
