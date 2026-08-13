@@ -121,6 +121,8 @@ run "private_platform_contract" {
     project_id                        = "slut-access-production-fixture"
     source_repository                 = "example.invalid/agency/prison-policy-ai"
     state_bucket_name                 = "slut-access-production-fixture"
+    storage_log_bucket_name           = "access-test-fixture-audit-logs"
+    artifact_registry_kms_key_name    = "projects/fixture-project/locations/us-central1/keyRings/fixture-key-ring/cryptoKeys/fixture-artifact-key"
     labels                            = { fixture = "op03" }
     image_digest                      = "example.invalid/access/fixture@sha256:0000000000000000000000000000000000000000000000000000000000000000"
     source_commit                     = "1111111111111111111111111111111111111111"

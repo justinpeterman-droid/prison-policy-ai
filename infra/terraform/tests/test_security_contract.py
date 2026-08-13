@@ -12,6 +12,50 @@ def read(name: str) -> str:
     return (MODULE / name).read_text(encoding="utf-8")
 
 
+def variable_block(source: str, name: str) -> str:
+    match = re.search(rf'variable\s+"{re.escape(name)}"\s*\{{', source)
+    assert match, f"missing variable {name}"
+
+    depth = 0
+    for index in range(match.end() - 1, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[match.start(): index + 1]
+    raise AssertionError(f"unterminated variable {name}")
+
+
+def test_production_requires_external_log_and_kms_inputs():
+    production = (PRODUCTION_ROOT / "variables.tf").read_text(encoding="utf-8")
+
+    for name in ("storage_log_bucket_name", "artifact_registry_kms_key_name"):
+        block = variable_block(production, name)
+        assert "default" not in block
+        assert re.search(r"nullable\s*=\s*false", block)
+
+
+def test_managed_buckets_forward_access_logs_to_external_destination():
+    storage = read("storage.tf")
+    bootstrap = (ROOT / "infra" / "terraform" / "bootstrap" / "state" / "main.tf").read_text(encoding="utf-8")
+
+    assert re.search(r"logging\s*\{\s*log_bucket\s*=\s*var\.storage_log_bucket_name", storage, re.DOTALL)
+    assert 'log_object_prefix = "access/${var.environment}/"' in storage
+    assert re.search(r"logging\s*\{\s*log_bucket\s*=\s*var\.storage_log_bucket_name", bootstrap, re.DOTALL)
+    assert 'log_object_prefix = "terraform-state/${var.environment}/"' in bootstrap
+
+
+def test_test_root_uses_fictional_log_and_kms_values():
+    test_variables = (TEST_ROOT / "variables.tf").read_text(encoding="utf-8")
+    test_main = (TEST_ROOT / "main.tf").read_text(encoding="utf-8")
+
+    for name in ("storage_log_bucket_name", "artifact_registry_kms_key_name"):
+        assert f'variable "{name}"' in test_variables
+        assert "fixture" in variable_block(test_variables, name)
+        assert re.search(rf"{name}\s*=\s*var\.{name}", test_main)
+
+
 def test_sql_is_postgres_17_private_and_protected():
     sql = read("sql.tf")
     assert re.search(r'database_version\s*=\s*"POSTGRES_17"', sql)

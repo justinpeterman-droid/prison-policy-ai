@@ -19,6 +19,11 @@ resource "google_storage_bucket" "private" {
 
   versioning { enabled = true }
 
+  logging {
+    log_bucket        = var.storage_log_bucket_name
+    log_object_prefix = "access/${var.environment}/"
+  }
+
   lifecycle_rule {
     action { type = "Delete" }
     condition {

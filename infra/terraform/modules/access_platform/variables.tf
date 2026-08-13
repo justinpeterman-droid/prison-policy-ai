@@ -26,6 +26,28 @@ variable "state_bucket_name" {
   }
 }
 
+variable "storage_log_bucket_name" {
+  description = "Externally provisioned bucket that receives Cloud Storage access logs."
+  type        = string
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$", var.storage_log_bucket_name))
+    error_message = "storage_log_bucket_name must be a provider-valid bucket name."
+  }
+}
+
+variable "artifact_registry_kms_key_name" {
+  description = "Externally provisioned KMS key name reserved for Artifact Registry encryption."
+  type        = string
+  nullable    = false
+
+  validation {
+    condition     = length(trimspace(var.artifact_registry_kms_key_name)) > 0
+    error_message = "artifact_registry_kms_key_name must be supplied by the external encryption key owner."
+  }
+}
+
 variable "wif_trust" {
   type = map(object({
     github_environment = string

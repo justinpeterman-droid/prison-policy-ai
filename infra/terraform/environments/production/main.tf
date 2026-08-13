@@ -66,6 +66,8 @@ module "access_platform" {
   github_ref_pattern                = "refs/heads/main"
   enable_access_release_identity    = true
   state_bucket_name                 = var.state_bucket_name
+  storage_log_bucket_name           = var.storage_log_bucket_name
+  artifact_registry_kms_key_name    = var.artifact_registry_kms_key_name
   labels                            = merge(var.labels, { system = "access" })
   image_digest                      = var.image_digest
   source_commit                     = var.source_commit
