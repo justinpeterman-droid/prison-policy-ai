@@ -118,38 +118,44 @@ run "private_platform_contract" {
   command = plan
 
   variables {
-    project_id                   = "slut-access-production-fixture"
-    source_repository            = "example.invalid/agency/prison-policy-ai"
-    state_bucket_name            = "slut-access-production-fixture"
-    labels                       = { fixture = "op03" }
-    image_digest                 = "example.invalid/access/fixture@sha256:0000000000000000000000000000000000000000000000000000000000000000"
-    source_commit                = "1111111111111111111111111111111111111111"
-    release_version              = "development"
-    api_version                  = "v1"
-    latest_client_version        = "development"
-    minimum_client_version       = "development"
-    minimum_server_version       = "development"
-    release_notes                = "Fixture release."
-    managed_hostname             = "fixture.example.invalid"
-    dns_zone_name                = "fixture-zone"
-    image_repository_id          = "fixture-images"
-    queue_max_attempts           = 5
-    gcp_model_location           = "us-central1"
-    agent_builder_location       = "global"
-    agent_builder_collection     = "fixture-collection"
-    agent_builder_engine_id      = "fixture-engine"
-    agent_builder_serving_config = "fixture-serving"
-    fast_model                   = "fixture-fast"
-    pro_model                    = "fixture-pro"
-    legacy_report_mode           = "disabled"
-    review_object_prefix         = "review-lab/"
-    log_level                    = "INFO"
-    api_min_instances            = 1
-    api_max_instances            = 10
-    api_max_concurrency          = 20
-    worker_min_instances         = 0
-    worker_max_instances         = 10
-    worker_max_concurrency       = 4
+    project_id                        = "slut-access-production-fixture"
+    source_repository                 = "example.invalid/agency/prison-policy-ai"
+    state_bucket_name                 = "slut-access-production-fixture"
+    labels                            = { fixture = "op03" }
+    image_digest                      = "example.invalid/access/fixture@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    source_commit                     = "1111111111111111111111111111111111111111"
+    release_version                   = "development"
+    api_version                       = "v1"
+    latest_client_version             = "development"
+    minimum_client_version            = "development"
+    minimum_server_version            = "development"
+    release_notes                     = "Fixture release."
+    managed_hostname                  = "fixture.example.invalid"
+    dns_zone_name                     = "fixture-zone"
+    image_repository_id               = "fixture-images"
+    queue_max_attempts                = 5
+    gcp_model_location                = "us-central1"
+    agent_builder_location            = "global"
+    agent_builder_collection          = "fixture-collection"
+    agent_builder_engine_id           = "fixture-engine"
+    agent_builder_serving_config      = "fixture-serving"
+    fast_model                        = "fixture-fast"
+    pro_model                         = "fixture-pro"
+    legacy_report_mode                = "disabled"
+    review_object_prefix              = "review-lab/"
+    log_level                         = "INFO"
+    api_min_instances                 = 1
+    api_max_instances                 = 10
+    api_max_concurrency               = 20
+    worker_min_instances              = 0
+    worker_max_instances              = 10
+    worker_max_concurrency            = 4
+    notification_channel_ids          = []
+    billing_account_id                = "fixture-billing-account"
+    monthly_budget_amount             = 1
+    budget_pubsub_topic               = "projects/slut-access-production-fixture/topics/access-budget-alerts"
+    observability_owner_role          = "platform-operations"
+    sensitive_log_scanner_metric_type = "custom.googleapis.com/access_sensitive_log_scanner_failure"
   }
 
   assert {
@@ -169,8 +175,8 @@ run "private_platform_contract" {
   assert {
     condition = module.access_platform.terraform_test_contract.service_accounts.count == (
       module.access_platform.database_name == "access_production" ? 11 : 10
-    ) && module.access_platform.terraform_test_contract.service_accounts.distinct_account_id_count == module.access_platform.terraform_test_contract.service_accounts.count && alltrue([for id_length in module.access_platform.terraform_test_contract.service_accounts.id_lengths : id_length <= 30])
-    error_message = "Test and production must have exactly ten and eleven distinct provider-valid service accounts."
+    ) + 1 && module.access_platform.terraform_test_contract.service_accounts.distinct_account_id_count == module.access_platform.terraform_test_contract.service_accounts.count && alltrue([for id_length in module.access_platform.terraform_test_contract.service_accounts.id_lengths : id_length <= 30])
+    error_message = "Test and production must include the dedicated provider-valid logical-backup identity."
   }
 
   assert {
@@ -178,6 +184,31 @@ run "private_platform_contract" {
       module.access_platform.database_name == "access_production" ? 6 : 5
     ) && module.access_platform.terraform_test_contract.wif.distinct_provider_id_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.impersonation_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.provider_specific_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && alltrue(values(module.access_platform.terraform_test_contract.wif.principal_set_relations)) && module.access_platform.terraform_test_contract.wif.pool_id_length <= 32 && alltrue([for id_length in module.access_platform.terraform_test_contract.wif.provider_id_lengths : id_length <= 32]) && module.access_platform.terraform_test_contract.wif.direct_claim_condition_count == module.access_platform.terraform_test_contract.wif.provider_count
     error_message = "Test and production must expose distinct provider-valid WIF identities with one provider-specific binding each."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.observability.pitr_enabled && module.access_platform.terraform_test_contract.observability.backup_bucket_private && module.access_platform.terraform_test_contract.observability.backup_export_permissions == toset(["cloudsql.instances.export", "cloudsql.instances.get"]) && module.access_platform.terraform_test_contract.observability.backup_instance_condition && module.access_platform.terraform_test_contract.observability.scheduler_workflow_condition && !module.access_platform.terraform_test_contract.observability.logical_export_scheduler_enabled && module.access_platform.terraform_test_contract.observability.logical_export_schedule == null
+    error_message = "OP-05 backup identity must be export-only on the exact instance and invoke only the exact workflow."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.observability.dashboard_count == 4
+    error_message = "OP-05 must retain exactly four dashboards."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.observability.alert_policy_count == 17
+    error_message = "OP-05 must retain all always-on alerts, including distinct failed-job latency, while the export workflow is externally gated."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.observability.logical_backup_is_creator
+    error_message = "OP-05 must retain its creator-only logical backup bucket permission while scheduling is externally gated."
+  }
+
+  assert {
+    condition     = toset(module.access_platform.terraform_test_contract.observability.budget_thresholds) == toset(["0.5", "0.8", "0.9", "1", "1.2"])
+    error_message = "OP-05 must retain its exact budget thresholds."
   }
 
   assert {

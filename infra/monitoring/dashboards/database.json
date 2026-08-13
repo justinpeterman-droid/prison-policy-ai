@@ -1,0 +1,13 @@
+{
+  "displayName": "Access Database",
+  "mosaicLayout": {"columns": 12,
+    "tiles": [
+      {"width": 6, "height": 4, "widget": {"title": "Cloud SQL CPU", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"cloudsql.googleapis.com/database/cpu/utilization\" AND resource.type=\"cloudsql_database\" AND resource.label.\"database_id\"=\"${project_id}:${sql_instance_name}\""}}}}},
+      {"xPos": 6, "width": 6, "height": 4, "widget": {"title": "Cloud SQL storage", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"cloudsql.googleapis.com/database/disk/utilization\" AND resource.type=\"cloudsql_database\" AND resource.label.\"database_id\"=\"${project_id}:${sql_instance_name}\""}}}}},
+      {"yPos": 4, "width": 6, "height": 4, "widget": {"title": "Cloud SQL connections", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"cloudsql.googleapis.com/database/postgresql/num_backends\" AND resource.type=\"cloudsql_database\" AND resource.label.\"database_id\"=\"${project_id}:${sql_instance_name}\""}}}}},
+      {"xPos": 6, "yPos": 4, "width": 6, "height": 4, "widget": {"title": "backup_restore_health", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"logging.googleapis.com/user/access_backup_restore_health\""}}}}},
+      {"yPos": 8, "width": 6, "height": 4, "widget": {"title": "Backup and PITR evidence gate", "text": {"content": "Cloud SQL backup and PITR configuration is not treated as a runtime availability signal. Review the quarterly restore evidence in the disaster-recovery runbook before declaring recovery readiness.", "format": "MARKDOWN"}}},
+      {"xPos": 6, "yPos": 8, "width": 6, "height": 4, "widget": {"title": "Migration evidence gate", "text": {"content": "No migration telemetry producer is configured. Deployment migration proof remains an external release-gate artifact until a bounded producer is reviewed.", "format": "MARKDOWN"}}}
+    ]
+  }
+}

@@ -15,6 +15,8 @@ locals {
     "monitoring.googleapis.com",
     "cloudtrace.googleapis.com",
     "cloudscheduler.googleapis.com",
+    "workflows.googleapis.com",
+    "billingbudgets.googleapis.com",
     "dns.googleapis.com",
     "certificatemanager.googleapis.com",
     "serviceusage.googleapis.com",
