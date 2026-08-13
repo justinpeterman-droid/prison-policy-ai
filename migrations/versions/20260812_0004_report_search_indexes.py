@@ -25,6 +25,9 @@ def upgrade() -> None:
         "ix_incidents_extracted_facts_gin", "incidents", ["extracted_facts"],
         postgresql_using="gin", postgresql_ops={"extracted_facts": "jsonb_path_ops"},
     )
+    op.create_index(
+        "ix_incidents_incident_date", "incidents", ["incident_date", "id"],
+    )
     op.create_index("ix_incidents_facility", "incidents", ["facility", "id"])
     op.create_index("ix_incidents_location", "incidents", ["location", "id"])
     op.create_index("ix_incidents_shift", "incidents", ["shift", "id"])
@@ -38,4 +41,5 @@ def downgrade() -> None:
     op.drop_index("ix_incidents_shift", table_name="incidents")
     op.drop_index("ix_incidents_location", table_name="incidents")
     op.drop_index("ix_incidents_facility", table_name="incidents")
+    op.drop_index("ix_incidents_incident_date", table_name="incidents")
     op.drop_index("ix_incidents_extracted_facts_gin", table_name="incidents")

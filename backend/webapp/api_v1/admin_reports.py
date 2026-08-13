@@ -15,6 +15,8 @@ shape, drives the shared services, and renders the response.
 """
 from datetime import UTC, date, datetime
 from functools import wraps
+import hashlib
+import hmac
 import json
 from uuid import UUID
 
@@ -49,7 +51,11 @@ from backend.reports.persistence import (
     save_report_admin_record,
     transfer_report_ownership_record,
 )
-from backend.reports.revisions import RevisionConflict, RevisionTargetMissing
+from backend.reports.revisions import (
+    RevisionConflict,
+    RevisionTargetMissing,
+    report_revision_editor_snapshot,
+)
 from backend.webapp.api_v1.client_policy import require_compatible_write
 from backend.webapp.api_v1.context import request_id
 from backend.webapp.api_v1.errors import ApiError
@@ -148,8 +154,18 @@ def _staff_display(session, staff_id: UUID) -> tuple[str, str]:
 
 def _view_data(session, view: ReportView) -> dict[str, object]:
     row = view.report
-    owner_id, owner_name = _staff_display(session, row.reporting_staff_member_id)
-    preparer_id, preparer_name = _staff_display(session, row.prepared_by_staff_member_id)
+    if view.reporting_staff_member_id is None:
+        owner_id, owner_name = _staff_display(session, row.reporting_staff_member_id)
+    else:
+        owner_id = str(view.reporting_staff_member_id)
+        owner_name = view.reporting_officer_display_name
+    if view.prepared_by_staff_member_id is None:
+        preparer_id, preparer_name = _staff_display(
+            session, row.prepared_by_staff_member_id,
+        )
+    else:
+        preparer_id = str(view.prepared_by_staff_member_id)
+        preparer_name = view.preparer_display_name
     return {
         "report_id": str(row.id),
         "incident_id": str(row.incident_id),
@@ -181,11 +197,8 @@ def _source_revision_number(row) -> int | None:
 
 
 def _revision_summary(session, row, current_revision_number: int) -> dict[str, object]:
-    editor = session.get(StaffMember, row.editor_staff_member_id)
-    editor_name = (
-        " ".join(part for part in (editor.rank, editor.first_name, editor.last_name) if part)
-        if editor is not None else None
-    )
+    del session
+    editor_name, editor_rank = report_revision_editor_snapshot(row)
     return {
         "revision_id": str(row.id),
         "revision_number": row.revision_number,
@@ -194,7 +207,7 @@ def _revision_summary(session, row, current_revision_number: int) -> dict[str, o
         "editor_account_id": str(row.editor_account_id),
         "editor_staff_member_id": str(row.editor_staff_member_id),
         "editor_display_name": editor_name,
-        "editor_rank": editor.rank if editor is not None else None,
+        "editor_rank": editor_rank,
         "content_hash": _content_hash(row.snapshot),
         "client_version": row.client_version,
         "created_at": _timestamp(row.created_at),
@@ -284,6 +297,38 @@ def _parse_admin_filters(args) -> AdminReportFilters:
     return filters
 
 
+def _search_cursor_key(base_key: str, filters: AdminReportFilters, sort: str) -> str:
+    context = {
+        "sort": sort,
+        "filters": {
+            name: str(value)
+            for name in ADMIN_REPORT_FILTER_FIELDS
+            if (value := getattr(filters, name)) is not None
+        },
+    }
+    canonical = json.dumps(
+        context, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+    ).encode("utf-8")
+    return hmac.new(
+        base_key.encode("utf-8"), b"admin-report-search\0" + canonical,
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def _append_admin_view_audit(session, report_id: UUID) -> None:
+    current_app.config["AUDIT_WRITER"].append(session, AuditEventInput(
+        actor_account_id=current_actor().account_id,
+        actor_staff_member_id=current_actor().staff_member_id,
+        action="report.viewed_by_admin",
+        result="success",
+        request_id=request_id(),
+        target_type="report",
+        target_id=report_id,
+        details={"report_id": str(report_id)},
+        client_version=str(g.client_version),
+    ))
+
+
 @admin_reports_bp.get("", endpoint="search")
 @_admin_get
 def search_route():
@@ -292,9 +337,10 @@ def search_route():
         sort = request.args.get("sort", "updated_at_desc")
         if sort not in ADMIN_REPORT_SEARCH_SORTS:
             raise ValueError("sort is invalid")
-        key = current_app.config["IDENTITY_SETTINGS"].cursor_signing_key
-        if not key:
+        base_key = current_app.config["IDENTITY_SETTINGS"].cursor_signing_key
+        if not base_key:
             raise RuntimeError("admin report pagination key is unavailable")
+        key = _search_cursor_key(base_key, filters, sort)
         raw_cursor = request.args.get("cursor")
         cursor = decode_cursor(raw_cursor, key) if raw_cursor else None
         limit = parse_page_size(request.args.get("limit", "50"))
@@ -321,17 +367,7 @@ def detail_route(report_id: UUID):
         view = get_report_admin(db, report_id)
     except ReportNotFound:
         raise ApiError("not_found", "Report not found.", status=404) from None
-    current_app.config["AUDIT_WRITER"].append(db, AuditEventInput(
-        actor_account_id=current_actor().account_id,
-        actor_staff_member_id=current_actor().staff_member_id,
-        action="report.viewed_by_admin",
-        result="success",
-        request_id=request_id(),
-        target_type="report",
-        target_id=report_id,
-        details={"report_id": str(report_id)},
-        client_version=str(g.client_version),
-    ))
+    _append_admin_view_audit(db, report_id)
     return success(_view_data(db, view))
 
 
@@ -373,6 +409,7 @@ def revision_detail_route(report_id: UUID, revision_number: int):
     try:
         current = get_report_admin(db, report_id)
         row = get_report_revision_admin(db, report_id, revision_number)
+        _append_admin_view_audit(db, report_id)
         return success({
             **_revision_summary(db, row, current.revision_number),
             "content": report_revision_content(row),

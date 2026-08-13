@@ -1,10 +1,13 @@
 """Admin structured report search: filters, pagination, and bounded audit."""
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import event, select, text
 
 from backend.persistence.models import AuditEvent
+from backend.reports.persistence import AdminReportFilters, admin_search_reports
+from backend.webapp.api_v1.middleware import Actor
 from tests.integration.identity_fixtures import bearer_headers, issue_fictional_tokens
 from tests.support.reporting import make_incident, make_report
 
@@ -193,3 +196,95 @@ def test_admin_search_cursor_pagination_walks_all_results(
         first.json["data"]["items"][0]["report_id"],
         second.json["data"]["items"][0]["report_id"],
     } == {str(report_a.id), str(report_b.id)}
+
+
+def test_admin_search_cursor_is_bound_to_its_filter_context(
+    db_session, api_client, elevated_admin_bearer_headers,
+    fictional_staff_and_accounts, identity_fixed_now,
+):
+    for offset in (0, 1):
+        incident = make_incident(
+            db_session, fictional_staff_and_accounts.preparer,
+            identity_fixed_now - timedelta(hours=offset),
+        )
+        incident.category = "fictional_context_a"
+        make_report(
+            db_session, incident=incident,
+            owner=fictional_staff_and_accounts.user,
+            preparer=fictional_staff_and_accounts.preparer,
+            now=identity_fixed_now - timedelta(hours=offset),
+        )
+    db_session.commit()
+
+    first = api_client.get(
+        "/api/v1/admin/reports?category=fictional_context_a&limit=1",
+        headers=elevated_admin_bearer_headers,
+    )
+    assert first.status_code == 200
+    cursor = first.json["data"]["next_cursor"]
+    assert cursor
+
+    changed_context = api_client.get(
+        "/api/v1/admin/reports?category=fictional_context_b&limit=1&cursor=" + cursor,
+        headers=elevated_admin_bearer_headers,
+    )
+
+    assert changed_context.status_code == 400
+    assert changed_context.json["error"]["code"] == "validation_failed"
+
+
+def test_admin_search_migration_indexes_match_actual_date_and_inmate_predicates(
+    db_engine, db_session,
+    fictional_staff_and_accounts, identity_fixed_now,
+):
+    incident = make_incident(
+        db_session, fictional_staff_and_accounts.preparer, identity_fixed_now,
+    )
+    incident.incident_date = identity_fixed_now.date()
+    incident.extracted_facts = {"persons": [{
+        "role": "inmate", "first": "Jordan", "last": "Rivera",
+        "adc_number": "ADC900011",
+    }]}
+    make_report(
+        db_session, incident=incident, owner=fictional_staff_and_accounts.user,
+        preparer=fictional_staff_and_accounts.preparer, now=identity_fixed_now,
+    )
+    db_session.commit()
+
+    definitions = dict(db_session.execute(text(
+        "SELECT indexname, indexdef FROM pg_indexes "
+        "WHERE schemaname = current_schema() AND tablename = 'incidents'"
+    )).all())
+    assert "ix_incidents_incident_date" in definitions
+    assert "incident_date" in definitions["ix_incidents_incident_date"]
+    assert "ix_incidents_extracted_facts_gin" in definitions
+    assert "jsonb_path_ops" in definitions["ix_incidents_extracted_facts_gin"]
+
+    statements: list[str] = []
+
+    def capture(_connection, _cursor, statement, _parameters, _context, _executemany):
+        if "FROM reports JOIN incidents" in statement:
+            statements.append(statement)
+
+    event.listen(db_engine, "before_cursor_execute", capture)
+    try:
+        admin = fictional_staff_and_accounts.admin
+        page = admin_search_reports(
+            db_session,
+            AdminReportFilters(
+                inmate_first_name="Jordan",
+                inmate_last_name="Rivera",
+                inmate_adc_number="ADC900011",
+            ),
+            actor=Actor(
+                admin.id, admin.staff_member_id, uuid4(), "admin",
+                admin.auth_version, admin.must_change_pin,
+            ),
+            request_id="request_admin_index_alignment_0001",
+            client_version="1.0.0",
+        )
+    finally:
+        event.remove(db_engine, "before_cursor_execute", capture)
+
+    assert len(page.items) == 1
+    assert any("incidents.extracted_facts @>" in statement for statement in statements)

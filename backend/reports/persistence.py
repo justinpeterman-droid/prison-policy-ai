@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime
 import json
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, event, or_, select, text
+from sqlalchemy import and_, event, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from backend.identity.audit import AuditEventInput, AuditWriter, PostgresAuditWriter
@@ -87,6 +87,10 @@ class ReportView:
     updated_at: datetime
     editor_staff_member_id: UUID
     editor_display_name: str
+    reporting_staff_member_id: UUID | None = None
+    reporting_officer_display_name: str | None = None
+    prepared_by_staff_member_id: UUID | None = None
+    preparer_display_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -971,24 +975,19 @@ def admin_search_reports(
     if filters.modified_at_to is not None:
         statement = statement.where(Report.updated_at <= filters.modified_at_to)
 
-    inmate_conditions = []
-    inmate_params: dict[str, str] = {}
+    inmate_person: dict[str, str] = {"role": "inmate"}
     for field_name, person_key in _ADMIN_INMATE_FILTER_COLUMNS.items():
         value = getattr(filters, field_name)
         if value is not None:
-            param = f"admin_{person_key}"
-            inmate_conditions.append(f"person->>'{person_key}' ILIKE :{param}")
-            inmate_params[param] = value
+            inmate_person[person_key] = value
     if filters.inmate_adc_number is not None:
-        inmate_conditions.append("person->>'adc_number' = :admin_adc_number")
-        inmate_params["admin_adc_number"] = filters.inmate_adc_number
-    if inmate_conditions:
-        clause = (
-            "EXISTS (SELECT 1 FROM jsonb_array_elements("
-            "COALESCE(incidents.extracted_facts->'persons', '[]'::jsonb)) AS person "
-            "WHERE person->>'role' = 'inmate' AND " + " AND ".join(inmate_conditions) + ")"
+        inmate_person["adc_number"] = filters.inmate_adc_number
+    if len(inmate_person) > 1:
+        # JSONB containment keeps all requested attributes on the same inmate
+        # object and is accelerated by 0004's jsonb_path_ops GIN index.
+        statement = statement.where(
+            Incident.extracted_facts.contains({"persons": [inmate_person]})
         )
-        statement = statement.where(text(clause).bindparams(**inmate_params))
 
     if cursor:
         cursor_time = datetime.fromisoformat(cursor["created_at"].replace("Z", "+00:00"))
@@ -1052,6 +1051,23 @@ def _report_reference(
     }
 
 
+def _report_reference_admin(session: Session, view: ReportView) -> dict[str, object]:
+    owner = session.get(StaffMember, view.report.reporting_staff_member_id)
+    preparer = session.get(StaffMember, view.report.prepared_by_staff_member_id)
+    if owner is None or preparer is None:
+        raise RuntimeError("report ownership snapshot is unavailable")
+    return {
+        **_report_reference(view),
+        "reporting_staff_member_id": str(owner.id),
+        "reporting_officer_display_name": _display_name(owner),
+        "prepared_by_staff_member_id": str(preparer.id),
+        "preparer_display_name": _display_name(preparer),
+        "editor_staff_member_id": str(view.editor_staff_member_id),
+        "editor_display_name": view.editor_display_name,
+        "updated_at": view.updated_at.isoformat(),
+    }
+
+
 def _report_view_from_reference(
     session: Session, actor: Actor, reference: dict,
 ) -> tuple[ReportView, int]:
@@ -1086,8 +1102,25 @@ def _report_view_from_reference_admin(
         revision_number = int(reference["revision_number"])
         current_revision_number = int(reference["current_revision_number"])
         status = str(reference["status"])
+        reporting_staff_member_id = UUID(str(reference["reporting_staff_member_id"]))
+        reporting_officer_display_name = str(reference["reporting_officer_display_name"])
+        prepared_by_staff_member_id = UUID(str(reference["prepared_by_staff_member_id"]))
+        preparer_display_name = str(reference["preparer_display_name"])
+        editor_staff_member_id = UUID(str(reference["editor_staff_member_id"]))
+        editor_display_name = str(reference["editor_display_name"])
+        updated_at = datetime.fromisoformat(
+            str(reference["updated_at"]).replace("Z", "+00:00")
+        )
     except (KeyError, TypeError, ValueError):
         raise RuntimeError("idempotency reference is invalid") from None
+    if (
+        not reporting_officer_display_name.strip()
+        or not preparer_display_name.strip()
+        or not editor_display_name.strip()
+        or updated_at.tzinfo is None
+        or updated_at.utcoffset() != UTC.utcoffset(updated_at)
+    ):
+        raise RuntimeError("idempotency reference is invalid")
     report = session.get(Report, report_id)
     if report is None:
         raise RuntimeError("idempotency reference is invalid")
@@ -1097,9 +1130,24 @@ def _report_view_from_reference_admin(
     ))
     if revision is None:
         raise RuntimeError("idempotency reference is invalid")
-    return _report_revision_view(
+    view = _report_revision_view(
         session, report, revision, status=status,
         current_revision_number=current_revision_number,
+    )
+    if view.editor_staff_member_id != editor_staff_member_id:
+        raise RuntimeError("idempotency reference is invalid")
+    return ReportView(
+        report=view.report,
+        content=view.content,
+        revision_number=view.revision_number,
+        status=view.status,
+        updated_at=updated_at,
+        editor_staff_member_id=editor_staff_member_id,
+        editor_display_name=editor_display_name,
+        reporting_staff_member_id=reporting_staff_member_id,
+        reporting_officer_display_name=reporting_officer_display_name,
+        prepared_by_staff_member_id=prepared_by_staff_member_id,
+        preparer_display_name=preparer_display_name,
     )
 
 
@@ -1131,7 +1179,7 @@ def save_report_admin_record(
     view = _report_revision_view(session, report, revision)
     complete_idempotency(
         session, claim, response_status=200,
-        response_reference=_report_reference(view), now=fixed,
+        response_reference=_report_reference_admin(session, view), now=fixed,
     )
     session.flush()
     return view
@@ -1162,7 +1210,7 @@ def restore_report_admin_record(
     view = _report_revision_view(session, report, revision)
     complete_idempotency(
         session, claim, response_status=200,
-        response_reference=_report_reference(view), now=fixed,
+        response_reference=_report_reference_admin(session, view), now=fixed,
     )
     session.flush()
     return view
@@ -1200,7 +1248,7 @@ def transfer_report_ownership_record(
     view = _report_revision_view(session, report, revision)
     complete_idempotency(
         session, claim, response_status=200,
-        response_reference=_report_reference(view), now=fixed,
+        response_reference=_report_reference_admin(session, view), now=fixed,
     )
     session.flush()
     return view

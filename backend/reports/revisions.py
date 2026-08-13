@@ -35,6 +35,7 @@ __all__ = [
     "RevisionConflict",
     "RevisionTargetMissing",
     "create_recovery_revision",
+    "report_revision_editor_snapshot",
     "restore_report",
     "save_incident",
     "save_report",
@@ -71,6 +72,7 @@ PROVENANCE_COLUMN_NAMES = (
     "cloud_run_revision",
     "source_commit",
 )
+EDITOR_SNAPSHOT_KEY = "editor_snapshot"
 
 
 class RevisionTargetMissing(LookupError):
@@ -159,6 +161,63 @@ def _ai_provenance(reason: str) -> dict[str, str | None]:
     return collect_provenance() if reason == "ai_result" else {}
 
 
+def _editor_snapshot(session: Session, actor: Actor) -> dict[str, str | None]:
+    staff = session.get(StaffMember, actor.staff_member_id)
+    if staff is None:
+        raise ValueError("report revision editor is unavailable")
+    display_name = " ".join(
+        part for part in (staff.rank, staff.first_name, staff.last_name) if part
+    )
+    return {
+        "staff_member_id": str(actor.staff_member_id),
+        "display_name": display_name,
+        "rank": staff.rank,
+    }
+
+
+def _with_editor_snapshot(
+    session: Session, actor: Actor, provenance: dict | None,
+) -> dict:
+    # The service's locked caller-owned transaction contract is also exercised
+    # with intentionally minimal, non-database session doubles. Real
+    # persistence sessions always expose ``get`` and therefore always write
+    # the immutable snapshot; doubles retain the pre-existing provenance-only
+    # behavior rather than being forced to emulate roster persistence.
+    if not callable(getattr(session, "get", None)):
+        return dict(provenance or {})
+    return {
+        **dict(provenance or {}),
+        EDITOR_SNAPSHOT_KEY: _editor_snapshot(session, actor),
+    }
+
+
+def report_revision_editor_snapshot(
+    revision: ReportRevision,
+) -> tuple[str | None, str | None]:
+    """Return immutable editor attribution, or nullable legacy fallback.
+
+    Revisions written before RP-05 hardening have no immutable roster
+    snapshot. Returning null for those rows is safer than coupling historical
+    attribution to a staff member's current name or rank, and matches the
+    nullable Admin revision contract.
+    """
+    provenance = revision.provenance
+    if not isinstance(provenance, dict):
+        return None, None
+    snapshot = provenance.get(EDITOR_SNAPSHOT_KEY)
+    if not isinstance(snapshot, dict):
+        return None, None
+    if snapshot.get("staff_member_id") != str(revision.editor_staff_member_id):
+        return None, None
+    display_name = snapshot.get("display_name")
+    rank = snapshot.get("rank")
+    if not isinstance(display_name, str) or not display_name.strip():
+        display_name = None
+    if rank is not None and not isinstance(rank, str):
+        rank = None
+    return display_name, rank
+
+
 def _source_revision_provenance(
     provenance: dict | None, source_revision_number: int,
 ) -> dict:
@@ -194,12 +253,7 @@ def _check_base(session: Session, row, base_revision_number: int) -> None:
                 ReportRevision.revision_number == row.current_revision_number,
             ))
             if current is not None:
-                editor = session.get(StaffMember, current.editor_staff_member_id)
-                if editor is not None:
-                    editor_display_name = " ".join(
-                        part for part in (editor.rank, editor.first_name, editor.last_name)
-                        if part
-                    )
+                editor_display_name, _editor_rank = report_revision_editor_snapshot(current)
                 changed_fields = tuple((current.changed_fields or {}).get("fields", ()))
                 edited_at = current.created_at
         raise RevisionConflict(
@@ -240,7 +294,7 @@ def save_report(
 
     payload = _report_payload(content)
     changed_fields = _changed_fields(report.current_content, payload)
-    provenance = _ai_provenance(reason)
+    provenance = _with_editor_snapshot(session, actor, _ai_provenance(reason))
     revision = ReportRevision(
         report_id=report_id,
         revision_number=_next_revision_number(
@@ -304,7 +358,9 @@ def save_report_status(
         ReportRevision.report_id == report_id,
         ReportRevision.revision_number == report.current_revision_number,
     ))
-    provenance = dict(current.provenance or {}) if current is not None else {}
+    provenance = _with_editor_snapshot(
+        session, actor, current.provenance if current is not None else {},
+    )
     fixed = datetime.now(UTC)
     revision = ReportRevision(
         report_id=report_id,
@@ -441,7 +497,10 @@ def restore_report(
         snapshot=payload,
         changed_fields=changed_fields,
         reason="restored",
-        provenance=_source_revision_provenance(source.provenance, revision_number),
+        provenance=_with_editor_snapshot(
+            session, actor,
+            _source_revision_provenance(source.provenance, revision_number),
+        ),
         **{
             name: getattr(source, name)
             for name in PROVENANCE_COLUMN_NAMES
@@ -508,8 +567,10 @@ def create_recovery_revision(
         snapshot=payload,
         changed_fields=changed_fields,
         reason="recovery",
-        provenance=_source_revision_provenance(
-            source.provenance, base_revision_number),
+        provenance=_with_editor_snapshot(
+            session, actor,
+            _source_revision_provenance(source.provenance, base_revision_number),
+        ),
         **{
             name: getattr(source, name)
             for name in PROVENANCE_COLUMN_NAMES
@@ -614,7 +675,7 @@ def transfer_report_ownership(
         snapshot=payload,
         changed_fields={"fields": []},
         reason="ownership_change",
-        provenance={},
+        provenance=_with_editor_snapshot(session, actor, {}),
         client_version=client_version,
         request_id=request_id,
         created_at=fixed,

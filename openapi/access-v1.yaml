@@ -919,7 +919,7 @@ paths:
         - name: sort
           in: query
           required: false
-          schema: { type: string, enum: [updated_at_desc, updated_at_asc, created_at_desc, created_at_asc], default: updated_at_desc }
+          schema: { type: string, minLength: 1, enum: [updated_at_desc, updated_at_asc, created_at_desc, created_at_asc], default: updated_at_desc }
         - name: report_id
           in: query
           required: false
@@ -939,11 +939,11 @@ paths:
         - name: incident_date_from
           in: query
           required: false
-          schema: { type: string, format: date }
+          schema: { type: string, format: date, minLength: 1 }
         - name: incident_date_to
           in: query
           required: false
-          schema: { type: string, format: date }
+          schema: { type: string, format: date, minLength: 1 }
         - name: created_at_from
           in: query
           required: false
@@ -955,35 +955,35 @@ paths:
         - name: inmate_first_name
           in: query
           required: false
-          schema: { type: string, maxLength: 200 }
+          schema: { type: string, minLength: 1, maxLength: 200 }
         - name: inmate_middle_name
           in: query
           required: false
-          schema: { type: string, maxLength: 200 }
+          schema: { type: string, minLength: 1, maxLength: 200 }
         - name: inmate_last_name
           in: query
           required: false
-          schema: { type: string, maxLength: 200 }
+          schema: { type: string, minLength: 1, maxLength: 200 }
         - name: inmate_adc_number
           in: query
           required: false
-          schema: { type: string, maxLength: 200 }
+          schema: { type: string, minLength: 1, maxLength: 200 }
         - name: category
           in: query
           required: false
-          schema: { type: string, maxLength: 200 }
+          schema: { type: string, minLength: 1, maxLength: 200 }
         - name: facility
           in: query
           required: false
-          schema: { type: string, maxLength: 200 }
+          schema: { type: string, minLength: 1, maxLength: 200 }
         - name: location
           in: query
           required: false
-          schema: { type: string, maxLength: 200 }
+          schema: { type: string, minLength: 1, maxLength: 200 }
         - name: shift
           in: query
           required: false
-          schema: { type: string, maxLength: 200 }
+          schema: { type: string, minLength: 1, maxLength: 200 }
         - name: status
           in: query
           required: false
@@ -1121,7 +1121,16 @@ paths:
         "401": { $ref: "#/components/responses/AuthenticationRequired" }
         "403": { $ref: "#/components/responses/StepUpRequired" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/RevisionOrIdempotencyConflict" }
+        "409":
+          description: Safe report mutation conflict; no report content is returned
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ReportRevisionConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportIdempotencyConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportRequestInProgressEnvelope"
+                  - $ref: "#/components/schemas/ClientUpgradeRequiredEnvelope"
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/v1/admin/reports/{report_id}/transfer:
     post:
@@ -1150,7 +1159,16 @@ paths:
         "401": { $ref: "#/components/responses/AuthenticationRequired" }
         "403": { $ref: "#/components/responses/StepUpRequired" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/RevisionOrIdempotencyConflict" }
+        "409":
+          description: Safe report mutation conflict; no report content is returned
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ReportRevisionConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportIdempotencyConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportRequestInProgressEnvelope"
+                  - $ref: "#/components/schemas/ClientUpgradeRequiredEnvelope"
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/browser-handoffs/redeem:
     post:
@@ -1411,10 +1429,12 @@ components:
     UtcTimestamp:
       type: string
       format: date-time
+      minLength: 1
       example: '2026-08-12T18:30:00Z'
     Uuid:
       type: string
       format: uuid
+      minLength: 1
       example: 00000000-0000-4000-8000-000000000001
     Cursor:
       type: string
@@ -2345,7 +2365,10 @@ components:
       required: [new_owner_staff_id, reason]
       properties:
         new_owner_staff_id: { $ref: "#/components/schemas/Uuid" }
-        new_preparer_staff_id: { $ref: "#/components/schemas/Uuid" }
+        new_preparer_staff_id:
+          oneOf:
+            - { $ref: "#/components/schemas/Uuid" }
+            - { type: "null" }
         reason: { type: string, minLength: 1, maxLength: 500 }
       example:
         new_owner_staff_id: 00000000-0000-4000-8000-000000000023
