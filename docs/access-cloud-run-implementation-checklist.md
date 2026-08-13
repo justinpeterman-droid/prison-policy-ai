@@ -90,7 +90,33 @@ dependency or external approval.
 
 ## Microsoft Access employee client
 
-- [ ] 027 AC-01 — Source/build harness.
+- [x] 027 AC-01 - Source/build harness. `LOCAL` at `4bd45d8` on
+  `claude/ac-01-source-build`, branched from reviewed main `a333271`.
+  AWAITING INDEPENDENT REVIEW - not yet merged into this integration branch.
+  Steps 1-7 and 9-10 complete. The editable master `SLUT-Client.accdb` holds
+  frmShell, frmLogin, frmErrorDialog, macro AutoExec, and modules JsonConverter,
+  TestAssert, TestRunner, all exported to text sources.
+  Evidence on Access 16.0 build 20228 x64 with matching x64 PowerShell:
+  `tests/unit/test_access_source_layout.py` 4 passed; `ValidateAccessBuild.ps1`
+  OK for x64 (bitness match, zero application tables, vendor hashes, no forbidden
+  references, VBA compiles); full credential-free regression 1,247 passed /
+  30 skipped; `git diff --check` clean; the commit contains exactly the 28
+  allowlisted paths and no others. VBA-JSON v2.3.1 pinned at `1e49ba82`, verified
+  by byte length and SHA-256; `Export-AccessSource` skips vendor objects so an
+  Access re-export cannot overwrite the pin.
+  TASK COMPLETION DOES NOT MEAN MERGED. Two external gates remain open:
+  (a) ACCDE creation is UNPROVEN on this Access build - `SysCmd 603` returns
+  without error and produces no file, and no supported COM alternative exists
+  (`acCmdMakeMDEFile` only opens a dialog), so this matrix row is stopped per plan;
+  (b) `tests/access/test_reconstruction.py` cannot pass while it rebuilds into
+  pytest `tmp_path` - that path is not a Trusted Location, so Access opens the
+  rebuilt database in disabled mode and `CurrentDb()` is unavailable. Resolving it
+  needs a Trusted Location decision or a reviewed change to the rebuild target,
+  NOT a Trust Center relaxation.
+  Also open: `pytest.mark.access_com` is unregistered; registering it means editing
+  `pytest.ini`, which is outside the AC-01 file allowlist.
+  AC-02 is BLOCKED until this task is independently reviewed and merged, per its
+  own stated precondition.
 - [ ] 028 AC-02 — API core.
 - [ ] 029 AC-03 — Authentication and DPAPI persistence.
 - [ ] 030 AC-04 — Shell and client policy.
