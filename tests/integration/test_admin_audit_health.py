@@ -1,5 +1,9 @@
 """RP-10 elevated operational endpoints use only bounded, safe values."""
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import select
+
+from backend.persistence.models import AiJob, TaskOutbox
 
 import pytest
 
@@ -63,8 +67,8 @@ def test_health_emits_bounded_policy_search_and_failed_job_signals(
         lambda signal, result, **fields: signals.append((signal, result, fields)),
     )
     monkeypatch.setattr(
-        health_api, "_failed_job_types",
-        lambda _session: ("generate",),
+        health_api, "_failed_job_health",
+        lambda _session: (("generate", "unknown"),),
     )
     db_session.commit()
     _elevate(api_client, admin_bearer_headers)
@@ -86,6 +90,87 @@ def test_health_emits_bounded_policy_search_and_failed_job_signals(
     for event in page.get_json()["data"]["items"]:
         assert set(event) == {"event_id", "occurred_at", "actor_account_id", "actor_staff_member_id", "action", "target_type", "target_id", "result", "details"}
         assert "device_id_hash" not in event and "network_hash" not in event
+
+
+def test_health_age_bucket_contract_is_explicit_and_non_identifying():
+    """The producer has a closed bucket contract before any durable query uses it."""
+    import backend.webapp.api_v1.admin_health as health_api
+
+    assert callable(getattr(health_api, "_age_bucket", None))
+    assert health_api._age_bucket(timedelta(seconds=0)) == "less_than_1m"
+    assert health_api._age_bucket(timedelta(minutes=1)) == "1m_to_5m"
+    assert health_api._age_bucket(timedelta(minutes=5)) == "5m_to_30m"
+    assert health_api._age_bucket(timedelta(minutes=30)) == "30m_to_2h"
+    assert health_api._age_bucket(timedelta(hours=2)) == "2h_or_more"
+    assert health_api._QUEUE_AGE_BUCKETS == (
+        "zero", "less_than_1m", "1m_to_5m", "5m_to_30m", "30m_to_2h", "2h_or_more",
+    )
+
+
+def test_health_emits_bucketed_queue_age_and_failed_stage_latency(
+    api_client, admin_bearer_headers, owner_bearer_headers, db_session,
+    fictional_incident, monkeypatch,
+):
+    """Health telemetry projects durable lifecycle timestamps into safe buckets."""
+    import backend.webapp.api_v1.admin_health as health_api
+
+    now = datetime.now(UTC)
+    queued = api_client.post(
+        f"/api/v1/incidents/{fictional_incident.id}/jobs/classify",
+        headers=owner_bearer_headers | {
+            "Idempotency-Key": "rp10-health-queued-0001",
+            "X-Request-ID": "request-rp10-health-queued",
+        },
+        json={"base_revision_number": 1},
+    )
+    assert queued.status_code == 202, queued.get_json()
+    job = db_session.get(AiJob, queued.get_json()["data"]["id"])
+    assert job is not None
+    pending_outbox = db_session.scalar(
+        select(TaskOutbox).where(TaskOutbox.ai_job_id == job.id)
+    )
+    assert pending_outbox is not None
+    pending_outbox.created_at = now - timedelta(minutes=45)
+
+    failed = api_client.post(
+        f"/api/v1/incidents/{fictional_incident.id}/jobs/generate",
+        headers=owner_bearer_headers | {
+            "Idempotency-Key": "rp10-health-failed-0001",
+            "X-Request-ID": "request-rp10-health-failed",
+        },
+        json={"base_revision_number": 1},
+    )
+    assert failed.status_code == 202, failed.get_json()
+    failed_job = db_session.get(AiJob, failed.get_json()["data"]["id"])
+    assert failed_job is not None
+    failed_job.state = "failed"
+    failed_job.stage = "failed"
+    failed_job.started_at = now - timedelta(seconds=75)
+    failed_job.completed_at = now - timedelta(seconds=30)
+    db_session.commit()
+
+    signals = []
+    monkeypatch.setattr(
+        health_api, "_emit",
+        lambda signal, result, **fields: signals.append((signal, result, fields)),
+    )
+    _elevate(api_client, admin_bearer_headers)
+    response = api_client.get(
+        "/api/v1/admin/health", headers=_headers(admin_bearer_headers, "lifecycle-buckets"),
+    )
+
+    assert response.status_code == 200, response.get_json()
+    assert ("queue_health", "operational", {
+        "depth_bucket": "one_to_999",
+        "oldest_age_bucket": "30m_to_2h",
+    }) in signals
+    assert ("queue_health", "failed", {
+        "depth_bucket": "unknown",
+        "oldest_age_bucket": "unknown",
+        "job_type": "generate",
+        "stage": "failed",
+        "latency_bucket": "10s_to_60s",
+    }) in signals
 
 
 def test_audit_export_requires_step_up_and_has_fixed_safe_columns(api_client, admin_bearer_headers, db_session):

@@ -29,7 +29,7 @@ def test_failed_ai_job_health_signal_is_bounded_and_has_no_identifier(monkeypatc
         lambda signal, result, **fields: emitted.append((signal, result, fields)),
     )
 
-    health_api._emit_failed_job_health(("generate",))
+    health_api._emit_failed_job_health((("generate", "unknown"),))
 
     assert emitted == [(
         "queue_health", "failed", {

@@ -9,9 +9,10 @@ from __future__ import annotations
 import json
 import logging
 import re
+from datetime import UTC, datetime, timedelta
 
 from flask import Blueprint, current_app, g
-from sqlalchemy import func, select
+from sqlalchemy import func, select, union_all
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.build_info import build_metadata
@@ -40,7 +41,16 @@ _SIGNAL_FIELDS = {
     "client_upgrade_required": frozenset({"parsed_client_version"}),
 }
 _STABLE_VALUE = re.compile(r"^[a-z0-9_]{1,64}$")
-_MAX_FAILED_JOB_TYPES = 4
+_FAILED_JOB_TYPES = ("classify", "extract", "generate", "disciplinary")
+_QUEUE_AGE_BUCKETS = (
+    "zero",
+    "less_than_1m",
+    "1m_to_5m",
+    "5m_to_30m",
+    "30m_to_2h",
+    "2h_or_more",
+)
+_DURATION_BUCKETS = _QUEUE_AGE_BUCKETS[1:]
 
 
 def _bounded_count(value: int) -> int:
@@ -65,33 +75,66 @@ def emit_client_upgrade_required(parsed_client_version: str) -> None:
     _emit("client_upgrade_required", "required", parsed_client_version=parsed_client_version)
 
 
+def _age_bucket(duration: timedelta | None) -> str:
+    """Project a non-negative duration into the closed health bucket enum."""
+    if duration is None:
+        return "unknown"
+    seconds = max(duration.total_seconds(), 0)
+    if seconds < 60:
+        return _DURATION_BUCKETS[0]
+    if seconds < 5 * 60:
+        return _DURATION_BUCKETS[1]
+    if seconds < 30 * 60:
+        return _DURATION_BUCKETS[2]
+    if seconds < 2 * 60 * 60:
+        return _DURATION_BUCKETS[3]
+    return _DURATION_BUCKETS[4]
+
+
 def _policy_search_status() -> str:
     """Fail closed until policy search has an approved live safe producer."""
     return "Unavailable"
 
 
-def _failed_job_types(session) -> tuple[str, ...]:
-    """Return a small, deterministic projection of durable failed job types."""
-    rows = session.scalars(
-        select(AiJob.job_type)
-        .where(AiJob.state == "failed")
-        .distinct()
-        .order_by(AiJob.job_type)
-        .limit(_MAX_FAILED_JOB_TYPES)
+def _oldest_pending_or_running_at(session):
+    """Return only the oldest pending outbox/running job time, never the value itself."""
+    active_times = union_all(
+        select(TaskOutbox.created_at.label("queued_at")).where(TaskOutbox.state == "pending"),
+        select(func.coalesce(AiJob.started_at, AiJob.created_at).label("queued_at"))
+        .where(AiJob.state == "running"),
+    ).subquery()
+    return session.scalar(
+        select(func.min(active_times.c.queued_at))
     )
-    return tuple(rows)
 
 
-def _emit_failed_job_health(job_types: tuple[str, ...]) -> None:
+def _failed_job_health(session) -> tuple[tuple[str, str], ...]:
+    """Return one latest failed-job latency bucket per fixed job category."""
+    signals = []
+    for job_type in _FAILED_JOB_TYPES:
+        row = session.execute(
+            select(AiJob.started_at, AiJob.completed_at)
+            .where(AiJob.state == "failed", AiJob.job_type == job_type)
+            .order_by(AiJob.completed_at.desc(), AiJob.created_at.desc())
+            .limit(1)
+        ).one_or_none()
+        if row is not None:
+            started_at, completed_at = row
+            duration = completed_at - started_at if started_at and completed_at else None
+            signals.append((job_type, _age_bucket(duration)))
+    return tuple(signals)
+
+
+def _emit_failed_job_health(jobs: tuple[tuple[str, str], ...]) -> None:
     """Emit one identifier-free failure signal for each bounded job category."""
-    for job_type in job_types:
+    for job_type, latency_bucket in jobs:
         _emit(
             "queue_health", "failed",
             depth_bucket="unknown",
             oldest_age_bucket="unknown",
             job_type=job_type,
             stage="failed",
-            latency_bucket="unknown",
+            latency_bucket=latency_bucket,
         )
 
 
@@ -151,10 +194,11 @@ def health():
         pending = current_request_session().scalar(
             select(func.count()).select_from(TaskOutbox).where(TaskOutbox.state == "pending")
         ) or 0
-        failed_job_types = _failed_job_types(current_request_session())
+        oldest_pending_or_running_at = _oldest_pending_or_running_at(current_request_session())
+        failed_job_health = _failed_job_health(current_request_session())
         if pending > 10_000:
             queue_status = "Degraded"
-        if failed_job_types:
+        if failed_job_health:
             queue_status = "Degraded"
         _append_health_audit()
     except (DatabaseUnavailable, SQLAlchemyError):
@@ -166,8 +210,11 @@ def health():
     depth_bucket = "zero" if pending == 0 else "one_to_999" if pending < 1_000 else "1000_or_more"
     _emit("dependency_health", safe_database, dependency="database", latency_bucket="unknown")
     _emit("dependency_health", safe_policy_search, dependency="policy_search", latency_bucket="unknown")
-    _emit("queue_health", safe_queue, depth_bucket=depth_bucket, oldest_age_bucket="unknown")
-    _emit_failed_job_health(failed_job_types)
+    oldest_age_bucket = "zero" if oldest_pending_or_running_at is None else _age_bucket(
+        datetime.now(UTC) - oldest_pending_or_running_at
+    )
+    _emit("queue_health", safe_queue, depth_bucket=depth_bucket, oldest_age_bucket=oldest_age_bucket)
+    _emit_failed_job_health(failed_job_health)
     _emit("backup_restore_health", backup_restore_status.lower(), recency_bucket="unknown")
     overall = "Unavailable" if "Unavailable" in {db_status, policy_search_status} else "Degraded" if (
         queue_status == "Degraded" or backup_restore_status == "Unavailable"
