@@ -219,3 +219,21 @@ variable "api_max_concurrency" { type = number }
 variable "worker_min_instances" { type = number }
 variable "worker_max_instances" { type = number }
 variable "worker_max_concurrency" { type = number }
+variable "roster_source_uri" { type = string }
+variable "roster_corrections_uri" { type = string }
+variable "roster_report_uri" { type = string }
+variable "roster_expected_sha256" {
+  type = string
+  validation {
+    condition     = can(regex("^[0-9a-f]{64}$", var.roster_expected_sha256))
+    error_message = "roster_expected_sha256 must be lowercase 64-hex."
+  }
+}
+variable "bootstrap_request_uri" { type = string }
+variable "bootstrap_request_sha256" {
+  type = string
+  validation {
+    condition     = can(regex("^[0-9a-f]{64}$", var.bootstrap_request_sha256))
+    error_message = "bootstrap_request_sha256 must be lowercase 64-hex."
+  }
+}

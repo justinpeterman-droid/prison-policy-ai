@@ -4,6 +4,9 @@ output "worker_service_account_email" { value = google_service_account.identitie
 output "task_invoker_service_account_email" { value = google_service_account.identities["task_invoker"].email }
 output "migration_service_account_email" { value = google_service_account.identities["migration"].email }
 output "bootstrap_service_account_email" { value = google_service_account.identities["bootstrap"].email }
+output "migration_job_name" { value = google_cloud_run_v2_job.migration.name }
+output "roster_import_job_name" { value = google_cloud_run_v2_job.roster_import.name }
+output "bootstrap_admin_job_name" { value = google_cloud_run_v2_job.bootstrap_admin.name }
 
 output "terraform_plan_service_account_email" { value = google_service_account.identities["terraform_plan"].email }
 output "terraform_apply_service_account_email" { value = google_service_account.identities["terraform_apply"].email }

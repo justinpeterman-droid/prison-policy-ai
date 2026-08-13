@@ -41,6 +41,12 @@ module "access_platform" {
   worker_min_instances              = var.worker_min_instances
   worker_max_instances              = var.worker_max_instances
   worker_max_concurrency            = var.worker_max_concurrency
+  roster_source_uri                 = "gs://access-production-roster/operator-supplied-roster.json"
+  roster_corrections_uri            = "gs://access-production-roster/operator-supplied-corrections.json"
+  roster_report_uri                 = "gs://access-production-roster/operator-supplied-report.json"
+  roster_expected_sha256            = "0000000000000000000000000000000000000000000000000000000000000000"
+  bootstrap_request_uri             = "gs://access-production-configuration/admin-bootstrap-requests/00000000-0000-4000-8000-000000000001.json"
+  bootstrap_request_sha256          = "0000000000000000000000000000000000000000000000000000000000000000"
   notification_channel_ids          = var.notification_channel_ids
   billing_account_id                = var.billing_account_id
   monthly_budget_amount             = var.monthly_budget_amount

@@ -41,6 +41,12 @@ module "access_platform" {
   worker_min_instances              = 0
   worker_max_instances              = 10
   worker_max_concurrency            = 4
+  roster_source_uri                 = "gs://access-test-roster/operator-supplied-roster.json"
+  roster_corrections_uri            = "gs://access-test-roster/operator-supplied-corrections.json"
+  roster_report_uri                 = "gs://access-test-roster/operator-supplied-report.json"
+  roster_expected_sha256            = "0000000000000000000000000000000000000000000000000000000000000000"
+  bootstrap_request_uri             = "gs://access-test-configuration/admin-bootstrap-requests/00000000-0000-4000-8000-000000000001.json"
+  bootstrap_request_sha256          = "0000000000000000000000000000000000000000000000000000000000000000"
   notification_channel_ids          = []
   billing_account_id                = "fixture-billing-account"
   monthly_budget_amount             = 1
