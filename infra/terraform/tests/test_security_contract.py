@@ -85,6 +85,14 @@ def test_workflow_impersonation_is_scoped_to_exact_permitted_workflow_claims():
     assert 'google_service_account_iam_member.deploy_runtime_user' in outputs
 
 
+def test_iam_members_reference_managed_identities_and_custom_role():
+    identities = read("identities.tf")
+    assert 'member   = google_service_account.identities[each.value.account].member' in identities
+    assert 'member             = google_service_account.identities["deploy"].member' in identities
+    assert 'role = google_project_iam_custom_role.terraform_apply_secret_containers.name' in identities
+    assert 'member    = google_service_account.identities[each.value.account].member' in identities
+
+
 def test_workflow_claims_follow_top_level_and_reusable_boundaries():
     test_main = (TEST_ROOT / "main.tf").read_text(encoding="utf-8")
     production_main = (PRODUCTION_ROOT / "main.tf").read_text(encoding="utf-8")

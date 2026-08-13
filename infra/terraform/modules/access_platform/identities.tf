@@ -63,7 +63,7 @@ locals {
     terraform-apply-network-admin           = { account = "terraform_apply", role = "roles/compute.networkAdmin" }
     terraform-apply-service-networking      = { account = "terraform_apply", role = "roles/servicenetworking.networksAdmin" }
     terraform-apply-sql-admin               = { account = "terraform_apply", role = "roles/cloudsql.admin" }
-    terraform-apply-secret-container-admin  = { account = "terraform_apply", role = "projects/${var.project_id}/roles/accessSecretContainerAdmin" }
+    terraform-apply-secret-container-admin  = { account = "terraform_apply", role = google_project_iam_custom_role.terraform_apply_secret_containers.name }
     terraform-apply-service-account-admin   = { account = "terraform_apply", role = "roles/iam.serviceAccountAdmin" }
     terraform-apply-workload-identity-admin = { account = "terraform_apply", role = "roles/iam.workloadIdentityPoolAdmin" }
     terraform-apply-project-iam-admin       = { account = "terraform_apply", role = "roles/resourcemanager.projectIamAdmin" }
@@ -113,7 +113,7 @@ resource "google_project_iam_member" "least_privilege" {
   for_each = local.project_iam_bindings
   project  = var.project_id
   role     = each.value.role
-  member   = "serviceAccount:access-${local.environment_id}-${local.role_ids[each.value.account]}@${var.project_id}.iam.gserviceaccount.com"
+  member   = google_service_account.identities[each.value.account].member
 }
 
 # The state bucket is external. These are the only state bindings, each
@@ -122,7 +122,7 @@ resource "google_storage_bucket_iam_member" "terraform_state" {
   for_each = local.state_iam_bindings
   bucket   = var.state_bucket_name
   role     = each.value.role
-  member   = "serviceAccount:access-${local.environment_id}-${local.role_ids[each.value.account]}@${var.project_id}.iam.gserviceaccount.com"
+  member   = google_service_account.identities[each.value.account].member
 
   condition {
     title       = each.value.title
@@ -159,7 +159,7 @@ resource "google_service_account_iam_member" "deploy_runtime_user" {
   }
   service_account_id = each.value
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:access-${local.environment_id}-${local.role_ids.deploy}@${var.project_id}.iam.gserviceaccount.com"
+  member             = google_service_account.identities["deploy"].member
 }
 
 resource "google_iam_workload_identity_pool" "workflow" {
@@ -206,5 +206,5 @@ resource "google_secret_manager_secret_iam_member" "least_privilege" {
   for_each  = local.secret_iam_bindings
   secret_id = each.value.secret_id
   role      = each.value.role
-  member    = "serviceAccount:access-${local.environment_id}-${local.role_ids[each.value.account]}@${var.project_id}.iam.gserviceaccount.com"
+  member    = google_service_account.identities[each.value.account].member
 }

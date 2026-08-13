@@ -1,5 +1,13 @@
 mock_provider "google" {}
 
+override_resource {
+  target = module.access_platform.google_iam_workload_identity_pool.workflow
+  values = {
+    name = "projects/123456789/locations/global/workloadIdentityPools/access-test-wif"
+  }
+  override_during = plan
+}
+
 run "private_platform_contract" {
   command = plan
 
@@ -34,7 +42,7 @@ run "private_platform_contract" {
   assert {
     condition = module.access_platform.terraform_test_contract.wif.provider_count == (
       module.access_platform.database_name == "access_production" ? 6 : 5
-    ) && module.access_platform.terraform_test_contract.wif.distinct_provider_id_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.impersonation_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.provider_specific_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.pool_id_length <= 32 && alltrue([for id_length in module.access_platform.terraform_test_contract.wif.provider_id_lengths : id_length <= 32]) && module.access_platform.terraform_test_contract.wif.direct_claim_condition_count == module.access_platform.terraform_test_contract.wif.provider_count
+    ) && module.access_platform.terraform_test_contract.wif.distinct_provider_id_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.impersonation_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.provider_specific_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.principal_set_category_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.pool_id_length <= 32 && alltrue([for id_length in module.access_platform.terraform_test_contract.wif.provider_id_lengths : id_length <= 32]) && module.access_platform.terraform_test_contract.wif.direct_claim_condition_count == module.access_platform.terraform_test_contract.wif.provider_count
     error_message = "Test and production must expose distinct provider-valid WIF identities with one provider-specific binding each."
   }
 
