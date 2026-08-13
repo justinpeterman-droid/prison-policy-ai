@@ -14,6 +14,7 @@ tags:
   - name: Reports
   - name: Admin Reports
   - name: AI Jobs
+  - name: Policy Expert
 security:
   - AccessBearer: []
 paths:
@@ -1304,6 +1305,67 @@ paths:
         "401": { $ref: "#/components/responses/HandoffInvalid" }
         "429": { $ref: "#/components/responses/RateLimited" }
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/policy/questions:
+    post:
+      operationId: askPolicyQuestion
+      tags: [Policy Expert]
+      summary: Ask the cited Policy Expert one bounded question
+      description: >-
+        Answers one policy question synchronously, with citations, inside a
+        90-second server budget. The question, the answer and every citation
+        passage are deliberately never stored: only an idempotency request
+        digest, a document count and a latency figure survive the request.
+        The complete gate, retrieval and model sequence shares the 90-second
+        deadline; a timed-out request does not continue provider work. Because no
+        response is retained, a duplicate Idempotency-Key is refused rather
+        than replayed, and it never buys a second provider call.
+      parameters:
+        - $ref: "#/components/parameters/XClientVersion"
+        - name: X-Request-ID
+          in: header
+          required: true
+          description: Caller-generated correlation identifier for this billable request.
+          schema: { $ref: "#/components/schemas/RequestId" }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PolicyQuestionRequest" }
+            examples:
+              followUp:
+                value:
+                  question: "What does the fictional policy require after a use of force?"
+                  history:
+                    - question: "What is the fictional restraint rule?"
+                      answer: "The fictional rule requires supervisor notification."
+      responses:
+        "200":
+          description: Cited answer, assembled from retrieved policy passages
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PolicyAnswerSuccessEnvelope" }
+              examples:
+                cited:
+                  value:
+                    data:
+                      answer: "The fictional policy requires a supervisor notification [1]."
+                      citations:
+                        - n: 1
+                          source: "Fictional Policy AD-00-00"
+                          text: "Fictional passage describing the notification duty."
+                      sources: ["Fictional Policy AD-00-00"]
+                      retrieved_sources: ["Fictional Policy AD-00-00"]
+                    request_id: req_20260812_policy_question
+                    server_time: "2026-08-12T15:09:00Z"
+                    api_version: v1
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "409": { $ref: "#/components/responses/PolicyQuestionConflict" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+        "504": { $ref: "#/components/responses/DependencyTimeout" }
 components:
   securitySchemes:
     AccessBearer:
@@ -1478,6 +1540,29 @@ components:
                 $ref: "#/components/schemas/ErrorEnvelope"
     AuthenticationRequired:
       description: A valid live bearer session is required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    PolicyQuestionConflict:
+      description: >-
+        Code is request_in_progress while the first answer is being produced,
+        idempotent_response_unavailable once it settles, idempotency_conflict
+        for a changed payload under the same key, or client_upgrade_required
+        for an unsupported write-capable client. Policy answers are never stored,
+        so a completed duplicate cannot replay an answer or buy a second call.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    DependencyTimeout:
+      description: The Policy Expert exceeded the 90-second server budget; code is dependency_timeout
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    InternalError:
+      description: Unexpected server error; code is internal_error
       content:
         application/json:
           schema:
@@ -2625,6 +2710,56 @@ components:
         request_id: { $ref: "#/components/schemas/RequestId" }
         server_time: { $ref: "#/components/schemas/UtcTimestamp" }
         api_version: { type: string, const: v1 }
+    PolicyQuestionTurn:
+      type: object
+      additionalProperties: false
+      required: [question]
+      properties:
+        question: { type: string, minLength: 1, maxLength: 2000 }
+        answer: { type: string, maxLength: 2000 }
+    PolicyQuestionRequest:
+      type: object
+      additionalProperties: false
+      required: [question]
+      properties:
+        question: { type: string, minLength: 1, maxLength: 4000 }
+        history:
+          type: array
+          items: { $ref: "#/components/schemas/PolicyQuestionTurn" }
+      description: >-
+        Closed question envelope. The server keeps at most the six most recent
+        valid turns and drops older or malformed turns rather than rejecting an
+        otherwise valid question. The client never supplies a
+        model, prompt, temperature or any identity field; the actor is taken
+        from the bearer session alone.
+    PolicyCitation:
+      type: object
+      additionalProperties: false
+      required: [n, source, text]
+      properties:
+        n: { type: integer, minimum: 1 }
+        source: { type: string, maxLength: 300 }
+        text: { type: string, maxLength: 8000 }
+    PolicyAnswerData:
+      type: object
+      additionalProperties: false
+      required: [answer, citations, sources]
+      properties:
+        answer: { type: string }
+        citations:
+          type: array
+          items: { $ref: "#/components/schemas/PolicyCitation" }
+        sources:
+          type: array
+          items: { type: string, maxLength: 300 }
+        retrieved_sources:
+          type: array
+          items: { type: string, maxLength: 300 }
+      description: >-
+        The answer is delivered once and never persisted, so it carries no
+        stored-response handle, cache flag or actor identity.
+    PolicyAnswerSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/PolicyAnswerData" } } }]
     ReportSuccessEnvelope:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/ReportData" } } }]
     ReportListSuccessEnvelope:

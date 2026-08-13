@@ -10,6 +10,7 @@ import logging
 import re
 import urllib.request
 import urllib.error
+from time import monotonic
 
 import google.auth
 import google.auth.transport.requests
@@ -66,6 +67,25 @@ LOCATION = AGENT_BUILDER_LOCATION
 SERVING_CONFIG = serving_config_path()
 
 _gen_client = None
+
+
+def _remaining_seconds(deadline_monotonic: float | None) -> float | None:
+    """Return remaining request budget, failing before more provider work."""
+    if deadline_monotonic is None:
+        return None
+    remaining = deadline_monotonic - monotonic()
+    if remaining <= 0:
+        raise TimeoutError("policy request deadline exceeded")
+    return remaining
+
+
+def _bounded_seconds(default: float, deadline_monotonic: float | None) -> float:
+    remaining = _remaining_seconds(deadline_monotonic)
+    return default if remaining is None else min(default, remaining)
+
+
+def _bounded_milliseconds(default: int, deadline_monotonic: float | None) -> int:
+    return max(1, int(_bounded_seconds(default / 1000, deadline_monotonic) * 1000))
 
 
 def _get_gen_client() -> genai.Client:
@@ -215,22 +235,40 @@ def log_search_config() -> None:
 _token_cache = {"token": None, "expiry": 0}
 
 
-def _get_token() -> str:
+def _get_token(*, deadline_monotonic: float | None = None) -> str:
     """Get an OAuth token from Application Default Credentials."""
     import time
     if _token_cache["token"] and time.time() < _token_cache["expiry"] - 60:
         return _token_cache["token"]
 
+    base_request = google.auth.transport.requests.Request()
+
+    def deadline_request(url, method="GET", body=None, headers=None, timeout=120, **kwargs):
+        return base_request(
+            url,
+            method=method,
+            body=body,
+            headers=headers,
+            timeout=_bounded_seconds(timeout, deadline_monotonic),
+            **kwargs,
+        )
+
     creds, project = google.auth.default(
-        scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        request=deadline_request,
     )
-    creds.refresh(google.auth.transport.requests.Request())
+    creds.refresh(deadline_request)
     _token_cache["token"] = creds.token
     _token_cache["expiry"] = creds.expiry.timestamp() if creds.expiry else time.time() + 3500
     return creds.token
 
 
-def _classify_query(question: str, history: list[dict] | None = None) -> bool:
+def _classify_query(
+    question: str,
+    history: list[dict] | None = None,
+    *,
+    deadline_monotonic: float | None = None,
+) -> bool:
     """Return True if this is a work-related query, False if off-topic.
 
     `history` matters: officers ask short follow-ups ("and if he refuses?",
@@ -258,13 +296,20 @@ def _classify_query(question: str, history: list[dict] | None = None) -> bool:
             # hung call hangs the whole request with no bound — every other
             # Gemini call in this codebase sets one.
             config=types.GenerateContentConfig(
-                http_options=types.HttpOptions(timeout=GATE_TIMEOUT_MS),
+                http_options=types.HttpOptions(
+                    timeout=_bounded_milliseconds(GATE_TIMEOUT_MS, deadline_monotonic),
+                ),
             ),
         )
         verdict = response.text.strip().upper()
         is_work = "WORK" in verdict and "OFF_TOPIC" not in verdict
         logger.info("Gate classified query as %s", "WORK" if is_work else "OFF_TOPIC")
         return is_work
+    except TimeoutError:
+        # A caller-provided API deadline is fail-closed. Treating it as a gate
+        # outage and falling open would start Discovery Engine work after the
+        # client-visible budget had already expired.
+        raise
     except Exception:
         logger.exception("Gate classification failed, allowing through")
         return True  # Fail open
@@ -301,8 +346,15 @@ def _search_body(query: str, page_size: int, rich: bool) -> dict:
     }
 
 
-def _search_snippets_only(url: str, token: str, query: str, page_size: int,
-                          original_error: str) -> dict:
+def _search_snippets_only(
+    url: str,
+    token: str,
+    query: str,
+    page_size: int,
+    original_error: str,
+    *,
+    deadline_monotonic: float | None = None,
+) -> dict:
     """Re-run the search without the extractive-content spec.
 
     If this also fails the data store is genuinely unreachable or
@@ -315,7 +367,9 @@ def _search_snippets_only(url: str, token: str, query: str, page_size: int,
     req.add_header("Content-Type", "application/json")
     req.add_header("X-Goog-User-Project", PROJECT_ID)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(
+            req, timeout=_bounded_seconds(30, deadline_monotonic),
+        ) as resp:
             result = json.loads(resp.read())
         logger.info("Snippets-only search returned %d results",
                     len(result.get("results", [])))
@@ -330,6 +384,8 @@ def _search_snippets_only(url: str, token: str, query: str, page_size: int,
         logger.error("The original request was also rejected (400): %s",
                      original_error[:300])
         raise RuntimeError(f"Search API error {http_exc.code}") from http_exc
+    except TimeoutError:
+        raise
     except Exception as exc:
         # Same reasoning as the primary path: a connection reset, DNS or TLS
         # failure here is still a search outage, and unwrapped it matches none
@@ -348,7 +404,12 @@ def _search_data_store(query: str, page_size: int = 10) -> list[dict]:
     return _search_with_stats(query, page_size)[0]
 
 
-def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int]:
+def _search_with_stats(
+    query: str,
+    page_size: int = 10,
+    *,
+    deadline_monotonic: float | None = None,
+) -> tuple[list[dict], int]:
     """Search, returning (passages, raw_hit_count).
 
     The raw hit count lets the caller tell "nothing matched" apart from "hits
@@ -360,7 +421,12 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
     # told the officer "An unexpected error occurred" — with a log line that
     # never mentioned search. Name the step that failed.
     try:
-        token = _get_token()
+        token = (
+            _get_token() if deadline_monotonic is None
+            else _get_token(deadline_monotonic=deadline_monotonic)
+        )
+    except TimeoutError:
+        raise
     except Exception as exc:
         logger.error("Could not obtain a credential for Discovery Engine "
                      "search: %s: %s", type(exc).__name__, exc)
@@ -373,10 +439,12 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
     req.add_header("Content-Type", "application/json")
     req.add_header("X-Goog-User-Project", PROJECT_ID)
 
-    logger.info("Discovery Engine search: query=%r url=%s", query[:80], url)
+    logger.info("Discovery Engine search: query_chars=%d url=%s", len(query), url)
 
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(
+            req, timeout=_bounded_seconds(30, deadline_monotonic),
+        ) as resp:
             raw = resp.read()
             result = json.loads(raw)
             logger.info("Search returned %d results (totalSize=%s)",
@@ -403,7 +471,10 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
             # which is why it surfaced as "An unexpected error occurred" rather
             # than any search-related category. Falling through to the shared
             # parsing below keeps both paths on one contract.
-            result = _search_snippets_only(url, token, query, page_size, err_body)
+            result = _search_snippets_only(
+                url, token, query, page_size, err_body,
+                deadline_monotonic=deadline_monotonic,
+            )
         else:
             # Log the resolved config alongside the error: almost every other
             # failure here is a config mismatch, and the serving-config path is the
@@ -414,6 +485,8 @@ def _search_with_stats(query: str, page_size: int = 10) -> tuple[list[dict], int
             if hint:
                 logger.error("Likely cause: %s", hint)
             raise RuntimeError(f"Search API error {http_exc.code}") from http_exc
+    except TimeoutError:
+        raise
     except Exception as exc:
         # Anything that isn't an HTTPError — a connection reset, DNS failure,
         # TLS problem, a non-JSON body. This used to re-raise bare, which meant
@@ -447,7 +520,12 @@ def retrieve_context(question: str, top_k: int = 5) -> list[dict]:
     return _search_data_store(question, top_k)
 
 
-def answer_question(question: str, history: list[dict] | None = None) -> dict:
+def answer_question(
+    question: str,
+    history: list[dict] | None = None,
+    *,
+    deadline_monotonic: float | None = None,
+) -> dict:
     """Full pipeline: gate → expand → search → generate.
 
     `history` is recent [{question, answer}] turns, used ONLY so the model can
@@ -461,7 +539,10 @@ def answer_question(question: str, history: list[dict] | None = None) -> dict:
       - sources: short labels for backward compat
     """
     # ── Gate check ──
-    if not _classify_query(question, history):
+    _remaining_seconds(deadline_monotonic)
+    if not _classify_query(
+        question, history, deadline_monotonic=deadline_monotonic,
+    ):
         return {
             "answer": (
                 "Good try — you're at work. If you believe this is wrong, "
@@ -474,8 +555,11 @@ def answer_question(question: str, history: list[dict] | None = None) -> dict:
     # ── Search ──
     # Augment (not replace) the question with formal terms for known slang; the
     # natural question still drives Discovery Engine's semantic understanding.
-    retrieved, raw_count = _search_with_stats(augment_query(question),
-                                              page_size=SEARCH_PAGE_SIZE)
+    retrieved, raw_count = _search_with_stats(
+        augment_query(question),
+        page_size=SEARCH_PAGE_SIZE,
+        deadline_monotonic=deadline_monotonic,
+    )
     retrieved_sources = [c["source"] for c in retrieved]
     logger.info("answer_question: %d contexts, first source=%s",
                 len(retrieved),
@@ -535,11 +619,20 @@ def answer_question(question: str, history: list[dict] | None = None) -> dict:
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction=CHAT_SYSTEM_PROMPT,
-                http_options=types.HttpOptions(timeout=ANSWER_TIMEOUT_MS),
+                http_options=types.HttpOptions(
+                    timeout=_bounded_milliseconds(ANSWER_TIMEOUT_MS, deadline_monotonic),
+                ),
             ),
         )
 
-    response = with_retries(_call, describe="chat answer generation")
+    # The API has one end-to-end deadline. A retry after an expensive attempt
+    # could exceed it, so deadline callers get one bounded provider call.
+    # Browser callers retain the established retry behavior.
+    response = with_retries(
+        _call,
+        attempts=1 if deadline_monotonic is not None else 3,
+        describe="chat answer generation",
+    )
 
     # Surface only the passages the model actually cited; flag ungrounded answers.
     # infer=True: if the model wrote a passage-derived answer but forgot the [n]
