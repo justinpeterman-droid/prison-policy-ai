@@ -4,6 +4,8 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import hashlib
+import subprocess
 import sys
 from pathlib import Path
 
@@ -14,19 +16,42 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--image", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--provenance", required=True)
+    parser.add_argument("--write-provenance", action="store_true")
     args = parser.parse_args()
     if not Path(args.output).is_file():
         print("SBOM output is absent", file=sys.stderr)
         return 1
-    data = json.loads(Path(args.output).read_text(encoding="utf-8"))
+    output = Path(args.output)
+    data = json.loads(output.read_text(encoding="utf-8"))
     rendered = json.dumps(data)
-    dockerfile = (Path(__file__).resolve().parents[2] / "Dockerfile").read_text(encoding="utf-8")
+    image_id = subprocess.check_output(
+        ["docker", "image", "inspect", args.image, "--format", "{{.Id}}"], text=True
+    ).strip()
+    provenance_path = Path(args.provenance)
+    if args.write_provenance:
+        provenance_path.write_text(
+            json.dumps(
+                {
+                    "image": args.image,
+                    "image_id": image_id,
+                    "runtime_digest": DIGEST,
+                    "sbom_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+                    "tool": "syft-spdx",
+                },
+                sort_keys=True,
+            ),
+            encoding="utf-8",
+        )
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
     if (
         data.get("spdxVersion", "").startswith("SPDX-") is False
         or not data.get("packages")
-        or f"chainguard/python@{DIGEST}" not in dockerfile
+        or provenance.get("image_id") != image_id
+        or provenance.get("runtime_digest") != DIGEST
+        or provenance.get("sbom_sha256") != hashlib.sha256(output.read_bytes()).hexdigest()
     ):
-        print("SBOM must contain SPDX metadata and packages for the approved runtime digest", file=sys.stderr)
+        print("SBOM provenance binding failed", file=sys.stderr)
         return 1
     if any("licenseDeclared" not in package or "licenseConcluded" not in package for package in data["packages"]):
         print("SBOM package license metadata missing", file=sys.stderr)
