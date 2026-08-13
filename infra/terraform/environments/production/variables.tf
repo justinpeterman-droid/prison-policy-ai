@@ -90,3 +90,4 @@ variable "monthly_budget_amount" { type = number }
 variable "budget_pubsub_topic" { type = string }
 variable "observability_owner_role" { type = string }
 variable "sql_export_service_account_email" { type = string }
+variable "sensitive_log_scanner_metric_type" { type = string }

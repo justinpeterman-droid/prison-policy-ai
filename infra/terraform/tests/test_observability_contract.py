@@ -83,3 +83,26 @@ def test_backup_boundary_is_exact_and_workflow_is_bounded():
     assert "raise:" in workflow and "timed out" in workflow
     assert '"workflows.googleapis.com"' in services
     assert '"billingbudgets.googleapis.com"' in services
+
+
+def test_all_alerts_have_real_unhealthy_sources_and_never_autoclose():
+    observability = (MODULE / "observability.tf").read_text(encoding="utf-8")
+    # Budget thresholds are configured by the billing budget resource, not a
+    # fabricated monitoring metric. The scanner source is an externally
+    # confirmed metric input until its producer is separately provisioned.
+    assert "billingbudgets.googleapis.com/budget" not in observability
+    assert "var.sensitive_log_scanner_metric_type" in observability
+    assert observability.count('alert_strategy { auto_close = "0s" }') >= 11
+    assert 'metric.label.\\"http_status_class\\"=\\"5xx\\"' in observability
+    assert 'metric.label.\\"result\\"=\\"unavailable\\"' in observability
+
+
+def test_metric_labels_are_specific_to_actual_producer_shapes():
+    observability = (MODULE / "observability.tf").read_text(encoding="utf-8")
+    for field in (
+        '"client_version"', '"depth_bucket"', '"oldest_age_bucket"',
+        '"job_type"', '"stage"', '"recency_bucket"',
+        '"parsed_client_version"',
+    ):
+        assert field in observability
+    assert "safe_metric_contracts" in observability

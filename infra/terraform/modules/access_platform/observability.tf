@@ -3,15 +3,14 @@ locals {
 
   # Each key is an independently triaged alert family. Filters reference only
   # the locked application producer contract or platform-native metrics.
-  required_alert_filters = {
-    auth_lockouts         = "metric.type=\"logging.googleapis.com/user/access_request_event\" AND metric.label.\"error_code\"=\"account_locked\""
-    sql_connections       = "metric.type=\"cloudsql.googleapis.com/database/postgresql/num_backends\""
-    sql_backup            = "metric.type=\"logging.googleapis.com/user/access_backup_restore_health\""
-    ai_job_failure        = "metric.type=\"custom.googleapis.com/ai_provider_repeat_risk_total\""
-    ai_job_latency        = "metric.type=\"logging.googleapis.com/user/access_queue_health\""
-    policy_search         = "metric.type=\"logging.googleapis.com/user/access_dependency_health\""
-    sensitive_log_scanner = "metric.type=\"logging.googleapis.com/user/access_dependency_health\""
-    budget                = "metric.type=\"billingbudgets.googleapis.com/budget\""
+  required_alerts = {
+    auth_lockouts           = { filter = "metric.type=\"logging.googleapis.com/user/access_request_event\" AND metric.label.\"error_code\"=\"account_locked\"", comparison = "COMPARISON_GT", threshold = 3, duration = "300s" }
+    sql_connections         = { filter = "metric.type=\"cloudsql.googleapis.com/database/postgresql/num_backends\"", comparison = "COMPARISON_GT", threshold = 80, duration = "300s" }
+    sql_backup              = { filter = "metric.type=\"logging.googleapis.com/user/access_backup_restore_health\" AND metric.label.\"result\"=\"unavailable\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
+    ai_provider_repeat_risk = { filter = "metric.type=\"custom.googleapis.com/ai_provider_repeat_risk_total\"", comparison = "COMPARISON_GT", threshold = 0, duration = "60s" }
+    ai_job_latency          = { filter = "metric.type=\"logging.googleapis.com/user/access_queue_health\" AND metric.label.\"latency_bucket\"=\"2000ms_or_more\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
+    policy_search           = { filter = "metric.type=\"logging.googleapis.com/user/access_dependency_health\" AND metric.label.\"result\"=\"unavailable\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
+    sensitive_log_scanner   = { filter = "metric.type=\"${var.sensitive_log_scanner_metric_type}\"", comparison = "COMPARISON_GT", threshold = 0, duration = "60s" }
   }
 }
 
@@ -42,7 +41,7 @@ locals {
 }
 
 resource "google_monitoring_alert_policy" "required" {
-  for_each              = local.required_alert_filters
+  for_each              = local.required_alerts
   project               = var.project_id
   display_name          = "Access ${replace(each.key, "_", " ")}"
   combiner              = "OR"
@@ -56,12 +55,13 @@ resource "google_monitoring_alert_policy" "required" {
   conditions {
     display_name = replace(each.key, "_", " ")
     condition_threshold {
-      filter          = each.value
-      comparison      = "COMPARISON_GT"
-      threshold_value = 0
-      duration        = "60s"
+      filter          = each.value.filter
+      comparison      = each.value.comparison
+      threshold_value = each.value.threshold
+      duration        = each.value.duration
     }
   }
+  alert_strategy { auto_close = "0s" }
   depends_on = [terraform_data.services_ready]
 }
 # Each explicit alert below owns its documentation rather than relying on a
@@ -78,12 +78,13 @@ resource "google_monitoring_alert_policy" "api_availability_documented" {
   conditions {
     display_name = "threshold"
     condition_threshold {
-      filter          = "metric.type=\"run.googleapis.com/request_count\""
-      comparison      = "COMPARISON_LT"
+      filter          = "metric.type=\"logging.googleapis.com/user/access_request_event\" AND metric.label.\"http_status_class\"=\"5xx\""
+      comparison      = "COMPARISON_GT"
       threshold_value = 1
       duration        = "300s"
     }
   }
+  alert_strategy { auto_close = "0s" }
 }
 resource "google_monitoring_alert_policy" "api_latency_documented" {
   project               = var.project_id
@@ -94,6 +95,7 @@ resource "google_monitoring_alert_policy" "api_latency_documented" {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
   }
+  alert_strategy { auto_close = "0s" }
   conditions {
     display_name = "threshold"
     condition_threshold {
@@ -113,6 +115,7 @@ resource "google_monitoring_alert_policy" "api_5xx_documented" {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
   }
+  alert_strategy { auto_close = "0s" }
   conditions {
     display_name = "threshold"
     condition_threshold {
@@ -132,6 +135,7 @@ resource "google_monitoring_alert_policy" "auth_denials_documented" {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
   }
+  alert_strategy { auto_close = "0s" }
   conditions {
     display_name = "threshold"
     condition_threshold {
@@ -151,6 +155,7 @@ resource "google_monitoring_alert_policy" "sql_saturation_documented" {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
   }
+  alert_strategy { auto_close = "0s" }
   conditions {
     display_name = "threshold"
     condition_threshold {
@@ -170,6 +175,7 @@ resource "google_monitoring_alert_policy" "sql_storage_documented" {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
   }
+  alert_strategy { auto_close = "0s" }
   conditions {
     display_name = "threshold"
     condition_threshold {
@@ -189,6 +195,7 @@ resource "google_monitoring_alert_policy" "queue_depth_documented" {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
   }
+  alert_strategy { auto_close = "0s" }
   conditions {
     display_name = "threshold"
     condition_threshold {
@@ -208,6 +215,7 @@ resource "google_monitoring_alert_policy" "queue_age_documented" {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
   }
+  alert_strategy { auto_close = "0s" }
   conditions {
     display_name = "threshold"
     condition_threshold {
@@ -227,6 +235,7 @@ resource "google_monitoring_alert_policy" "logical_export_documented" {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
   }
+  alert_strategy { auto_close = "0s" }
   conditions {
     display_name = "threshold"
     condition_threshold {
@@ -246,6 +255,7 @@ resource "google_monitoring_alert_policy" "client_upgrade_documented" {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
   }
+  alert_strategy { auto_close = "0s" }
   conditions {
     display_name = "threshold"
     condition_threshold {

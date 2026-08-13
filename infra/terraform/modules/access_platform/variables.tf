@@ -130,6 +130,14 @@ variable "sql_export_service_account_email" {
     error_message = "sql_export_service_account_email must be the exact externally confirmed Cloud SQL service-account email."
   }
 }
+variable "sensitive_log_scanner_metric_type" {
+  description = "Externally confirmed metric emitted only when the sensitive-log scanner fails; production gate remains closed until supplied."
+  type        = string
+  validation {
+    condition     = can(regex("^(logging.googleapis.com/user|custom.googleapis.com)/[a-z][a-z0-9_/.-]{0,199}$", var.sensitive_log_scanner_metric_type))
+    error_message = "sensitive_log_scanner_metric_type must be an externally confirmed bounded Google Monitoring metric type."
+  }
+}
 
 variable "image_digest" {
   type        = string
