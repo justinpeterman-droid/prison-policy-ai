@@ -12,6 +12,7 @@ tags:
   - name: Staff
   - name: Incidents
   - name: Reports
+  - name: Admin Reports
 security:
   - AccessBearer: []
 paths:
@@ -901,6 +902,274 @@ paths:
         "409": { $ref: "#/components/responses/IdempotencyConflict" }
         "429": { $ref: "#/components/responses/RateLimited" }
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports:
+    get:
+      operationId: searchAdminReports
+      tags: [Admin Reports]
+      description: >-
+        Bounded structured search over report/incident columns only, never
+        narrative or field-notes text. A regular User receives a concealed
+        404. Writes exactly one `admin.report_search` audit event naming the
+        filters used (never their values) and the result count.
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/PageLimit" }
+        - { $ref: "#/components/parameters/PageCursor" }
+        - name: sort
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, enum: [updated_at_desc, updated_at_asc, created_at_desc, created_at_asc], default: updated_at_desc }
+        - name: report_id
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Uuid" }
+        - name: incident_id
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Uuid" }
+        - name: reporting_staff_id
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Uuid" }
+        - name: preparer_staff_id
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Uuid" }
+        - name: incident_date_from
+          in: query
+          required: false
+          schema: { type: string, format: date, minLength: 1 }
+        - name: incident_date_to
+          in: query
+          required: false
+          schema: { type: string, format: date, minLength: 1 }
+        - name: created_at_from
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/UtcTimestamp" }
+        - name: created_at_to
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/UtcTimestamp" }
+        - name: inmate_first_name
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: inmate_middle_name
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: inmate_last_name
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: inmate_adc_number
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: category
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: facility
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: location
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: shift
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [in_progress, completed, archived] }
+        - name: last_editor_staff_id
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Uuid" }
+        - name: modified_at_from
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/UtcTimestamp" }
+        - name: modified_at_to
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/UtcTimestamp" }
+      responses:
+        "200":
+          description: Bounded, structured-column Admin report search results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminReportSearchSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/{report_id}:
+    get:
+      operationId: getAdminReport
+      tags: [Admin Reports]
+      description: Opening another employee's report writes a `report.viewed_by_admin` audit event.
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+      responses:
+        "200": { description: Authorized Admin report detail, content: { application/json: { schema: { $ref: "#/components/schemas/ReportSuccessEnvelope" } } } }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+    patch:
+      operationId: editAdminReport
+      tags: [Admin Reports]
+      description: >-
+        Calls the shared `save_report()` service with `reason="admin_edit"`.
+        No step-up is required, but the edit is attributed to the
+        administrator and claims/completes its Idempotency-Key in the same
+        transaction as the revision and audit write.
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminReportEditRequest" }
+      responses:
+        "200": { description: Admin-attributed report revision appended, content: { application/json: { schema: { $ref: "#/components/schemas/ReportSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Safe report mutation conflict; no report content is returned
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ReportRevisionConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportIdempotencyConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportRequestInProgressEnvelope"
+                  - $ref: "#/components/schemas/ClientUpgradeRequiredEnvelope"
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/{report_id}/revisions:
+    get:
+      operationId: listAdminReportRevisions
+      tags: [Admin Reports]
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/PageLimit" }
+        - { $ref: "#/components/parameters/PageCursor" }
+      responses:
+        "200": { description: Authorized immutable revision summaries with full attribution, content: { application/json: { schema: { $ref: "#/components/schemas/AdminReportRevisionListSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/{report_id}/revisions/{revision_number}:
+    get:
+      operationId: getAdminReportRevision
+      tags: [Admin Reports]
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/RevisionNumber" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+      responses:
+        "200": { description: Authorized immutable revision with content, content: { application/json: { schema: { $ref: "#/components/schemas/AdminReportRevisionSuccessEnvelope" } } } }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/{report_id}/restore:
+    post:
+      operationId: restoreAdminReportRevision
+      tags: [Admin Reports]
+      description: >-
+        Exactly `{"revision_number": 7}`. Requires the purpose-scoped,
+        single-use `X-Admin-Step-Up` token for `report_restore`. Calls the
+        shared `restore_report()` service to create a new `restored`
+        revision referencing the immutable source; no revision is ever
+        overwritten, deleted, or renumbered.
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportRestoreRequest" }
+            example: { revision_number: 7 }
+      responses:
+        "200": { description: Historical snapshot copied into a new current revision, content: { application/json: { schema: { $ref: "#/components/schemas/ReportSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Safe report mutation conflict; no report content is returned
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ReportRevisionConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportIdempotencyConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportRequestInProgressEnvelope"
+                  - $ref: "#/components/schemas/ClientUpgradeRequiredEnvelope"
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/{report_id}/transfer:
+    post:
+      operationId: transferAdminReportOwnership
+      tags: [Admin Reports]
+      description: >-
+        Requires the purpose-scoped, single-use `X-Admin-Step-Up` token for
+        `report_transfer`. Verifies both targets are active staff, locks the
+        affected rows, replaces owner/preparer access transactionally, and
+        appends an `ownership_change` revision plus a
+        `report.ownership_transferred` audit event.
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminReportTransferRequest" }
+      responses:
+        "200": { description: Ownership transferred and one ownership revision appended, content: { application/json: { schema: { $ref: "#/components/schemas/ReportSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Safe report mutation conflict; no report content is returned
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ReportRevisionConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportIdempotencyConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportRequestInProgressEnvelope"
+                  - $ref: "#/components/schemas/ClientUpgradeRequiredEnvelope"
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/browser-handoffs/redeem:
     post:
       operationId: redeemReviewLabHandoff
@@ -1160,10 +1429,12 @@ components:
     UtcTimestamp:
       type: string
       format: date-time
+      minLength: 1
       example: '2026-08-12T18:30:00Z'
     Uuid:
       type: string
       format: uuid
+      minLength: 1
       example: 00000000-0000-4000-8000-000000000001
     Cursor:
       type: string
@@ -2073,6 +2344,150 @@ components:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/ReportRevisionData" } } }]
     ReportRecoverySuccessEnvelope:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/ReportRecoveryData" } } }]
+    AdminReportEditRequest:
+      type: object
+      additionalProperties: false
+      required: [content, base_revision_number]
+      properties:
+        content: { $ref: "#/components/schemas/ReportContent" }
+        base_revision_number: { type: integer, minimum: 1 }
+      example:
+        content:
+          schema_version: 1
+          narrative: Fictional administrator-authored correction.
+          editable_fields: {}
+          validation: {}
+          warnings: []
+        base_revision_number: 1
+    AdminReportTransferRequest:
+      type: object
+      additionalProperties: false
+      required: [new_owner_staff_id, reason]
+      properties:
+        new_owner_staff_id: { $ref: "#/components/schemas/Uuid" }
+        new_preparer_staff_id:
+          oneOf:
+            - { $ref: "#/components/schemas/Uuid" }
+            - { type: "null" }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+      example:
+        new_owner_staff_id: 00000000-0000-4000-8000-000000000023
+        reason: Fictional reassignment for shift coverage.
+    AdminReportSearchItem:
+      type: object
+      additionalProperties: false
+      required:
+        - report_id
+        - incident_id
+        - report_type
+        - status
+        - category
+        - facility
+        - location
+        - shift
+        - incident_date
+        - reporting_staff_member_id
+        - prepared_by_staff_member_id
+        - last_editor_staff_member_id
+        - inmate_adc_numbers
+        - current_revision_number
+        - created_at
+        - updated_at
+      properties:
+        report_id: { $ref: "#/components/schemas/Uuid" }
+        incident_id: { $ref: "#/components/schemas/Uuid" }
+        report_type: { type: string, enum: [first_person, supervisor_summary, cover_letter, disciplinary, investigation, form_005] }
+        status: { type: string, enum: [in_progress, completed, archived] }
+        category: { type: [string, "null"], maxLength: 120 }
+        facility: { type: [string, "null"], maxLength: 120 }
+        location: { type: [string, "null"], maxLength: 200 }
+        shift: { type: [string, "null"], maxLength: 32 }
+        incident_date: { type: [string, "null"], format: date }
+        reporting_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        prepared_by_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        last_editor_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        inmate_adc_numbers:
+          type: array
+          maxItems: 100
+          items: { type: string, maxLength: 64 }
+        current_revision_number: { type: integer, minimum: 1 }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UtcTimestamp" }
+    AdminReportSearchData:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/AdminReportSearchItem" }
+        next_cursor: { $ref: "#/components/schemas/PageCursorValue" }
+    AdminReportSearchSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/AdminReportSearchData" } } }]
+    AdminReportRevisionSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - revision_id
+        - revision_number
+        - reason
+        - source_revision_number
+        - editor_account_id
+        - editor_staff_member_id
+        - editor_display_name
+        - editor_rank
+        - content_hash
+        - client_version
+        - created_at
+        - is_current
+      properties: &AdminReportRevisionSummaryProperties
+        revision_id: { $ref: "#/components/schemas/Uuid" }
+        revision_number: { type: integer, minimum: 1 }
+        reason: { type: string, enum: [autosave, manual_save, ai_result, restored, status_change, ownership_change, recovery, admin_edit] }
+        source_revision_number: { type: [integer, "null"], minimum: 0 }
+        editor_account_id: { $ref: "#/components/schemas/Uuid" }
+        editor_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        editor_display_name: { type: [string, "null"], maxLength: 200 }
+        editor_rank: { type: [string, "null"], maxLength: 64 }
+        content_hash: { type: string, pattern: '^[0-9a-f]{64}$' }
+        client_version: { type: string, maxLength: 64 }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        is_current: { type: boolean }
+    AdminReportRevisionData:
+      type: object
+      additionalProperties: false
+      required:
+        - revision_id
+        - revision_number
+        - reason
+        - source_revision_number
+        - editor_account_id
+        - editor_staff_member_id
+        - editor_display_name
+        - editor_rank
+        - content_hash
+        - client_version
+        - created_at
+        - is_current
+        - content
+      properties:
+        <<: *AdminReportRevisionSummaryProperties
+        content: { $ref: "#/components/schemas/ReportContent" }
+    AdminReportRevisionListData:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/AdminReportRevisionSummary" }
+        next_cursor: { $ref: "#/components/schemas/PageCursorValue" }
+    AdminReportRevisionListSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/AdminReportRevisionListData" } } }]
+    AdminReportRevisionSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/AdminReportRevisionData" } } }]
     StaffSuccessEnvelope:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/StaffData" } } }]
     StaffPageSuccessEnvelope:

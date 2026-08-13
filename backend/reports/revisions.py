@@ -17,6 +17,7 @@ from backend.persistence.models.reporting import (
     Incident,
     IncidentRevision,
     Report,
+    ReportAccess,
     ReportRevision,
 )
 from backend.persistence.models.identity import StaffMember
@@ -34,10 +35,12 @@ __all__ = [
     "RevisionConflict",
     "RevisionTargetMissing",
     "create_recovery_revision",
+    "report_revision_editor_snapshot",
     "restore_report",
     "save_incident",
     "save_report",
     "save_report_status",
+    "transfer_report_ownership",
 ]
 
 DEFAULT_CLIENT_VERSION = "0.0.0-development"
@@ -69,6 +72,7 @@ PROVENANCE_COLUMN_NAMES = (
     "cloud_run_revision",
     "source_commit",
 )
+EDITOR_SNAPSHOT_KEY = "editor_snapshot"
 
 
 class RevisionTargetMissing(LookupError):
@@ -157,6 +161,63 @@ def _ai_provenance(reason: str) -> dict[str, str | None]:
     return collect_provenance() if reason == "ai_result" else {}
 
 
+def _editor_snapshot(session: Session, actor: Actor) -> dict[str, str | None]:
+    staff = session.get(StaffMember, actor.staff_member_id)
+    if staff is None:
+        raise ValueError("report revision editor is unavailable")
+    display_name = " ".join(
+        part for part in (staff.rank, staff.first_name, staff.last_name) if part
+    )
+    return {
+        "staff_member_id": str(actor.staff_member_id),
+        "display_name": display_name,
+        "rank": staff.rank,
+    }
+
+
+def _with_editor_snapshot(
+    session: Session, actor: Actor, provenance: dict | None,
+) -> dict:
+    # The service's locked caller-owned transaction contract is also exercised
+    # with intentionally minimal, non-database session doubles. Real
+    # persistence sessions always expose ``get`` and therefore always write
+    # the immutable snapshot; doubles retain the pre-existing provenance-only
+    # behavior rather than being forced to emulate roster persistence.
+    if not callable(getattr(session, "get", None)):
+        return dict(provenance or {})
+    return {
+        **dict(provenance or {}),
+        EDITOR_SNAPSHOT_KEY: _editor_snapshot(session, actor),
+    }
+
+
+def report_revision_editor_snapshot(
+    revision: ReportRevision,
+) -> tuple[str | None, str | None]:
+    """Return immutable editor attribution, or nullable legacy fallback.
+
+    Revisions written before RP-05 hardening have no immutable roster
+    snapshot. Returning null for those rows is safer than coupling historical
+    attribution to a staff member's current name or rank, and matches the
+    nullable Admin revision contract.
+    """
+    provenance = revision.provenance
+    if not isinstance(provenance, dict):
+        return None, None
+    snapshot = provenance.get(EDITOR_SNAPSHOT_KEY)
+    if not isinstance(snapshot, dict):
+        return None, None
+    if snapshot.get("staff_member_id") != str(revision.editor_staff_member_id):
+        return None, None
+    display_name = snapshot.get("display_name")
+    rank = snapshot.get("rank")
+    if not isinstance(display_name, str) or not display_name.strip():
+        display_name = None
+    if rank is not None and not isinstance(rank, str):
+        rank = None
+    return display_name, rank
+
+
 def _source_revision_provenance(
     provenance: dict | None, source_revision_number: int,
 ) -> dict:
@@ -192,12 +253,7 @@ def _check_base(session: Session, row, base_revision_number: int) -> None:
                 ReportRevision.revision_number == row.current_revision_number,
             ))
             if current is not None:
-                editor = session.get(StaffMember, current.editor_staff_member_id)
-                if editor is not None:
-                    editor_display_name = " ".join(
-                        part for part in (editor.rank, editor.first_name, editor.last_name)
-                        if part
-                    )
+                editor_display_name, _editor_rank = report_revision_editor_snapshot(current)
                 changed_fields = tuple((current.changed_fields or {}).get("fields", ()))
                 edited_at = current.created_at
         raise RevisionConflict(
@@ -238,7 +294,7 @@ def save_report(
 
     payload = _report_payload(content)
     changed_fields = _changed_fields(report.current_content, payload)
-    provenance = _ai_provenance(reason)
+    provenance = _with_editor_snapshot(session, actor, _ai_provenance(reason))
     revision = ReportRevision(
         report_id=report_id,
         revision_number=_next_revision_number(
@@ -302,7 +358,9 @@ def save_report_status(
         ReportRevision.report_id == report_id,
         ReportRevision.revision_number == report.current_revision_number,
     ))
-    provenance = dict(current.provenance or {}) if current is not None else {}
+    provenance = _with_editor_snapshot(
+        session, actor, current.provenance if current is not None else {},
+    )
     fixed = datetime.now(UTC)
     revision = ReportRevision(
         report_id=report_id,
@@ -439,7 +497,10 @@ def restore_report(
         snapshot=payload,
         changed_fields=changed_fields,
         reason="restored",
-        provenance=_source_revision_provenance(source.provenance, revision_number),
+        provenance=_with_editor_snapshot(
+            session, actor,
+            _source_revision_provenance(source.provenance, revision_number),
+        ),
         **{
             name: getattr(source, name)
             for name in PROVENANCE_COLUMN_NAMES
@@ -506,8 +567,10 @@ def create_recovery_revision(
         snapshot=payload,
         changed_fields=changed_fields,
         reason="recovery",
-        provenance=_source_revision_provenance(
-            source.provenance, base_revision_number),
+        provenance=_with_editor_snapshot(
+            session, actor,
+            _source_revision_provenance(source.provenance, base_revision_number),
+        ),
         **{
             name: getattr(source, name)
             for name in PROVENANCE_COLUMN_NAMES
@@ -533,3 +596,107 @@ def create_recovery_revision(
     )
     session.flush()
     return recovery
+
+
+def transfer_report_ownership(
+    session: Session,
+    actor: Actor,
+    report_id: UUID,
+    new_owner_staff_id: UUID,
+    new_preparer_staff_id: UUID | None,
+    *,
+    request_id: str | None = None,
+    client_version: str | None = None,
+    audit_writer: AuditWriter | None = None,
+) -> ReportRevision:
+    """Replace owner/preparer access, then append an ownership revision.
+
+    Locks the report and every access row it has ever had, verifies both
+    target staff members are active, revokes access for anyone no longer in
+    the resolved owner/preparer pair, grants (or reactivates) access for the
+    resolved pair, and appends an unchanged-content revision naming the
+    administrator. `report_access` is keyed on `(report_id, staff_member_id)`
+    -- one row per staff member per report for all time -- so returning
+    access reactivates that staff member's existing row rather than
+    inserting a second one; a row already revoked before is never deleted,
+    only its `revoked_at`/`relationship` are updated forward.
+    """
+    request_id, client_version, audit_writer = _metadata(
+        request_id, client_version, audit_writer)
+    report = _lock_row(session, Report, report_id)
+    resolved_preparer = new_preparer_staff_id or report.prepared_by_staff_member_id
+    target_ids = {new_owner_staff_id, resolved_preparer}
+    active = session.execute(
+        select(StaffMember)
+        .where(StaffMember.id.in_(target_ids), StaffMember.is_active.is_(True))
+        .with_for_update()
+    ).scalars().all()
+    if {row.id for row in active} != target_ids:
+        raise ValueError("Transfer targets must identify active staff.")
+
+    existing_by_staff = {
+        row.staff_member_id: row
+        for row in session.execute(
+            select(ReportAccess).where(ReportAccess.report_id == report_id).with_for_update()
+        ).scalars().all()
+    }
+    fixed = datetime.now(UTC)
+    old_owner_staff_id = report.reporting_staff_member_id
+
+    relationships = [(new_owner_staff_id, "owner")]
+    if resolved_preparer != new_owner_staff_id:
+        relationships.append((resolved_preparer, "preparer"))
+    final_staff_ids = {staff_id for staff_id, _relationship in relationships}
+
+    for staff_id, row in existing_by_staff.items():
+        if staff_id not in final_staff_ids and row.revoked_at is None:
+            row.revoked_at = fixed
+    for staff_id, relationship in relationships:
+        row = existing_by_staff.get(staff_id)
+        if row is not None:
+            row.relationship = relationship
+            row.revoked_at = None
+            row.granted_by_account_id = actor.account_id
+        else:
+            session.add(ReportAccess(
+                report_id=report_id, staff_member_id=staff_id, relationship=relationship,
+                granted_by_account_id=actor.account_id, created_at=fixed,
+            ))
+    report.reporting_staff_member_id = new_owner_staff_id
+    report.prepared_by_staff_member_id = resolved_preparer
+
+    payload = _report_payload(ReportContentV1.model_validate(report.current_content))
+    revision = ReportRevision(
+        report_id=report_id,
+        revision_number=_next_revision_number(
+            session, ReportRevision, ReportRevision.report_id, report_id),
+        editor_account_id=actor.account_id,
+        editor_staff_member_id=actor.staff_member_id,
+        snapshot=payload,
+        changed_fields={"fields": []},
+        reason="ownership_change",
+        provenance=_with_editor_snapshot(session, actor, {}),
+        client_version=client_version,
+        request_id=request_id,
+        created_at=fixed,
+    )
+    session.add(revision)
+    report.current_revision_number = revision.revision_number
+    report.updated_at = fixed
+    _append_audit(
+        session,
+        audit_writer,
+        actor,
+        action="report.ownership_transferred",
+        target_type="report",
+        target_id=report_id,
+        request_id=request_id,
+        details={
+            "report_id": str(report_id),
+            "old_owner_staff_id": str(old_owner_staff_id),
+            "new_owner_staff_id": str(new_owner_staff_id),
+        },
+        client_version=client_version,
+    )
+    session.flush()
+    return revision
