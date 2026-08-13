@@ -102,15 +102,19 @@ Success! 1 passed, 0 failed.
 The exact Checkov 3.3.11 image digest was run with only `infra/terraform`
 mounted read-only, networking disabled, a read-only container filesystem, all
 capabilities dropped, and no privilege escalation. No skip check, baseline,
-suppression, or severity filter was used:
+suppression, severity filter, or framework filter was used. The final command
+was the unfiltered `checkov -d /repo/infra/terraform --quiet` invocation:
 
 ```text
 ghcr.io/bridgecrewio/checkov@sha256:e5e308e713725e73f517e4cb85b39d467f1e047204c174fb15eb444c27ffb745
+terraform scan results:
 Passed checks: 176, Failed checks: 0, Skipped checks: 0
 ```
 
 Checkov emitted a non-fatal guideline-download warning because the container
-was deliberately offline; the scan itself exited zero with the counts above.
+was deliberately offline. The unfiltered process exited zero and emitted no
+secrets-failure section; before the fixture correction, this same command
+reliably exited one with `CKV_SECRET_6` at the native initial-admin fixture.
 
 ## Result
 

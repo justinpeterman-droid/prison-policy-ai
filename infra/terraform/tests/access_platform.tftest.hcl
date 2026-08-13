@@ -100,7 +100,7 @@ override_resource {
 }
 override_resource {
   target          = module.access_platform.google_secret_manager_secret.containers["initial-admin-pin"]
-  values          = { id = "fixture-secret-initial-admin-pin" }
+  values          = { id = "initial-admin-pin" }
   override_during = plan
 }
 override_resource {
@@ -390,7 +390,7 @@ run "private_platform_contract" {
     condition = module.access_platform.terraform_test_contract.jobs.bootstrap_environment == {
       ADMIN_BOOTSTRAP_REQUEST_BUCKET = "access-test-configuration"
       ADMIN_BOOTSTRAP_REQUEST_PREFIX = "admin-bootstrap-requests/"
-      INITIAL_ADMIN_PIN_SECRET       = "fixture-secret-initial-admin-pin"
+      INITIAL_ADMIN_PIN_SECRET       = "initial-admin-pin"
     }
     error_message = "Bootstrap must receive only the exact bucket, prefix, and secret parent runtime configuration."
   }
