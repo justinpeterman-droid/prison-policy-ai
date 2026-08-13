@@ -50,10 +50,14 @@ dependency or external approval.
   commits `98ef263` and `9c43b1b`; final independent re-review READY,
   fresh focused PostgreSQL verification passed 54 tests, and full PostgreSQL
   integration passed 189 tests with one existing opt-in skip.
-- [x] 017 RP-08 — Policy Expert API. `LOCAL d8d271f`; PR #80 open (draft),
-  rebased onto the integration tip after RP-06 merged (`mergeable_state:
-  clean`); full regression 1,435 passed/1 skipped on PostgreSQL 17;
-  independent review pending.
+- [x] 017 RP-08 — Policy Expert API. `REVIEWED` implementation `8b409d8`,
+  integrated by merge `a129c54`; independent re-review READY. The authorized
+  narrow shared-query reconciliation removes raw question logging and applies
+  one 90-second deadline to credential, search, gate, and model calls. Focused
+  policy/browser tests passed 156; credential-free focused run passed 20 with
+  30 expected PostgreSQL skips; full unit/contract passed 1,285 and PostgreSQL
+  integration passed 189 with one existing opt-in skip (one time-sensitive
+  Admin fixture retry passed in isolation).
 - [x] 018 RP-09 — Word exports. `LOCAL 242452f`; PR #81 open (draft), stacked
   on RP-08 only (RP-06 now merged); full regression 1,500 passed/1 skipped on
   PostgreSQL 17; independent review pending. Rebase onto merged RP-06 required
