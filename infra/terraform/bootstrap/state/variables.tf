@@ -18,6 +18,28 @@ variable "state_bucket_name" {
   }
 }
 
+variable "environment" {
+  description = "Environment whose Terraform state is stored in this bucket."
+  type        = string
+  nullable    = false
+
+  validation {
+    condition     = contains(["test", "production"], var.environment)
+    error_message = "environment must be test or production."
+  }
+}
+
+variable "storage_log_bucket_name" {
+  description = "Externally provisioned bucket that receives Terraform state bucket access logs."
+  type        = string
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$", var.storage_log_bucket_name))
+    error_message = "storage_log_bucket_name must be a provider-valid bucket name."
+  }
+}
+
 variable "region" {
   description = "Regional location of the remote-state bucket."
   type        = string

@@ -21,6 +21,8 @@ run "test_environment_contract" {
     github_repository                 = "example.invalid/agency/prison-policy-ai"
     github_ref_pattern                = "refs/heads/main"
     enable_access_release_identity    = false
+    storage_log_bucket_name           = "access-test-fixture-audit-logs"
+    artifact_registry_kms_key_name    = "projects/fixture-project/locations/us-central1/keyRings/fixture-key-ring/cryptoKeys/fixture-artifact-key"
     labels                            = { data_class = "fictional" }
     image_digest                      = "example.invalid/access/test@sha256:0000000000000000000000000000000000000000000000000000000000000000"
     source_commit                     = "0000000000000000000000000000000000000000"

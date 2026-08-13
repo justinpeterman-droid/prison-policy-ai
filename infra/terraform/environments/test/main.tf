@@ -55,6 +55,8 @@ module "access_platform" {
   github_ref_pattern                = var.github_ref_pattern
   enable_access_release_identity    = false
   wif_trust                         = local.wif_trust
+  storage_log_bucket_name           = var.storage_log_bucket_name
+  artifact_registry_kms_key_name    = var.artifact_registry_kms_key_name
   labels                            = merge(var.labels, { system = "access" })
   image_digest                      = "example.invalid/access/test@sha256:0000000000000000000000000000000000000000000000000000000000000000"
   source_commit                     = "0000000000000000000000000000000000000000"

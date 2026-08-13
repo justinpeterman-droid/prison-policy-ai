@@ -84,6 +84,20 @@ variable "github_ref_pattern" {
   }
 }
 
+variable "storage_log_bucket_name" {
+  description = "Fictional test-only bucket that receives storage access-log fixtures."
+  type        = string
+  nullable    = false
+  default     = "access-test-fixture-audit-logs"
+}
+
+variable "artifact_registry_kms_key_name" {
+  description = "Fictional test-only Artifact Registry KMS key resource name."
+  type        = string
+  nullable    = false
+  default     = "projects/fixture-project/locations/us-central1/keyRings/fixture-key-ring/cryptoKeys/fixture-artifact-key"
+}
+
 variable "labels" {
   description = "Labels applied to resources created by this root."
   type        = map(string)
