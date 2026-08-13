@@ -7,8 +7,11 @@ from queue import Queue
 import time
 from uuid import UUID
 
+from alembic import command as alembic_command
+from alembic.config import Config
 import pytest
 from sqlalchemy import func, inspect, select, text
+from sqlalchemy.exc import IntegrityError
 import yaml
 
 from backend.identity.audit import AuditEventInput
@@ -126,6 +129,68 @@ def test_same_key_changed_payload_or_job_type_conflicts_without_second_job(
         assert verification.scalar(select(func.count()).select_from(TaskOutbox)) == 1
 
 
+def test_expired_shared_idempotency_key_creates_a_distinct_job_and_outbox(
+    db_session, db_session_factory, user_actor, fictional_incident, fictional_report,
+):
+    incident_id = fictional_incident.id
+    account_id = user_actor.account_id
+    first_now = datetime(2026, 8, 12, 15, 5, tzinfo=UTC)
+    db_session.commit()
+
+    with db_session_factory.begin() as first_session:
+        first = submit_job(
+            first_session,
+            user_actor,
+            SubmitJobCommand(incident_id, "classify"),
+            "job-fictional-expired-key",
+            1,
+            now=first_now,
+            request_id="request_job_fictional_expired_first",
+            client_version="1.0.0",
+        )
+        first_id = first.id
+
+    with db_session_factory.begin() as expire_session:
+        record = expire_session.scalar(select(IdempotencyRecord).where(
+            IdempotencyRecord.actor_account_id == account_id,
+            IdempotencyRecord.action == "ai.job.submit",
+            IdempotencyRecord.idempotency_key == "job-fictional-expired-key",
+        ))
+        record.expires_at = first_now + timedelta(hours=24)
+
+    try:
+        with db_session_factory.begin() as reuse_session:
+            second = submit_job(
+                reuse_session,
+                user_actor,
+                SubmitJobCommand(incident_id, "extract"),
+                "job-fictional-expired-key",
+                1,
+                now=first_now + timedelta(hours=24, seconds=1),
+                request_id="request_job_fictional_expired_second",
+                client_version="1.0.0",
+            )
+            second_id = second.id
+    except IntegrityError:
+        pytest.fail(
+            "an expired ID-06 key was permanently blocked by AI-job uniqueness",
+            pytrace=False,
+        )
+
+    assert second_id != first_id
+    with db_session_factory() as verification:
+        jobs = verification.scalars(select(AiJob).order_by(AiJob.created_at)).all()
+        assert [job.id for job in jobs] == [first_id, second_id]
+        assert [job.job_type for job in jobs] == ["classify", "extract"]
+        assert verification.scalar(select(func.count()).select_from(TaskOutbox)) == 2
+        record = verification.scalar(select(IdempotencyRecord).where(
+            IdempotencyRecord.actor_account_id == account_id,
+            IdempotencyRecord.action == "ai.job.submit",
+            IdempotencyRecord.idempotency_key == "job-fictional-expired-key",
+        ))
+        assert record.response_reference == {"job_id": str(second_id)}
+
+
 @pytest.mark.parametrize("job_type", JOB_TYPES)
 def test_all_job_submission_routes_are_closed_and_start_queued(
     db_session, api_client, owner_bearer_headers, fictional_incident,
@@ -175,6 +240,38 @@ def test_authorization_and_stale_base_fail_without_durable_fragments(
             IdempotencyRecord.action == "ai.job.submit")) == 0
         assert verification.scalar(select(func.count()).select_from(AuditEvent).where(
             AuditEvent.action == "ai.job_submitted")) == 0
+
+
+def test_unrelated_admin_cannot_submit_an_ordinary_incident_job(
+    db_session, db_session_factory, api_client, admin_bearer_headers,
+    fictional_incident, fictional_report,
+):
+    db_session.commit()
+    with db_session_factory() as before:
+        counts_before = (
+            before.scalar(select(func.count()).select_from(AiJob)),
+            before.scalar(select(func.count()).select_from(TaskOutbox)),
+            before.scalar(select(func.count()).select_from(IdempotencyRecord)),
+            before.scalar(select(func.count()).select_from(AuditEvent)),
+        )
+
+    response = _post(
+        api_client,
+        fictional_incident.id,
+        "classify",
+        _headers(admin_bearer_headers, "job-fictional-unrelated-admin"),
+    )
+
+    assert response.status_code == 404
+    assert response.json["error"]["code"] == "not_found"
+    with db_session_factory() as verification:
+        counts_after = (
+            verification.scalar(select(func.count()).select_from(AiJob)),
+            verification.scalar(select(func.count()).select_from(TaskOutbox)),
+            verification.scalar(select(func.count()).select_from(IdempotencyRecord)),
+            verification.scalar(select(func.count()).select_from(AuditEvent)),
+        )
+        assert counts_after == counts_before
 
 
 def test_access_revoked_before_live_relationship_lock_leaves_no_job_fragment(
@@ -335,9 +432,8 @@ def test_jobs_migration_has_bounded_tables_constraints_and_lookup_indexes(db_eng
         item["name"] for table in ("ai_jobs", "task_outbox")
         for item in inspector.get_unique_constraints(table)
     }
-    assert {
-        "uq_ai_jobs_actor_idempotency_key", "uq_task_outbox_ai_job_id",
-    } <= unique_names
+    assert "uq_task_outbox_ai_job_id" in unique_names
+    assert "uq_ai_jobs_actor_idempotency_key" not in unique_names
     indexes = {
         item["name"] for table in ("ai_jobs", "task_outbox", "exports")
         for item in inspector.get_indexes(table)
@@ -345,8 +441,40 @@ def test_jobs_migration_has_bounded_tables_constraints_and_lookup_indexes(db_eng
     assert {
         "ix_ai_jobs_queue", "ix_ai_jobs_requested_actor", "ix_ai_jobs_incident",
         "ix_task_outbox_available", "ix_exports_report_revision",
-        "ix_exports_actor_created",
+        "ix_exports_actor_created", "ix_ai_jobs_claim",
     } <= indexes
+    assert {"lease_expires_at", "claim_token"} <= {
+        column["name"] for column in inspector.get_columns("ai_jobs")
+    }
+    report_revision_foreign_keys = {
+        item["name"]: item for item in inspector.get_foreign_keys("report_revisions")
+    }
+    source_job_fk = report_revision_foreign_keys[
+        "fk_report_revisions_source_ai_job_id_ai_jobs"
+    ]
+    assert source_job_fk["constrained_columns"] == ["source_ai_job_id"]
+    assert source_job_fk["referred_table"] == "ai_jobs"
+    assert source_job_fk["referred_columns"] == ["id"]
+
+
+def test_jobs_migration_downgrades_and_reupgrades_with_reverse_fk(db_engine):
+    config = Config(str(ROOT / "alembic.ini"))
+
+    alembic_command.downgrade(config, "20260812_0004")
+    downgraded = inspect(db_engine)
+    assert {"ai_jobs", "task_outbox", "exports"}.isdisjoint(
+        downgraded.get_table_names()
+    )
+    assert "fk_report_revisions_source_ai_job_id_ai_jobs" not in {
+        item["name"] for item in downgraded.get_foreign_keys("report_revisions")
+    }
+
+    alembic_command.upgrade(config, "20260812_0005")
+    upgraded = inspect(db_engine)
+    assert {"ai_jobs", "task_outbox", "exports"} <= set(upgraded.get_table_names())
+    assert "fk_report_revisions_source_ai_job_id_ai_jobs" in {
+        item["name"] for item in upgraded.get_foreign_keys("report_revisions")
+    }
 
 
 def test_openapi_declares_closed_job_routes_headers_stages_and_safe_conflicts():
@@ -359,6 +487,15 @@ def test_openapi_declares_closed_job_routes_headers_stages_and_safe_conflicts():
     assert schemas["SubmitJobRequest"]["additionalProperties"] is False
     assert schemas["SubmitJobRequest"]["required"] == ["base_revision_number"]
     assert schemas["Job"]["additionalProperties"] is False
+    result_reference = schemas["JobResultReference"]
+    assert result_reference["additionalProperties"] is False
+    assert set(result_reference["properties"]) == {
+        "incident_revision_number", "reports",
+    }
+    assert schemas["JobResultReportReference"]["additionalProperties"] is False
+    assert schemas["JobResultReportReference"]["required"] == [
+        "report_id", "revision_number",
+    ]
     assert set(schemas["JobStage"]["enum"]) == {
         "queued", "classifying", "extracting", "validating", "generating",
         "disciplinary", "completed", "failed",
@@ -376,5 +513,8 @@ def test_openapi_declares_closed_job_routes_headers_stages_and_safe_conflicts():
         response_ref = operation["responses"]["409"]["$ref"].rsplit("/", 1)[-1]
         examples = document["components"]["responses"][response_ref]["content"]["application/json"]["examples"]
         codes = {item["value"]["error"]["code"] for item in examples.values()}
-        assert {"revision_conflict", "idempotency_conflict", "request_in_progress"} <= codes
+        assert {
+            "revision_conflict", "idempotency_conflict", "request_in_progress",
+            "client_upgrade_required",
+        } <= codes
     assert document["security"] == [{"AccessBearer": []}]

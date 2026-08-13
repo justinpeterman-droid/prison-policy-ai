@@ -42,6 +42,8 @@ def upgrade() -> None:
         sa.Column("request_sha256", sa.LargeBinary(32), nullable=False),
         sa.Column("base_incident_revision", sa.Integer(), nullable=False),
         sa.Column("attempts", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("lease_expires_at", sa.DateTime(timezone=True)),
+        sa.Column("claim_token", postgresql.UUID(as_uuid=True)),
         sa.Column("request_metadata", postgresql.JSONB(), nullable=False,
                   server_default=sa.text("'{}'::jsonb")),
         sa.Column("result_reference", postgresql.JSONB(), nullable=False,
@@ -63,8 +65,6 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["requested_by_account_id"], ["accounts.id"],
                                 ondelete="RESTRICT",
                                 name="fk_ai_jobs_requested_by_account_id_accounts"),
-        sa.UniqueConstraint("requested_by_account_id", "idempotency_key",
-                            name="uq_ai_jobs_actor_idempotency_key"),
         sa.CheckConstraint(JOB_TYPE_CHECK, name="ck_ai_jobs_job_type"),
         sa.CheckConstraint(JOB_STATE_CHECK, name="ck_ai_jobs_state"),
         sa.CheckConstraint(JOB_STAGE_CHECK, name="ck_ai_jobs_stage"),
@@ -77,12 +77,59 @@ def upgrade() -> None:
                            name="ck_ai_jobs_request_metadata_size"),
         sa.CheckConstraint("octet_length(result_reference::text) <= 4096",
                            name="ck_ai_jobs_result_reference_size"),
+        sa.CheckConstraint("jsonb_typeof(result_reference) = 'object'",
+                           name="ck_ai_jobs_result_reference_object"),
+        sa.CheckConstraint(
+            "(result_reference - 'incident_revision_number' - 'reports') = '{}'::jsonb",
+            name="ck_ai_jobs_result_reference_keys",
+        ),
+        sa.CheckConstraint(
+            "CASE WHEN result_reference ? 'incident_revision_number' THEN "
+            "jsonb_typeof(result_reference->'incident_revision_number') = 'number' "
+            "AND (result_reference->>'incident_revision_number') ~ '^[1-9][0-9]*$' "
+            "ELSE TRUE END",
+            name="ck_ai_jobs_result_reference_incident_revision",
+        ),
+        sa.CheckConstraint(
+            "CASE WHEN result_reference ? 'reports' THEN CASE WHEN "
+            "jsonb_typeof(result_reference->'reports') = 'array' THEN "
+            "jsonb_array_length(result_reference->'reports') <= 20 "
+            "AND NOT jsonb_path_exists(result_reference, "
+            "'$.reports[*] ? (@.type() != \"object\")') "
+            "AND NOT jsonb_path_exists(result_reference, "
+            "'$.reports[*] ? (!exists(@.report_id) || !exists(@.revision_number))') "
+            "AND NOT jsonb_path_exists(result_reference, "
+            "'$.reports[*].keyvalue() ? "
+            "(@.key != \"report_id\" && @.key != \"revision_number\")') "
+            "AND NOT jsonb_path_exists(result_reference, "
+            "'$.reports[*] ? (@.report_id.type() != \"string\" || "
+            "@.revision_number.type() != \"number\")') "
+            "AND NOT jsonb_path_exists(result_reference, "
+            "'$.reports[*] ? (!(@.report_id like_regex "
+            "\"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+            "[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$\"))') "
+            "AND NOT jsonb_path_exists(result_reference, "
+            "'$.reports[*] ? (!(@.revision_number.string() like_regex "
+            "\"^[1-9][0-9]*$\"))') ELSE FALSE END ELSE TRUE END",
+            name="ck_ai_jobs_result_reference_reports",
+        ),
+        sa.CheckConstraint(
+            "((state = 'running') = "
+            "(lease_expires_at IS NOT NULL AND claim_token IS NOT NULL))",
+            name="ck_ai_jobs_lease_matches_running_state",
+        ),
+        sa.CheckConstraint(
+            "lease_expires_at IS NULL OR started_at IS NOT NULL",
+            name="ck_ai_jobs_lease_requires_start",
+        ),
         sa.CheckConstraint(
             "error_code IS NULL OR error_code ~ '^[a-z][a-z0-9_]{0,63}$'",
             name="ck_ai_jobs_error_code_format",
         ),
     )
     op.create_index("ix_ai_jobs_queue", "ai_jobs", ["state", "created_at", "id"])
+    op.create_index("ix_ai_jobs_claim", "ai_jobs",
+                    ["state", "lease_expires_at", "created_at", "id"])
     op.create_index("ix_ai_jobs_requested_actor", "ai_jobs",
                     ["requested_by_account_id", "created_at", "id"])
     op.create_index("ix_ai_jobs_incident", "ai_jobs", ["incident_id", "created_at", "id"])
@@ -146,9 +193,22 @@ def upgrade() -> None:
                     ["report_id", "report_revision_id", "id"])
     op.create_index("ix_exports_actor_created", "exports",
                     ["exported_by_account_id", "created_at", "id"])
+    op.create_foreign_key(
+        "fk_report_revisions_source_ai_job_id_ai_jobs",
+        "report_revisions",
+        "ai_jobs",
+        ["source_ai_job_id"],
+        ["id"],
+        ondelete="RESTRICT",
+    )
 
 
 def downgrade() -> None:
+    op.drop_constraint(
+        "fk_report_revisions_source_ai_job_id_ai_jobs",
+        "report_revisions",
+        type_="foreignkey",
+    )
     op.drop_table("exports")
     op.drop_table("task_outbox")
     op.drop_table("ai_jobs")

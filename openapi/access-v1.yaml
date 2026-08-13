@@ -1583,6 +1583,15 @@ components:
                 request_id: request_job_conflict_0003
                 server_time: "2026-08-12T15:10:03Z"
                 api_version: v1
+            client_upgrade:
+              value:
+                error:
+                  code: client_upgrade_required
+                  message: Update Access before submitting another fictional job.
+                  retryable: false
+                request_id: request_job_conflict_0004
+                server_time: "2026-08-12T15:10:04Z"
+                api_version: v1
     HandoffInvalid:
       description: The one-time handoff is invalid, expired, or already redeemed
       content:
