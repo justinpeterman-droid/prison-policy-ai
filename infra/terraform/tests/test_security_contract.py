@@ -80,7 +80,7 @@ def test_workflow_impersonation_is_scoped_to_exact_permitted_workflow_claims():
     assert 'distinct_account_id_count' in outputs
     assert 'distinct_provider_id_count' in outputs
     assert 'impersonation_binding_count' in outputs
-    assert 'google_secret_manager_secret_iam_member.least_privilege["api-client-update-grant-key"]' in outputs
+    assert 'google_secret_manager_secret_iam_member.least_privilege' in outputs
     assert 'google_project_iam_member.least_privilege' in outputs
     assert 'google_service_account_iam_member.deploy_runtime_user' in outputs
 

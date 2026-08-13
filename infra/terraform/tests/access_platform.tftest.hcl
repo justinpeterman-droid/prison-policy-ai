@@ -8,6 +8,107 @@ override_resource {
   override_during = plan
 }
 
+override_resource {
+  target          = module.access_platform.google_service_account.identities["api"]
+  values          = { member = "serviceAccount:fixture-api", name = "projects/slut-access-production-fixture/serviceAccounts/fixture-api@slut-access-production-fixture.iam.gserviceaccount.com" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_service_account.identities["worker"]
+  values          = { member = "serviceAccount:fixture-worker", name = "projects/slut-access-production-fixture/serviceAccounts/fixture-worker@slut-access-production-fixture.iam.gserviceaccount.com" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_service_account.identities["task_invoker"]
+  values          = { member = "serviceAccount:fixture-task-invoker", name = "projects/slut-access-production-fixture/serviceAccounts/fixture-task-invoker@slut-access-production-fixture.iam.gserviceaccount.com" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_service_account.identities["migration"]
+  values          = { member = "serviceAccount:fixture-migration", name = "projects/slut-access-production-fixture/serviceAccounts/fixture-migration@slut-access-production-fixture.iam.gserviceaccount.com" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_service_account.identities["bootstrap"]
+  values          = { member = "serviceAccount:fixture-bootstrap", name = "projects/slut-access-production-fixture/serviceAccounts/fixture-bootstrap@slut-access-production-fixture.iam.gserviceaccount.com" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_service_account.identities["terraform_plan"]
+  values          = { member = "serviceAccount:fixture-terraform-plan", name = "projects/slut-access-production-fixture/serviceAccounts/fixture-terraform-plan@slut-access-production-fixture.iam.gserviceaccount.com" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_service_account.identities["terraform_apply"]
+  values          = { member = "serviceAccount:fixture-terraform-apply", name = "projects/slut-access-production-fixture/serviceAccounts/fixture-terraform-apply@slut-access-production-fixture.iam.gserviceaccount.com" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_service_account.identities["deploy"]
+  values          = { member = "serviceAccount:fixture-deploy", name = "projects/slut-access-production-fixture/serviceAccounts/fixture-deploy@slut-access-production-fixture.iam.gserviceaccount.com" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_service_account.identities["rollback"]
+  values          = { member = "serviceAccount:fixture-rollback", name = "projects/slut-access-production-fixture/serviceAccounts/fixture-rollback@slut-access-production-fixture.iam.gserviceaccount.com" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_service_account.identities["admin_bootstrap"]
+  values          = { member = "serviceAccount:fixture-admin-bootstrap", name = "projects/slut-access-production-fixture/serviceAccounts/fixture-admin-bootstrap@slut-access-production-fixture.iam.gserviceaccount.com" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_secret_manager_secret.containers["access-database-url"]
+  values          = { id = "fixture-secret-access-database-url" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_secret_manager_secret.containers["identity-hash-pepper"]
+  values          = { id = "fixture-secret-identity-hash-pepper" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_secret_manager_secret.containers["cursor-signing-key"]
+  values          = { id = "fixture-secret-cursor-signing-key" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_secret_manager_secret.containers["client-update-grant-key"]
+  values          = { id = "fixture-secret-client-update-grant-key" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_secret_manager_secret.containers["legacy-access-code"]
+  values          = { id = "fixture-secret-legacy-access-code" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_secret_manager_secret.containers["legacy-admin-code"]
+  values          = { id = "fixture-secret-legacy-admin-code" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_secret_manager_secret.containers["github-feedback-token"]
+  values          = { id = "fixture-secret-github-feedback-token" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_secret_manager_secret.containers["flask-session-secret"]
+  values          = { id = "fixture-secret-flask-session-secret" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_secret_manager_secret.containers["initial-admin-pin"]
+  values          = { id = "fixture-secret-initial-admin-pin" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_project_iam_custom_role.terraform_apply_secret_containers
+  values          = { name = "projects/slut-access-production-fixture/roles/accessSecretContainerAdmin" }
+  override_during = plan
+}
+
 run "private_platform_contract" {
   command = plan
 
@@ -42,7 +143,7 @@ run "private_platform_contract" {
   assert {
     condition = module.access_platform.terraform_test_contract.wif.provider_count == (
       module.access_platform.database_name == "access_production" ? 6 : 5
-    ) && module.access_platform.terraform_test_contract.wif.distinct_provider_id_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.impersonation_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.provider_specific_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.principal_set_category_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.pool_id_length <= 32 && alltrue([for id_length in module.access_platform.terraform_test_contract.wif.provider_id_lengths : id_length <= 32]) && module.access_platform.terraform_test_contract.wif.direct_claim_condition_count == module.access_platform.terraform_test_contract.wif.provider_count
+    ) && module.access_platform.terraform_test_contract.wif.distinct_provider_id_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.impersonation_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.provider_specific_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && alltrue(values(module.access_platform.terraform_test_contract.wif.principal_set_relations)) && module.access_platform.terraform_test_contract.wif.pool_id_length <= 32 && alltrue([for id_length in module.access_platform.terraform_test_contract.wif.provider_id_lengths : id_length <= 32]) && module.access_platform.terraform_test_contract.wif.direct_claim_condition_count == module.access_platform.terraform_test_contract.wif.provider_count
     error_message = "Test and production must expose distinct provider-valid WIF identities with one provider-specific binding each."
   }
 
@@ -60,7 +161,7 @@ run "private_platform_contract" {
   }
 
   assert {
-    condition     = module.access_platform.terraform_test_contract.secrets.version_count == 0 && module.access_platform.terraform_test_contract.secrets.binding_count == 12 && toset(module.access_platform.terraform_test_contract.secrets.binding_keys) == toset(["api-database", "api-identity-pepper", "api-cursor-key", "api-client-update-grant-key", "api-legacy-access", "api-legacy-admin", "api-feedback", "api-session", "worker-database", "migration-database", "bootstrap-database", "bootstrap-initial-pin-adder"]) && length([for role in module.access_platform.terraform_test_contract.secrets.binding_roles : role if role == "roles/secretmanager.secretAccessor"]) == 11 && length([for role in module.access_platform.terraform_test_contract.secrets.binding_roles : role if role == "roles/secretmanager.secretVersionAdder"]) == 1 && module.access_platform.terraform_test_contract.secrets.update_grant_role == "roles/secretmanager.secretAccessor" && module.access_platform.terraform_test_contract.secrets.update_grant_api_only && module.access_platform.terraform_test_contract.secrets.bootstrap_database_role == "roles/secretmanager.secretAccessor" && module.access_platform.terraform_test_contract.secrets.bootstrap_pin_role == "roles/secretmanager.secretVersionAdder" && module.access_platform.terraform_test_contract.secrets.bootstrap_pin_adder_only && module.access_platform.terraform_test_contract.secrets.workflow_secret_access_count == 0 && module.access_platform.terraform_test_contract.secrets.api_accessor_count == 8 && module.access_platform.terraform_test_contract.secrets.worker_accessor_count == 1 && module.access_platform.terraform_test_contract.secrets.migration_accessor_count == 1 && module.access_platform.terraform_test_contract.secrets.bootstrap_accessor_count == 1
+    condition     = module.access_platform.terraform_test_contract.secrets.version_count == 0 && module.access_platform.terraform_test_contract.secrets.binding_count == 12 && toset(module.access_platform.terraform_test_contract.secrets.binding_keys) == toset(["api-database", "api-identity-pepper", "api-cursor-key", "api-client-update-grant-key", "api-legacy-access", "api-legacy-admin", "api-feedback", "api-session", "worker-database", "migration-database", "bootstrap-database", "bootstrap-initial-pin-adder"]) && length([for role in module.access_platform.terraform_test_contract.secrets.binding_roles : role if role == "roles/secretmanager.secretAccessor"]) == 11 && length([for role in module.access_platform.terraform_test_contract.secrets.binding_roles : role if role == "roles/secretmanager.secretVersionAdder"]) == 1 && alltrue(values(module.access_platform.terraform_test_contract.secrets.exact_relations))
     error_message = "Update-grant, bootstrap PIN, and workflow secret-access boundaries must remain least privilege."
   }
 
@@ -69,12 +170,12 @@ run "private_platform_contract" {
       "roles/cloudsql.client", "roles/cloudtasks.enqueuer", "roles/viewer", "roles/iam.securityReviewer", "roles/secretmanager.viewer", "roles/compute.networkAdmin", "roles/servicenetworking.networksAdmin", "roles/cloudsql.admin", "roles/iam.serviceAccountAdmin", "roles/iam.workloadIdentityPoolAdmin", "roles/resourcemanager.projectIamAdmin", "projects/slut-access-production-fixture/roles/accessSecretContainerAdmin",
       ]))) == 0 && length(setsubtract(toset([
       "roles/cloudsql.client", "roles/cloudtasks.enqueuer", "roles/viewer", "roles/iam.securityReviewer", "roles/secretmanager.viewer", "roles/compute.networkAdmin", "roles/servicenetworking.networksAdmin", "roles/cloudsql.admin", "roles/iam.serviceAccountAdmin", "roles/iam.workloadIdentityPoolAdmin", "roles/resourcemanager.projectIamAdmin", "projects/slut-access-production-fixture/roles/accessSecretContainerAdmin",
-    ]), toset(module.access_platform.terraform_test_contract.iam.project_roles))) == 0 && length([for role in module.access_platform.terraform_test_contract.iam.project_roles : role if role == "roles/cloudsql.client"]) == 4 && module.access_platform.terraform_test_contract.iam.runtime_project_member_counts == { api = 2, worker = 1, migration = 1, bootstrap = 1, terraform_plan = 3, terraform_apply = 7 } && module.access_platform.terraform_test_contract.iam.custom_role.id == "accessSecretContainerAdmin" && !contains(toset(module.access_platform.terraform_test_contract.iam.custom_role.permissions), "secretmanager.versions.access") && !contains(toset(module.access_platform.terraform_test_contract.iam.custom_role.permissions), "secretmanager.versions.get")
+    ]), toset(module.access_platform.terraform_test_contract.iam.project_roles))) == 0 && length([for role in module.access_platform.terraform_test_contract.iam.project_roles : role if role == "roles/cloudsql.client"]) == 4 && alltrue(values(module.access_platform.terraform_test_contract.iam.exact_relations)) && module.access_platform.terraform_test_contract.iam.custom_role.id == "accessSecretContainerAdmin" && !contains(toset(module.access_platform.terraform_test_contract.iam.custom_role.permissions), "secretmanager.versions.access") && !contains(toset(module.access_platform.terraform_test_contract.iam.custom_role.permissions), "secretmanager.versions.get")
     error_message = "The complete project IAM collection must retain only the reviewed management and runtime roles."
   }
 
   assert {
-    condition     = module.access_platform.terraform_test_contract.iam.state_binding_count == 2 && toset(module.access_platform.terraform_test_contract.iam.state_binding_keys) == toset(["terraform-plan", "terraform-apply"]) && toset(module.access_platform.terraform_test_contract.iam.state_roles) == toset(["roles/storage.objectViewer", "roles/storage.objectAdmin"]) && module.access_platform.terraform_test_contract.iam.state_plan_member_count == 1 && module.access_platform.terraform_test_contract.iam.state_apply_member_count == 1 && module.access_platform.terraform_test_contract.iam.service_account_binding_count == (module.access_platform.database_name == "access_production" ? 9 : 8) && length([for role in module.access_platform.terraform_test_contract.iam.service_account_roles : role if role == "roles/iam.serviceAccountUser"]) == 3 && length([for role in module.access_platform.terraform_test_contract.iam.service_account_roles : role if role == "roles/iam.workloadIdentityUser"]) == (module.access_platform.database_name == "access_production" ? 6 : 5) && module.access_platform.terraform_test_contract.iam.deploy_runtime_member_count == 3
+    condition     = module.access_platform.terraform_test_contract.iam.state_binding_count == 2 && toset(module.access_platform.terraform_test_contract.iam.state_binding_keys) == toset(["terraform-plan", "terraform-apply"]) && toset(module.access_platform.terraform_test_contract.iam.state_roles) == toset(["roles/storage.objectViewer", "roles/storage.objectAdmin"]) && alltrue(values(module.access_platform.terraform_test_contract.iam.exact_state_relations)) && module.access_platform.terraform_test_contract.iam.service_account_binding_count == (module.access_platform.database_name == "access_production" ? 9 : 8) && length([for role in module.access_platform.terraform_test_contract.iam.service_account_roles : role if role == "roles/iam.serviceAccountUser"]) == 3 && length([for role in module.access_platform.terraform_test_contract.iam.service_account_roles : role if role == "roles/iam.workloadIdentityUser"]) == (module.access_platform.database_name == "access_production" ? 6 : 5) && alltrue(values(module.access_platform.terraform_test_contract.iam.exact_deploy_relations))
     error_message = "All state, deploy, and workflow service-account bindings must remain exact and distinct."
   }
 
