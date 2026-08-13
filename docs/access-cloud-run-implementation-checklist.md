@@ -47,12 +47,16 @@ dependency or external approval.
   fresh focused PostgreSQL verification passed 40 tests, and full PostgreSQL
   integration passed 170 tests with one existing opt-in skip.
 - [ ] 016 RP-07 — Private worker/dispatcher.
-- [x] 017 RP-08 — Policy Expert API. `LOCAL bf2baff`; PR #80 open (draft)
-  against `integration/access-cloud-run-rp02` (no migration, so based on the
-  integration tip rather than stacked); focused policy/browser-parity suite
-  148 passed, full regression 1,400 passed/1 skipped; independent review
-  pending.
-- [ ] 018 RP-09 — Word exports.
+- [x] 017 RP-08 — Policy Expert API. `LOCAL d8d271f`; PR #80 open (draft),
+  rebased onto the integration tip after RP-06 merged (`mergeable_state:
+  clean`); full regression 1,435 passed/1 skipped on PostgreSQL 17;
+  independent review pending.
+- [x] 018 RP-09 — Word exports. `LOCAL 242452f`; PR #81 open (draft), stacked
+  on RP-08 only (RP-06 now merged); full regression 1,500 passed/1 skipped on
+  PostgreSQL 17; independent review pending. Rebase onto merged RP-06 required
+  three reconciliations: the `Export.byte_length`→`size_bytes` rename, removal
+  of stale duplicate OpenAPI job paths that were silently reverting RP-06's
+  hardened parameters, and the PostgreSQL 17 finding below.
 - [ ] 019 RP-10 — Reporting operations and legacy controls.
 
 ## Google Cloud and delivery infrastructure
@@ -96,6 +100,13 @@ dependency or external approval.
 - [x] OP-02 + ID-07 + ID-08 + RP-01 + repaired RP-02 integrated in order.
 - [x] Disposable localhost-only PostgreSQL 17 test database created with
   fictional credentials and no production data.
+- [x] **PostgreSQL 17 is a hard floor for the test bed, not a preference.**
+  RP-06's hardened `ai_jobs` CHECK constraint uses the jsonpath `.string()`
+  method, which PostgreSQL 16 does not have, so on PG16 every migration — and
+  therefore the whole PostgreSQL integration suite — fails on the integration
+  branch itself, independent of any feature branch. A PG16 test bed reports a
+  false failure, not a real one. Verify with `SHOW server_version` before
+  trusting a red integration run.
 - [ ] PostgreSQL report migration/revision suite passes twice consecutively.
 - [ ] Corrected integration branch pushed and merged to GitHub main.
 - [ ] Full backend unit, contract, PostgreSQL integration, and migration
