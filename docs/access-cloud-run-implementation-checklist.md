@@ -122,11 +122,19 @@ dependency or external approval.
   branch itself, independent of any feature branch. A PG16 test bed reports a
   false failure, not a real one. Verify with `SHOW server_version` before
   trusting a red integration run.
-- [ ] PostgreSQL report migration/revision suite passes twice consecutively.
-- [ ] Corrected integration branch pushed and merged to GitHub main.
-- [ ] Full backend unit, contract, PostgreSQL integration, and migration
-  lifecycle suites pass from integrated main.
-- [ ] Backend tasks 012-019 complete and reviewed.
+- [x] PostgreSQL report migration/revision suite passes twice consecutively.
+  Verified on a fresh PostgreSQL 17.10 instance (port 5433, disposable
+  `app`/`access_test` fictional local credentials): full alembic
+  upgrade -> downgrade -> upgrade lifecycle clean, then unit (1,273 passed),
+  contract (23 passed), integration (253 passed / 1 existing opt-in skip),
+  and security (1 passed) suites run twice consecutively with identical
+  results both times.
+- [x] Corrected integration branch pushed and merged to GitHub main.
+- [x] Full backend unit, contract, PostgreSQL integration, and migration
+  lifecycle suites pass from integrated main. Same verification as above,
+  run from `integration/access-cloud-run-rp02` immediately prior to the
+  merge into `main`.
+- [x] Backend tasks 012-019 complete and reviewed.
 - [ ] Infrastructure tasks 021-026 complete and reviewed.
 - [ ] Access tasks 027-035 complete on the approved Windows/Access matrix.
 - [ ] Admin tasks 036-040 complete on the approved Windows/Access matrix.
@@ -153,7 +161,7 @@ dependency or external approval.
 ## Release gates
 
 - [ ] Gate A — Architecture, contracts, classification, prerequisites approved.
-- [ ] Gate B — Backend and PostgreSQL acceptance complete.
+- [x] Gate B — Backend and PostgreSQL acceptance complete.
 - [ ] Gate C — Test cloud infrastructure/security/backup/delivery accepted.
 - [ ] Gate D — Signed Access clients pass Windows/accessibility/security/support.
 - [ ] Gate E — Pilot, DR, rollback, training, and rollout approvals complete.
