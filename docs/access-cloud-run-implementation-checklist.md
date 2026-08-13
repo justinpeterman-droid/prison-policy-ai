@@ -1,6 +1,6 @@
 # Access + Cloud Run Implementation Checklist
 
-Last updated: 2026-08-12
+Last updated: 2026-08-13
 
 This is the persistent progress ledger for the approved 42-task program. A
 task is checked only after its exact commit exists, allowed paths and
@@ -81,7 +81,12 @@ dependency or external approval.
 - [x] 022 OP-04 — Serverless edge and storage. `MERGED` and independently reviewed at `0ce9d8d`.
 - [x] 023 OP-05 — Monitoring, backup, and budgets. `MERGED` and independently reviewed at `f5e8f24`.
 - [x] 024 OP-06 — Migration, roster, and first-Admin jobs. Reviewed and integrated at `00119a9`; local Docker and dedicated PostgreSQL lifecycle gates remain external.
-- [ ] 025 OP-07 — Quality and supply-chain gates.
+- [ ] 025 OP-07 — Quality and supply-chain gates. `BLOCKED`: implementation,
+  hash-locked developer environment, static checks, tests, and local Docker
+  build are ready. Fixed Syft/Grype releases cannot be verified because this
+  environment's Rekor transparency-log request fails with `tls: access denied`.
+  Do not bypass transparency-log verification; resume from a trusted runner or
+  network that can verify the signed release artifacts.
 - [ ] 026 OP-08 — Controlled delivery workflows.
 
 ## Microsoft Access employee client
