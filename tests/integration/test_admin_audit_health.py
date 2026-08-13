@@ -41,9 +41,46 @@ def test_elevated_overview_health_and_audit_list_are_safe(api_client, admin_bear
     assert health.status_code == 200, health.get_json()
     payload = health.get_json()["data"]
     assert payload["status"] in {"Operational", "Degraded", "Unavailable"}
-    assert {item["component"] for item in payload["components"]} == {"database", "queue", "backup_restore"}
+    assert {item["component"] for item in payload["components"]} == {
+        "database", "policy_search", "queue", "backup_restore",
+    }
+    assert next(
+        item["status"] for item in payload["components"]
+        if item["component"] == "policy_search"
+    ) in {"Operational", "Degraded", "Unavailable"}
     for signal in ("dependency_health", "queue_health", "backup_restore_health"):
         assert signal in {name for name, _result in signals}
+
+
+def test_health_emits_bounded_policy_search_and_failed_job_signals(
+    api_client, admin_bearer_headers, db_session, monkeypatch,
+):
+    import backend.webapp.api_v1.admin_health as health_api
+
+    signals = []
+    monkeypatch.setattr(
+        health_api, "_emit",
+        lambda signal, result, **fields: signals.append((signal, result, fields)),
+    )
+    monkeypatch.setattr(
+        health_api, "_failed_job_types",
+        lambda _session: ("generate",),
+    )
+    db_session.commit()
+    _elevate(api_client, admin_bearer_headers)
+
+    response = api_client.get(
+        "/api/v1/admin/health", headers=_headers(admin_bearer_headers, "bounded-signals"),
+    )
+
+    assert response.status_code == 200, response.get_json()
+    assert ("dependency_health", "operational", {
+        "dependency": "policy_search", "latency_bucket": "unknown",
+    }) in signals
+    assert ("queue_health", "failed", {
+        "depth_bucket": "unknown", "oldest_age_bucket": "unknown",
+        "job_type": "generate", "stage": "failed", "latency_bucket": "unknown",
+    }) in signals
     page = api_client.get("/api/v1/admin/audit-events?limit=50", headers=_headers(admin_bearer_headers, "audit"))
     assert page.status_code == 200, page.get_json()
     for event in page.get_json()["data"]["items"]:

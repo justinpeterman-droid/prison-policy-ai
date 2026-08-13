@@ -20,3 +20,26 @@ def test_operational_signals_do_not_include_sensitive_marker(monkeypatch):
         "client_upgrade_required",
     ):
         assert signal in rendered
+
+
+def test_failed_ai_job_health_signal_is_bounded_and_has_no_identifier(monkeypatch):
+    emitted = []
+    monkeypatch.setattr(
+        health_api, "_emit",
+        lambda signal, result, **fields: emitted.append((signal, result, fields)),
+    )
+
+    health_api._emit_failed_job_health(("generate",))
+
+    assert emitted == [(
+        "queue_health", "failed", {
+            "depth_bucket": "unknown", "oldest_age_bucket": "unknown",
+            "job_type": "generate", "stage": "failed", "latency_bucket": "unknown",
+        },
+    )]
+
+
+def test_policy_search_health_is_a_bounded_configuration_projection(monkeypatch):
+    monkeypatch.setattr(health_api.pipeline_config, "AGENT_BUILDER_ENGINE_ID", "")
+
+    assert health_api._policy_search_status() == "Unavailable"
