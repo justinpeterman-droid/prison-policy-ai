@@ -47,7 +47,11 @@ dependency or external approval.
   13-file diff); focused suite 70 passed, full regression 1,385 passed/1
   skipped; independent review pending.
 - [ ] 016 RP-07 — Private worker/dispatcher.
-- [ ] 017 RP-08 — Policy Expert API.
+- [x] 017 RP-08 — Policy Expert API. `LOCAL bf2baff`; PR #80 open (draft)
+  against `integration/access-cloud-run-rp02` (no migration, so based on the
+  integration tip rather than stacked); focused policy/browser-parity suite
+  148 passed, full regression 1,400 passed/1 skipped; independent review
+  pending.
 - [ ] 018 RP-09 — Word exports.
 - [ ] 019 RP-10 — Reporting operations and legacy controls.
 
