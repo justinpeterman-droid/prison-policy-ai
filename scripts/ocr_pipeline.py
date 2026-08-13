@@ -75,22 +75,20 @@ def process_pdf(pdf_path, model, progress):
             page = doc[i]
             txt = page.get_text().strip()
             if len(txt) >= MIN_TEXT_CHARS:
-                all_text.append(f"--- Page {i+1} (extracted) ---\n{txt}")
+                all_text.append(f"--- Page {i + 1} (extracted) ---\n{txt}")
                 pages_text += 1
             else:
-                print(f"    Page {i+1}/{num_pages}: OCR via Gemini...")
+                print(f"    Page {i + 1}/{num_pages}: OCR via Gemini...")
                 try:
                     text = ocr_page_with_gemini(model, page)
-                    all_text.append(f"--- Page {i+1} (OCR) ---\n{text}")
+                    all_text.append(f"--- Page {i + 1} (OCR) ---\n{text}")
                     pages_ocrd += 1
                     time.sleep(DELAY_SECONDS)
                 except Exception as e:
                     err = str(e)[:200]
-                    print(f"    Page {i+1} OCR FAILED: {err}")
-                    all_text.append(f"--- Page {i+1} (OCR FAILED: {err}) ---")
-                    progress.setdefault("failed", []).append(
-                        {"pdf": pdf_name, "page": i + 1, "error": err}
-                    )
+                    print(f"    Page {i + 1} OCR FAILED: {err}")
+                    all_text.append(f"--- Page {i + 1} (OCR FAILED: {err}) ---")
+                    progress.setdefault("failed", []).append({"pdf": pdf_name, "page": i + 1, "error": err})
 
         doc.close()
 
@@ -105,7 +103,13 @@ def process_pdf(pdf_path, model, progress):
         save_progress(progress)
 
         print(f"    → {out_path} ({len(full_text):,} chars) [{pages_text} text, {pages_ocrd} OCR]")
-        return {"pdf": pdf_name, "pages": num_pages, "pages_text": pages_text, "pages_ocrd": pages_ocrd, "chars": len(full_text)}
+        return {
+            "pdf": pdf_name,
+            "pages": num_pages,
+            "pages_text": pages_text,
+            "pages_ocrd": pages_ocrd,
+            "chars": len(full_text),
+        }
 
     except Exception as e:
         print(f"    [ERROR] {pdf_name}: {e}")
@@ -159,11 +163,13 @@ def main():
         pdfs = pdfs[:limit]
 
     progress = load_progress()
-    print(f"Progress: {len(progress['completed'])} done, {len(progress.get('failed', []))} failed, {progress['total_pages_ocrd']} pages OCR'd\n")
+    print(
+        f"Progress: {len(progress['completed'])} done, {len(progress.get('failed', []))} failed, {progress['total_pages_ocrd']} pages OCR'd\n"
+    )
 
     results = []
     for i, (pdf_path, _) in enumerate(pdfs):
-        print(f"[{i+1}/{len(pdfs)}]", end=" ")
+        print(f"[{i + 1}/{len(pdfs)}]", end=" ")
         result = process_pdf(pdf_path, model, progress)
         if result:
             results.append(result)

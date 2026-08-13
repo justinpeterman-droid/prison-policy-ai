@@ -32,8 +32,7 @@ def test_oc_review_answer_stays_separate_and_closes_the_chemical_gap():
         "decontamination": "Cool water and fresh air",
     }
     before = find_gaps("use_of_force", slots)
-    assert any(g["slot"] == "chemical_agent" and g["blocking"]
-               for g in before["gaps"])
+    assert any(g["slot"] == "chemical_agent" and g["blocking"] for g in before["gaps"])
 
     merged = merge_gap_answers(slots, scenario["review_answers"])
     after = find_gaps("use_of_force", merged)

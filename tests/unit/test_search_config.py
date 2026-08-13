@@ -3,6 +3,7 @@
 Pure config assembly — no GCP, no network. These guard the resource path that,
 when wrong, 404s every policy search and takes the whole chat down.
 """
+
 import importlib
 
 import pytest
@@ -42,9 +43,7 @@ class TestServingConfigPath:
             AGENT_BUILDER_SERVING_CONFIG="serving-x",
         )
         assert cfg.serving_config_path() == (
-            "projects/proj-x/locations/us"
-            "/collections/coll-x/engines/engine-x"
-            "/servingConfigs/serving-x"
+            "projects/proj-x/locations/us/collections/coll-x/engines/engine-x/servingConfigs/serving-x"
         )
 
     def test_location_override_alone(self, monkeypatch):

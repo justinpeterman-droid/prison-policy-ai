@@ -7,7 +7,10 @@ from uuid import UUID, uuid4
 from flask import g, request
 from sqlalchemy.exc import SQLAlchemyError
 
-from backend.identity.sessions import SessionReauthenticationRequired, resolve_access_session
+from backend.identity.sessions import (
+    SessionReauthenticationRequired,
+    resolve_access_session,
+)
 from backend.persistence.database import DatabaseUnavailable, session_scope
 from backend.webapp.api_v1.responses import failure
 from backend.webapp.api_v1.client_policy import MUST_CHANGE_PIN_ALLOWED_PATHS
@@ -36,6 +39,14 @@ def current_request_session():
     if session is None:
         raise RuntimeError("authenticated request session is unavailable")
     return session
+
+
+def _account_role(value: object) -> Literal["user", "admin"]:
+    if value == "user":
+        return "user"
+    if value == "admin":
+        return "admin"
+    raise SessionReauthenticationRequired
 
 
 def close_request_session(error=None) -> None:
@@ -73,12 +84,14 @@ def require_access_token(view):
             db_session = context.__enter__()
             g.identity_db_context = context
             g.identity_db_session = db_session
-            stored, account = resolve_access_session(
-                db_session, access_token=parts[1], now=datetime.now(UTC)
-            )
+            stored, account = resolve_access_session(db_session, access_token=parts[1], now=datetime.now(UTC))
             g.actor = Actor(
-                account.id, account.staff_member_id, stored.id, account.role,
-                account.auth_version, account.must_change_pin,
+                account.id,
+                account.staff_member_id,
+                stored.id,
+                _account_role(account.role),
+                account.auth_version,
+                account.must_change_pin,
             )
         except SessionReauthenticationRequired:
             g.identity_db_failed = True
@@ -88,13 +101,13 @@ def require_access_token(view):
             g.identity_db_failed = True
             close_request_session()
             return _failure(
-                "dependency_unavailable", "Authentication is temporarily unavailable.",
-                503, retryable=True,
+                "dependency_unavailable",
+                "Authentication is temporarily unavailable.",
+                503,
+                retryable=True,
             )
         if g.actor.must_change_pin and request.path not in MUST_CHANGE_PIN_ALLOWED_PATHS:
-            return _failure(
-                "pin_change_required", "Change the temporary PIN to continue.", 403
-            )
+            return _failure("pin_change_required", "Change the temporary PIN to continue.", 403)
         return view(*args, **kwargs)
 
     return wrapped
@@ -107,7 +120,9 @@ def require_role(role: str):
             if current_actor().role != role:
                 return _failure("permission_denied", "Permission denied.", 403)
             return view(*args, **kwargs)
+
         return wrapped
+
     return decorate
 
 
@@ -117,6 +132,7 @@ def require_pin_changed(view):
         if current_actor().must_change_pin:
             return _failure("pin_change_required", "Change the temporary PIN to continue.", 403)
         return view(*args, **kwargs)
+
     return wrapped
 
 
@@ -124,21 +140,23 @@ def require_admin_elevation(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         try:
-            touch_admin_elevation(
-                current_request_session(), current_actor(), datetime.now(UTC)
-            )
+            touch_admin_elevation(current_request_session(), current_actor(), datetime.now(UTC))
         except AdminElevationRequired:
             return _failure(
                 "admin_elevation_required",
-                "Administrator PIN confirmation is required.", 403,
+                "Administrator PIN confirmation is required.",
+                403,
             )
         except (DatabaseUnavailable, SQLAlchemyError):
             g.identity_db_failed = True
             return _failure(
-                "dependency_unavailable", "The Admin service is temporarily unavailable.",
-                503, retryable=True,
+                "dependency_unavailable",
+                "The Admin service is temporarily unavailable.",
+                503,
+                retryable=True,
             )
         return view(*args, **kwargs)
+
     return wrapped
 
 
@@ -150,9 +168,12 @@ def require_step_up(purpose: str):
             if not raw:
                 return _failure(
                     "step_up_required",
-                    "Administrator PIN confirmation is required.", 403,
+                    "Administrator PIN confirmation is required.",
+                    403,
                 )
             g.pending_step_up = (purpose, raw)
             return view(*args, **kwargs)
+
         return wrapped
+
     return decorate

@@ -38,8 +38,7 @@ def test_subject_hash_is_dimension_and_value_specific():
 
 def test_limit_decision_uses_persisted_count_without_raw_subject():
     session = Session(Row(11, NOW))
-    decision = consume_limit(session, dimension="employee", value="EMP-1001", now=NOW,
-                             pepper="p" * 32)
+    decision = consume_limit(session, dimension="employee", value="EMP-1001", now=NOW, pepper="p" * 32)
     assert decision.allowed is False
     assert decision.retry_after_seconds == 900
     assert session.parameters["subject_hash"] != b"EMP-1001"

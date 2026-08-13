@@ -1,4 +1,5 @@
 """Owner, preparer, unrelated-user, and Admin record-policy matrix."""
+
 from types import SimpleNamespace
 from uuid import uuid4
 

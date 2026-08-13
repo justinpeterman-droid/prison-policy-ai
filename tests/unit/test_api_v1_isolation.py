@@ -5,9 +5,7 @@ def configured_app(monkeypatch):
     monkeypatch.setattr(app_mod, "ACCESS_CODE", "legacy-user")
     monkeypatch.setattr(app_mod, "ADMIN_CODE", "legacy-admin")
     monkeypatch.setenv("ACCESS_API_ENABLED", "true")
-    monkeypatch.setenv(
-        "DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test"
-    )
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test")
     monkeypatch.setenv("IDENTITY_HASH_PEPPER", "p" * 32)
     monkeypatch.setenv("CURSOR_SIGNING_KEY", "c" * 32)
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://review.example.gov")
@@ -24,9 +22,7 @@ def test_legacy_cookie_cannot_authenticate_api_v1(monkeypatch):
 
 def test_bearer_header_does_not_authenticate_legacy_page(monkeypatch):
     client = configured_app(monkeypatch).test_client()
-    response = client.get(
-        "/reports", headers={"Authorization": "Bearer fake-access-token"}
-    )
+    response = client.get("/reports", headers={"Authorization": "Bearer fake-access-token"})
     assert response.status_code == 302
     assert response.headers["Location"].startswith("/login")
 

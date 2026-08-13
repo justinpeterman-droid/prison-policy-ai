@@ -1,4 +1,5 @@
 """PostgreSQL tests for caller-owned, conflict-safe revision transactions."""
+
 from concurrent.futures import ThreadPoolExecutor
 import inspect
 from threading import Barrier
@@ -50,37 +51,42 @@ def actor(fictional_staff_and_accounts):
 
 
 def _audit_rows(session, report_id):
-    return session.execute(
-        select(AuditEvent).where(AuditEvent.target_id == report_id)
-    ).scalars().all()
+    return session.execute(select(AuditEvent).where(AuditEvent.target_id == report_id)).scalars().all()
 
 
 def test_public_report_service_interfaces_match_the_locked_roadmap():
     save_parameters = list(inspect.signature(save_report).parameters.values())
     restore_parameters = list(inspect.signature(restore_report).parameters.values())
-    recovery_parameters = list(
-        inspect.signature(create_recovery_revision).parameters.values())
+    recovery_parameters = list(inspect.signature(create_recovery_revision).parameters.values())
 
     assert [parameter.name for parameter in save_parameters[:6]] == [
-        "session", "actor", "report_id", "content",
-        "base_revision_number", "reason",
+        "session",
+        "actor",
+        "report_id",
+        "content",
+        "base_revision_number",
+        "reason",
     ]
     assert [parameter.name for parameter in restore_parameters[:4]] == [
-        "session", "actor", "report_id", "revision_number",
+        "session",
+        "actor",
+        "report_id",
+        "revision_number",
     ]
     assert [parameter.name for parameter in recovery_parameters[:5]] == [
-        "session", "actor", "report_id", "content", "base_revision_number",
+        "session",
+        "actor",
+        "report_id",
+        "content",
+        "base_revision_number",
     ]
     assert inspect.signature(save_report).return_annotation is ReportRevision
     assert inspect.signature(restore_report).return_annotation is ReportRevision
-    assert (
-        inspect.signature(create_recovery_revision).return_annotation
-        is ReportRevision
-    )
+    assert inspect.signature(create_recovery_revision).return_annotation is ReportRevision
 
 
 def test_service_uses_caller_transaction_and_flushes_without_begin_or_commit(
-    monkeypatch
+    monkeypatch,
 ):
     class CallerOwnedSession:
         def __init__(self):
@@ -148,9 +154,7 @@ def test_service_uses_caller_transaction_and_flushes_without_begin_or_commit(
 
 
 @pytest.mark.parametrize("target", ["report", "incident"])
-def test_ai_result_stamps_centralized_provenance_and_fingerprint_columns(
-    monkeypatch, target
-):
+def test_ai_result_stamps_centralized_provenance_and_fingerprint_columns(monkeypatch, target):
     expected = {
         "fast_model": "fictional-fast-model",
         "pro_model": "fictional-pro-model",
@@ -185,9 +189,12 @@ def test_ai_result_stamps_centralized_provenance_and_fingerprint_columns(
         )
         monkeypatch.setattr(revisions, "_lock_row", lambda *_args: row)
         revision = save_report(
-            session, actor, uuid4(),
+            session,
+            actor,
+            uuid4(),
             ReportContentV1(narrative="Fictional AI narrative."),
-            1, "ai_result",
+            1,
+            "ai_result",
         )
         assert revision.provenance == expected
         for key, value in expected.items():
@@ -212,12 +219,15 @@ def test_ai_result_stamps_centralized_provenance_and_fingerprint_columns(
         )
         monkeypatch.setattr(revisions, "_lock_row", lambda *_args: row)
         revision = save_incident(
-            session, actor, uuid4(),
+            session,
+            actor,
+            uuid4(),
             IncidentSnapshotV1(
                 field_notes="Fictional notes.",
                 classification={"persons_involved": [{"role": "inmate"}]},
             ),
-            1, "ai_result",
+            1,
+            "ai_result",
         )
         assert revision.snapshot["provenance"] == expected
 
@@ -246,14 +256,18 @@ def test_non_ai_report_save_does_not_claim_ai_provenance(monkeypatch, reason):
     monkeypatch.setattr(revisions, "_next_revision_number", lambda *_args: 2)
     monkeypatch.setattr(revisions, "_append_audit", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
-        revisions, "collect_provenance",
+        revisions,
+        "collect_provenance",
         lambda: pytest.fail("manual/autosave must not collect AI provenance"),
     )
 
     revision = save_report(
-        session, actor, uuid4(),
+        session,
+        actor,
+        uuid4(),
         ReportContentV1(narrative="Fictional officer edit."),
-        1, reason,
+        1,
+        reason,
     )
 
     assert revision.provenance == {}
@@ -288,13 +302,18 @@ def test_non_ai_incident_save_does_not_inject_provenance(monkeypatch, reason):
     monkeypatch.setattr(revisions, "_next_revision_number", lambda *_args: 2)
     monkeypatch.setattr(revisions, "_append_audit", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
-        revisions, "collect_provenance",
+        revisions,
+        "collect_provenance",
         lambda: pytest.fail("manual/autosave must not collect AI provenance"),
     )
 
     revision = save_incident(
-        session, actor, uuid4(), IncidentSnapshotV1(field_notes="Fictional notes."),
-        1, reason,
+        session,
+        actor,
+        uuid4(),
+        IncidentSnapshotV1(field_notes="Fictional notes."),
+        1,
+        reason,
     )
 
     assert "provenance" not in revision.snapshot
@@ -311,9 +330,7 @@ def test_source_revision_metadata_composes_with_existing_provenance():
 
 
 @pytest.mark.parametrize("invalid_base", [-1, True, "1"])
-def test_recovery_rejects_invalid_source_revision_before_database_work(
-    invalid_base
-):
+def test_recovery_rejects_invalid_source_revision_before_database_work(invalid_base):
     actor = revisions.Actor(
         account_id=uuid4(),
         staff_member_id=uuid4(),
@@ -334,9 +351,7 @@ def test_recovery_rejects_invalid_source_revision_before_database_work(
 
 
 @pytest.mark.parametrize("invalid_revision", [-1, True, "1"])
-def test_restore_rejects_invalid_source_revision_before_database_work(
-    invalid_revision
-):
+def test_restore_rejects_invalid_source_revision_before_database_work(invalid_revision):
     actor = revisions.Actor(
         account_id=uuid4(),
         staff_member_id=uuid4(),
@@ -352,9 +367,7 @@ def test_restore_rejects_invalid_source_revision_before_database_work(
 
 @pytest.mark.parametrize("invalid_base", [-1, True, "1"])
 @pytest.mark.parametrize("service", ["report", "incident"])
-def test_save_rejects_invalid_base_revision_before_database_work(
-    invalid_base, service
-):
+def test_save_rejects_invalid_base_revision_before_database_work(invalid_base, service):
     actor = revisions.Actor(
         account_id=uuid4(),
         staff_member_id=uuid4(),
@@ -385,9 +398,7 @@ def test_save_rejects_invalid_base_revision_before_database_work(
             )
 
 
-def test_locked_base_call_returns_revision_with_non_null_safe_metadata(
-    db_session, fictional_report, actor
-):
+def test_locked_base_call_returns_revision_with_non_null_safe_metadata(db_session, fictional_report, actor):
     with db_session.begin_nested():
         revision = save_report(
             db_session,
@@ -405,9 +416,7 @@ def test_locked_base_call_returns_revision_with_non_null_safe_metadata(
         assert db_session.in_transaction()
 
 
-def test_injected_request_metadata_is_persisted_without_service_commit(
-    db_session, fictional_report, actor
-):
+def test_injected_request_metadata_is_persisted_without_service_commit(db_session, fictional_report, actor):
     revision = save_report(
         db_session,
         actor,
@@ -455,31 +464,36 @@ def test_two_real_connections_from_same_revision_yield_one_success_and_conflict(
             session.close()
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        results = list(executor.map(
-            lambda args: save(*args),
-            [
-                ("Fictional concurrent edit A.", "req_concurrent_a"),
-                ("Fictional concurrent edit B.", "req_concurrent_b"),
-            ],
-        ))
+        results = list(
+            executor.map(
+                lambda args: save(*args),
+                [
+                    ("Fictional concurrent edit A.", "req_concurrent_a"),
+                    ("Fictional concurrent edit B.", "req_concurrent_b"),
+                ],
+            )
+        )
 
     assert sorted(result[0] for result in results) == ["conflict", "saved"]
     assert {result[1] for result in results} == {2}
 
     with db_session_factory() as verification:
-        assert verification.scalar(select(Report.current_revision_number).where(
-            Report.id == report_id)) == 2
-        assert len(verification.scalars(select(ReportRevision).where(
-            ReportRevision.report_id == report_id)).all()) == 2
+        assert verification.scalar(select(Report.current_revision_number).where(Report.id == report_id)) == 2
+        assert len(verification.scalars(select(ReportRevision).where(ReportRevision.report_id == report_id)).all()) == 2
         assert len(_audit_rows(verification, report_id)) == 1
 
 
 def test_committed_concurrency_rows_do_not_leak_into_the_next_test(db_session):
     leaked_employee_numbers = db_session.scalars(
         select(StaffMember.employee_number).where(
-            StaffMember.employee_number.in_({
-                "TEST-2101", "TEST-2102", "TEST-2103", "TEST-9101",
-            })
+            StaffMember.employee_number.in_(
+                {
+                    "TEST-2101",
+                    "TEST-2102",
+                    "TEST-2103",
+                    "TEST-9101",
+                }
+            )
         )
     ).all()
 
@@ -516,16 +530,12 @@ def test_caller_rollback_after_completed_work_removes_revision_current_and_audit
     with db_session_factory() as verification:
         report = verification.get(Report, report_id)
         assert report.current_revision_number == 1
-        assert report.current_content["narrative"] == (
-            "Fictional initial report narrative.")
-        assert len(verification.scalars(select(ReportRevision).where(
-            ReportRevision.report_id == report_id)).all()) == 1
+        assert report.current_content["narrative"] == ("Fictional initial report narrative.")
+        assert len(verification.scalars(select(ReportRevision).where(ReportRevision.report_id == report_id)).all()) == 1
         assert _audit_rows(verification, report_id) == []
 
 
-def test_save_records_changed_field_names_without_values(
-    db_session, fictional_report, actor
-):
+def test_save_records_changed_field_names_without_values(db_session, fictional_report, actor):
     revision = save_report(
         db_session,
         actor,
@@ -541,9 +551,7 @@ def test_save_records_changed_field_names_without_values(
     assert "Fictional replacement." not in str(revision.changed_fields)
 
 
-def test_restore_copies_history_into_next_revision_and_current_content(
-    db_session, fictional_report, actor
-):
+def test_restore_copies_history_into_next_revision_and_current_content(db_session, fictional_report, actor):
     save_report(
         db_session,
         actor,
@@ -572,9 +580,7 @@ def test_restore_copies_history_into_next_revision_and_current_content(
     assert fictional_report.current_content == restored.snapshot
 
 
-def test_recovery_preserves_supplied_stale_base_without_promoting(
-    db_session, fictional_report, actor
-):
+def test_recovery_preserves_supplied_stale_base_without_promoting(db_session, fictional_report, actor):
     save_report(
         db_session,
         actor,
@@ -601,27 +607,26 @@ def test_recovery_preserves_supplied_stale_base_without_promoting(
     assert recovery.revision_number == 3
     assert recovery.provenance["source_revision_number"] == 1
     assert fictional_report.current_revision_number == 2
-    assert fictional_report.current_content["narrative"] == (
-        "Fictional newer current.")
+    assert fictional_report.current_content["narrative"] == ("Fictional newer current.")
 
 
-def test_incident_save_updates_real_current_fields_and_is_conflict_safe(
-    db_session, fictional_incident, actor
-):
-    snapshot = IncidentSnapshotV1.model_validate({
-        "field_notes": "Fictional replacement field notes.",
-        "incident_date": fictional_incident.incident_date,
-        "incident_time": fictional_incident.incident_time,
-        "facility": "Fictional Updated Unit",
-        "shift": "B",
-        "location": "Fictional Updated Dayroom",
-        "category": "fictional_updated_category",
-        "classification": {"incident_type": "fictional_updated_category"},
-        "extracted_facts": {"staff_count": 2},
-        "gap_answers": {"camera_reviewed": "yes"},
-        "charges": ["fictional charge"],
-        "validation": {"complete": True},
-    })
+def test_incident_save_updates_real_current_fields_and_is_conflict_safe(db_session, fictional_incident, actor):
+    snapshot = IncidentSnapshotV1.model_validate(
+        {
+            "field_notes": "Fictional replacement field notes.",
+            "incident_date": fictional_incident.incident_date,
+            "incident_time": fictional_incident.incident_time,
+            "facility": "Fictional Updated Unit",
+            "shift": "B",
+            "location": "Fictional Updated Dayroom",
+            "category": "fictional_updated_category",
+            "classification": {"incident_type": "fictional_updated_category"},
+            "extracted_facts": {"staff_count": 2},
+            "gap_answers": {"camera_reviewed": "yes"},
+            "charges": ["fictional charge"],
+            "validation": {"complete": True},
+        }
+    )
     revision = save_incident(
         db_session,
         actor,

@@ -3,6 +3,7 @@
 Everything exported here is fictional test data created by the fixtures in
 this module; no real report, officer, or inmate identifier is involved.
 """
+
 from datetime import UTC, datetime, timedelta
 import hashlib
 import io
@@ -77,14 +78,22 @@ def elevated_admin_bearer_headers(api_client, admin_bearer_headers, db_session):
 @pytest.fixture
 def bulk_export_step_up_headers(api_client, elevated_admin_bearer_headers):
     data = _confirm_admin_pin(
-        api_client, elevated_admin_bearer_headers, "bulk_export", "admin-stepup-bulk-0001")
+        api_client,
+        elevated_admin_bearer_headers,
+        "bulk_export",
+        "admin-stepup-bulk-0001",
+    )
     return {"X-Admin-Step-Up": data["step_up_token"]}
 
 
 @pytest.fixture
 def second_bulk_export_step_up_headers(api_client, elevated_admin_bearer_headers):
     data = _confirm_admin_pin(
-        api_client, elevated_admin_bearer_headers, "bulk_export", "admin-stepup-bulk-0002")
+        api_client,
+        elevated_admin_bearer_headers,
+        "bulk_export",
+        "admin-stepup-bulk-0002",
+    )
     return {"X-Admin-Step-Up": data["step_up_token"]}
 
 
@@ -121,17 +130,17 @@ def _make_extra_report(db_session, accounts, now):
     """
     incident = make_incident(db_session, accounts.preparer, now)
     return make_report(
-        db_session, incident=incident, owner=accounts.user,
-        preparer=accounts.preparer, now=now,
+        db_session,
+        incident=incident,
+        owner=accounts.user,
+        preparer=accounts.preparer,
+        now=now,
     )
 
 
 @pytest.fixture
 def extra_reports(db_session, fictional_staff_and_accounts, identity_fixed_now):
-    return [
-        _make_extra_report(db_session, fictional_staff_and_accounts, identity_fixed_now)
-        for _index in range(3)
-    ]
+    return [_make_extra_report(db_session, fictional_staff_and_accounts, identity_fixed_now) for _index in range(3)]
 
 
 def _temp_export_directories() -> set[Path]:
@@ -140,34 +149,68 @@ def _temp_export_directories() -> set[Path]:
 
 # --- Selection branch validation -------------------------------------------
 
-@pytest.mark.parametrize("body", [
-    {},
-    {"selection": {"mode": "report_ids", "report_ids": []},
-     "revision_selection": "current_at_request", "reason": "Fictional."},
-    {"selection": {"mode": "filters", "filters": {}},
-     "revision_selection": "latest", "reason": "Fictional."},
-    {"selection": {"mode": "filters", "filters": {}},
-     "revision_selection": "current_at_request", "reason": "Fictional.", "limit": 10},
-    {"selection": {"mode": "filters", "filters": {"unknown_filter": "x"}},
-     "revision_selection": "current_at_request", "reason": "Fictional."},
-    {"selection": {"mode": "everything"},
-     "revision_selection": "current_at_request", "reason": "Fictional."},
-    {"selection": {"mode": "report_ids", "report_ids": ["not-a-uuid"]},
-     "revision_selection": "current_at_request", "reason": "Fictional."},
-    {"selection": {"mode": "filters", "filters": {}},
-     "revision_selection": "current_at_request"},
-    {"selection": {"mode": "filters", "filters": {}},
-     "revision_selection": "current_at_request", "reason": "   "},
-    {"revision_selection": "current_at_request", "reason": "Fictional."},
-])
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {
+            "selection": {"mode": "report_ids", "report_ids": []},
+            "revision_selection": "current_at_request",
+            "reason": "Fictional.",
+        },
+        {
+            "selection": {"mode": "filters", "filters": {}},
+            "revision_selection": "latest",
+            "reason": "Fictional.",
+        },
+        {
+            "selection": {"mode": "filters", "filters": {}},
+            "revision_selection": "current_at_request",
+            "reason": "Fictional.",
+            "limit": 10,
+        },
+        {
+            "selection": {"mode": "filters", "filters": {"unknown_filter": "x"}},
+            "revision_selection": "current_at_request",
+            "reason": "Fictional.",
+        },
+        {
+            "selection": {"mode": "everything"},
+            "revision_selection": "current_at_request",
+            "reason": "Fictional.",
+        },
+        {
+            "selection": {"mode": "report_ids", "report_ids": ["not-a-uuid"]},
+            "revision_selection": "current_at_request",
+            "reason": "Fictional.",
+        },
+        {
+            "selection": {"mode": "filters", "filters": {}},
+            "revision_selection": "current_at_request",
+        },
+        {
+            "selection": {"mode": "filters", "filters": {}},
+            "revision_selection": "current_at_request",
+            "reason": "   ",
+        },
+        {"revision_selection": "current_at_request", "reason": "Fictional."},
+    ],
+)
 def test_bulk_export_rejects_an_unclosed_or_invalid_body(
-    db_session, api_client, elevated_admin_bearer_headers, bulk_export_step_up_headers, body,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
+    body,
 ):
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-invalid-0001"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-invalid-0001",
+        ),
         json=body,
     )
 
@@ -176,14 +219,19 @@ def test_bulk_export_rejects_an_unclosed_or_invalid_body(
 
 
 def test_bulk_export_rejects_duplicate_report_ids(
-    db_session, api_client, elevated_admin_bearer_headers, bulk_export_step_up_headers,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
     report_id,
 ):
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-duplicate-0001"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-duplicate-0001",
+        ),
         json=_ids_body([report_id, report_id]),
     )
 
@@ -192,7 +240,10 @@ def test_bulk_export_rejects_duplicate_report_ids(
 
 
 def test_bulk_export_requires_the_bulk_export_step_up(
-    db_session, api_client, elevated_admin_bearer_headers, report_id,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    report_id,
 ):
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
@@ -205,16 +256,24 @@ def test_bulk_export_requires_the_bulk_export_step_up(
 
 
 def test_bulk_export_rejects_a_step_up_issued_for_another_purpose(
-    db_session, api_client, elevated_admin_bearer_headers, report_id,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    report_id,
 ):
     other = _confirm_admin_pin(
-        api_client, elevated_admin_bearer_headers, "report_restore", "admin-stepup-other-0001")
+        api_client,
+        elevated_admin_bearer_headers,
+        "report_restore",
+        "admin-stepup-other-0001",
+    )
 
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_headers(
             elevated_admin_bearer_headers | {"X-Admin-Step-Up": other["step_up_token"]},
-            "bulk-export-wrongpurpose-0001"),
+            "bulk-export-wrongpurpose-0001",
+        ),
         json=_ids_body([report_id]),
     )
 
@@ -223,15 +282,16 @@ def test_bulk_export_rejects_a_step_up_issued_for_another_purpose(
 
 
 def test_bulk_export_is_concealed_from_a_regular_user(
-    db_session, api_client, user_bearer_headers, report_id,
+    db_session,
+    api_client,
+    user_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
-        headers=_headers(
-            user_bearer_headers | {"X-Admin-Step-Up": "x" * 48},
-            "bulk-export-user-0001"),
+        headers=_headers(user_bearer_headers | {"X-Admin-Step-Up": "x" * 48}, "bulk-export-user-0001"),
         json=_ids_body([report_id]),
     )
 
@@ -240,7 +300,10 @@ def test_bulk_export_is_concealed_from_a_regular_user(
 
 
 def test_bulk_export_requires_an_idempotency_key(
-    db_session, api_client, elevated_admin_bearer_headers, bulk_export_step_up_headers,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
     report_id,
 ):
     response = api_client.post(
@@ -255,9 +318,15 @@ def test_bulk_export_requires_an_idempotency_key(
 
 # --- Bounds -----------------------------------------------------------------
 
+
 def test_bulk_export_rejects_more_than_one_hundred_matches(
-    db_session, api_client, monkeypatch, elevated_admin_bearer_headers,
-    bulk_export_step_up_headers, fictional_incident, fictional_staff_and_accounts,
+    db_session,
+    api_client,
+    monkeypatch,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
+    fictional_incident,
+    fictional_staff_and_accounts,
     identity_fixed_now,
 ):
     import backend.reports.export_service as export_service
@@ -274,8 +343,10 @@ def test_bulk_export_rejects_more_than_one_hundred_matches(
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-fictional-0001"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-fictional-0001",
+        ),
         json=_filters_body({"status": "in_progress"}),
     )
 
@@ -285,7 +356,10 @@ def test_bulk_export_rejects_more_than_one_hundred_matches(
 
 
 def test_bulk_export_rejects_more_than_one_hundred_requested_ids(
-    db_session, api_client, elevated_admin_bearer_headers, bulk_export_step_up_headers,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
     report_id,
 ):
     db_session.commit()
@@ -293,8 +367,10 @@ def test_bulk_export_rejects_more_than_one_hundred_requested_ids(
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-fictional-0002"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-fictional-0002",
+        ),
         json=_ids_body([uuid4() for _index in range(BULK_EXPORT_MAX_DOCUMENTS + 1)]),
     )
 
@@ -303,15 +379,20 @@ def test_bulk_export_rejects_more_than_one_hundred_requested_ids(
 
 
 def test_bulk_export_with_zero_matches_is_not_found(
-    db_session, api_client, elevated_admin_bearer_headers, bulk_export_step_up_headers,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
 ):
     db_session.commit()
 
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-fictional-0003"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-fictional-0003",
+        ),
         json=_filters_body({"status": "archived"}),
     )
 
@@ -322,9 +403,14 @@ def test_bulk_export_with_zero_matches_is_not_found(
 
 # --- Archive, manifest, ordering -------------------------------------------
 
+
 def test_bulk_export_returns_a_deterministic_manifested_archive(
-    db_session, api_client, elevated_admin_bearer_headers, bulk_export_step_up_headers,
-    report_id, extra_reports,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
+    report_id,
+    extra_reports,
 ):
     db_session.commit()
     expected = sorted([str(report_id)] + [str(row.id) for row in extra_reports])
@@ -332,8 +418,10 @@ def test_bulk_export_returns_a_deterministic_manifested_archive(
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-fictional-0004"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-fictional-0004",
+        ),
         json=_filters_body({"status": "in_progress"}),
     )
 
@@ -360,16 +448,22 @@ def test_bulk_export_returns_a_deterministic_manifested_archive(
 
 
 def test_bulk_manifest_records_filter_names_never_filter_values(
-    db_session, api_client, elevated_admin_bearer_headers, bulk_export_step_up_headers,
-    report_id, fictional_incident,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
+    report_id,
+    fictional_incident,
 ):
     db_session.commit()
 
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-fictional-0005"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-fictional-0005",
+        ),
         json=_filters_body({"status": "in_progress", "facility": "Fictional Unit"}),
     )
 
@@ -381,16 +475,22 @@ def test_bulk_manifest_records_filter_names_never_filter_values(
 
 
 def test_bulk_manifest_is_serialized_with_sorted_keys_and_stable_metadata(
-    db_session, api_client, elevated_admin_bearer_headers, bulk_export_step_up_headers,
-    report_id, fictional_admin_account,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
+    report_id,
+    fictional_admin_account,
 ):
     db_session.commit()
 
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-fictional-0006"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-fictional-0006",
+        ),
         json=_ids_body([report_id]),
     )
 
@@ -402,11 +502,9 @@ def test_bulk_manifest_is_serialized_with_sorted_keys_and_stable_metadata(
     assert manifest["actor_account_id"] == str(fictional_admin_account.id)
     assert manifest["selection_mode"] == "report_ids"
     assert manifest["filter_names"] == []
-    record = db_session.scalar(select(IdempotencyRecord).where(
-        IdempotencyRecord.action == "admin.bulk_export"))
+    record = db_session.scalar(select(IdempotencyRecord).where(IdempotencyRecord.action == "admin.bulk_export"))
     assert record is not None
-    assert manifest["idempotency_recorded_at"] == (
-        record.created_at.astimezone(UTC).isoformat().replace("+00:00", "Z"))
+    assert manifest["idempotency_recorded_at"] == (record.created_at.astimezone(UTC).isoformat().replace("+00:00", "Z"))
 
     entry = manifest["reports"][0]
     export_row = db_session.scalar(select(Export))
@@ -416,7 +514,10 @@ def test_bulk_manifest_is_serialized_with_sorted_keys_and_stable_metadata(
 
 
 def test_bulk_export_documents_match_the_single_export_bytes(
-    db_session, api_client, elevated_admin_bearer_headers, bulk_export_step_up_headers,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
     report_id,
 ):
     db_session.commit()
@@ -424,8 +525,10 @@ def test_bulk_export_documents_match_the_single_export_bytes(
     bulk = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-fictional-0007"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-fictional-0007",
+        ),
         json=_ids_body([report_id]),
     )
     single = api_client.post(
@@ -441,7 +544,10 @@ def test_bulk_export_documents_match_the_single_export_bytes(
 
 
 def test_bulk_export_unknown_report_ids_are_explicit_failures(
-    db_session, api_client, elevated_admin_bearer_headers, bulk_export_step_up_headers,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
     report_id,
 ):
     db_session.commit()
@@ -450,8 +556,10 @@ def test_bulk_export_unknown_report_ids_are_explicit_failures(
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-fictional-0008"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-fictional-0008",
+        ),
         json=_ids_body([report_id, missing]),
     )
 
@@ -464,8 +572,13 @@ def test_bulk_export_unknown_report_ids_are_explicit_failures(
 
 
 def test_a_failure_after_selection_is_explicit_and_never_marked_exported(
-    db_session, api_client, monkeypatch, elevated_admin_bearer_headers,
-    bulk_export_step_up_headers, report_id, extra_reports,
+    db_session,
+    api_client,
+    monkeypatch,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
+    report_id,
+    extra_reports,
 ):
     import backend.reports.export_service as export_service
 
@@ -483,8 +596,10 @@ def test_a_failure_after_selection_is_explicit_and_never_marked_exported(
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-fictional-0009"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-fictional-0009",
+        ),
         json=_filters_body({"status": "in_progress"}),
     )
 
@@ -494,16 +609,20 @@ def test_a_failure_after_selection_is_explicit_and_never_marked_exported(
     assert manifest["failures"][0]["reason_code"] == "generation_failed"
     assert doomed not in [entry["report_id"] for entry in manifest["reports"]]
     assert db_session.scalar(select(func.count()).select_from(Export)) == 3
-    assert db_session.scalar(
-        select(func.count()).select_from(Export).where(Export.report_id == doomed)
-    ) == 0
+    assert db_session.scalar(select(func.count()).select_from(Export).where(Export.report_id == doomed)) == 0
 
 
 # --- Idempotency, audit, cleanup -------------------------------------------
 
+
 def test_the_same_bulk_key_regenerates_identical_bytes_and_no_new_rows(
-    db_session, api_client, elevated_admin_bearer_headers, bulk_export_step_up_headers,
-    second_bulk_export_step_up_headers, report_id, extra_reports,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
+    second_bulk_export_step_up_headers,
+    report_id,
+    extra_reports,
 ):
     db_session.commit()
     body = _filters_body({"status": "in_progress"})
@@ -511,15 +630,19 @@ def test_the_same_bulk_key_regenerates_identical_bytes_and_no_new_rows(
     first = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-fictional-0010"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-fictional-0010",
+        ),
         json=body,
     )
     second = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, second_bulk_export_step_up_headers,
-            "bulk-export-fictional-0010"),
+            elevated_admin_bearer_headers,
+            second_bulk_export_step_up_headers,
+            "bulk-export-fictional-0010",
+        ),
         json=body,
     )
 
@@ -531,34 +654,41 @@ def test_the_same_bulk_key_regenerates_identical_bytes_and_no_new_rows(
 
 
 def test_bulk_export_writes_one_bounded_admin_audit_event(
-    db_session, api_client, elevated_admin_bearer_headers, bulk_export_step_up_headers,
-    report_id, extra_reports,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
+    report_id,
+    extra_reports,
 ):
     db_session.commit()
 
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-fictional-0011"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-fictional-0011",
+        ),
         json=_filters_body({"status": "in_progress"}),
     )
 
-    events = db_session.scalars(
-        select(AuditEvent).where(AuditEvent.action == "admin.bulk_exported")
-    ).all()
+    events = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "admin.bulk_exported")).all()
     assert len(events) == 1
     assert events[0].details == {
-        "export_id": response.headers["X-Export-ID"], "report_count": 4,
+        "export_id": response.headers["X-Export-ID"],
+        "report_count": 4,
     }
-    assert db_session.scalars(
-        select(AuditEvent).where(AuditEvent.action == "admin.report_search")
-    ).all() == []
+    assert db_session.scalars(select(AuditEvent).where(AuditEvent.action == "admin.report_search")).all() == []
 
 
 def test_bulk_export_removes_its_temporary_workspace(
-    db_session, api_client, elevated_admin_bearer_headers, bulk_export_step_up_headers,
-    report_id, extra_reports,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    bulk_export_step_up_headers,
+    report_id,
+    extra_reports,
 ):
     db_session.commit()
     before = _temp_export_directories()
@@ -566,8 +696,10 @@ def test_bulk_export_removes_its_temporary_workspace(
     response = api_client.post(
         "/api/v1/admin/reports/bulk-export",
         headers=_bulk_headers(
-            elevated_admin_bearer_headers, bulk_export_step_up_headers,
-            "bulk-export-fictional-0012"),
+            elevated_admin_bearer_headers,
+            bulk_export_step_up_headers,
+            "bulk-export-fictional-0012",
+        ),
         json=_filters_body({"status": "in_progress"}),
     )
     response.close()

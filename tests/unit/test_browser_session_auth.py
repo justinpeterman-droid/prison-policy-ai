@@ -32,17 +32,27 @@ class FakeSession:
 def _rows(*, role="admin", status="active", staff_active=True, revoked_at=None):
     account_id, staff_id, access_id, browser_id = uuid4(), uuid4(), uuid4(), uuid4()
     browser = SimpleNamespace(
-        id=browser_id, account_id=account_id, issuing_session_id=access_id,
-        token_hash=hash_token("fictional-browser-cookie"), purpose="review_lab",
-        last_used_at=NOW, expires_at=NOW + timedelta(minutes=1),
+        id=browser_id,
+        account_id=account_id,
+        issuing_session_id=access_id,
+        token_hash=hash_token("fictional-browser-cookie"),
+        purpose="review_lab",
+        last_used_at=NOW,
+        expires_at=NOW + timedelta(minutes=1),
         revoked_at=revoked_at,
     )
     access = SimpleNamespace(
-        id=access_id, account_id=account_id, auth_version=4, revoked_at=None,
+        id=access_id,
+        account_id=account_id,
+        auth_version=4,
+        revoked_at=None,
         renewal_expires_at=NOW + timedelta(hours=1),
     )
     account = SimpleNamespace(
-        id=account_id, staff_member_id=staff_id, role=role, status=status,
+        id=account_id,
+        staff_member_id=staff_id,
+        role=role,
+        status=status,
         auth_version=4,
     )
     staff = SimpleNamespace(id=staff_id, is_active=staff_active)
@@ -53,7 +63,8 @@ def test_browser_session_resolves_attributed_actor_and_slides_idle_expiry():
     browser, _access, account, staff = _rows()
     actor = resolve_browser_session(
         FakeSession(browser, account, staff),
-        cookie_value="fictional-browser-cookie", now=NOW,
+        cookie_value="fictional-browser-cookie",
+        now=NOW,
     )
     assert actor.account_id == account.id
     assert actor.staff_member_id == staff.id
@@ -65,16 +76,19 @@ def test_browser_session_resolves_attributed_actor_and_slides_idle_expiry():
 
 @pytest.mark.parametrize(
     "role,status,staff_active",
-    [("user", "active", True), ("admin", "deactivated", True), ("admin", "active", False)],
+    [
+        ("user", "active", True),
+        ("admin", "deactivated", True),
+        ("admin", "active", False),
+    ],
 )
 def test_browser_session_rejects_non_admin_or_inactive_identity(role, status, staff_active):
-    browser, _access, account, staff = _rows(
-        role=role, status=status, staff_active=staff_active
-    )
+    browser, _access, account, staff = _rows(role=role, status=status, staff_active=staff_active)
     with pytest.raises(BrowserSessionInvalid):
         resolve_browser_session(
             FakeSession(browser, account, staff),
-            cookie_value="fictional-browser-cookie", now=NOW,
+            cookie_value="fictional-browser-cookie",
+            now=NOW,
         )
 
 
@@ -112,9 +126,11 @@ def test_redeem_route_sets_only_a_secure_browser_session_cookie(monkeypatch):
 
     monkeypatch.setattr(routes, "session_scope", fake_scope)
     monkeypatch.setattr(
-        routes, "redeem_browser_handoff",
+        routes,
+        "redeem_browser_handoff",
         lambda *_args, **_kwargs: BrowserSessionResult(
-            uuid4(), "fictional-browser-session-cookie-value-0001",
+            uuid4(),
+            "fictional-browser-session-cookie-value-0001",
             NOW + timedelta(minutes=30),
         ),
     )
@@ -142,7 +158,8 @@ def test_fragment_landing_has_no_store_and_no_referrer_headers():
     import backend.webapp.routes.browser_handoffs as routes
 
     app = Flask(
-        __name__, template_folder="../../backend/webapp/templates",
+        __name__,
+        template_folder="../../backend/webapp/templates",
         static_folder="../../backend/webapp/static",
     )
     app.register_blueprint(routes.browser_handoffs_bp)

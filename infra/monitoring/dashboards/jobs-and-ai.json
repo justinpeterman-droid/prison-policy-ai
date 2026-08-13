@@ -1,0 +1,13 @@
+{
+  "displayName": "Access Jobs and AI",
+  "mosaicLayout": {"columns": 12,
+    "tiles": [
+      {"width": 6, "height": 4, "widget": {"title": "Cloud Tasks queue depth", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"cloudtasks.googleapis.com/queue/depth\" AND resource.type=\"cloudtasks.googleapis.com/Queue\" AND resource.label.\"queue_id\"=\"${queue_name}\" AND resource.label.\"location\"=\"${region}\""}}}}},
+      {"xPos": 6, "width": 6, "height": 4, "widget": {"title": "failed jobs by stage latency", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"logging.googleapis.com/user/access_queue_health\" AND metric.label.\"result\"=\"failed\" AND metric.label.\"stage\"=\"failed\" AND metric.label.\"job_type\"=~\"^(classify|extract|generate|disciplinary)$\" AND metric.label.\"latency_bucket\"=~\"^(less_than_1s|1s_to_10s|10s_to_60s|1m_to_5m|5m_or_more|unknown)$\""}}}}},
+      {"yPos": 4, "width": 6, "height": 4, "widget": {"title": "ai_provider_repeat_risk_total", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"custom.googleapis.com/ai_provider_repeat_risk_total\""}}}}},
+      {"xPos": 6, "yPos": 4, "width": 6, "height": 4, "widget": {"title": "dependency_health policy search and exports", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"logging.googleapis.com/user/access_dependency_health\""}}}}},
+      {"yPos": 8, "width": 6, "height": 4, "widget": {"title": "unhealthy queue oldest age", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"logging.googleapis.com/user/access_queue_health\" AND metric.label.\"oldest_age_bucket\"=~\"^(30m_to_2h|2h_or_more)$\""}}}}},
+      {"xPos": 6, "yPos": 8, "width": 6, "height": 4, "widget": {"title": "Cloud Billing spend source gate", "text": {"content": "Cloud Billing spend is intentionally not shown from a Monitoring metric. After EXT-04 approval, configure the agency-approved Cloud Billing export to BigQuery and a separately reviewed dashboard source; until then, this gate remains closed.", "format": "MARKDOWN"}}}
+    ]
+  }
+}

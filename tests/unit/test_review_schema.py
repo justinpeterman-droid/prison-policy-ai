@@ -1,4 +1,5 @@
 """Versioned, server-owned schema for report review submissions."""
+
 from datetime import datetime, timezone
 import re
 
@@ -27,12 +28,14 @@ def valid_payload(**overrides):
             "gap_answers": {},
             "generation_response": {"style": {"score": 1.0}},
         },
-        "reports": [{
-            "report_type": "first_person",
-            "reporter_id": "EMP 100-411",
-            "generated_text": "generated",
-            "edited_text": "edited",
-        }],
+        "reports": [
+            {
+                "report_type": "first_person",
+                "reporter_id": "EMP 100-411",
+                "generated_text": "generated",
+                "edited_text": "edited",
+            }
+        ],
         "reviewed_fields": {"location": "8 Barracks"},
         "review": {"score": 4, "comments": "Tighten the opening sentence."},
         "metadata": {"generation_model": "attacker-model"},
@@ -42,8 +45,7 @@ def valid_payload(**overrides):
 
 
 def test_server_owns_canonical_scenario_identity_and_notes():
-    record = build_review_submission(
-        valid_payload(), now=FIXED_NOW, id_factory=lambda: "abc123")
+    record = build_review_submission(valid_payload(), now=FIXED_NOW, id_factory=lambda: "abc123")
     canonical = get_demo_scenario("inmate_fight_dayroom")
 
     assert record["submission_id"] == "review_20260811T010203Z_abc123"
@@ -70,10 +72,12 @@ def test_server_owns_model_revision_and_prompt_metadata(monkeypatch):
     assert metadata["cloud_run_revision"] == "revision-151"
     assert metadata["source_commit"] == "deadbeef"
     assert set(metadata["prompt_fingerprints"]) == {
-        "classification", "generation", "checklist", "charges"
+        "classification",
+        "generation",
+        "checklist",
+        "charges",
     }
-    assert all(re.fullmatch(r"[0-9a-f]{64}", value)
-               for value in metadata["prompt_fingerprints"].values())
+    assert all(re.fullmatch(r"[0-9a-f]{64}", value) for value in metadata["prompt_fingerprints"].values())
 
 
 def test_report_ids_are_stable_and_both_versions_are_retained():
@@ -90,8 +94,7 @@ def test_report_ids_are_stable_and_both_versions_are_retained():
 
 
 def test_review_summary_contains_only_history_list_fields():
-    record = build_review_submission(valid_payload(), now=FIXED_NOW,
-                                     id_factory=lambda: "abc123")
+    record = build_review_submission(valid_payload(), now=FIXED_NOW, id_factory=lambda: "abc123")
 
     assert review_summary(record) == {
         "submission_id": "review_20260811T010203Z_abc123",
@@ -119,12 +122,16 @@ def test_unknown_scenarios_are_rejected(scenario_id):
 
 
 def test_unknown_report_types_are_rejected():
-    payload = valid_payload(reports=[{
-        "report_type": "raw_prompt",
-        "reporter_id": None,
-        "generated_text": "a",
-        "edited_text": "b",
-    }])
+    payload = valid_payload(
+        reports=[
+            {
+                "report_type": "raw_prompt",
+                "reporter_id": None,
+                "generated_text": "a",
+                "edited_text": "b",
+            }
+        ]
+    )
 
     with pytest.raises(ReviewValidationError, match="report type"):
         build_review_submission(payload)
@@ -137,8 +144,7 @@ def test_at_least_one_generated_report_is_required():
 
 def test_comments_and_report_text_are_bounded():
     with pytest.raises(ReviewValidationError, match="comments"):
-        build_review_submission(valid_payload(
-            review={"score": 3, "comments": "x" * 5001}))
+        build_review_submission(valid_payload(review={"score": 3, "comments": "x" * 5001}))
 
     oversized = valid_payload()["reports"][0] | {"edited_text": "x" * 30001}
     with pytest.raises(ReviewValidationError, match="report text"):

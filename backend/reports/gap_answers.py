@@ -1,4 +1,5 @@
 """Pure helpers for folding reviewed gap answers into extracted slots."""
+
 from copy import deepcopy
 from datetime import datetime
 import re
@@ -15,8 +16,7 @@ def build_incident_number(last3, incident_date=None) -> str:
         if match:
             year, month = match.group(1), match.group(2)
         else:
-            match = re.match(
-                r"(\d{2})[-/](\d{2})[-/](\d{4})", str(incident_date))
+            match = re.match(r"(\d{2})[-/](\d{2})[-/](\d{4})", str(incident_date))
             if match:
                 year, month = match.group(3), match.group(1)
     if year and month:

@@ -1,5 +1,6 @@
 """Staff roster lookup — resolves partial officer names against the roster,
 generating gaps for unidentifiable staff and filling in known details."""
+
 from dataclasses import dataclass
 from datetime import datetime
 import logging
@@ -44,7 +45,8 @@ class FileStaffProvider:
         matches = []
         for person in all_staff():
             values = (
-                person.get("first", ""), person.get("last", ""),
+                person.get("first", ""),
+                person.get("last", ""),
                 person.get("employee_number", ""),
             )
             if any(hint in str(value).lower() for value in values):
@@ -65,9 +67,7 @@ class SqlStaffProvider:
 
     @staticmethod
     def _record(row: StaffMember) -> dict[str, object]:
-        display_name = " ".join(
-            value for value in (row.rank, row.first_name, row.last_name) if value
-        )
+        display_name = " ".join(value for value in (row.rank, row.first_name, row.last_name) if value)
         return {
             "staff_id": str(row.id),
             "employee_number": row.employee_number,
@@ -80,40 +80,45 @@ class SqlStaffProvider:
         }
 
     def search_page(
-        self, query: str, *, limit: int = 25, cursor: dict[str, str] | None = None,
+        self,
+        query: str,
+        *,
+        limit: int = 25,
+        cursor: dict[str, str] | None = None,
     ) -> StaffPage:
         hint = query.strip()
         if not hint or not 1 <= limit <= 50:
             return StaffPage([], None)
         escaped = hint.replace("%", "\\%").replace("_", "\\_")[:100]
         pattern = f"%{escaped}%"
-        statement = (
-            select(StaffMember)
-            .where(
-                StaffMember.is_active.is_(True),
-                or_(
-                    StaffMember.employee_number.ilike(pattern, escape="\\"),
-                    StaffMember.first_name.ilike(pattern, escape="\\"),
-                    StaffMember.last_name.ilike(pattern, escape="\\"),
-                ),
-            )
+        statement = select(StaffMember).where(
+            StaffMember.is_active.is_(True),
+            or_(
+                StaffMember.employee_number.ilike(pattern, escape="\\"),
+                StaffMember.first_name.ilike(pattern, escape="\\"),
+                StaffMember.last_name.ilike(pattern, escape="\\"),
+            ),
         )
         if cursor:
-            created_at = datetime.fromisoformat(
-                cursor["created_at"].replace("Z", "+00:00"))
+            created_at = datetime.fromisoformat(cursor["created_at"].replace("Z", "+00:00"))
             staff_id = UUID(cursor["id"])
-            statement = statement.where(or_(
-                StaffMember.created_at > created_at,
-                and_(StaffMember.created_at == created_at, StaffMember.id > staff_id),
-            ))
-        rows = list(self._session.scalars(
-            statement.order_by(StaffMember.created_at, StaffMember.id).limit(limit + 1)
-        ).all())
+            statement = statement.where(
+                or_(
+                    StaffMember.created_at > created_at,
+                    and_(StaffMember.created_at == created_at, StaffMember.id > staff_id),
+                )
+            )
+        rows = list(
+            self._session.scalars(statement.order_by(StaffMember.created_at, StaffMember.id).limit(limit + 1)).all()
+        )
         page_rows = rows[:limit]
         next_cursor = None
         if len(rows) > limit and page_rows:
             last = page_rows[-1]
-            next_cursor = {"created_at": last.created_at.isoformat(), "id": str(last.id)}
+            next_cursor = {
+                "created_at": last.created_at.isoformat(),
+                "id": str(last.id),
+            }
         return StaffPage([self._record(row) for row in page_rows], next_cursor)
 
     def search(self, query: str, *, limit: int = 25) -> list[dict]:
@@ -178,29 +183,31 @@ def lookup(name_hint: str) -> dict | None:
     return None
 
 
-def _add_to_roster_file(rank: str, first: str, last: str,
-                        employee_number: str, shift: str = "A") -> bool:
+def _add_to_roster_file(rank: str, first: str, last: str, employee_number: str, shift: str = "A") -> bool:
     """Persist a new staff member to the roster.
 
     Returns True if the entry was added, False if it already existed.
     """
+
     def mutate(roster: dict):
         # Re-checked on every attempt, not once up front: update() re-runs this
         # against a fresh copy after a write conflict, and by then the officer
         # we're adding may already be there because another request added them.
         for person in roster.get("staff", []):
-            if (person.get("employee_number", "").lower() == employee_number.lower()
-                    or (person.get("last", "").lower() == last.lower()
-                        and person.get("first", "").lower() == first.lower())):
+            if person.get("employee_number", "").lower() == employee_number.lower() or (
+                person.get("last", "").lower() == last.lower() and person.get("first", "").lower() == first.lower()
+            ):
                 return None  # Already exists — nothing to write
 
-        roster.setdefault("staff", []).append({
-            "rank": rank,
-            "first": first,
-            "last": last,
-            "employee_number": employee_number,
-            "shift": shift,
-        })
+        roster.setdefault("staff", []).append(
+            {
+                "rank": rank,
+                "first": first,
+                "last": last,
+                "employee_number": employee_number,
+                "shift": shift,
+            }
+        )
         return True
 
     added = roster_store.update(mutate)
@@ -222,6 +229,7 @@ def add_staff_from_gap_answer(name_hint: str, answer_text: str) -> bool:
 
     # Try to parse: [Rank] First Last [EmployeeNumber]
     import re
+
     rank = ""
     employee_number = ""
     first = ""
@@ -229,37 +237,54 @@ def add_staff_from_gap_answer(name_hint: str, answer_text: str) -> bool:
 
     # Known rank patterns
     RANK_PATTERNS = [
-        r'\b(Sgt\.?|Sergeant)\b', r'\b(Cpl\.?|Corporal)\b',
-        r'\b(Cpt\.?|Captain)\b', r'\b(Lt\.?|Lieutenant)\b',
-        r'\b(Ofc\.?|Officer)\b', r'\b(Maj\.?|Major)\b',
-        r'\b(Col\.?|Colonel)\b',
+        r"\b(Sgt\.?|Sergeant)\b",
+        r"\b(Cpl\.?|Corporal)\b",
+        r"\b(Cpt\.?|Captain)\b",
+        r"\b(Lt\.?|Lieutenant)\b",
+        r"\b(Ofc\.?|Officer)\b",
+        r"\b(Maj\.?|Major)\b",
+        r"\b(Col\.?|Colonel)\b",
     ]
     for pat in RANK_PATTERNS:
         m = re.search(pat, text, re.I)
         if m:
             rank_map = {
-                "sergeant": "Sgt", "sgt": "Sgt", "sgt.": "Sgt",
-                "corporal": "Cpl", "cpl": "Cpl", "cpl.": "Cpl",
-                "captain": "Cpt", "cpt": "Cpt", "cpt.": "Cpt",
-                "lieutenant": "Lt", "lt": "Lt", "lt.": "Lt",
-                "officer": "Ofc", "ofc": "Ofc", "ofc.": "Ofc",
-                "major": "Maj", "maj": "Maj", "maj.": "Maj",
-                "colonel": "Col", "col": "Col", "col.": "Col",
+                "sergeant": "Sgt",
+                "sgt": "Sgt",
+                "sgt.": "Sgt",
+                "corporal": "Cpl",
+                "cpl": "Cpl",
+                "cpl.": "Cpl",
+                "captain": "Cpt",
+                "cpt": "Cpt",
+                "cpt.": "Cpt",
+                "lieutenant": "Lt",
+                "lt": "Lt",
+                "lt.": "Lt",
+                "officer": "Ofc",
+                "ofc": "Ofc",
+                "ofc.": "Ofc",
+                "major": "Maj",
+                "maj": "Maj",
+                "maj.": "Maj",
+                "colonel": "Col",
+                "col": "Col",
+                "col.": "Col",
             }
-            rank = rank_map.get(m.group(1).lower().rstrip('.'), m.group(1))
+            rank = rank_map.get(m.group(1).lower().rstrip("."), m.group(1))
             # The `\.?` in each pattern can never match: `\b` after a period
             # fails, since '.' and ' ' are both non-word characters. So "Sgt."
             # matches as "Sgt" and leaves the period behind, where it used to
             # be parsed as the officer's first name — every rank written the
             # normal way ("Sgt. Dana Halvorsen") produced first=".".
-            text = re.sub(pat, '', text, count=1, flags=re.I).lstrip(". ").strip()
+            text = re.sub(pat, "", text, count=1, flags=re.I).lstrip(". ").strip()
             break
 
     # Try to extract employee number (digits at end or standalone digits)
-    m = re.search(r'\b(\d{4,7})\b', text)
+    m = re.search(r"\b(\d{4,7})\b", text)
     if m:
         employee_number = m.group(1)
-        text = re.sub(r'\b' + employee_number + r'\b', '', text).strip()
+        text = re.sub(r"\b" + employee_number + r"\b", "", text).strip()
 
     # Remaining text should be first [middle] last
     parts = text.split()
@@ -291,7 +316,8 @@ def add_staff_from_gap_answer(name_hint: str, answer_text: str) -> bool:
 
 
 def resolve_staff_from_persons(
-    persons: list[dict], staff_provider: StaffProvider | None = None,
+    persons: list[dict],
+    staff_provider: StaffProvider | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """Given a list of person dicts from extraction, resolve each against
     the roster. Returns (resolved_persons, gaps).
@@ -325,16 +351,18 @@ def resolve_staff_from_persons(
         else:
             # Could not identify — generate a gap
             resolved.append(p)
-            gaps.append({
-                "field": f"officer_identity_{name or last or 'unknown'}",
-                "slot": f"officer_identity_{name or last or 'unknown'}",
-                "label": f"Identify officer",
-                "question": f"Could not find '{name or last or 'this officer'}' in staff roster. Enter their full name and employee number.",
-                "required": True,
-                "blocking": True,
-                "type": "staff_identity",
-                "answer_type": "text",
-            })
+            gaps.append(
+                {
+                    "field": f"officer_identity_{name or last or 'unknown'}",
+                    "slot": f"officer_identity_{name or last or 'unknown'}",
+                    "label": "Identify officer",
+                    "question": f"Could not find '{name or last or 'this officer'}' in staff roster. Enter their full name and employee number.",
+                    "required": True,
+                    "blocking": True,
+                    "type": "staff_identity",
+                    "answer_type": "text",
+                }
+            )
 
     # Also flag any resolved staff missing required fields (after roster fill)
     required_staff_fields = ["rank", "first", "last"]
@@ -342,17 +370,19 @@ def resolve_staff_from_persons(
         if r.get("role") == "security_staff" and not r.get("_roster_match"):
             missing = [f for f in required_staff_fields if not r.get(f)]
             if missing:
-                name_key = r.get('last', r.get('name', 'unknown'))
-                gaps.append({
-                    "field": f"officer_fields_{name_key}",
-                    "slot": f"officer_fields_{name_key}",
-                    "label": f"Missing info for {r.get('last', r.get('name', '?'))}",
-                    "question": f"Officer {r.get('last', r.get('name', '?'))} not found in roster and is missing: {', '.join(missing)}. Please provide.",
-                    "required": True,
-                    "blocking": True,
-                    "type": "staff_missing_fields",
-                    "answer_type": "text",
-                })
+                name_key = r.get("last", r.get("name", "unknown"))
+                gaps.append(
+                    {
+                        "field": f"officer_fields_{name_key}",
+                        "slot": f"officer_fields_{name_key}",
+                        "label": f"Missing info for {r.get('last', r.get('name', '?'))}",
+                        "question": f"Officer {r.get('last', r.get('name', '?'))} not found in roster and is missing: {', '.join(missing)}. Please provide.",
+                        "required": True,
+                        "blocking": True,
+                        "type": "staff_missing_fields",
+                        "answer_type": "text",
+                    }
+                )
 
     return resolved, gaps
 

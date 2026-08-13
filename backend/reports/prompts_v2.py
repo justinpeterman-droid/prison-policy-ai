@@ -77,11 +77,11 @@ STYLE_RULES = """WRITING RULES (BMU / ADC conventions — follow EXACTLY):
 # duplicated into every user prompt). Braces are single here because this text is
 # never run through str.format — the per-report templates below still are.
 REPORT_STYLE_SYSTEM = (
-    STYLE_RULES.replace("{{", "{").replace("}}", "}")
-    .replace("REQUIRED SENTENCES below", "REQUIRED SENTENCES provided")
+    STYLE_RULES.replace("{{", "{").replace("}}", "}").replace("REQUIRED SENTENCES below", "REQUIRED SENTENCES provided")
 )
 
-FIRST_PERSON_PROMPT = """You are writing the STATEMENT OF FACTS narrative of an ADC 005
+FIRST_PERSON_PROMPT = (
+    """You are writing the STATEMENT OF FACTS narrative of an ADC 005
 incident report, in the first person, AS this officer:
 
 REPORTING OFFICER: {rank} {officer_first} {officer_last}
@@ -110,12 +110,15 @@ PER-INMATE DISPOSITION — after the narrative, add one line per inmate:
 Different inmates may have different outcomes — state each individually. ALWAYS use the full
 Last, First ADC# form in the disposition line since it is the final reference for the record.
 
-""" + """
+"""
+    + """
 
 Output the narrative paragraph(s) only. No header, no signature block.
 Include the per-inmate disposition lines at the end."""
+)
 
-SUPERVISOR_SUMMARY_PROMPT = """You are writing the third-person supervisor summary of an
+SUPERVISOR_SUMMARY_PROMPT = (
+    """You are writing the third-person supervisor summary of an
 ADC incident. Convert the events to third person: never 'I' outside quotation marks.
 Refer to all staff as '{{Rank}} {{Name}}'.
 
@@ -133,12 +136,15 @@ Opening formula: 'On {date} at approximately {time} {opening_actor} <was notifie
 state {opening_actor} personally witnessed the event — never write 'observed' for an
 event that was reported to him.
 
-""" + """
+"""
+    + """
 
 Output the summary paragraph(s) only.
 Include per-inmate disposition at the end."""
+)
 
-DISCIPLINARY_PROMPT = """You are writing the disciplinary report narrative for an ADC
+DISCIPLINARY_PROMPT = (
+    """You are writing the disciplinary report narrative for an ADC
 incident, first person as {rank} {officer_first} {officer_last}. Same events as the
 first-person report, focused on the rule-violating conduct.
 
@@ -155,11 +161,14 @@ When an inmate is charged with more than one code, make it plural and list them:
 Note 'inmate' is lowercase here (it is mid-sentence) and 'pending DCR' is part of
 the same sentence — not a separate 'Pending DCR.' line.
 
-""" + """
+"""
+    + """
 
 Output the narrative only."""
+)
 
-INVESTIGATION_PROMPT = """You are writing the investigation report for an ADC incident,
+INVESTIGATION_PROMPT = (
+    """You are writing the investigation report for an ADC incident,
 first person as {rank} {officer_first} {officer_last}.
 
 This report exists ONLY because the officer conducted an investigation. Write what
@@ -186,11 +195,14 @@ STRUCTURE:
 
 Do NOT add a charging sentence — the disciplinary report carries the charges.
 
-""" + """
+"""
+    + """
 
 Output the investigation narrative only. No header, no signature block."""
+)
 
-COVER_LETTER_PROMPT = """You are writing the body paragraph of a shift supervisor's
+COVER_LETTER_PROMPT = (
+    """You are writing the body paragraph of a shift supervisor's
 incident cover letter. The To/From/Re/Date header is added by code — do NOT write it.
 
 SUPERVISOR (letter author): {rank} {officer_first} {officer_last}
@@ -204,6 +216,8 @@ ESTABLISHED FACTS:
 REQUIRED SENTENCES (insert verbatim where they fit):
 {auto_content}
 
-""" + """
+"""
+    + """
 
 Output one narrative paragraph only."""
+)

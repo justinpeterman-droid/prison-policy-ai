@@ -4,6 +4,7 @@ Storage lives in backend/reports/roster_store.py: GCS when ROSTER_BUCKET is
 set, the packaged JSON file otherwise. Every mutation goes through
 `roster_store.update()` so concurrent edits can't silently drop each other.
 """
+
 import logging
 
 from flask import Blueprint, request, jsonify
@@ -68,13 +69,17 @@ def add_staff():
         # Duplicate check runs inside the mutation so it is re-evaluated after a
         # write conflict — otherwise two simultaneous adds of the same employee
         # number would both pass a check made before either wrote.
-        if any(s.get("employee_number", "").strip().lower() == emp.lower()
-               for s in data.get("staff", [])):
+        if any(s.get("employee_number", "").strip().lower() == emp.lower() for s in data.get("staff", [])):
             return "duplicate"
-        data.setdefault("staff", []).append({
-            "rank": rank, "first": first, "last": last,
-            "employee_number": emp, "shift": shift,
-        })
+        data.setdefault("staff", []).append(
+            {
+                "rank": rank,
+                "first": first,
+                "last": last,
+                "employee_number": emp,
+                "shift": shift,
+            }
+        )
         return "added"
 
     if roster_store.update(mutate) == "duplicate":
@@ -89,10 +94,7 @@ def add_staff():
 def update_staff(emp_id):
     """Update a staff member's fields (shift reassign, name fix, etc.)."""
     body = request.get_json(silent=True) or {}
-    new_employee_number = (
-        body["employee_number"].strip()
-        if "employee_number" in body else None
-    )
+    new_employee_number = body["employee_number"].strip() if "employee_number" in body else None
 
     # Validate before mutating so a bad shift is rejected without a round-trip.
     new_shift = body["shift"].strip().upper() if "shift" in body else None
@@ -101,16 +103,11 @@ def update_staff(emp_id):
 
     def mutate(data: dict):
         for person in data.get("staff", []):
-            if (
-                (person.get("employee_number") or "").strip().casefold()
-                == (emp_id or "").strip().casefold()
-            ):
+            if (person.get("employee_number") or "").strip().casefold() == (emp_id or "").strip().casefold():
                 if new_employee_number is not None:
                     candidate = new_employee_number.casefold()
                     if any(
-                        other is not person
-                        and (other.get("employee_number") or "").strip().casefold()
-                        == candidate
+                        other is not person and (other.get("employee_number") or "").strip().casefold() == candidate
                         for other in data.get("staff", [])
                     ):
                         return "duplicate"
@@ -126,9 +123,11 @@ def update_staff(emp_id):
 
     result = roster_store.update(mutate)
     if result == "duplicate":
-        return jsonify({
-            "error": f"Employee number {new_employee_number} already exists.",
-        }), 409
+        return jsonify(
+            {
+                "error": f"Employee number {new_employee_number} already exists.",
+            }
+        ), 409
     if result == "missing":
         return jsonify({"error": f"Staff member {emp_id} not found."}), 404
 
@@ -139,6 +138,7 @@ def update_staff(emp_id):
 @roster_bp.route("/api/roster/staff/<emp_id>", methods=["DELETE"])
 def delete_staff(emp_id):
     """Remove a staff member from the roster."""
+
     def mutate(data: dict):
         staff = data.get("staff", [])
         kept = [s for s in staff if s.get("employee_number", "").strip() != emp_id.strip()]

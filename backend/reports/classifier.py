@@ -1,4 +1,5 @@
 """Incident classifier — determines type, forms needed, persons, charges."""
+
 import json
 import re
 import logging
@@ -12,8 +13,14 @@ from backend.reports.schema import load_checklist
 logger = logging.getLogger(__name__)
 
 VALID_CATEGORIES = {
-    "contraband", "inmate_fight", "staff_assault", "forced_cell_movement",
-    "prea", "incident_no_disciplinary", "use_of_force", "medical_emergency",
+    "contraband",
+    "inmate_fight",
+    "staff_assault",
+    "forced_cell_movement",
+    "prea",
+    "incident_no_disciplinary",
+    "use_of_force",
+    "medical_emergency",
     "other_rule_violation",
 }
 
@@ -31,15 +38,30 @@ CLASSIFIER_RESPONSE_SCHEMA = {
             "items": {
                 "type": "OBJECT",
                 "properties": {
-                    "role": {"type": "STRING",
-                             "enum": ["reporting_officer", "inmate",
-                                      "security_staff", "witness"]},
-                    "name": {"type": "STRING", "nullable": True,
-                             "description": "Last, First"},
-                    "rank": {"type": "STRING", "nullable": True,
-                             "description": "Cpl. / Sgt. / Lt. / Cpt. — staff only"},
-                    "adc_number": {"type": "STRING", "nullable": True,
-                                   "description": "inmates only, digits"},
+                    "role": {
+                        "type": "STRING",
+                        "enum": [
+                            "reporting_officer",
+                            "inmate",
+                            "security_staff",
+                            "witness",
+                        ],
+                    },
+                    "name": {
+                        "type": "STRING",
+                        "nullable": True,
+                        "description": "Last, First",
+                    },
+                    "rank": {
+                        "type": "STRING",
+                        "nullable": True,
+                        "description": "Cpl. / Sgt. / Lt. / Cpt. — staff only",
+                    },
+                    "adc_number": {
+                        "type": "STRING",
+                        "nullable": True,
+                        "description": "inmates only, digits",
+                    },
                 },
                 "required": ["role"],
             },
@@ -49,10 +71,15 @@ CLASSIFIER_RESPONSE_SCHEMA = {
             "items": {
                 "type": "OBJECT",
                 "properties": {
-                    "code": {"type": "STRING",
-                             "description": "rule number from the charge catalog"},
-                    "inmate": {"type": "STRING", "nullable": True,
-                               "description": "last name of the inmate charged"},
+                    "code": {
+                        "type": "STRING",
+                        "description": "rule number from the charge catalog",
+                    },
+                    "inmate": {
+                        "type": "STRING",
+                        "nullable": True,
+                        "description": "last name of the inmate charged",
+                    },
                     "description": {"type": "STRING", "nullable": True},
                 },
                 "required": ["code"],
@@ -77,6 +104,7 @@ def _category_label(incident_type: str) -> str:
     except Exception:
         pass
     return incident_type.replace("_", " ").title()
+
 
 # Classification is a short call; fail fast rather than stalling the wizard.
 CLASSIFY_TIMEOUT_MS = 60_000
@@ -140,8 +168,10 @@ def classify_incident(notes: str) -> dict:
         # Constrain to the valid categories (belt and braces — the response
         # schema enum should already make an invalid one impossible)
         if result.get("incident_type") not in VALID_CATEGORIES:
-            logger.warning("Classifier returned invalid category %r — defaulting to other_rule_violation",
-                           result.get("incident_type"))
+            logger.warning(
+                "Classifier returned invalid category %r — defaulting to other_rule_violation",
+                result.get("incident_type"),
+            )
             result["incident_type"] = "other_rule_violation"
         # Always add the human-readable label
         result["label"] = _category_label(result["incident_type"])
@@ -152,33 +182,36 @@ def classify_incident(notes: str) -> dict:
             if isinstance(c, str):
                 # Old format: just a code string
                 if c in charge_catalog:
-                    normalized_charges.append({
-                        "code": c,
-                        "inmate": "",
-                        "description": charge_catalog[c]["description"],
-                    })
+                    normalized_charges.append(
+                        {
+                            "code": c,
+                            "inmate": "",
+                            "description": charge_catalog[c]["description"],
+                        }
+                    )
             elif isinstance(c, dict):
                 code = c.get("code", "")
                 if code in charge_catalog:
-                    normalized_charges.append({
-                        "code": code,
-                        "inmate": c.get("inmate", ""),
-                        "description": c.get("description") or charge_catalog[code]["description"],
-                    })
+                    normalized_charges.append(
+                        {
+                            "code": code,
+                            "inmate": c.get("inmate", ""),
+                            "description": c.get("description") or charge_catalog[code]["description"],
+                        }
+                    )
         result["charges_applicable"] = normalized_charges
         # Fill in charge descriptions from catalog (backward compat for UI)
-        result["charge_descriptions"] = {
-            c["code"]: c["description"]
-            for c in normalized_charges
-        }
+        result["charge_descriptions"] = {c["code"]: c["description"] for c in normalized_charges}
         return result
     except (json.JSONDecodeError, KeyError) as e:
         # With response_schema this should be unreachable. If it ever fires,
         # the officer is about to get the wrong checklist and the wrong gap
         # questions, so make it loud and mark the result as degraded rather
         # than passing off a guess as a real classification.
-        logger.error("Classification JSON parse failed despite response_schema: "
-                     "%s — falling back to other_rule_violation", e)
+        logger.error(
+            "Classification JSON parse failed despite response_schema: %s — falling back to other_rule_violation",
+            e,
+        )
         return {
             "incident_type": "other_rule_violation",
             "label": _category_label("other_rule_violation"),

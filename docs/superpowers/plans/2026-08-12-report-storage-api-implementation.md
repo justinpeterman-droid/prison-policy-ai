@@ -585,10 +585,14 @@ git commit -m "feat: add durable idempotent ai jobs"
 - Create: `backend/worker/__init__.py`
 - Create: `backend/worker/app.py`
 - Create: `backend/worker/routes.py`
+- Create: `backend/worker/metrics.py`
 - Create: `scripts/dispatch_outbox.py`
 - Modify: `Dockerfile`
+- Modify: `requirements.txt`
+- Modify: `backend/requirements.txt`
 - Create: `tests/unit/test_task_dispatcher.py`
 - Create: `tests/unit/test_worker_routes.py`
+- Create: `tests/unit/test_worker_metrics.py`
 - Create: `tests/integration/test_worker_pipeline.py`
 
 **Interfaces:**
@@ -626,20 +630,20 @@ Cloud Run IAM is the worker authentication boundary; the application additionall
 
 - [ ] **Step 5: Document the narrow provider-crash limitation in code and metrics**
 
-The dispatcher/job idempotency prevents duplicate submissions and durable result application. A worker process crash after Google accepts a request but before the result commits can repeat a provider call; increment `ai_provider_repeat_risk_total` on recovery attempts and never claim exactly-once external billing.
+The dispatcher/job idempotency prevents duplicate submissions and durable result application. A worker process crash after Google accepts a request but before the result commits can repeat a provider call; on a recovered provider-repeat risk, emit exactly one Cloud Monitoring custom counter point of type `custom.googleapis.com/ai_provider_repeat_risk_total`, with the sole metric label `job_type` restricted to `classify`, `extract`, `generate`, or `disciplinary`; never include identity, job/request IDs, or content and never claim exactly-once external billing. The metric adapter uses dependency injection in offline tests and creates the Google client lazily only in deployed worker execution.
 
 - [ ] **Step 6: Update Docker image entry points and run tests**
 
 Copy `alembic.ini`, `migrations/`, and required root assets into the image. Keep API default command; Terraform supplies the worker command `gunicorn --bind :$PORT --workers 1 --threads 4 --timeout 900 "backend.worker.app:create_worker_app()"`.
 
-Run: `python -m pytest tests/unit/test_task_dispatcher.py tests/unit/test_worker_routes.py tests/integration/test_worker_pipeline.py tests/unit/test_retry.py -v`
+Run: `python -m pytest tests/unit/test_task_dispatcher.py tests/unit/test_worker_routes.py tests/unit/test_worker_metrics.py tests/integration/test_worker_pipeline.py tests/unit/test_retry.py -v`
 
 Expected: PASS without Google credentials; fake Tasks and fake report engine receive one call.
 
 - [ ] **Step 7: Commit dispatcher and worker**
 
 ```bash
-git add backend/jobs/dispatcher.py backend/worker/__init__.py backend/worker/app.py backend/worker/routes.py scripts/dispatch_outbox.py Dockerfile tests/unit/test_task_dispatcher.py tests/unit/test_worker_routes.py tests/integration/test_worker_pipeline.py
+git add backend/jobs/dispatcher.py backend/worker/__init__.py backend/worker/app.py backend/worker/routes.py backend/worker/metrics.py scripts/dispatch_outbox.py Dockerfile requirements.txt backend/requirements.txt tests/unit/test_task_dispatcher.py tests/unit/test_worker_routes.py tests/unit/test_worker_metrics.py tests/integration/test_worker_pipeline.py
 git commit -m "feat: add private report job worker"
 ```
 

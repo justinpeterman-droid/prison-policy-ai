@@ -4,6 +4,7 @@ The adapters preserve the legacy browser payloads while allowing the Access
 worker to inject a SQL-backed staff provider. They do not change prompts,
 retrieval, validation, generation, repair, or fabrication checks.
 """
+
 import json
 import logging
 import re
@@ -34,8 +35,12 @@ MSF_REFERENCE = "MSF 205"
 SEE_ABOVE = "Same as above"
 FIRST_NAME_NEEDED = "[FIRST NAME NEEDED]"
 MEDICAL_SEEN_CATEGORIES = {
-    "inmate_fight", "staff_assault", "forced_cell_movement", "prea",
-    "use_of_force", "medical_emergency",
+    "inmate_fight",
+    "staff_assault",
+    "forced_cell_movement",
+    "prea",
+    "use_of_force",
+    "medical_emergency",
 }
 MEDICAL_INJURY_DISPOSITIONS = {
     "Seen by Infirmary staff",
@@ -46,7 +51,10 @@ OFFICER_FORCE_CATEGORIES = {"staff_assault", "use_of_force"}
 FIGHT_RH_CATEGORIES = {"inmate_fight", "staff_assault", "use_of_force"}
 RESTRICTIVE_HOUSING = "Restrictive Housing"
 RESUMABLE_REPORT_KEYS = (
-    "first_person", "supervisor_summary", "cover_letter", "investigation",
+    "first_person",
+    "supervisor_summary",
+    "cover_letter",
+    "investigation",
 )
 
 
@@ -80,15 +88,17 @@ def _normalize_location(value):
 def _titlecase(value):
     if not value:
         return value
-    return " ".join(word[:1].upper() + word[1:] if word else word
-                    for word in str(value).split())
+    return " ".join(word[:1].upper() + word[1:] if word else word for word in str(value).split())
 
 
 def _to_12h(value):
     if not value:
         return value
     core = re.sub(
-        r"^(approximately|approx\.?|~)\s*", "", str(value).strip(), flags=re.I,
+        r"^(approximately|approx\.?|~)\s*",
+        "",
+        str(value).strip(),
+        flags=re.I,
     ).strip()
     match = re.match(r"^(\d{1,2}):?(\d{2})\s*([ap])\.?\s*m\.?$", core, re.I)
     if match:
@@ -168,15 +178,15 @@ def _format_inmates(slots: dict) -> str:
             continue
         first = _titlecase(person.get("first")) or FIRST_NAME_NEEDED
         values.append(
-            f"Inmate {_titlecase(person.get('last', ''))}, {first} "
-            f"ADC#{person.get('adc_number') or 'UNKNOWN'}"
+            f"Inmate {_titlecase(person.get('last', ''))}, {first} ADC#{person.get('adc_number') or 'UNKNOWN'}"
         )
     return ", ".join(values)
 
 
 def _inmates_missing_first(slots: dict) -> list:
     return [
-        person.get("last") for person in slots.get("persons", [])
+        person.get("last")
+        for person in slots.get("persons", [])
         if person.get("role") == "inmate" and person.get("last") and not person.get("first")
     ]
 
@@ -187,15 +197,13 @@ def _apply_first_name_answers(slots: dict, answers: dict) -> None:
             continue
         last = key.split("::", 1)[1]
         for person in slots.get("persons", []):
-            if (person.get("role") == "inmate" and person.get("last") == last
-                    and not person.get("first")):
+            if person.get("role") == "inmate" and person.get("last") == last and not person.get("first"):
                 person["first"] = _titlecase(value)
 
 
 def _format_employees(slots: dict) -> str:
     return ", ".join(
-        f"{person.get('rank', '')} {_titlecase(person.get('first', ''))} "
-        f"{_titlecase(person.get('last', ''))}".strip()
+        f"{person.get('rank', '')} {_titlecase(person.get('first', ''))} {_titlecase(person.get('last', ''))}".strip()
         for person in slots.get("persons", [])
         if person.get("role") == "security_staff" and person.get("last")
     )
@@ -207,20 +215,43 @@ def _parse_name(full_name: str) -> tuple[str, str, str]:
     parts = full_name.split(",", 1)
     last = parts[0].strip()
     given = parts[1].strip().split() if len(parts) > 1 else []
-    return last, given[0] if given else "", " ".join(given[1:]) if len(given) > 1 else ""
+    return (
+        last,
+        given[0] if given else "",
+        " ".join(given[1:]) if len(given) > 1 else "",
+    )
 
 
 def _parse_rank(full_name: str) -> str:
     if not full_name:
         return ""
     ranks = [
-        "Cpt.", "Lt.", "Sgt.", "Cpl.", "Ofc.", "Officer", "Capt.",
-        "Captain", "Lieutenant", "Sergeant", "Corporal", "Major", "Maj.",
-        "Col.", "Colonel", "Warden", "Deputy Warden",
+        "Cpt.",
+        "Lt.",
+        "Sgt.",
+        "Cpl.",
+        "Ofc.",
+        "Officer",
+        "Capt.",
+        "Captain",
+        "Lieutenant",
+        "Sergeant",
+        "Corporal",
+        "Major",
+        "Maj.",
+        "Col.",
+        "Colonel",
+        "Warden",
+        "Deputy Warden",
     ]
     abbreviations = {
-        "Corporal": "Cpl.", "Sergeant": "Sgt.", "Captain": "Cpt.",
-        "Lieutenant": "Lt.", "Colonel": "Col.", "Major": "Maj.", "Officer": "Ofc.",
+        "Corporal": "Cpl.",
+        "Sergeant": "Sgt.",
+        "Captain": "Cpt.",
+        "Lieutenant": "Lt.",
+        "Colonel": "Col.",
+        "Major": "Maj.",
+        "Officer": "Ofc.",
     }
     for rank in sorted(ranks, key=len, reverse=True):
         if full_name.startswith(rank) or full_name.startswith(rank.lower().capitalize()):
@@ -233,8 +264,7 @@ def _apply_gap_defaults(category: str, gaps: list) -> None:
         slot = gap.get("slot")
         if slot == "medical_disposition":
             gap["default"] = (
-                "Seen by Infirmary staff"
-                if category in MEDICAL_SEEN_CATEGORIES else "N/A - no injuries reported"
+                "Seen by Infirmary staff" if category in MEDICAL_SEEN_CATEGORIES else "N/A - no injuries reported"
             )
         elif slot == "drug_test_disposition":
             gap["default"] = "N/A"
@@ -253,7 +283,9 @@ def classify_incident_notes(notes: str) -> dict:
 
 
 def extract_incident_notes(
-    notes: str, category: str, staff_provider: StaffProvider,
+    notes: str,
+    category: str,
+    staff_provider: StaffProvider,
 ) -> dict:
     slots = extract_slots(notes, category)
     if not slots.get("date"):
@@ -264,11 +296,10 @@ def extract_incident_notes(
         cleaned, valid = _validate_and_clean_time(slots["time"])
         slots["time"] = cleaned if valid else _to_12h(slots["time"])
 
-    roster_gaps = []
+    roster_gaps: list[dict] = []
     persons = slots.get("persons", [])
     if persons:
-        persons, roster_gaps = resolve_staff_from_persons(
-            persons, staff_provider=staff_provider)
+        persons, roster_gaps = resolve_staff_from_persons(persons, staff_provider=staff_provider)
         slots["persons"] = persons
         for person in persons:
             if person.get("role") == "security_staff" and person.get("_roster_match"):
@@ -281,33 +312,44 @@ def extract_incident_notes(
                 break
 
     if not slots.get("inmates_involved") and any(
-        person.get("role") == "inmate" and person.get("last")
-        for person in slots.get("persons", [])
+        person.get("role") == "inmate" and person.get("last") for person in slots.get("persons", [])
     ):
         slots["inmates_involved"] = _format_inmates(slots)
     if not slots.get("employees_involved") and any(
-        person.get("role") == "security_staff" and person.get("last")
-        for person in slots.get("persons", [])
+        person.get("role") == "security_staff" and person.get("last") for person in slots.get("persons", [])
     ):
         slots["employees_involved"] = _format_employees(slots)
 
     gap_result = find_gaps(category, slots)
     gaps = list(gap_result.get("gaps", [])) + roster_gaps
     if not slots.get("shift_assignment"):
-        gaps.append({
-            "slot": "shift_assignment", "blocking": False, "answer_type": "text",
-            "question": "Shift assignment? (from the unit roster)",
-        })
+        gaps.append(
+            {
+                "slot": "shift_assignment",
+                "blocking": False,
+                "answer_type": "text",
+                "question": "Shift assignment? (from the unit roster)",
+            }
+        )
     if _is_first_person_unnamed(notes, slots):
-        gaps.insert(0, {
-            "slot": "officer_name", "blocking": True, "answer_type": "text",
-            "question": "Who is the reporting officer? (name not found in the notes)",
-        })
+        gaps.insert(
+            0,
+            {
+                "slot": "officer_name",
+                "blocking": True,
+                "answer_type": "text",
+                "question": "Who is the reporting officer? (name not found in the notes)",
+            },
+        )
     for last in _inmates_missing_first(slots):
-        gaps.append({
-            "slot": f"inmate_first::{last}", "blocking": False, "answer_type": "text",
-            "question": f"First name for Inmate {last}? (leave blank if unknown)",
-        })
+        gaps.append(
+            {
+                "slot": f"inmate_first::{last}",
+                "blocking": False,
+                "answer_type": "text",
+                "question": f"First name for Inmate {last}? (leave blank if unknown)",
+            }
+        )
     _apply_gap_defaults(category, gaps)
     return {
         "slots": slots,
@@ -335,10 +377,9 @@ def _prepare_generation(data: dict, staff_provider: StaffProvider) -> dict:
         elif key.startswith("officer_fields_") and value:
             hint = key.replace("officer_fields_", "")
             for person in slots.get("persons", []):
-                if (person.get("role") == "security_staff" and (
-                    person.get("last", "").lower() == hint.lower()
-                    or person.get("name", "").lower() == hint.lower()
-                )):
+                if person.get("role") == "security_staff" and (
+                    person.get("last", "").lower() == hint.lower() or person.get("name", "").lower() == hint.lower()
+                ):
                     person["first"] = _titlecase(str(value))
                     break
 
@@ -348,8 +389,7 @@ def _prepare_generation(data: dict, staff_provider: StaffProvider) -> dict:
         slots["time"] = _to_12h(slots["time"])
     last_three = slots.get("incident_number_last3") or answers.get("incident_number_last3")
     if last_three and not slots.get("incident_number"):
-        slots["incident_number"] = _build_incident_number(
-            last_three, incident_date=slots.get("date"))
+        slots["incident_number"] = _build_incident_number(last_three, incident_date=slots.get("date"))
     if not slots.get("drug_test_disposition"):
         slots["drug_test_disposition"] = "N/A"
     charges = data.get("charges")
@@ -361,8 +401,7 @@ def _prepare_generation(data: dict, staff_provider: StaffProvider) -> dict:
             slots["escort_destination"] = RESTRICTIVE_HOUSING
         elif "restrictive" not in destination.lower():
             slots["escort_destination"] = (
-                f"Infirmary, then {RESTRICTIVE_HOUSING}"
-                if "infirmary" in destination.lower() else RESTRICTIVE_HOUSING
+                f"Infirmary, then {RESTRICTIVE_HOUSING}" if "infirmary" in destination.lower() else RESTRICTIVE_HOUSING
             )
 
     gap_result = find_gaps(category, slots)
@@ -382,7 +421,7 @@ def _prepare_generation(data: dict, staff_provider: StaffProvider) -> dict:
         name = str(officer_name).strip()
         rank = _parse_rank(name)
         if rank:
-            name = name[len(rank):].strip()
+            name = name[len(rank) :].strip()
         if "," in name:
             last, first, _middle = _parse_name(name)
         else:
@@ -394,21 +433,22 @@ def _prepare_generation(data: dict, staff_provider: StaffProvider) -> dict:
             slots["officer_first"] = first
         if rank:
             slots["rank"] = rank
-    elif reporters := [
-        person for person in slots.get("persons", [])
-        if person.get("role") == "security_staff"
-    ]:
+    elif reporters := [person for person in slots.get("persons", []) if person.get("role") == "security_staff"]:
+        slots = bind_reporter(slots, reporters[0])
         reporter = reporters[0]
-        slots = bind_reporter(slots, reporter)
 
     if reporter and reporter.get("shift"):
         slots["shift_assignment"] = _format_shift(reporter["shift"])
     elif slots.get("shift_assignment"):
         slots["shift_assignment"] = _format_shift(slots["shift_assignment"])
     return {
-        "notes": notes, "category": category, "slots": slots,
-        "answers": answers, "auto_content": auto_content,
-        "markers": markers, "officers": officers,
+        "notes": notes,
+        "category": category,
+        "slots": slots,
+        "answers": answers,
+        "auto_content": auto_content,
+        "markers": markers,
+        "officers": officers,
     }
 
 
@@ -447,23 +487,26 @@ def _finalize_generation(reports: dict, ctx: dict) -> dict:
         "officer_treatment": officer_injury,
         "recommendation": reports.get("recommendation", ""),
         "narrative": reports.get("first_person", ""),
-        "reporting_employee_signature": (
-            f"{slots.get('officer_first', '')} {slots.get('officer_last', '')}".strip()),
+        "reporting_employee_signature": (f"{slots.get('officer_first', '')} {slots.get('officer_last', '')}".strip()),
         "supervisor_signature": "",
     }
     all_text = " ".join(value for value in reports.values() if isinstance(value, str))
     derived = [slots.get("time"), slots.get("date"), slots.get("incident_number")]
-    flags = invented_facts(
-        all_text, ctx["notes"], ctx["answers"], allow=derived)
-    style = summarize(validate_all(
-        reports,
-        officer={
-            "rank": slots.get("rank"), "first": slots.get("officer_first"),
-            "last": slots.get("officer_last"),
-        },
-        notes=ctx["notes"], auto_content=ctx["auto_content"], allow=derived,
-        answers=ctx["answers"],
-    ))
+    flags = invented_facts(all_text, ctx["notes"], ctx["answers"], allow=derived)
+    style = summarize(
+        validate_all(
+            reports,
+            officer={
+                "rank": slots.get("rank"),
+                "first": slots.get("officer_first"),
+                "last": slots.get("officer_last"),
+            },
+            notes=ctx["notes"],
+            auto_content=ctx["auto_content"],
+            allow=derived,
+            answers=ctx["answers"],
+        )
+    )
     return {
         "generation_errors": generation_errors,
         "reports": reports,
@@ -477,41 +520,50 @@ def _finalize_generation(reports: dict, ctx: dict) -> dict:
 
 
 def _generate_report_set(
-    payload: dict, *, staff_provider: StaffProvider,
-    generate_all=generate_all_reports, charges_present=has_charges,
+    payload: dict,
+    *,
+    staff_provider: StaffProvider,
+    generate_all=generate_all_reports,
+    charges_present=has_charges,
 ) -> dict:
     context = _prepare_generation(payload, staff_provider)
     defer = bool(payload.get("defer_disciplinary"))
     reports = generate_all(
-        context["slots"], context["category"],
-        auto_content=context.get("auto_content"), include_disciplinary=not defer,
+        context["slots"],
+        context["category"],
+        auto_content=context.get("auto_content"),
+        include_disciplinary=not defer,
     )
     result = _finalize_generation(reports, context)
-    result["disciplinary_deferred"] = bool(
-        defer and charges_present(context["slots"]))
+    result["disciplinary_deferred"] = bool(defer and charges_present(context["slots"]))
     return result
 
 
 def generate_report_set(payload: dict, *, staff_provider: StaffProvider) -> dict:
     return _generate_report_set(
-        payload, staff_provider=staff_provider,
-        generate_all=generate_all_reports, charges_present=has_charges,
+        payload,
+        staff_provider=staff_provider,
+        generate_all=generate_all_reports,
+        charges_present=has_charges,
     )
 
 
 def _generate_disciplinary_report(
-    payload: dict, *, staff_provider: StaffProvider,
+    payload: dict,
+    *,
+    staff_provider: StaffProvider,
     generate_only=generate_disciplinary_only,
 ) -> dict:
     context = _prepare_generation(payload, staff_provider)
     prior = payload.get("reports") or {}
-    reports = {
-        key: value for key, value in prior.items()
-        if key in RESUMABLE_REPORT_KEYS and isinstance(value, str)
-    }
-    reports.update(generate_only(
-        context["slots"], reports.get("first_person", ""), context["auto_content"],
-    ))
+    reports = {key: value for key, value in prior.items() if key in RESUMABLE_REPORT_KEYS and isinstance(value, str)}
+    reports.update(
+        generate_only(
+            context["slots"],
+            reports.get("first_person", ""),
+            context["auto_content"],
+        )
+    )
     result = _finalize_generation(reports, context)
     result["disciplinary_deferred"] = False
     return result
@@ -519,13 +571,18 @@ def _generate_disciplinary_report(
 
 def generate_disciplinary_report(payload: dict, *, staff_provider: StaffProvider) -> dict:
     return _generate_disciplinary_report(
-        payload, staff_provider=staff_provider,
+        payload,
+        staff_provider=staff_provider,
         generate_only=generate_disciplinary_only,
     )
 
 
 __all__ = [
-    "FileStaffProvider", "SqlStaffProvider", "StaffProvider",
-    "classify_incident_notes", "extract_incident_notes",
-    "generate_report_set", "generate_disciplinary_report",
+    "FileStaffProvider",
+    "SqlStaffProvider",
+    "StaffProvider",
+    "classify_incident_notes",
+    "extract_incident_notes",
+    "generate_report_set",
+    "generate_disciplinary_report",
 ]

@@ -23,6 +23,7 @@ Set ROSTER_BUCKET to enable GCS. Left unset, everything below runs against the
 local file exactly as before, so dev and the test suite need no bucket, no
 credentials and no network.
 """
+
 import json
 import logging
 import os
@@ -32,7 +33,9 @@ import time
 from pathlib import Path
 
 from backend.pipeline.config import (
-    ROSTER_BUCKET, ROSTER_CACHE_TTL, ROSTER_OBJECT,
+    ROSTER_BUCKET,
+    ROSTER_CACHE_TTL,
+    ROSTER_OBJECT,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,7 +44,7 @@ logger = logging.getLogger(__name__)
 # yet, and as the whole story when no bucket is configured.
 SEED_PATH = Path(__file__).parent.parent.parent / "templates" / "staff_roster.json"
 
-EMPTY = {"shifts": {}, "staff": []}
+EMPTY: dict[str, dict | list] = {"shifts": {}, "staff": []}
 
 # GCS sentinel: `if_generation_match=0` means "only if the object is absent",
 # which is exactly the create-once case.
@@ -72,8 +75,9 @@ def _read_seed() -> dict:
 
 
 def _blob():
-    from google.cloud import storage  # imported lazily — optional dependency
-    return storage.Client().bucket(ROSTER_BUCKET).blob(ROSTER_OBJECT)
+    from google.cloud.storage import Client  # imported lazily — optional dependency
+
+    return Client().bucket(ROSTER_BUCKET).blob(ROSTER_OBJECT)
 
 
 def _fetch() -> tuple[dict, int | None]:
@@ -90,6 +94,7 @@ def _fetch() -> tuple[dict, int | None]:
         return dict(EMPTY), None
 
     from google.api_core.exceptions import NotFound
+
     blob = _blob()
     try:
         text = blob.download_as_text()
@@ -97,8 +102,7 @@ def _fetch() -> tuple[dict, int | None]:
         # First run against a fresh bucket: hand back the packaged seed so the
         # app has shift definitions to work with. Nothing is written until a
         # real edit comes through update().
-        logger.info("No roster object in gs://%s yet — using the packaged seed",
-                    ROSTER_BUCKET)
+        logger.info("No roster object in gs://%s yet — using the packaged seed", ROSTER_BUCKET)
         return _read_seed(), _ABSENT
     try:
         return json.loads(text), blob.generation
@@ -154,10 +158,8 @@ def _write_local(payload: str) -> None:
             staged.flush()
             os.fsync(staged.fileno())
         os.replace(temp_path, SEED_PATH)
-        temp_path = None
     finally:
-        if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
+        temp_path.unlink(missing_ok=True)
 
 
 def _write(data: dict, generation: int | None) -> None:
@@ -166,7 +168,8 @@ def _write(data: dict, generation: int | None) -> None:
         _write_local(payload)
         return
     _blob().upload_from_string(
-        payload, content_type="application/json",
+        payload,
+        content_type="application/json",
         if_generation_match=generation,
     )
 
@@ -213,8 +216,7 @@ def update(mutate):
                 # operator seeing "PreconditionFailed" has no way to tell a
                 # contention problem from a misconfigured bucket.
                 raise RuntimeError(
-                    f"Roster write kept losing to concurrent writers after "
-                    f"{_MAX_ATTEMPTS} attempts"
+                    f"Roster write kept losing to concurrent writers after {_MAX_ATTEMPTS} attempts"
                 ) from exc
             # Someone else wrote first. Re-read and re-apply rather than
             # clobbering their change.

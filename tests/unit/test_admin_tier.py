@@ -4,6 +4,7 @@ Both codes go into the same login box. The roster carries real staff names and
 employee numbers, so a regular user shouldn't just be blocked from it — they
 shouldn't be able to tell it's there. Hence 404 rather than 403, and no nav link.
 """
+
 import pytest
 
 from backend.webapp import app as app_mod
@@ -29,18 +30,30 @@ def _client(app, code=None):
 
 # ── The regular tier cannot see the roster ───────────────────────────────
 
-@pytest.mark.parametrize("path", [
-    "/roster", "/api/roster", "/api/roster/lookup?q=x",
-    "/review-lab", "/api/review-lab/submissions",
-])
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/roster",
+        "/api/roster",
+        "/api/roster/lookup?q=x",
+        "/review-lab",
+        "/api/review-lab/submissions",
+    ],
+)
 def test_regular_users_get_404_on_admin_paths(tiered, path):
     assert _client(tiered, REGULAR).get(path).status_code == 404
 
 
 def test_regular_users_cannot_write_to_the_roster(tiered):
     c = _client(tiered, REGULAR)
-    assert c.post("/api/roster/staff", json={"last": "X", "employee_number": "1",
-                                             "shift": "A"}).status_code == 404
+    assert (
+        c.post(
+            "/api/roster/staff",
+            json={"last": "X", "employee_number": "1", "shift": "A"},
+        ).status_code
+        == 404
+    )
     assert c.put("/api/roster/staff/100411", json={"shift": "B"}).status_code == 404
     assert c.delete("/api/roster/staff/100411").status_code == 404
 
@@ -59,6 +72,7 @@ def test_the_roster_link_is_hidden_from_regular_users(tiered, page):
 
 # ── The admin tier gets everything ───────────────────────────────────────
 
+
 @pytest.mark.parametrize("path", ["/roster", "/api/roster"])
 def test_admins_reach_the_roster(tiered, path):
     assert _client(tiered, ADMIN).get(path).status_code == 200
@@ -71,6 +85,7 @@ def test_the_roster_link_is_shown_to_admins(tiered, page):
 
 
 # ── Login ────────────────────────────────────────────────────────────────
+
 
 def test_either_code_logs_in(tiered):
     for code in (REGULAR, ADMIN):
@@ -115,6 +130,7 @@ def test_logged_out_users_are_redirected_not_404ed(tiered):
 
 
 # ── Configuration edge cases ─────────────────────────────────────────────
+
 
 def test_without_an_admin_code_the_roster_is_closed_to_everyone(monkeypatch):
     """Fail closed. An unset ADMIN_CODE must not silently mean 'everyone is an

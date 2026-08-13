@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Sanitize chunk IDs and re-export for RAG import."""
+
 import json
 from pathlib import Path
 

@@ -12,6 +12,7 @@ Three things were costing every page load more than they needed to:
 which then makes the year-long immutable policy in (1) safe: a changed file gets
 a new URL, so a stale cache entry is unreachable rather than merely unlikely.
 """
+
 from __future__ import annotations
 
 import gzip
@@ -52,6 +53,8 @@ def _hash_file(path: Path) -> str:
 
 def init_assets(app: Flask) -> None:
     """Wire versioned asset URLs, cache headers and gzip into `app`."""
+    if app.static_folder is None:
+        raise RuntimeError("static asset delivery requires a configured static folder")
     static_dir = Path(app.static_folder)
     # Hashes are computed once per process. The container is immutable in
     # production, so re-stat-ing on every request would buy nothing; in debug we
@@ -78,13 +81,9 @@ def init_assets(app: Flask) -> None:
             # A ?v= hash means the URL changes whenever the bytes do, so the
             # response can be cached hard. Without one, stay conservative.
             if request.args.get("v"):
-                response.headers["Cache-Control"] = (
-                    f"public, max-age={IMMUTABLE_MAX_AGE}, immutable"
-                )
+                response.headers["Cache-Control"] = f"public, max-age={IMMUTABLE_MAX_AGE}, immutable"
             else:
-                response.headers["Cache-Control"] = (
-                    f"public, max-age={DEFAULT_STATIC_MAX_AGE}"
-                )
+                response.headers["Cache-Control"] = f"public, max-age={DEFAULT_STATIC_MAX_AGE}"
 
         return _compress(response)
 

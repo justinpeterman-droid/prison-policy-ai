@@ -6,8 +6,10 @@ def test_admin_openapi_has_exact_elevation_and_account_operations():
         document = yaml.safe_load(source)
     paths = document["paths"]
     assert set(paths) >= {
-        "/api/v1/auth/admin-step-up", "/api/v1/admin/staff",
-        "/api/v1/admin/staff/{staff_id}", "/api/v1/admin/accounts",
+        "/api/v1/auth/admin-step-up",
+        "/api/v1/admin/staff",
+        "/api/v1/admin/staff/{staff_id}",
+        "/api/v1/admin/accounts",
         "/api/v1/admin/accounts/{account_id}",
         "/api/v1/admin/accounts/{account_id}/reset-pin",
         "/api/v1/admin/accounts/{account_id}/unlock",

@@ -49,7 +49,11 @@ from backend.webapp.api_v1.middleware import (
     require_role,
     require_step_up,
 )
-from backend.webapp.api_v1.pagination import decode_cursor, encode_cursor, parse_page_size
+from backend.webapp.api_v1.pagination import (
+    decode_cursor,
+    encode_cursor,
+    parse_page_size,
+)
 from backend.webapp.api_v1.responses import success
 
 
@@ -74,26 +78,39 @@ def _json_object(*, exact: set[str] | None = None, allowed: set[str] | None = No
 
 def _staff_data(row: StaffMember) -> dict[str, object]:
     return {
-        "staff_id": str(row.id), "employee_number": row.employee_number,
-        "rank": row.rank, "first_name": row.first_name, "last_name": row.last_name,
-        "shift": row.shift, "is_active": row.is_active,
-        "created_at": _timestamp(row.created_at), "updated_at": _timestamp(row.updated_at),
+        "staff_id": str(row.id),
+        "employee_number": row.employee_number,
+        "rank": row.rank,
+        "first_name": row.first_name,
+        "last_name": row.last_name,
+        "shift": row.shift,
+        "is_active": row.is_active,
+        "created_at": _timestamp(row.created_at),
+        "updated_at": _timestamp(row.updated_at),
     }
 
 
 def _account_data(row: Account) -> dict[str, object]:
     return {
-        "account_id": str(row.id), "staff_id": str(row.staff_member_id),
-        "role": row.role, "status": row.status, "must_change_pin": row.must_change_pin,
-        "created_at": _timestamp(row.created_at), "updated_at": _timestamp(row.updated_at),
+        "account_id": str(row.id),
+        "staff_id": str(row.staff_member_id),
+        "role": row.role,
+        "status": row.status,
+        "must_change_pin": row.must_change_pin,
+        "created_at": _timestamp(row.created_at),
+        "updated_at": _timestamp(row.updated_at),
     }
 
 
 def _cursor_key() -> str:
     key = current_app.config["IDENTITY_SETTINGS"].cursor_signing_key
     if not key:
-        raise ApiError("dependency_unavailable", "Pagination is temporarily unavailable.",
-                       status=503, retryable=True)
+        raise ApiError(
+            "dependency_unavailable",
+            "Pagination is temporarily unavailable.",
+            status=503,
+            retryable=True,
+        )
     return key
 
 
@@ -129,8 +146,14 @@ def _page_inputs() -> tuple[int, dict | None]:
 
 
 def _mutation(
-    action: str, purpose: str, payload: dict, operation, *, response_status: int = 200,
-    one_time_replay: bool = False, operation_consumes_step_up: bool = False,
+    action: str,
+    purpose: str,
+    payload: dict,
+    operation,
+    *,
+    response_status: int = 200,
+    one_time_replay: bool = False,
+    operation_consumes_step_up: bool = False,
 ):
     actor = current_actor()
     db_session = current_request_session()
@@ -141,12 +164,20 @@ def _mutation(
             raise StepUpRequired("Administrator PIN confirmation is required.")
         if not operation_consumes_step_up:
             consume_step_up(
-                db_session, actor=actor, raw_token=pending[1], purpose=purpose, now=now,
+                db_session,
+                actor=actor,
+                raw_token=pending[1],
+                purpose=purpose,
+                now=now,
             )
         try:
             claim = claim_idempotency(
-                db_session, actor, key=request.headers.get("Idempotency-Key", ""),
-                action=action, request_sha256=request_digest(payload), now=now,
+                db_session,
+                actor,
+                key=request.headers.get("Idempotency-Key", ""),
+                action=action,
+                request_sha256=request_digest(payload),
+                now=now,
             )
         except RequestInProgress as error:
             raise ApiError("request_in_progress", str(error), status=409, retryable=True) from None
@@ -157,8 +188,11 @@ def _mutation(
                 if operation_consumes_step_up:
                     touch_admin_elevation(db_session, actor, now)
                     consume_step_up(
-                        db_session, actor=actor, raw_token=pending[1],
-                        purpose=purpose, now=now,
+                        db_session,
+                        actor=actor,
+                        raw_token=pending[1],
+                        purpose=purpose,
+                        now=now,
                     )
                 db_session.commit()
                 raise ApiError(
@@ -166,15 +200,16 @@ def _mutation(
                     "The one-time value cannot be replayed; request a new value.",
                     status=409,
                 )
-            replay_data = _rehydrate_replay(
-                db_session, action, claim.response_reference or {}
-            )
+            replay_data = _rehydrate_replay(db_session, action, claim.response_reference or {})
             db_session.commit()
             return success(replay_data, status=claim.response_status or 200)
         data, stable_reference = operation(db_session, actor, now, claim.record_id)
         complete_idempotency(
-            db_session, claim, response_status=response_status,
-            response_reference=stable_reference, now=now,
+            db_session,
+            claim,
+            response_status=response_status,
+            response_reference=stable_reference,
+            now=now,
         )
         db_session.commit()
         return success(data, status=response_status)
@@ -212,18 +247,28 @@ def _mutation(
         db_session.rollback()
         sqlstate = getattr(getattr(error, "orig", None), "sqlstate", None)
         if sqlstate in {"40P01", "40001", "55P03"}:
-            raise ApiError("account_conflict", "The account is busy; reload and try again.", status=409) from None
+            raise ApiError(
+                "account_conflict",
+                "The account is busy; reload and try again.",
+                status=409,
+            ) from None
         raise ApiError(
-            "dependency_unavailable", "The Admin service is temporarily unavailable.",
-            status=503, retryable=True,
+            "dependency_unavailable",
+            "The Admin service is temporarily unavailable.",
+            status=503,
+            retryable=True,
         ) from None
     except ValueError as error:
         db_session.rollback()
         raise ApiError("validation_failed", str(error), status=400) from None
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
         db_session.rollback()
-        raise ApiError("dependency_unavailable", "The Admin service is temporarily unavailable.",
-                       status=503, retryable=True) from None
+        raise ApiError(
+            "dependency_unavailable",
+            "The Admin service is temporarily unavailable.",
+            status=503,
+            retryable=True,
+        ) from None
 
 
 def _admin_get(view):
@@ -235,9 +280,12 @@ def _admin_get(view):
             raise
         except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
             raise ApiError(
-                "dependency_unavailable", "The Admin service is temporarily unavailable.",
-                status=503, retryable=True,
+                "dependency_unavailable",
+                "The Admin service is temporarily unavailable.",
+                status=503,
+                retryable=True,
             ) from None
+
     return require_access_token(require_role("admin")(require_admin_elevation(safe)))
 
 
@@ -246,13 +294,17 @@ def _admin_get(view):
 def staff_list_route():
     limit, cursor = _page_inputs()
     page = list_staff(
-        current_request_session(), cursor=cursor, limit=limit,
+        current_request_session(),
+        cursor=cursor,
+        limit=limit,
         query=request.args.get("query"),
     )
-    return success({
-        "items": [_staff_data(row) for row in page.items],
-        "next_cursor": encode_cursor(page.next_cursor, _cursor_key()) if page.next_cursor else None,
-    })
+    return success(
+        {
+            "items": [_staff_data(row) for row in page.items],
+            "next_cursor": encode_cursor(page.next_cursor, _cursor_key()) if page.next_cursor else None,
+        }
+    )
 
 
 @admin_bp.post("/staff", endpoint="staff_create")
@@ -263,12 +315,23 @@ def staff_list_route():
 @require_admin_elevation
 def staff_create_route():
     payload = _json_object(exact={"employee_number", "rank", "first_name", "last_name", "shift"})
-    return _mutation("admin.staff_create", "staff_write", payload, lambda db, actor, now, _claim: (
-        (lambda row: (_staff_data(row), {"staff_id": str(row.id)}))(create_staff(
-            db, actor=actor, payload=payload, now=now,
-            audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
-        ))
-    ))
+    return _mutation(
+        "admin.staff_create",
+        "staff_write",
+        payload,
+        lambda db, actor, now, _claim: (
+            (lambda row: (_staff_data(row), {"staff_id": str(row.id)}))(
+                create_staff(
+                    db,
+                    actor=actor,
+                    payload=payload,
+                    now=now,
+                    audit_writer=current_app.config["AUDIT_WRITER"],
+                    request_id=request_id(),
+                )
+            )
+        ),
+    )
 
 
 @admin_bp.patch("/staff/<uuid:staff_id>", endpoint="staff_update")
@@ -278,14 +341,34 @@ def staff_create_route():
 @require_step_up("staff_write")
 @require_admin_elevation
 def staff_update_route(staff_id: UUID):
-    payload = _json_object(allowed={"employee_number", "rank", "first_name", "last_name", "shift", "is_active"})
-    return _mutation("admin.staff_update", "staff_write", {"staff_id": str(staff_id), **payload},
-                     lambda db, actor, now, _claim: (
-        (lambda row: (_staff_data(row), {"staff_id": str(row.id)}))(update_staff(
-            db, actor=actor, staff_id=staff_id, payload=payload, now=now,
-            audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
-        ))
-    ))
+    payload = _json_object(
+        allowed={
+            "employee_number",
+            "rank",
+            "first_name",
+            "last_name",
+            "shift",
+            "is_active",
+        }
+    )
+    return _mutation(
+        "admin.staff_update",
+        "staff_write",
+        {"staff_id": str(staff_id), **payload},
+        lambda db, actor, now, _claim: (
+            (lambda row: (_staff_data(row), {"staff_id": str(row.id)}))(
+                update_staff(
+                    db,
+                    actor=actor,
+                    staff_id=staff_id,
+                    payload=payload,
+                    now=now,
+                    audit_writer=current_app.config["AUDIT_WRITER"],
+                    request_id=request_id(),
+                )
+            )
+        ),
+    )
 
 
 @admin_bp.get("/accounts", endpoint="account_list")
@@ -293,10 +376,12 @@ def staff_update_route(staff_id: UUID):
 def account_list_route():
     limit, cursor = _page_inputs()
     page = list_accounts(current_request_session(), cursor=cursor, limit=limit)
-    return success({
-        "items": [_account_data(row) for row in page.items],
-        "next_cursor": encode_cursor(page.next_cursor, _cursor_key()) if page.next_cursor else None,
-    })
+    return success(
+        {
+            "items": [_account_data(row) for row in page.items],
+            "next_cursor": encode_cursor(page.next_cursor, _cursor_key()) if page.next_cursor else None,
+        }
+    )
 
 
 @admin_bp.post("/accounts", endpoint="account_create")
@@ -314,14 +399,27 @@ def account_create_route():
 
     def operation(db, actor, now, claim_id):
         result = create_account_for_staff(
-            db, actor=actor, staff_id=staff_id, role=payload["role"], now=now,
-            audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
+            db,
+            actor=actor,
+            staff_id=staff_id,
+            role=payload["role"],
+            now=now,
+            audit_writer=current_app.config["AUDIT_WRITER"],
+            request_id=request_id(),
         )
-        data = {"operation_reference_id": str(claim_id), "account_id": str(result.account_id),
-                "temporary_pin": result.temporary_pin, "one_time_value_unavailable": False}
-        stable = {"operation_reference_id": str(claim_id), "account_id": str(result.account_id),
-                  "one_time_value_unavailable": True}
+        data = {
+            "operation_reference_id": str(claim_id),
+            "account_id": str(result.account_id),
+            "temporary_pin": result.temporary_pin,
+            "one_time_value_unavailable": False,
+        }
+        stable = {
+            "operation_reference_id": str(claim_id),
+            "account_id": str(result.account_id),
+            "one_time_value_unavailable": True,
+        }
         return data, stable
+
     return _mutation("admin.account_create", "account_create", payload, operation)
 
 
@@ -334,14 +432,30 @@ def account_create_route():
 def account_update_route(account_id: UUID):
     payload = _json_object(exact={"role", "status"})
     combined = {"account_id": str(account_id), **payload}
-    return _mutation("admin.account_update", "account_role_status", combined,
-                     lambda db, actor, now, _claim: (
-        (lambda row: (_account_data(row), {"account_id": str(row.id), "role": row.role, "status": row.status}))(change_account_role_or_status(
-            db, actor=actor, target_account_id=account_id, role=payload["role"],
-            status=payload["status"], now=now,
-            audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
-        ))
-    ))
+    return _mutation(
+        "admin.account_update",
+        "account_role_status",
+        combined,
+        lambda db, actor, now, _claim: (
+            (
+                lambda row: (
+                    _account_data(row),
+                    {"account_id": str(row.id), "role": row.role, "status": row.status},
+                )
+            )(
+                change_account_role_or_status(
+                    db,
+                    actor=actor,
+                    target_account_id=account_id,
+                    role=payload["role"],
+                    status=payload["status"],
+                    now=now,
+                    audit_writer=current_app.config["AUDIT_WRITER"],
+                    request_id=request_id(),
+                )
+            )
+        ),
+    )
 
 
 @admin_bp.post("/accounts/<uuid:account_id>/reset-pin", endpoint="account_reset_pin")
@@ -354,16 +468,29 @@ def account_reset_pin_route(account_id: UUID):
     if request.data:
         raise ApiError("validation_failed", "This operation does not accept a body.", status=400)
     payload = {"account_id": str(account_id)}
+
     def operation(db, actor, now, claim_id):
         result = reset_account_pin(
-            db, actor=actor, target_account_id=account_id, now=now,
-            audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
+            db,
+            actor=actor,
+            target_account_id=account_id,
+            now=now,
+            audit_writer=current_app.config["AUDIT_WRITER"],
+            request_id=request_id(),
         )
-        data = {"operation_reference_id": str(claim_id), "account_id": str(result.account_id),
-                "temporary_pin": result.temporary_pin, "one_time_value_unavailable": False}
-        stable = {"operation_reference_id": str(claim_id), "account_id": str(result.account_id),
-                  "one_time_value_unavailable": True}
+        data = {
+            "operation_reference_id": str(claim_id),
+            "account_id": str(result.account_id),
+            "temporary_pin": result.temporary_pin,
+            "one_time_value_unavailable": False,
+        }
+        stable = {
+            "operation_reference_id": str(claim_id),
+            "account_id": str(result.account_id),
+            "one_time_value_unavailable": True,
+        }
         return data, stable
+
     return _mutation("admin.account_reset_pin", "account_reset_pin", payload, operation)
 
 
@@ -377,13 +504,29 @@ def account_unlock_route(account_id: UUID):
     if request.data:
         raise ApiError("validation_failed", "This operation does not accept a body.", status=400)
     payload = {"account_id": str(account_id)}
-    return _mutation("admin.account_unlock", "account_unlock", payload,
-                     lambda db, actor, now, _claim: (
-        (lambda row: (_account_data(row), {"account_id": str(row.id), "status": row.status}))(unlock_account(
-            db, actor=actor, target_account_id=account_id, now=now,
-            audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
-        ))
-    ))
+
+    def operation(db, actor, now, _claim):
+        row = unlock_account(
+            db,
+            actor=actor,
+            target_account_id=account_id,
+            now=now,
+            audit_writer=current_app.config["AUDIT_WRITER"],
+            request_id=request_id(),
+        )
+        if row is None:
+            raise LookupError("account not found")
+        return (
+            _account_data(row),
+            {"account_id": str(row.id), "status": row.status},
+        )
+
+    return _mutation(
+        "admin.account_unlock",
+        "account_unlock",
+        payload,
+        operation,
+    )
 
 
 @admin_bp.get("/accounts/<uuid:account_id>/sessions", endpoint="account_sessions")
@@ -395,17 +538,25 @@ def account_sessions_route(account_id: UUID):
     limit, cursor = _page_inputs()
     page = list_account_sessions(db, account_id=account_id, cursor=cursor, limit=limit)
     actor = current_actor()
-    return success({
-        "account_id": str(account_id),
-        "items": [{
-            "session_id": str(row.id), "device_label": row.device_label,
-            "persistent": row.persistent, "created_at": _timestamp(row.created_at),
-            "last_used_at": _timestamp(row.last_used_at),
-            "idle_expires_at": _timestamp(row.renewal_expires_at),
-            "revoked_at": _timestamp(row.revoked_at), "current": row.id == actor.session_id,
-        } for row in page.items],
-        "next_cursor": encode_cursor(page.next_cursor, _cursor_key()) if page.next_cursor else None,
-    })
+    return success(
+        {
+            "account_id": str(account_id),
+            "items": [
+                {
+                    "session_id": str(row.id),
+                    "device_label": row.device_label,
+                    "persistent": row.persistent,
+                    "created_at": _timestamp(row.created_at),
+                    "last_used_at": _timestamp(row.last_used_at),
+                    "idle_expires_at": _timestamp(row.renewal_expires_at),
+                    "revoked_at": _timestamp(row.revoked_at),
+                    "current": row.id == actor.session_id,
+                }
+                for row in page.items
+            ],
+            "next_cursor": encode_cursor(page.next_cursor, _cursor_key()) if page.next_cursor else None,
+        }
+    )
 
 
 @admin_bp.post("/accounts/<uuid:account_id>/revoke-sessions", endpoint="account_revoke_sessions")
@@ -427,16 +578,26 @@ def account_revoke_sessions_route(account_id: UUID):
     else:
         raise ApiError("validation_failed", "The request body is invalid.", status=400)
     canonical = {"account_id": str(account_id), **payload}
+
     def operation(db, actor, now, _claim_id):
         revoked = revoke_account_sessions(
-            db, actor=actor, target_account_id=account_id, scope=scope,
-            target_session_id=session_id, now=now,
-            audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
+            db,
+            actor=actor,
+            target_account_id=account_id,
+            scope=scope,
+            target_session_id=session_id,
+            now=now,
+            audit_writer=current_app.config["AUDIT_WRITER"],
+            request_id=request_id(),
         )
-        data = {"account_id": str(account_id), "scope": scope,
-                "revoked_session_ids": [str(value) for value in revoked],
-                "revoked_count": len(revoked)}
+        data = {
+            "account_id": str(account_id),
+            "scope": scope,
+            "revoked_session_ids": [str(value) for value in revoked],
+            "revoked_count": len(revoked),
+        }
         return data, data
+
     return _mutation("admin.account_revoke_sessions", "account_revoke_sessions", canonical, operation)
 
 
@@ -452,8 +613,11 @@ def review_lab_handoff_issue_route():
 
     def operation(db, actor, now, _claim_id):
         result = issue_browser_handoff(
-            db, actor=actor, now=now,
-            audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
+            db,
+            actor=actor,
+            now=now,
+            audit_writer=current_app.config["AUDIT_WRITER"],
+            request_id=request_id(),
             step_up_token=g.pending_step_up[1],
         )
         origin = current_app.config["IDENTITY_SETTINGS"].review_lab_origin
@@ -469,6 +633,11 @@ def review_lab_handoff_issue_route():
         }
 
     return _mutation(
-        "admin.review_lab_handoff_issue", "review_lab_handoff", {}, operation,
-        response_status=201, one_time_replay=True, operation_consumes_step_up=True,
+        "admin.review_lab_handoff_issue",
+        "review_lab_handoff",
+        {},
+        operation,
+        response_status=201,
+        one_time_replay=True,
+        operation_consumes_step_up=True,
     )

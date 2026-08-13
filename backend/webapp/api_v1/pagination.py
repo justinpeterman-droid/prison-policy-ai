@@ -1,5 +1,5 @@
 import base64
-from datetime import UTC, datetime
+from datetime import datetime
 import hashlib
 import hmac
 import json
@@ -41,7 +41,7 @@ def decode_cursor(value: str, key: str) -> dict[str, str]:
 
 
 def parse_page_size(value: object) -> int:
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
         raise ValueError("page size must be an integer from 1 through 100")
     try:
         size = int(value)
@@ -60,7 +60,8 @@ def _validate_payload(payload: object) -> None:
     created_at = payload["created_at"]
     try:
         parsed = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-        if parsed.tzinfo is None or parsed.utcoffset().total_seconds() != 0:
+        offset = parsed.utcoffset()
+        if parsed.tzinfo is None or offset is None or offset.total_seconds() != 0:
             raise ValueError
         UUID(payload["id"])
     except (AttributeError, TypeError, ValueError) as exc:

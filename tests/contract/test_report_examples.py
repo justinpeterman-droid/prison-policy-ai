@@ -1,4 +1,5 @@
 """Executable, closed OpenAPI examples for the employee report surface."""
+
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -56,19 +57,33 @@ def test_every_employee_report_operation_has_closed_fictional_examples_and_error
 def test_report_request_schemas_are_closed_and_reject_client_owned_identity():
     document = _document()
     schemas = document["components"]["schemas"]
-    for name in ("ReportSaveRequest", "ReportStatusSaveRequest", "ReportRestoreRequest", "ReportRecoveryRequest"):
+    for name in (
+        "ReportSaveRequest",
+        "ReportStatusSaveRequest",
+        "ReportRestoreRequest",
+        "ReportRecoveryRequest",
+    ):
         schema = schemas[name]
         assert schema["additionalProperties"] is False
         properties = schema["properties"]
-        assert not ({
-            "actor", "actor_account_id", "owner_staff_member_id",
-            "preparer_staff_member_id", "model", "audit_identity",
-        } & set(properties))
+        assert not (
+            {
+                "actor",
+                "actor_account_id",
+                "owner_staff_member_id",
+                "preparer_staff_member_id",
+                "model",
+                "audit_identity",
+            }
+            & set(properties)
+        )
         example = schema["example"]
         assert list(_validator(document, {"$ref": f"#/components/schemas/{name}"}).iter_errors(example)) == []
-        assert list(_validator(document, {"$ref": f"#/components/schemas/{name}"}).iter_errors(
-            example | {"actor_account_id": "00000000-0000-4000-8000-000000000099"}
-        ))
+        assert list(
+            _validator(document, {"$ref": f"#/components/schemas/{name}"}).iter_errors(
+                example | {"actor_account_id": "00000000-0000-4000-8000-000000000099"}
+            )
+        )
 
 
 def test_report_summaries_and_conflicts_exclude_sensitive_content():
@@ -86,8 +101,7 @@ def test_report_summaries_and_conflicts_exclude_sensitive_content():
 
 def test_report_patch_409_oneof_executes_every_actual_safe_conflict_envelope():
     document = _document()
-    response = document["paths"]["/api/v1/reports/{report_id}"]["patch"][
-        "responses"]["409"]
+    response = document["paths"]["/api/v1/reports/{report_id}"]["patch"]["responses"]["409"]
     media = response["content"]["application/json"]
     assert {branch["$ref"] for branch in media["schema"]["oneOf"]} == {
         "#/components/schemas/ReportRevisionConflictEnvelope",
@@ -96,7 +110,9 @@ def test_report_patch_409_oneof_executes_every_actual_safe_conflict_envelope():
         "#/components/schemas/ClientUpgradeRequiredEnvelope",
     }
     assert set(media["examples"]) == {
-        "revision_conflict", "idempotency_conflict", "request_in_progress",
+        "revision_conflict",
+        "idempotency_conflict",
+        "request_in_progress",
         "client_upgrade_required",
     }
     validator = _validator(document, media["schema"])

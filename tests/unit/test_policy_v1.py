@@ -12,9 +12,9 @@ PostgreSQL fixtures from the integration conftest and skip without
 `TEST_DATABASE_URL`, exactly like the integration suite does. The provider is
 always a fake — no Google credentials or network are involved.
 """
+
 from dataclasses import replace
 from datetime import datetime, timedelta
-import hashlib
 import json
 import os
 import threading
@@ -34,7 +34,19 @@ from backend.persistence.models.security import IdempotencyRecord
 # `isolate_postgres_test` is autouse where it is defined and stays autouse here,
 # which is what keeps each test's seeded fixtures from colliding on the shared
 # database — tests/unit has no conftest of its own to provide it.
-from tests.integration.conftest import (  # noqa: F401
+from tests.integration.conftest import (
+    api_client,
+    db_engine,
+    db_session,
+    db_session_factory,
+    fictional_user_account,
+    fictional_user_tokens,
+    identity_fixed_now,
+    isolate_postgres_test,
+    user_bearer_headers,
+)
+
+_REGISTERED_FIXTURES = (
     api_client,
     db_engine,
     db_session,
@@ -129,9 +141,7 @@ class TestSharedHistoryCleaner:
             assert clean_policy_history(bad) == []
 
     def test_malformed_entries_are_skipped_not_fatal(self):
-        out = clean_policy_history(
-            ["string", 7, None, {"answer": "orphan"}, {"question": "real one"}]
-        )
+        out = clean_policy_history(["string", 7, None, {"answer": "orphan"}, {"question": "real one"}])
         assert [item["question"] for item in out] == ["real one"]
 
     def test_caps_the_number_of_turns_keeping_the_most_recent(self):
@@ -169,20 +179,31 @@ class TestBrowserParity:
         response = app.test_client().post("/api/chat", json={"question": "Fictional?"})
         assert response.status_code == 200
         # The browser contract is the bare pipeline dict — no /api/v1 envelope.
-        assert set(response.json) == {"answer", "citations", "sources", "retrieved_sources"}
+        assert set(response.json) == {
+            "answer",
+            "citations",
+            "sources",
+            "retrieved_sources",
+        }
         assert response.json["answer"] == FICTIONAL_ANSWER
 
 
 class TestRequestContract:
     def test_passes_only_bounded_clean_history_to_the_provider(
-        self, api_client, auth_headers, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
     ):
         calls = _fake_provider(monkeypatch)
         history = [{"question": f"Question {i}", "answer": "A" * 100} for i in range(10)]
         response = api_client.post(
             "/api/v1/policy/questions",
             headers=_headers(auth_headers, "policy-fictional-0001"),
-            json={"question": "What does the fictional policy say?", "history": history},
+            json={
+                "question": "What does the fictional policy say?",
+                "history": history,
+            },
         )
         assert response.status_code == 200
         assert len(calls) == 1
@@ -190,7 +211,10 @@ class TestRequestContract:
         assert calls[0]["history"][-1]["question"] == "Question 9"
 
     def test_returns_answer_citations_and_sources(
-        self, api_client, auth_headers, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
     ):
         _fake_provider(monkeypatch)
         response = api_client.post(
@@ -205,7 +229,10 @@ class TestRequestContract:
         assert data["sources"] == ["Fictional Policy AD-00-00"]
 
     def test_rejects_unknown_request_field(
-        self, api_client, auth_headers, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
     ):
         calls = _fake_provider(monkeypatch)
         response = api_client.post(
@@ -217,15 +244,22 @@ class TestRequestContract:
         assert response.json["error"]["code"] == "validation_failed"
         assert calls == []
 
-    @pytest.mark.parametrize("body", [
-        {},
-        {"question": ""},
-        {"question": "   "},
-        {"question": 42},
-        {"question": "Fictional?", "history": "not-a-list"},
-    ])
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {},
+            {"question": ""},
+            {"question": "   "},
+            {"question": 42},
+            {"question": "Fictional?", "history": "not-a-list"},
+        ],
+    )
     def test_rejects_invalid_question_bodies(
-        self, api_client, auth_headers, monkeypatch, body,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
+        body,
     ):
         calls = _fake_provider(monkeypatch)
         response = api_client.post(
@@ -238,7 +272,10 @@ class TestRequestContract:
         assert calls == []
 
     def test_requires_an_idempotency_key(
-        self, api_client, auth_headers, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
     ):
         calls = _fake_provider(monkeypatch)
         response = api_client.post(
@@ -252,7 +289,11 @@ class TestRequestContract:
 
     @pytest.mark.parametrize("request_id_value", [None, "bad id!"])
     def test_requires_a_valid_explicit_request_id(
-        self, api_client, auth_headers, monkeypatch, request_id_value,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
+        request_id_value,
     ):
         calls = _fake_provider(monkeypatch)
         headers = auth_headers | {"Idempotency-Key": "policy-fictional-request-id"}
@@ -261,7 +302,8 @@ class TestRequestContract:
         else:
             headers.pop("X-Request-ID", None)
         response = api_client.post(
-            "/api/v1/policy/questions", headers=headers,
+            "/api/v1/policy/questions",
+            headers=headers,
             json={"question": "Fictional request identifier check?"},
         )
         assert response.status_code == 400
@@ -269,12 +311,16 @@ class TestRequestContract:
         assert calls == []
 
     def test_requires_a_compatible_write_client(
-        self, api_client, auth_headers, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
     ):
         calls = _fake_provider(monkeypatch)
         settings = api_client.application.config["IDENTITY_SETTINGS"]
         api_client.application.config["IDENTITY_SETTINGS"] = replace(
-            settings, minimum_client_version="9.0.0",
+            settings,
+            minimum_client_version="9.0.0",
         )
         response = api_client.post(
             "/api/v1/policy/questions",
@@ -290,7 +336,10 @@ class TestRequestContract:
         calls = _fake_provider(monkeypatch)
         response = api_client.post(
             "/api/v1/policy/questions",
-            headers={"X-Client-Version": "1.0.0", "Idempotency-Key": "policy-fictional-0005"},
+            headers={
+                "X-Client-Version": "1.0.0",
+                "Idempotency-Key": "policy-fictional-0005",
+            },
             json={"question": "Fictional?"},
         )
         assert response.status_code == 401
@@ -299,7 +348,10 @@ class TestRequestContract:
 
 class TestIdempotencyOutcomes:
     def test_completed_duplicate_never_repeats_the_provider_call(
-        self, api_client, auth_headers, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
     ):
         calls = _fake_provider(monkeypatch)
         headers = _headers(auth_headers, "policy-fictional-0010")
@@ -315,16 +367,21 @@ class TestIdempotencyOutcomes:
         assert len(calls) == 1
 
     def test_changed_payload_with_the_same_key_conflicts(
-        self, api_client, auth_headers, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
     ):
         calls = _fake_provider(monkeypatch)
         headers = _headers(auth_headers, "policy-fictional-0011")
         api_client.post(
-            "/api/v1/policy/questions", headers=headers,
+            "/api/v1/policy/questions",
+            headers=headers,
             json={"question": "First fictional question?"},
         )
         response = api_client.post(
-            "/api/v1/policy/questions", headers=headers,
+            "/api/v1/policy/questions",
+            headers=headers,
             json={"question": "Different fictional question?"},
         )
         assert response.status_code == 409
@@ -332,7 +389,10 @@ class TestIdempotencyOutcomes:
         assert len(calls) == 1
 
     def test_duplicate_while_the_first_call_is_running_is_rejected(
-        self, api_client, auth_headers, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
     ):
         """The claim must be committed before the provider call, or a concurrent
         duplicate would be invisible and buy a second provider request."""
@@ -353,7 +413,9 @@ class TestIdempotencyOutcomes:
 
         def first_call():
             outcome["first"] = api_client.post(
-                "/api/v1/policy/questions", headers=headers, json=body,
+                "/api/v1/policy/questions",
+                headers=headers,
+                json=body,
             ).status_code
 
         worker = threading.Thread(target=first_call)
@@ -370,17 +432,22 @@ class TestIdempotencyOutcomes:
         assert len(calls) == 1
 
     def test_a_new_key_lets_the_officer_ask_again(
-        self, api_client, auth_headers, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
     ):
         calls = _fake_provider(monkeypatch)
         body = {"question": "What does the fictional policy say?"}
         first = api_client.post(
             "/api/v1/policy/questions",
-            headers=_headers(auth_headers, "policy-fictional-0013"), json=body,
+            headers=_headers(auth_headers, "policy-fictional-0013"),
+            json=body,
         )
         second = api_client.post(
             "/api/v1/policy/questions",
-            headers=_headers(auth_headers, "policy-fictional-0014"), json=body,
+            headers=_headers(auth_headers, "policy-fictional-0014"),
+            json=body,
         )
         assert first.status_code == second.status_code == 200
         assert len(calls) == 2
@@ -390,7 +457,11 @@ class TestNothingSensitiveIsPersisted:
     SECRET_QUESTION = "Does fictional inmate Roe 111111 qualify under the policy?"
 
     def test_idempotency_record_stores_only_safe_references(
-        self, api_client, auth_headers, db_session, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        db_session,
+        monkeypatch,
     ):
         _fake_provider(monkeypatch)
         api_client.post(
@@ -399,22 +470,32 @@ class TestNothingSensitiveIsPersisted:
             json={"question": self.SECRET_QUESTION},
         )
         record = db_session.scalar(
-            select(IdempotencyRecord).where(
-                IdempotencyRecord.idempotency_key == "policy-fictional-0020"
-            )
+            select(IdempotencyRecord).where(IdempotencyRecord.idempotency_key == "policy-fictional-0020")
         )
         assert record is not None
         assert record.status == "completed"
         encoded = json.dumps(record.response_reference)
-        for leak in (self.SECRET_QUESTION, FICTIONAL_ANSWER, "Fictional passage text", "111111"):
+        for leak in (
+            self.SECRET_QUESTION,
+            FICTIONAL_ANSWER,
+            "Fictional passage text",
+            "111111",
+        ):
             assert leak not in encoded
         # A digest of the answer is fine; the answer itself is not.
         assert set(record.response_reference) <= {
-            "result", "latency_bucket", "response_sha256", "citation_count",
+            "result",
+            "latency_bucket",
+            "response_sha256",
+            "citation_count",
         }
 
     def test_audit_event_records_only_safe_result_metadata(
-        self, api_client, auth_headers, db_session, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        db_session,
+        monkeypatch,
     ):
         _fake_provider(monkeypatch)
         api_client.post(
@@ -422,18 +503,26 @@ class TestNothingSensitiveIsPersisted:
             headers=_headers(auth_headers, "policy-fictional-0021"),
             json={"question": self.SECRET_QUESTION},
         )
-        rows = db_session.execute(text(
-            "SELECT action, details FROM audit_events WHERE action = 'policy.question_answered'"
-        )).all()
+        rows = db_session.execute(
+            text("SELECT action, details FROM audit_events WHERE action = 'policy.question_answered'")
+        ).all()
         assert rows, "the policy question should be audited"
         for _action, details in rows:
             encoded = json.dumps(details)
-            for leak in (self.SECRET_QUESTION, FICTIONAL_ANSWER, "Fictional passage text"):
+            for leak in (
+                self.SECRET_QUESTION,
+                FICTIONAL_ANSWER,
+                "Fictional passage text",
+            ):
                 assert leak not in encoded
             assert set(details) <= {"document_count", "latency_ms"}
 
     def test_the_question_never_reaches_the_request_log(
-        self, api_client, auth_headers, monkeypatch, caplog,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
+        caplog,
     ):
         _fake_provider(monkeypatch)
         with caplog.at_level("DEBUG"):
@@ -466,7 +555,8 @@ class TestNothingSensitiveIsPersisted:
         messages = []
         monkeypatch.setattr(query, "_get_token", lambda **_kwargs: "fictional-token")
         monkeypatch.setattr(
-            query.logger, "info",
+            query.logger,
+            "info",
             lambda message, *args: messages.append(message % args),
         )
         monkeypatch.setattr(query.urllib.request, "urlopen", lambda *_args, **_kwargs: _Response())
@@ -493,7 +583,8 @@ class TestNothingSensitiveIsPersisted:
 
         monkeypatch.setattr(query, "_get_token", lambda **_kwargs: "fictional-token")
         monkeypatch.setattr(
-            query.urllib.request, "urlopen",
+            query.urllib.request,
+            "urlopen",
             lambda _request, *, timeout: seen.append(timeout) or _Response(),
         )
         deadline = time.monotonic() + 0.2
@@ -511,17 +602,23 @@ class TestNothingSensitiveIsPersisted:
             )
 
     def test_policy_response_projects_provider_values_to_closed_schema(
-        self, api_client, auth_headers, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
     ):
-        _fake_provider(monkeypatch, result={
-            "answer": "Fictional answer.",
-            "citations": [
-                {"n": 1, "source": "S" * 400, "text": "P" * 9000, "extra": "drop"},
-                {"n": "bad", "source": "bad", "text": "bad"},
-            ],
-            "sources": ["A" * 400, {"not": "text"}],
-            "retrieved_sources": ["B" * 400],
-        })
+        _fake_provider(
+            monkeypatch,
+            result={
+                "answer": "Fictional answer.",
+                "citations": [
+                    {"n": 1, "source": "S" * 400, "text": "P" * 9000, "extra": "drop"},
+                    {"n": "bad", "source": "bad", "text": "bad"},
+                ],
+                "sources": ["A" * 400, {"not": "text"}],
+                "retrieved_sources": ["B" * 400],
+            },
+        )
         response = api_client.post(
             "/api/v1/policy/questions",
             headers=_headers(auth_headers, "policy-fictional-projection"),
@@ -535,16 +632,45 @@ class TestNothingSensitiveIsPersisted:
 
 
 class TestSafeUpstreamErrors:
-    @pytest.mark.parametrize("exc,code,status", [
-        (RuntimeError("Default credentials were not found."), "dependency_unavailable", 503),
-        (RuntimeError("Publisher Model was not found"), "dependency_unavailable", 503),
-        (RuntimeError("403 permission denied on resource"), "dependency_unavailable", 503),
-        (RuntimeError("Search API error: upstream refused"), "dependency_unavailable", 503),
-        (RuntimeError("RESOURCE_EXHAUSTED: quota exceeded"), "dependency_unavailable", 503),
-        (ValueError("something unexpected"), "internal_error", 500),
-    ])
+    @pytest.mark.parametrize(
+        "exc,code,status",
+        [
+            (
+                RuntimeError("Default credentials were not found."),
+                "dependency_unavailable",
+                503,
+            ),
+            (
+                RuntimeError("Publisher Model was not found"),
+                "dependency_unavailable",
+                503,
+            ),
+            (
+                RuntimeError("403 permission denied on resource"),
+                "dependency_unavailable",
+                503,
+            ),
+            (
+                RuntimeError("Search API error: upstream refused"),
+                "dependency_unavailable",
+                503,
+            ),
+            (
+                RuntimeError("RESOURCE_EXHAUSTED: quota exceeded"),
+                "dependency_unavailable",
+                503,
+            ),
+            (ValueError("something unexpected"), "internal_error", 500),
+        ],
+    )
     def test_provider_failures_become_stable_safe_errors(
-        self, api_client, auth_headers, monkeypatch, exc, code, status,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
+        exc,
+        code,
+        status,
     ):
         _fake_provider(monkeypatch, raises=exc)
         response = api_client.post(
@@ -560,7 +686,10 @@ class TestSafeUpstreamErrors:
             assert leak.lower() not in message.lower()
 
     def test_exceeding_the_server_budget_is_a_safe_timeout(
-        self, api_client, auth_headers, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
     ):
         import backend.webapp.api_v1.policy as policy_module
 
@@ -583,7 +712,10 @@ class TestSafeUpstreamErrors:
         assert response.json["error"]["retryable"] is True
 
     def test_passes_a_deadline_to_the_shared_pipeline(
-        self, api_client, auth_headers, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        monkeypatch,
     ):
         calls = _fake_provider(monkeypatch)
         response = api_client.post(
@@ -595,7 +727,11 @@ class TestSafeUpstreamErrors:
         assert isinstance(calls[0]["deadline_monotonic"], float)
 
     def test_a_failed_call_does_not_strand_the_key_as_in_progress(
-        self, api_client, auth_headers, db_session, monkeypatch,
+        self,
+        api_client,
+        auth_headers,
+        db_session,
+        monkeypatch,
     ):
         """A provider failure must settle the record, so the officer can retry
         with the same key rather than being locked out by a dead claim."""
@@ -606,8 +742,6 @@ class TestSafeUpstreamErrors:
         assert first.status_code == 503
 
         record = db_session.scalar(
-            select(IdempotencyRecord).where(
-                IdempotencyRecord.idempotency_key == "policy-fictional-0031"
-            )
+            select(IdempotencyRecord).where(IdempotencyRecord.idempotency_key == "policy-fictional-0031")
         )
         assert record is None or record.status != "in_progress"

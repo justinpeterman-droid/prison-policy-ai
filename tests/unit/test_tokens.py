@@ -15,9 +15,7 @@ def test_credentials_are_random_and_device_hash_is_peppered():
     first, second = issue_credential(), issue_credential()
     assert first.raw != second.raw
     assert first.digest != second.digest
-    assert hash_device_id("device-fictional-0001", "p" * 32) != hash_device_id(
-        "device-fictional-0001", "q" * 32
-    )
+    assert hash_device_id("device-fictional-0001", "p" * 32) != hash_device_id("device-fictional-0001", "q" * 32)
 
 
 @pytest.mark.parametrize("device_id", ["short", "x" * 257, " leading-device-0001", "device-0001\nmarker"])

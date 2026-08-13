@@ -7,6 +7,7 @@ from flask import Blueprint, current_app, g, request
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.identity.accounts import InvalidCredentials
+from backend.identity.audit import AuditWriter
 from backend.identity.config import IdentitySettings
 from backend.identity.sessions import (
     SessionReauthenticationRequired,
@@ -79,7 +80,7 @@ def _token_data(pair: SessionTokenPair) -> dict[str, object]:
     }
 
 
-def _dependencies() -> tuple[IdentitySettings, object]:
+def _dependencies() -> tuple[IdentitySettings, AuditWriter]:
     settings: IdentitySettings = current_app.config["IDENTITY_SETTINGS"]
     audit_writer = current_app.config.get("AUDIT_WRITER")
     if audit_writer is None:
@@ -93,10 +94,7 @@ def _dependencies() -> tuple[IdentitySettings, object]:
 
 
 def _consume_login_limits(db_session, payload: dict, settings: IdentitySettings) -> None:
-    if (
-        not current_app.config.get("AUTH_RATE_LIMITS_ENABLED", True)
-        or not hasattr(db_session, "execute")
-    ):
+    if not current_app.config.get("AUTH_RATE_LIMITS_ENABLED", True) or not hasattr(db_session, "execute"):
         return
     pepper = settings.identity_hash_pepper or ""
     try:
@@ -114,14 +112,37 @@ def _consume_login_limits(db_session, payload: dict, settings: IdentitySettings)
         except ValueError:
             continue
     decisions = [
-        consume_limit(db_session, dimension="employee", value=employee, now=datetime.now(UTC), pepper=pepper),
-        consume_limit(db_session, dimension="device", value=payload["device_id"], now=datetime.now(UTC), pepper=pepper),
-        consume_limit(db_session, dimension="network", value=network, now=datetime.now(UTC), pepper=pepper),
+        consume_limit(
+            db_session,
+            dimension="employee",
+            value=employee,
+            now=datetime.now(UTC),
+            pepper=pepper,
+        ),
+        consume_limit(
+            db_session,
+            dimension="device",
+            value=payload["device_id"],
+            now=datetime.now(UTC),
+            pepper=pepper,
+        ),
+        consume_limit(
+            db_session,
+            dimension="network",
+            value=network,
+            now=datetime.now(UTC),
+            pepper=pepper,
+        ),
     ]
     exceeded = [decision.retry_after_seconds for decision in decisions if not decision.allowed]
     if exceeded:
-        raise ApiError("rate_limited", "Too many authentication attempts.", status=429,
-                       retryable=True, details={"retry_after_seconds": max(exceeded)})
+        raise ApiError(
+            "rate_limited",
+            "Too many authentication attempts.",
+            status=429,
+            retryable=True,
+            details={"retry_after_seconds": max(exceeded)},
+        )
 
 
 def _closed_optional_body(fields: set[str]) -> dict:
@@ -144,8 +165,12 @@ def _mutation(action: str, payload: dict, operation):
     try:
         try:
             claim = claim_idempotency(
-                db_session, actor, key=_idempotency_key(), action=action,
-                request_sha256=request_digest(payload), now=now,
+                db_session,
+                actor,
+                key=_idempotency_key(),
+                action=action,
+                request_sha256=request_digest(payload),
+                now=now,
             )
         except RequestInProgress as error:
             raise ApiError("request_in_progress", str(error), status=409, retryable=True) from None
@@ -164,8 +189,11 @@ def _mutation(action: str, payload: dict, operation):
             return success(reference, status=claim.response_status or 200)
         data, reference = operation(db_session, actor, now)
         complete_idempotency(
-            db_session, claim, response_status=200,
-            response_reference=reference, now=now,
+            db_session,
+            claim,
+            response_status=200,
+            response_reference=reference,
+            now=now,
         )
         db_session.commit()
         g.identity_db_committed = True
@@ -184,8 +212,12 @@ def _mutation(action: str, payload: dict, operation):
         raise
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
         db_session.rollback()
-        raise ApiError("dependency_unavailable", "Authentication is temporarily unavailable.",
-                       status=503, retryable=True) from None
+        raise ApiError(
+            "dependency_unavailable",
+            "Authentication is temporarily unavailable.",
+            status=503,
+            retryable=True,
+        ) from None
 
 
 def _validated_device_id(payload: dict, settings: IdentitySettings) -> str:
@@ -258,7 +290,12 @@ def login_route():
     if pending_rate_error is not None:
         raise pending_rate_error
     if pair is None:
-        raise ApiError("dependency_unavailable", "Authentication is temporarily unavailable.", status=503, retryable=True)
+        raise ApiError(
+            "dependency_unavailable",
+            "Authentication is temporarily unavailable.",
+            status=503,
+            retryable=True,
+        )
     return success(_token_data(pair))
 
 
@@ -270,9 +307,12 @@ def logout_route():
 
     def operation(db_session, actor, now):
         revoke_session(
-            db_session, actor_account_id=actor.account_id,
-            target_session_id=actor.session_id, now=now,
-            audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
+            db_session,
+            actor_account_id=actor.account_id,
+            target_session_id=actor.session_id,
+            now=now,
+            audit_writer=current_app.config["AUDIT_WRITER"],
+            request_id=request_id(),
         )
         return {"signed_out": True}, {"signed_out": True}
 
@@ -287,8 +327,11 @@ def logout_all_route():
 
     def operation(db_session, actor, now):
         count = logout_all(
-            db_session, account_id=actor.account_id, now=now,
-            audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
+            db_session,
+            account_id=actor.account_id,
+            now=now,
+            audit_writer=current_app.config["AUDIT_WRITER"],
+            request_id=request_id(),
         )
         data = {"signed_out_account_id": str(actor.account_id), "session_count": count}
         return data, data
@@ -302,20 +345,24 @@ def logout_all_route():
 def change_pin_route():
     payload = _json_object({"current_pin", "new_pin"})
     settings: IdentitySettings = current_app.config["IDENTITY_SETTINGS"]
-    device_id = _validated_device_id(
-        {"device_id": request.headers.get("X-Device-ID", "")}, settings
-    )
+    device_id = _validated_device_id({"device_id": request.headers.get("X-Device-ID", "")}, settings)
 
     def operation(db_session, actor, now):
         pair = change_pin(
-            db_session, account_id=actor.account_id, current_session_id=actor.session_id,
+            db_session,
+            account_id=actor.account_id,
+            current_session_id=actor.session_id,
             current_pin=_required_string(payload, "current_pin"),
-            new_pin=_required_string(payload, "new_pin"), device_id=device_id,
-            now=now, settings=settings, audit_writer=current_app.config["AUDIT_WRITER"],
+            new_pin=_required_string(payload, "new_pin"),
+            device_id=device_id,
+            now=now,
+            settings=settings,
+            audit_writer=current_app.config["AUDIT_WRITER"],
             request_id=request_id(),
         )
         return _token_data(pair), {
-            "session_id": str(pair.session_id), "one_time_value_unavailable": True,
+            "session_id": str(pair.session_id),
+            "one_time_value_unavailable": True,
         }
 
     return _mutation("auth.change_pin", payload, operation)
@@ -327,21 +374,28 @@ def sessions_route():
     actor = current_actor()
     try:
         db_session = current_request_session()
-        rows = list_sessions(
-            db_session, account_id=actor.account_id, current_session_id=actor.session_id
+        rows = list_sessions(db_session, account_id=actor.account_id, current_session_id=actor.session_id)
+        return success(
+            [
+                {
+                    "session_id": str(row.session_id),
+                    "device_label": row.device_label,
+                    "persistent": row.persistent,
+                    "created_at": _timestamp(row.created_at),
+                    "last_used_at": _timestamp(row.last_used_at),
+                    "renewal_expires_at": _timestamp(row.renewal_expires_at),
+                    "current": row.current,
+                }
+                for row in rows
+            ]
         )
-        return success([
-            {
-                "session_id": str(row.session_id), "device_label": row.device_label,
-                "persistent": row.persistent, "created_at": _timestamp(row.created_at),
-                "last_used_at": _timestamp(row.last_used_at),
-                "renewal_expires_at": _timestamp(row.renewal_expires_at), "current": row.current,
-            }
-            for row in rows
-        ])
     except (DatabaseUnavailable, SQLAlchemyError):
-        raise ApiError("dependency_unavailable", "Authentication is temporarily unavailable.",
-                       status=503, retryable=True) from None
+        raise ApiError(
+            "dependency_unavailable",
+            "Authentication is temporarily unavailable.",
+            status=503,
+            retryable=True,
+        ) from None
 
 
 @auth_bp.delete("/sessions/<uuid:session_id>", endpoint="delete_session")
@@ -352,11 +406,16 @@ def delete_session_route(session_id: UUID):
 
     def operation(db_session, actor, now):
         revoke_session(
-            db_session, actor_account_id=actor.account_id, target_session_id=session_id,
-            now=now, audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
+            db_session,
+            actor_account_id=actor.account_id,
+            target_session_id=session_id,
+            now=now,
+            audit_writer=current_app.config["AUDIT_WRITER"],
+            request_id=request_id(),
         )
         return {"session_id": str(session_id), "revoked": True}, {
-            "session_id": str(session_id), "revoked": True,
+            "session_id": str(session_id),
+            "revoked": True,
         }
 
     return _mutation("auth.revoke_session", payload, operation)
@@ -378,8 +437,12 @@ def admin_step_up_route():
         canonical = {"session_id": str(actor.session_id), "purpose": purpose}
         try:
             claim = claim_idempotency(
-                db_session, actor, key=_idempotency_key(), action="auth.admin_step_up",
-                request_sha256=request_digest(canonical), now=now,
+                db_session,
+                actor,
+                key=_idempotency_key(),
+                action="auth.admin_step_up",
+                request_sha256=request_digest(canonical),
+                now=now,
             )
         except RequestInProgress as error:
             raise ApiError("request_in_progress", str(error), status=409, retryable=True) from None
@@ -388,12 +451,20 @@ def admin_step_up_route():
         if claim.replayed:
             reference = claim.response_reference or {}
             if reference.get("one_time_value_unavailable"):
-                raise ApiError("idempotent_response_unavailable",
-                               "The one-time response is no longer available.", status=409)
+                raise ApiError(
+                    "idempotent_response_unavailable",
+                    "The one-time response is no longer available.",
+                    status=409,
+                )
             return success(reference)
         result = confirm_admin_pin(
-            db_session, actor=actor, pin=pin, purpose=purpose, now=now,
-            audit_writer=current_app.config["AUDIT_WRITER"], request_id=request_id(),
+            db_session,
+            actor=actor,
+            pin=pin,
+            purpose=purpose,
+            now=now,
+            audit_writer=current_app.config["AUDIT_WRITER"],
+            request_id=request_id(),
         )
         data = {
             "purpose": result.purpose,
@@ -401,6 +472,8 @@ def admin_step_up_route():
         }
         reference = dict(data)
         if result.step_up_token is not None:
+            if result.step_up_expires_at is None:
+                raise RuntimeError("step-up result is inconsistent")
             data["step_up_token"] = result.step_up_token
             data["step_up_expires_at"] = _timestamp(result.step_up_expires_at)
             reference = {
@@ -409,7 +482,11 @@ def admin_step_up_route():
                 "one_time_value_unavailable": True,
             }
         complete_idempotency(
-            db_session, claim, response_status=200, response_reference=reference, now=now,
+            db_session,
+            claim,
+            response_status=200,
+            response_reference=reference,
+            now=now,
         )
         db_session.commit()
         return success(data)
@@ -423,8 +500,10 @@ def admin_step_up_route():
         except (SQLAlchemyError, RuntimeError):
             db_session.rollback()
             raise ApiError(
-                "dependency_unavailable", "Authentication is temporarily unavailable.",
-                status=503, retryable=True,
+                "dependency_unavailable",
+                "Authentication is temporarily unavailable.",
+                status=503,
+                retryable=True,
             ) from None
         raise ApiError("step_up_required", str(error), status=403) from None
     except ApiError:
@@ -435,10 +514,12 @@ def admin_step_up_route():
         raise ApiError("validation_failed", str(error), status=400) from None
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
         db_session.rollback()
-        raise ApiError("dependency_unavailable", "Authentication is temporarily unavailable.",
-                       status=503, retryable=True) from None
-
-
+        raise ApiError(
+            "dependency_unavailable",
+            "Authentication is temporarily unavailable.",
+            status=503,
+            retryable=True,
+        ) from None
 
 
 @auth_bp.post("/renew", endpoint="renew")
@@ -477,5 +558,10 @@ def renew_route():
             status=401,
         )
     if pair is None:
-        raise ApiError("dependency_unavailable", "Authentication is temporarily unavailable.", status=503, retryable=True)
+        raise ApiError(
+            "dependency_unavailable",
+            "Authentication is temporarily unavailable.",
+            status=503,
+            retryable=True,
+        )
     return success(_token_data(pair))

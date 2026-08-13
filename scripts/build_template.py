@@ -2,6 +2,7 @@
 Build a clean incident report DOCX template using raw XML (ZIP of XML files).
 No python-docx dependency — just Python stdlib.
 """
+
 import zipfile
 from pathlib import Path
 
@@ -37,18 +38,18 @@ def build_table_rows() -> str:
     rows = []
     for label, placeholder in FIELDS:
         rows.append(
-            '<w:tr>'
+            "<w:tr>"
             f'<w:tc><w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">{xml_esc(label)} </w:t></w:r></w:p></w:tc>'
             f'<w:tc><w:p><w:r><w:t xml:space="preserve">{xml_esc(placeholder)}</w:t></w:r></w:p></w:tc>'
-            '</w:tr>'
+            "</w:tr>"
         )
     return "\n".join(rows)
 
 
 def build_document_xml() -> str:
     table_rows = build_table_rows()
-    
-    return f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+    return f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
 <w:body>
 <w:p>
@@ -80,32 +81,41 @@ def build_document_xml() -> str:
 <w:p><w:r><w:t xml:space="preserve">Date: {{{{date_filed}}}}</w:t></w:r></w:p>
 <w:p><w:r><w:t xml:space="preserve">Reviewed by: {{{{supervisor_name}}}}</w:t></w:r></w:p>
 </w:body>
-</w:document>'''
+</w:document>"""
 
 
 def build():
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    
+
     document_xml = build_document_xml()
-    
-    with zipfile.ZipFile(str(OUTPUT), 'w', zipfile.ZIP_DEFLATED) as z:
-        z.writestr('[Content_Types].xml', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+    with zipfile.ZipFile(str(OUTPUT), "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr(
+            "[Content_Types].xml",
+            """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
     <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
     <Default Extension="xml" ContentType="application/xml"/>
     <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-</Types>''')
-        
-        z.writestr('_rels/.rels', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+</Types>""",
+        )
+
+        z.writestr(
+            "_rels/.rels",
+            """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
     <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-</Relationships>''')
-        
-        z.writestr('word/_rels/document.xml.rels', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+</Relationships>""",
+        )
+
+        z.writestr(
+            "word/_rels/document.xml.rels",
+            """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-</Relationships>''')
-        
-        z.writestr('word/document.xml', document_xml)
+</Relationships>""",
+        )
+
+        z.writestr("word/document.xml", document_xml)
 
     print(f"Template built: {OUTPUT} ({OUTPUT.stat().st_size} bytes)")
 

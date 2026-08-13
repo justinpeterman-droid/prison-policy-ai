@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 import logging
+import os
 import re
 from typing import Protocol
 from uuid import UUID
@@ -33,6 +34,7 @@ from backend.reports import service as report_service
 from backend.reports.revisions import RevisionConflict, save_incident, save_report
 from backend.reports.roster import SqlStaffProvider
 from backend.webapp.api_v1.middleware import Actor
+from backend.worker.metrics import GoogleCloudMonitoringMetricSink
 from backend.webapp.api_v1.schemas.reporting import (
     IncidentSnapshotV1,
     ReportContentV1,
@@ -46,10 +48,15 @@ _TASK_NAME = re.compile(
     re.IGNORECASE,
 )
 _QUEUE_NAME = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
-_SAFE_TERMINAL_CODES = frozenset({
-    "job_output_invalid", "job_target_invalid", "job_result_conflict",
-    "job_authorization_invalid", "job_result_contract_unavailable",
-})
+_SAFE_TERMINAL_CODES = frozenset(
+    {
+        "job_output_invalid",
+        "job_target_invalid",
+        "job_result_conflict",
+        "job_authorization_invalid",
+        "job_result_contract_unavailable",
+    }
+)
 _REPORT_KEYS = {
     "first_person": ReportType.FIRST_PERSON,
     "supervisor_summary": ReportType.SUPERVISOR_SUMMARY,
@@ -106,11 +113,13 @@ class RouteNeutralReportEngine:
             if report is not None and report.report_type == ReportType.FIRST_PERSON:
                 first_person = report
             elif owner_id is not None:
-                first_person = session.scalar(select(Report).where(
-                    Report.incident_id == incident.id,
-                    Report.report_type == ReportType.FIRST_PERSON,
-                    Report.reporting_staff_member_id == owner_id,
-                ))
+                first_person = session.scalar(
+                    select(Report).where(
+                        Report.incident_id == incident.id,
+                        Report.report_type == ReportType.FIRST_PERSON,
+                        Report.reporting_staff_member_id == owner_id,
+                    )
+                )
             else:
                 first_person = session.scalar(
                     select(Report)
@@ -124,7 +133,8 @@ class RouteNeutralReportEngine:
             payload["reports"] = {
                 "first_person": str(
                     (first_person.current_content if first_person else {}).get(
-                        "narrative", "",
+                        "narrative",
+                        "",
                     )
                 ),
             }
@@ -138,22 +148,24 @@ class RouteNeutralReportEngine:
             return report_service.classify_incident_notes(incident.field_notes)
         provider = SqlStaffProvider(session)
         if job.job_type == "extract":
-            category = incident.category or str(
-                (incident.classification or {}).get("incident_type", "")
-            )
+            category = incident.category or str((incident.classification or {}).get("incident_type", ""))
             if not category:
                 raise TerminalJobFailure("job_output_invalid")
             return report_service.extract_incident_notes(
-                incident.field_notes, category, provider,
+                incident.field_notes,
+                category,
+                provider,
             )
         payload = self._generation_payload(session, job, incident)
         if job.job_type == "generate":
             return report_service.generate_report_set(
-                payload, staff_provider=provider,
+                payload,
+                staff_provider=provider,
             )
         if job.job_type == "disciplinary":
             return report_service.generate_disciplinary_report(
-                payload, staff_provider=provider,
+                payload,
+                staff_provider=provider,
             )
         raise TerminalJobFailure("job_output_invalid")
 
@@ -178,7 +190,9 @@ def _incident_payload(incident: Incident) -> dict[str, object]:
 
 
 def _normalize_engine_result(
-    job: AiJob, incident: Incident, raw: object,
+    job: AiJob,
+    incident: Incident,
+    raw: object,
 ) -> JobEngineResult:
     if isinstance(raw, JobEngineResult):
         return raw
@@ -189,17 +203,20 @@ def _normalize_engine_result(
         incident_type = raw.get("incident_type")
         charges = raw.get("charges", [])
         if (
-            not isinstance(incident_type, str) or not incident_type.strip()
+            not isinstance(incident_type, str)
+            or not incident_type.strip()
             or type(charges) is not list
             or any(not isinstance(value, str) for value in charges)
         ):
             raise TerminalJobFailure("job_output_invalid")
         payload = _incident_payload(incident)
-        payload.update({
-            "category": incident_type,
-            "classification": dict(raw),
-            "charges": charges,
-        })
+        payload.update(
+            {
+                "category": incident_type,
+                "classification": dict(raw),
+                "charges": charges,
+            }
+        )
         return JobEngineResult(
             incident_content=IncidentSnapshotV1.model_validate(payload),
         )
@@ -209,18 +226,18 @@ def _normalize_engine_result(
         if type(slots) is not dict:
             raise TerminalJobFailure("job_output_invalid")
         validation = {
-            key: raw[key]
-            for key in ("gaps", "blocking_remaining", "checklist", "auto_content")
-            if key in raw
+            key: raw[key] for key in ("gaps", "blocking_remaining", "checklist", "auto_content") if key in raw
         }
         payload = _incident_payload(incident)
-        payload.update({
-            "extracted_facts": slots,
-            "validation": validation,
-            "warnings": [
-                str(value)[:200] for value in raw.get("markers", [])[:100]
-            ] if isinstance(raw.get("markers", []), list) else [],
-        })
+        payload.update(
+            {
+                "extracted_facts": slots,
+                "validation": validation,
+                "warnings": [str(value)[:200] for value in raw.get("markers", [])[:100]]
+                if isinstance(raw.get("markers", []), list)
+                else [],
+            }
+        )
         return JobEngineResult(
             incident_content=IncidentSnapshotV1.model_validate(payload),
         )
@@ -245,22 +262,12 @@ def _normalize_engine_result(
         selected = {"disciplinary": reports.get("disciplinary")}
     report_contents: dict[str, ReportContentV1] = {}
     raw_markers = raw.get("markers", [])
-    warnings = (
-        [str(value)[:200] for value in raw_markers[:100]]
-        if isinstance(raw_markers, list) else []
-    )
-    validation = {
-        key: raw[key]
-        for key in ("style", "flags", "repaired")
-        if key in raw
-    }
+    warnings = [str(value)[:200] for value in raw_markers[:100]] if isinstance(raw_markers, list) else []
+    validation = {key: raw[key] for key in ("style", "flags", "repaired") if key in raw}
     for key, narrative in selected.items():
         if key not in _REPORT_KEYS:
             continue
-        if (
-            not isinstance(narrative, str) or not narrative.strip()
-            or _PLACEHOLDER.match(narrative)
-        ):
+        if not isinstance(narrative, str) or not narrative.strip() or _PLACEHOLDER.match(narrative):
             raise TerminalJobFailure("job_output_invalid")
         report_contents[key] = ReportContentV1(
             narrative=narrative,
@@ -273,8 +280,7 @@ def _normalize_engine_result(
         editable_fields = {
             str(key): value
             for key, value in form005.items()
-            if isinstance(key, str)
-            and isinstance(value, (str, int, float, bool, type(None)))
+            if isinstance(key, str) and isinstance(value, (str, int, float, bool, type(None)))
         }
         if not isinstance(narrative, str) or not narrative.strip():
             raise TerminalJobFailure("job_output_invalid")
@@ -291,12 +297,18 @@ def _normalize_engine_result(
 
 class JobProcessor:
     def __init__(
-        self, *, session_factory=None, report_engine=None,
-        metric_sink=None, now=None,
+        self,
+        *,
+        session_factory=None,
+        report_engine=None,
+        metric_sink=None,
+        now=None,
     ):
         self._session_factory = session_factory or session_scope
         self._engine = report_engine or RouteNeutralReportEngine()
-        self._metric_sink = metric_sink
+        self._metric_sink = metric_sink or GoogleCloudMonitoringMetricSink(
+            project_id=os.environ.get("GCP_PROJECT_ID", ""),
+        )
         self._now = now or (lambda: datetime.now(UTC))
 
     def _scope(self):
@@ -307,10 +319,7 @@ class JobProcessor:
     def _actor(session, job: AiJob) -> Actor:
         account = session.get(Account, job.requested_by_account_id)
         staff = session.get(StaffMember, account.staff_member_id) if account else None
-        if (
-            account is None or account.status != "active"
-            or staff is None or not staff.is_active
-        ):
+        if account is None or account.status != "active" or staff is None or not staff.is_active:
             raise TerminalJobFailure("job_authorization_invalid")
         return Actor(
             account_id=account.id,
@@ -323,21 +332,23 @@ class JobProcessor:
 
     @staticmethod
     def _authorize_report_target(
-        session, job: AiJob, actor: Actor,
+        session,
+        job: AiJob,
+        actor: Actor,
     ) -> Report | None:
         if job.report_id is None:
             return None
-        report = session.scalar(
-            select(Report).where(Report.id == job.report_id).with_for_update()
-        )
+        report = session.scalar(select(Report).where(Report.id == job.report_id).with_for_update())
         if report is None or report.incident_id != job.incident_id:
             raise TerminalJobFailure("job_target_invalid")
         access = session.scalar(
-            select(ReportAccess).where(
+            select(ReportAccess)
+            .where(
                 ReportAccess.report_id == report.id,
                 ReportAccess.staff_member_id == actor.staff_member_id,
                 ReportAccess.revoked_at.is_(None),
-            ).with_for_update()
+            )
+            .with_for_update()
         )
         if access is None:
             raise TerminalJobFailure("job_authorization_invalid")
@@ -345,17 +356,21 @@ class JobProcessor:
 
     @staticmethod
     def _source_revision(session, job: AiJob) -> IncidentRevision:
-        revision = session.scalar(select(IncidentRevision).where(
-            IncidentRevision.incident_id == job.incident_id,
-            IncidentRevision.revision_number == job.base_incident_revision,
-        ))
+        revision = session.scalar(
+            select(IncidentRevision).where(
+                IncidentRevision.incident_id == job.incident_id,
+                IncidentRevision.revision_number == job.base_incident_revision,
+            )
+        )
         if revision is None:
             raise TerminalJobFailure("job_target_invalid")
         return revision
 
     @staticmethod
     def _reporting_staff_ids(
-        session, incident: Incident, revision: IncidentRevision,
+        session,
+        incident: Incident,
+        revision: IncidentRevision,
     ) -> tuple[UUID, ...]:
         snapshot = revision.snapshot if isinstance(revision.snapshot, dict) else {}
         metadata = snapshot.get("server_metadata")
@@ -368,22 +383,33 @@ class JobProcessor:
             raise TerminalJobFailure("job_target_invalid") from None
         if len(staff_ids) != len(raw_ids):
             raise TerminalJobFailure("job_target_invalid")
-        active = set(session.scalars(select(StaffMember.id).where(
-            StaffMember.id.in_(staff_ids), StaffMember.is_active.is_(True),
-        )).all())
+        active = set(
+            session.scalars(
+                select(StaffMember.id).where(
+                    StaffMember.id.in_(staff_ids),
+                    StaffMember.is_active.is_(True),
+                )
+            ).all()
+        )
         if active != set(staff_ids):
             raise TerminalJobFailure("job_target_invalid")
         return staff_ids
 
     @staticmethod
     def _authorize_incident_target(
-        session, *, incident: Incident, source: IncidentRevision, actor: Actor,
+        session,
+        *,
+        incident: Incident,
+        source: IncidentRevision,
+        actor: Actor,
     ) -> None:
         if actor.staff_member_id == incident.created_by_staff_member_id:
             return
         snapshot = source.snapshot if isinstance(source.snapshot, dict) else {}
         metadata = snapshot.get("server_metadata")
         raw_ids = metadata.get("reporting_staff_ids") if isinstance(metadata, dict) else []
+        if not isinstance(raw_ids, list):
+            raw_ids = []
         try:
             selected = {UUID(str(value)) for value in raw_ids}
         except (TypeError, ValueError):
@@ -418,25 +444,23 @@ class JobProcessor:
 
     def _emit_repeat_risk(self, job_type: str) -> None:
         labels = {"job_type": job_type}
-        if self._metric_sink is not None:
+        try:
             self._metric_sink.increment(
-                "ai_provider_repeat_risk_total", labels=labels,
+                "ai_provider_repeat_risk_total",
+                labels=labels,
             )
-            return
-        logger.info(
-            "ai_provider_repeat_risk_total",
-            extra={
-                "event_name": "ai_provider_repeat_risk_total",
-                "job_type": job_type,
-            },
-        )
+        except Exception:
+            # A telemetry outage must not repeat the provider call or alter the
+            # already-durable recovery decision. Do not expose raw exceptions.
+            logger.error(
+                "ai_provider_repeat_risk_metric_emit_failed",
+                extra={"event_name": "ai_provider_repeat_risk_metric_emit_failed"},
+            )
 
     def _mark_terminal(self, job_id: UUID, claim_token: UUID, code: str) -> None:
         fixed = self._now()
         with self._scope() as session:
-            job = session.scalar(
-                select(AiJob).where(AiJob.id == job_id).with_for_update()
-            )
+            job = session.scalar(select(AiJob).where(AiJob.id == job_id).with_for_update())
             if job is None or job.state in TERMINAL_STATES:
                 return
             if job.state != "running" or job.claim_token != claim_token:
@@ -451,26 +475,28 @@ class JobProcessor:
             job.completed_at = fixed
             job.claim_token = None
             job.lease_expires_at = None
-            PostgresAuditWriter().append(session, AuditEventInput(
-                actor_account_id=account.id,
-                actor_staff_member_id=account.staff_member_id,
-                action="ai.job_failed",
-                result="failed",
-                request_id=f"job_{job.id}",
-                target_type="ai_job",
-                target_id=job.id,
-                details={
-                    "job_id": str(job.id), "job_type": job.job_type,
-                    "result_code": code,
-                },
-                client_version="0.0.0-worker",
-            ))
+            PostgresAuditWriter().append(
+                session,
+                AuditEventInput(
+                    actor_account_id=account.id,
+                    actor_staff_member_id=account.staff_member_id,
+                    action="ai.job_failed",
+                    result="failed",
+                    request_id=f"job_{job.id}",
+                    target_type="ai_job",
+                    target_id=job.id,
+                    details={
+                        "job_id": str(job.id),
+                        "job_type": job.job_type,
+                        "result_code": code,
+                    },
+                    client_version="0.0.0-worker",
+                ),
+            )
 
     def _release_transient(self, job_id: UUID, claim_token: UUID) -> None:
         with self._scope() as session:
-            job = session.scalar(
-                select(AiJob).where(AiJob.id == job_id).with_for_update()
-            )
+            job = session.scalar(select(AiJob).where(AiJob.id == job_id).with_for_update())
             if job is None or job.state in TERMINAL_STATES:
                 return
             if job.state == "running" and job.claim_token == claim_token:
@@ -494,10 +520,7 @@ class JobProcessor:
             claim_token = claimed.claim_token
             metadata = self._metadata(claimed)
             previous = metadata.pop("provider_attempt_started", None)
-            if (
-                isinstance(previous, dict)
-                and previous.get("claim_token") != str(claim_token)
-            ):
+            if isinstance(previous, dict) and previous.get("claim_token") != str(claim_token):
                 repeat_job_type = claimed.job_type
                 metadata["provider_repeat_risk_emitted_attempt"] = claimed.attempts
             claimed.request_metadata = metadata
@@ -508,15 +531,16 @@ class JobProcessor:
         return claim_token, repeat_job_type
 
     def _preflight(
-        self, job_id: UUID, claim_token: UUID,
+        self,
+        job_id: UUID,
+        claim_token: UUID,
     ) -> None:
         fixed = self._now()
         with self._scope() as session:
-            job = session.scalar(
-                select(AiJob).where(AiJob.id == job_id).with_for_update()
-            )
+            job = session.scalar(select(AiJob).where(AiJob.id == job_id).with_for_update())
             if (
-                job is None or job.state != "running"
+                job is None
+                or job.state != "running"
                 or job.claim_token != claim_token
                 or job.lease_expires_at is None
                 or job.lease_expires_at <= fixed
@@ -524,22 +548,27 @@ class JobProcessor:
                 raise StaleJobClaim("job claim is no longer current")
             actor = self._actor(session, job)
             report = self._authorize_report_target(session, job, actor)
-            incident = session.scalar(
-                select(Incident).where(Incident.id == job.incident_id).with_for_update()
-            )
+            incident = session.scalar(select(Incident).where(Incident.id == job.incident_id).with_for_update())
             if incident is None:
                 raise TerminalJobFailure("job_target_invalid")
             if incident.current_revision_number != job.base_incident_revision:
                 self._finish_provider_metadata(job)
                 apply_job_result(
-                    session, job.id, job.base_incident_revision,
-                    claim_token=claim_token, result_reference={}, now=fixed,
+                    session,
+                    job.id,
+                    job.base_incident_revision,
+                    claim_token=claim_token,
+                    result_reference={},
+                    now=fixed,
                     request_id=f"job_{job.id}",
                 )
                 return
             source = self._source_revision(session, job)
             self._authorize_incident_target(
-                session, incident=incident, source=source, actor=actor,
+                session,
+                incident=incident,
+                source=source,
+                actor=actor,
             )
             metadata = self._metadata(job)
             metadata["source_incident_revision_id"] = str(source.id)
@@ -573,11 +602,10 @@ class JobProcessor:
     def _mark_provider_started(self, job_id: UUID, claim_token: UUID) -> None:
         fixed = self._now()
         with self._scope() as session:
-            job = session.scalar(
-                select(AiJob).where(AiJob.id == job_id).with_for_update()
-            )
+            job = session.scalar(select(AiJob).where(AiJob.id == job_id).with_for_update())
             if (
-                job is None or job.state != "running"
+                job is None
+                or job.state != "running"
                 or job.claim_token != claim_token
                 or job.lease_expires_at is None
                 or job.lease_expires_at <= fixed
@@ -593,10 +621,7 @@ class JobProcessor:
     def _call_engine(self, job_id: UUID, claim_token: UUID) -> JobEngineResult:
         with self._scope() as session:
             job = session.get(AiJob, job_id)
-            if (
-                job is None or job.state != "running"
-                or job.claim_token != claim_token
-            ):
+            if job is None or job.state != "running" or job.claim_token != claim_token:
                 raise StaleJobClaim("job claim is no longer current")
             incident = session.get(Incident, job.incident_id)
             if incident is None:
@@ -606,7 +631,10 @@ class JobProcessor:
 
     @staticmethod
     def _attach_sources(
-        session, *, job_id: UUID, source_revision_id: UUID,
+        session,
+        *,
+        job_id: UUID,
+        source_revision_id: UUID,
     ):
         def attach(_session, _context, _instances):
             for pending in _session.new:
@@ -619,8 +647,13 @@ class JobProcessor:
 
     @staticmethod
     def _new_report_shell(
-        session, *, incident: Incident, report_type: ReportType,
-        owner_staff_id: UUID, actor: Actor, now: datetime,
+        session,
+        *,
+        incident: Incident,
+        report_type: ReportType,
+        owner_staff_id: UUID,
+        actor: Actor,
+        now: datetime,
     ) -> Report:
         report = Report(
             incident_id=incident.id,
@@ -639,29 +672,39 @@ class JobProcessor:
         relationships = [(owner_staff_id, "owner")]
         if actor.staff_member_id != owner_staff_id:
             relationships.append((actor.staff_member_id, "preparer"))
-        session.add_all([
-            ReportAccess(
-                report_id=report.id,
-                staff_member_id=staff_id,
-                relationship=relationship,
-                granted_by_account_id=actor.account_id,
-                created_at=now,
-            )
-            for staff_id, relationship in relationships
-        ])
+        session.add_all(
+            [
+                ReportAccess(
+                    report_id=report.id,
+                    staff_member_id=staff_id,
+                    relationship=relationship,
+                    granted_by_account_id=actor.account_id,
+                    created_at=now,
+                )
+                for staff_id, relationship in relationships
+            ]
+        )
         session.flush()
         return report
 
     def _apply_report_results(
-        self, session, *, job: AiJob, actor: Actor, incident: Incident,
-        source: IncidentRevision, result: JobEngineResult, now: datetime,
+        self,
+        session,
+        *,
+        job: AiJob,
+        actor: Actor,
+        incident: Incident,
+        source: IncidentRevision,
+        result: JobEngineResult,
+        now: datetime,
     ) -> list[dict[str, object]]:
         metadata = self._metadata(job)
         raw_bases = metadata.get("target_report_base_revisions", {})
-        bases = {
-            str(key): value for key, value in raw_bases.items()
-            if isinstance(key, str) and type(value) is int
-        } if isinstance(raw_bases, dict) else {}
+        bases = (
+            {str(key): value for key, value in raw_bases.items() if isinstance(key, str) and type(value) is int}
+            if isinstance(raw_bases, dict)
+            else {}
+        )
 
         contents = dict(result.report_contents)
         if result.report_content is not None:
@@ -695,11 +738,15 @@ class JobProcessor:
                 if report_type is None:
                     raise TerminalJobFailure("job_output_invalid")
                 for owner_id in staff_ids:
-                    report = session.scalar(select(Report).where(
-                        Report.incident_id == incident.id,
-                        Report.report_type == report_type,
-                        Report.reporting_staff_member_id == owner_id,
-                    ).with_for_update())
+                    report = session.scalar(
+                        select(Report)
+                        .where(
+                            Report.incident_id == incident.id,
+                            Report.report_type == report_type,
+                            Report.reporting_staff_member_id == owner_id,
+                        )
+                        .with_for_update()
+                    )
                     if report is None:
                         report = self._new_report_shell(
                             session,
@@ -714,33 +761,49 @@ class JobProcessor:
                         base = bases.get(str(report.id))
                         if type(base) is not int:
                             raise TerminalJobFailure("job_result_conflict")
-                        access = session.scalar(select(ReportAccess).where(
-                            ReportAccess.report_id == report.id,
-                            ReportAccess.staff_member_id == actor.staff_member_id,
-                            ReportAccess.revoked_at.is_(None),
-                        ).with_for_update())
+                        access = session.scalar(
+                            select(ReportAccess)
+                            .where(
+                                ReportAccess.report_id == report.id,
+                                ReportAccess.staff_member_id == actor.staff_member_id,
+                                ReportAccess.revoked_at.is_(None),
+                            )
+                            .with_for_update()
+                        )
                         if access is None:
                             raise TerminalJobFailure("job_authorization_invalid")
                     targets.append((report, content, base))
 
         attach = self._attach_sources(
-            session, job_id=job.id, source_revision_id=source.id,
+            session,
+            job_id=job.id,
+            source_revision_id=source.id,
         )
         references = []
         try:
             for report, content, base in sorted(targets, key=lambda value: value[0].id):
                 revision = save_report(
-                    session, actor, report.id, content, base, "ai_result",
+                    session,
+                    actor,
+                    report.id,
+                    content,
+                    base,
+                    "ai_result",
                     request_id=f"job_{job.id}",
                     client_version="0.0.0-worker",
                 )
-                references.append({
-                    "report_id": str(report.id),
-                    "revision_number": revision.revision_number,
-                })
+                references.append(
+                    {
+                        "report_id": str(report.id),
+                        "revision_number": revision.revision_number,
+                    }
+                )
                 for name in (
-                    "fast_model", "pro_model", "model_location",
-                    "classification_prompt_sha256", "generation_prompt_sha256",
+                    "fast_model",
+                    "pro_model",
+                    "model_location",
+                    "classification_prompt_sha256",
+                    "generation_prompt_sha256",
                 ):
                     setattr(job, name, getattr(revision, name))
         finally:
@@ -750,33 +813,37 @@ class JobProcessor:
     def _apply(self, job_id: UUID, claim_token: UUID, result: JobEngineResult) -> None:
         completed_at = self._now()
         with self._scope() as session:
-            job = session.scalar(
-                select(AiJob).where(AiJob.id == job_id).with_for_update()
-            )
+            job = session.scalar(select(AiJob).where(AiJob.id == job_id).with_for_update())
             if (
-                job is None or job.state != "running"
+                job is None
+                or job.state != "running"
                 or job.claim_token != claim_token
                 or job.lease_expires_at is None
                 or job.lease_expires_at <= completed_at
             ):
                 raise StaleJobClaim("job claim is no longer current")
             actor = self._actor(session, job)
-            incident = session.scalar(
-                select(Incident).where(Incident.id == job.incident_id).with_for_update()
-            )
+            incident = session.scalar(select(Incident).where(Incident.id == job.incident_id).with_for_update())
             if incident is None:
                 raise TerminalJobFailure("job_target_invalid")
             if incident.current_revision_number != job.base_incident_revision:
                 self._finish_provider_metadata(job)
                 apply_job_result(
-                    session, job.id, job.base_incident_revision,
-                    claim_token=claim_token, result_reference={},
-                    now=completed_at, request_id=f"job_{job.id}",
+                    session,
+                    job.id,
+                    job.base_incident_revision,
+                    claim_token=claim_token,
+                    result_reference={},
+                    now=completed_at,
+                    request_id=f"job_{job.id}",
                 )
                 return
             source = self._source_revision(session, job)
             self._authorize_incident_target(
-                session, incident=incident, source=source, actor=actor,
+                session,
+                incident=incident,
+                source=source,
+                actor=actor,
             )
 
             if result.incident_content is not None:
@@ -786,13 +853,21 @@ class JobProcessor:
                 # in the same transaction and attach the known revision ref.
                 # Any save failure rolls the whole transaction back.
                 apply_job_result(
-                    session, job.id, job.base_incident_revision,
-                    claim_token=claim_token, result_reference={},
-                    now=completed_at, request_id=f"job_{job.id}",
+                    session,
+                    job.id,
+                    job.base_incident_revision,
+                    claim_token=claim_token,
+                    result_reference={},
+                    now=completed_at,
+                    request_id=f"job_{job.id}",
                 )
                 revision = save_incident(
-                    session, actor, incident.id, result.incident_content,
-                    job.base_incident_revision, "ai_result",
+                    session,
+                    actor,
+                    incident.id,
+                    result.incident_content,
+                    job.base_incident_revision,
+                    "ai_result",
                     request_id=f"job_{job.id}",
                     client_version="0.0.0-worker",
                 )
@@ -818,7 +893,9 @@ class JobProcessor:
                 raise TerminalJobFailure("job_result_conflict") from None
             self._finish_provider_metadata(job)
             apply_job_result(
-                session, job.id, job.base_incident_revision,
+                session,
+                job.id,
+                job.base_incident_revision,
                 claim_token=claim_token,
                 result_reference={"reports": references},
                 now=completed_at,
@@ -859,7 +936,9 @@ class JobProcessor:
 
 
 def _delivery_metadata(
-    job_id: UUID, *, expected_queue: str,
+    job_id: UUID,
+    *,
+    expected_queue: str,
 ) -> tuple[bool, int]:
     task_name = request.headers.get("X-CloudTasks-TaskName", "")
     queue_name = request.headers.get("X-CloudTasks-QueueName", "")
@@ -891,19 +970,23 @@ def create_worker_blueprint(processor, *, queue_name: str) -> Blueprint:
     @blueprint.post("/internal/jobs/<uuid:job_id>/run")
     def run_job(job_id: UUID):
         metadata_present = all(
-            header in request.headers for header in (
-                "X-CloudTasks-TaskName", "X-CloudTasks-QueueName",
+            header in request.headers
+            for header in (
+                "X-CloudTasks-TaskName",
+                "X-CloudTasks-QueueName",
                 "X-CloudTasks-TaskRetryCount",
             )
         )
         valid_metadata, retry_count = _delivery_metadata(
-            job_id, expected_queue=queue_name,
+            job_id,
+            expected_queue=queue_name,
         )
         if not metadata_present:
             return jsonify({"error": "cloud_tasks_metadata_required"}), 401
         payload = request.get_json(silent=True)
         if (
-            not valid_metadata or type(payload) is not dict
+            not valid_metadata
+            or type(payload) is not dict
             or set(payload) != {"job_id"}
             or payload.get("job_id") != str(job_id)
         ):
@@ -920,6 +1003,9 @@ def create_worker_blueprint(processor, *, queue_name: str) -> Blueprint:
 
 
 __all__ = [
-    "JobEngineResult", "JobProcessor", "TerminalJobFailure",
-    "TransientJobFailure", "create_worker_blueprint",
+    "JobEngineResult",
+    "JobProcessor",
+    "TerminalJobFailure",
+    "TransientJobFailure",
+    "create_worker_blueprint",
 ]

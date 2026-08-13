@@ -22,7 +22,8 @@ class FakeProcessor:
 
 def _client(processor):
     app = create_worker_app(
-        processor=processor, queue_name="fictional-report-jobs",
+        processor=processor,
+        queue_name="fictional-report-jobs",
     )
     app.config["TESTING"] = True
     return app.test_client()
@@ -39,7 +40,8 @@ def _headers(job_id=JOB_ID, *, retry_count="0"):
 def test_worker_rejects_request_without_cloud_tasks_metadata():
     processor = FakeProcessor()
     response = _client(processor).post(
-        f"/internal/jobs/{JOB_ID}/run", json={"job_id": str(JOB_ID)},
+        f"/internal/jobs/{JOB_ID}/run",
+        json={"job_id": str(JOB_ID)},
     )
 
     assert response.status_code == 401
@@ -52,11 +54,13 @@ def test_worker_requires_closed_json_and_exact_route_body_uuid_match():
     client = _client(processor)
 
     mismatch = client.post(
-        f"/internal/jobs/{JOB_ID}/run", headers=_headers(),
+        f"/internal/jobs/{JOB_ID}/run",
+        headers=_headers(),
         json={"job_id": "00000000-0000-4000-8000-000000000099"},
     )
     extra = client.post(
-        f"/internal/jobs/{JOB_ID}/run", headers=_headers(),
+        f"/internal/jobs/{JOB_ID}/run",
+        headers=_headers(),
         json={"job_id": str(JOB_ID), "unexpected": True},
     )
 
@@ -84,7 +88,8 @@ def test_worker_requires_queue_metadata_to_match_configured_queue():
     headers["X-CloudTasks-QueueName"] = "different-fictional-queue"
 
     response = _client(processor).post(
-        f"/internal/jobs/{JOB_ID}/run", headers=headers,
+        f"/internal/jobs/{JOB_ID}/run",
+        headers=headers,
         json={"job_id": str(JOB_ID)},
     )
 
@@ -97,12 +102,12 @@ def test_worker_rejects_full_task_resource_in_delivery_header():
     processor = FakeProcessor()
     headers = _headers()
     headers["X-CloudTasks-TaskName"] = (
-        "projects/fictional-project/locations/us-central1/queues/"
-        f"fictional-report-jobs/tasks/ai-job-{JOB_ID}"
+        f"projects/fictional-project/locations/us-central1/queues/fictional-report-jobs/tasks/ai-job-{JOB_ID}"
     )
 
     response = _client(processor).post(
-        f"/internal/jobs/{JOB_ID}/run", headers=headers,
+        f"/internal/jobs/{JOB_ID}/run",
+        headers=headers,
         json={"job_id": str(JOB_ID)},
     )
 
@@ -114,7 +119,8 @@ def test_worker_rejects_full_task_resource_in_delivery_header():
 def test_worker_runs_valid_delivery_and_parses_bounded_retry_count():
     processor = FakeProcessor()
     response = _client(processor).post(
-        f"/internal/jobs/{JOB_ID}/run", headers=_headers(retry_count="2"),
+        f"/internal/jobs/{JOB_ID}/run",
+        headers=_headers(retry_count="2"),
         json={"job_id": str(JOB_ID)},
     )
 
@@ -126,7 +132,8 @@ def test_worker_runs_valid_delivery_and_parses_bounded_retry_count():
 def test_terminal_failure_returns_2xx_to_stop_cloud_tasks_retry():
     processor = FakeProcessor(TerminalJobFailure("job_output_invalid"))
     response = _client(processor).post(
-        f"/internal/jobs/{JOB_ID}/run", headers=_headers(),
+        f"/internal/jobs/{JOB_ID}/run",
+        headers=_headers(),
         json={"job_id": str(JOB_ID)},
     )
 
@@ -139,7 +146,8 @@ def test_transient_failure_returns_503_without_exposing_exception():
         TransientJobFailure("private provider response must not escape"),
     )
     response = _client(processor).post(
-        f"/internal/jobs/{JOB_ID}/run", headers=_headers(),
+        f"/internal/jobs/{JOB_ID}/run",
+        headers=_headers(),
         json={"job_id": str(JOB_ID)},
     )
 

@@ -1,0 +1,9 @@
+{
+  "displayName": "Access Client Versions",
+  "mosaicLayout": {"columns": 12,
+    "tiles": [
+      {"width": 6, "height": 4, "widget": {"title": "client_upgrade_required", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"logging.googleapis.com/user/access_client_upgrade_required\""}}}}},
+      {"xPos": 6, "width": 6, "height": 4, "widget": {"title": "request_event parsed client version counts", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"logging.googleapis.com/user/access_request_event\""}}}}}
+    ]
+  }
+}

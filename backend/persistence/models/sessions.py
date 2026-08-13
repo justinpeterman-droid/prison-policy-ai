@@ -1,7 +1,17 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, LargeBinary, String, UniqueConstraint, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    LargeBinary,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID as UUIDType
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,10 +28,17 @@ class AccessSession(Base):
         CheckConstraint("octet_length(renewal_token_hash) = 32", name="session_renewal_hash_length"),
         CheckConstraint("octet_length(device_id_hash) = 32", name="session_device_hash_length"),
         CheckConstraint("access_expires_at > created_at", name="session_access_expiry_after_create"),
-        CheckConstraint("renewal_expires_at > created_at", name="session_renewal_expiry_after_create"),
+        CheckConstraint(
+            "renewal_expires_at > created_at",
+            name="session_renewal_expiry_after_create",
+        ),
     )
 
-    id: Mapped[UUID] = mapped_column(UUIDType(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    id: Mapped[UUID] = mapped_column(
+        UUIDType(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
     account_id: Mapped[UUID] = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True)
     auth_version: Mapped[int] = mapped_column(nullable=False)
     access_token_hash: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
@@ -32,8 +49,16 @@ class AccessSession(Base):
     device_id_hash: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
     device_label: Mapped[str] = mapped_column(String(120), nullable=False, server_default="")
     persistent: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
-    last_used_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    last_used_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoke_reason: Mapped[str | None] = mapped_column(String(64))
 
@@ -47,7 +72,11 @@ class RenewalTokenHistory(Base):
         CheckConstraint("expires_at > rotated_at", name="renewal_history_expiry_after_rotation"),
     )
 
-    id: Mapped[UUID] = mapped_column(UUIDType(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    id: Mapped[UUID] = mapped_column(
+        UUIDType(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
     session_id: Mapped[UUID] = mapped_column(ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
     renewal_family_id: Mapped[UUID] = mapped_column(UUIDType(as_uuid=True), nullable=False)
     token_hash: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
@@ -79,7 +108,11 @@ class AdminStepUpToken(Base):
         CheckConstraint("expires_at > issued_at", name="admin_step_up_expiry_after_issue"),
     )
 
-    id: Mapped[UUID] = mapped_column(UUIDType(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    id: Mapped[UUID] = mapped_column(
+        UUIDType(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
     session_id: Mapped[UUID] = mapped_column(ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, index=True)
     token_hash: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
     purpose: Mapped[str] = mapped_column(String(64), nullable=False)

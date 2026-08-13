@@ -4,6 +4,7 @@ Usage:
   python import_to_agent_builder.py          # import all
   python import_to_agent_builder.py --count 5 # import first 5 only
 """
+
 import os
 import sys
 import json
@@ -23,18 +24,23 @@ BASE = (
     f"/branches/default_branch"
 )
 
+
 def gcloud(args):
     result = subprocess.run(
         [r"C:\CloudSDK\google-cloud-sdk\bin\gcloud.cmd"] + args,
-        capture_output=True, text=True, timeout=30,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
     return result.stdout.strip(), result.stderr.strip(), result.returncode
+
 
 stdout, stderr, rc = gcloud(["auth", "print-access-token"])
 if rc != 0:
     print(f"Error getting token: {stderr}")
     sys.exit(1)
 TOKEN = stdout.strip()
+
 
 def api(method, path, body=None, timeout=120):
     url = f"https://discoveryengine.googleapis.com/v1beta/{path}"
@@ -49,6 +55,7 @@ def api(method, path, body=None, timeout=120):
     except urllib.error.HTTPError as e:
         return e.code, {"error": e.code, "body": e.read().decode()[:2000]}
 
+
 def wait_for_operation(op_name, timeout=300):
     """Poll a long-running operation until done."""
     start = time.time()
@@ -61,6 +68,7 @@ def wait_for_operation(op_name, timeout=300):
                 return False, op["error"]
         time.sleep(5)
     return False, "timeout"
+
 
 # 1. List PDFs
 print("=== Listing GCS PDFs ===")
@@ -109,16 +117,16 @@ for batch_num, i in enumerate(range(0, len(pdf_uris), BATCH_SIZE)):
             print(f"OK ({success_count} success)")
             imported += success_count
             if failure_count:
-                errors.append(f"Batch {batch_num+1}: {failure_count} failures")
+                errors.append(f"Batch {batch_num + 1}: {failure_count} failures")
         else:
             print(f"FAIL: {json.dumps(detail)[:200]}")
-            errors.append(f"Batch {batch_num+1}: {detail}")
+            errors.append(f"Batch {batch_num + 1}: {detail}")
     elif status == 200:
         print("OK")
         imported += len(batch)
     else:
         print(f"HTTP {status}")
-        errors.append(f"Batch {batch_num+1}: HTTP {status}")
+        errors.append(f"Batch {batch_num + 1}: HTTP {status}")
 
 if errors:
     print(f"\n❌ {len(errors)} errors:")
@@ -127,4 +135,4 @@ if errors:
 else:
     print(f"\n✅ All {imported} documents imported!")
 
-print(f"\nNote: Documents may take a few minutes to appear in search results.")
+print("\nNote: Documents may take a few minutes to appear in search results.")

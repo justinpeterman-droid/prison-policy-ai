@@ -6,6 +6,7 @@ generator functions are monkeypatched, so nothing here makes a network call.
 Importing generator.py pulls google.genai, so these run in CI where deps are
 installed and skip cleanly otherwise.
 """
+
 import time
 
 import pytest
@@ -27,18 +28,26 @@ SLOTS = {"persons": [], "charges": ""}
 @pytest.fixture
 def stub(monkeypatch):
     """Replace the five generators with controllable stand-ins."""
-    def _apply(first=None, supervisor=None, cover=None, disciplinary=None,
-               investigation=None):
-        monkeypatch.setattr(generator, "generate_first_person",
-                            first or (lambda *a, **k: "FIRST"))
-        monkeypatch.setattr(generator, "generate_supervisor_summary",
-                            supervisor or (lambda *a, **k: "SUPERVISOR"))
-        monkeypatch.setattr(generator, "generate_cover_letter",
-                            cover or (lambda *a, **k: "COVER"))
-        monkeypatch.setattr(generator, "generate_disciplinary",
-                            disciplinary or (lambda *a, **k: "DISCIPLINARY"))
-        monkeypatch.setattr(generator, "generate_investigation",
-                            investigation or (lambda *a, **k: "INVESTIGATION"))
+
+    def _apply(first=None, supervisor=None, cover=None, disciplinary=None, investigation=None):
+        monkeypatch.setattr(generator, "generate_first_person", first or (lambda *a, **k: "FIRST"))
+        monkeypatch.setattr(
+            generator,
+            "generate_supervisor_summary",
+            supervisor or (lambda *a, **k: "SUPERVISOR"),
+        )
+        monkeypatch.setattr(generator, "generate_cover_letter", cover or (lambda *a, **k: "COVER"))
+        monkeypatch.setattr(
+            generator,
+            "generate_disciplinary",
+            disciplinary or (lambda *a, **k: "DISCIPLINARY"),
+        )
+        monkeypatch.setattr(
+            generator,
+            "generate_investigation",
+            investigation or (lambda *a, **k: "INVESTIGATION"),
+        )
+
     return _apply
 
 
@@ -76,6 +85,7 @@ class TestSuccessPath:
 class TestConcurrency:
     def test_independent_reports_run_in_parallel(self, stub):
         """Wall-clock should track the slowest call, not the sum of all three."""
+
         def slow(*a, **k):
             time.sleep(0.3)
             return "SLOW"
@@ -102,6 +112,7 @@ class TestFailureHandling:
     def test_failures_are_reported_explicitly(self, stub):
         """A failed section must be flagged, not left to pass for a finished
         report with an error line buried in the body."""
+
         def boom(*a, **k):
             raise RuntimeError("upstream exploded")
 
@@ -148,6 +159,7 @@ class TestInvestigationReport:
     def test_it_runs_alongside_the_base_reports_not_after(self, stub):
         """It has no dependency on the other reports, so it must not add a
         fourth sequential round-trip on the Pro tier."""
+
         def slow(*a, **k):
             time.sleep(0.3)
             return "SLOW"

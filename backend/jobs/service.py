@@ -110,9 +110,7 @@ def _authorize_incident(session: Session, actor: Actor, incident_id: UUID) -> In
     # Lock before the live access query so a report save/transfer cannot race the
     # base-revision decision. Report-access revocation takes the report lock
     # first; this route holds no report lock unless a report is explicitly bound.
-    incident = session.scalar(
-        select(Incident).where(Incident.id == incident_id).with_for_update()
-    )
+    incident = session.scalar(select(Incident).where(Incident.id == incident_id).with_for_update())
     if incident is None:
         raise IncidentNotFound("Incident not found.")
     view = get_incident(session, actor, incident_id)
@@ -139,13 +137,13 @@ def _authorize_incident(session: Session, actor: Actor, incident_id: UUID) -> In
 
 
 def _authorize_bound_report(
-    session: Session, actor: Actor, command: SubmitJobCommand,
+    session: Session,
+    actor: Actor,
+    command: SubmitJobCommand,
 ) -> None:
     if command.report_id is None:
         return
-    report = session.scalar(
-        select(Report).where(Report.id == command.report_id).with_for_update()
-    )
+    report = session.scalar(select(Report).where(Report.id == command.report_id).with_for_update())
     if report is None or report.incident_id != command.incident_id:
         raise IncidentNotFound("Incident not found.")
     live_access = session.scalar(
@@ -173,17 +171,20 @@ def _append_audit(
     client_version: str,
     details: dict[str, object],
 ) -> None:
-    writer.append(session, AuditEventInput(
-        actor_account_id=actor_account_id,
-        actor_staff_member_id=actor_staff_member_id,
-        action=action,
-        result="success" if action != "ai.job_failed" else "failed",
-        request_id=request_id,
-        target_type="ai_job",
-        target_id=job.id,
-        details=details,
-        client_version=client_version,
-    ))
+    writer.append(
+        session,
+        AuditEventInput(
+            actor_account_id=actor_account_id,
+            actor_staff_member_id=actor_staff_member_id,
+            action=action,
+            result="success" if action != "ai.job_failed" else "failed",
+            request_id=request_id,
+            target_type="ai_job",
+            target_id=job.id,
+            details=details,
+            client_version=client_version,
+        ),
+    )
 
 
 def submit_job(
@@ -278,7 +279,10 @@ def get_job(session: Session, actor: Actor, job_id: UUID) -> AiJob:
 
 
 def claim_job(
-    session: Session, job_id: UUID, *, now: datetime | None = None,
+    session: Session,
+    job_id: UUID,
+    *,
+    now: datetime | None = None,
 ) -> AiJob | None:
     """Claim queued work or safely reclaim a worker whose lease expired."""
     fixed = now or datetime.now(UTC)
@@ -313,18 +317,27 @@ def claim_job(
 
 
 def _validate_result_targets(
-    session: Session, job: AiJob, reference: dict[str, object],
+    session: Session,
+    job: AiJob,
+    reference: dict[str, object],
 ) -> None:
     incident_revision_number = reference.get("incident_revision_number")
     if incident_revision_number is not None:
-        incident_revision_id = session.scalar(select(IncidentRevision.id).where(
-            IncidentRevision.incident_id == job.incident_id,
-            IncidentRevision.revision_number == incident_revision_number,
-        ))
+        incident_revision_id = session.scalar(
+            select(IncidentRevision.id).where(
+                IncidentRevision.incident_id == job.incident_id,
+                IncidentRevision.revision_number == incident_revision_number,
+            )
+        )
         if incident_revision_id is None:
             raise InvalidJobResultReference("job result reference is invalid")
 
-    for item in reference.get("reports", []):
+    reports = reference.get("reports", [])
+    if not isinstance(reports, list):
+        raise InvalidJobResultReference("job result reference is invalid")
+    for item in reports:
+        if not isinstance(item, dict):
+            raise InvalidJobResultReference("job result reference is invalid")
         report_id = UUID(str(item["report_id"]))
         revision_number = int(item["revision_number"])
         report_revision_id = session.scalar(
@@ -363,9 +376,7 @@ def apply_job_result(
         {} if result_reference is None else result_reference,
     )
     fixed = now or datetime.now(UTC)
-    job = session.scalar(
-        select(AiJob).where(AiJob.id == job_id).with_for_update()
-    )
+    job = session.scalar(select(AiJob).where(AiJob.id == job_id).with_for_update())
     if job is None:
         raise JobNotFound("Job not found.")
     if job.state in TERMINAL_STATES:
@@ -379,9 +390,7 @@ def apply_job_result(
         or job.lease_expires_at <= fixed
     ):
         raise StaleJobClaim("job claim is no longer current")
-    incident = session.scalar(
-        select(Incident).where(Incident.id == job.incident_id).with_for_update()
-    )
+    incident = session.scalar(select(Incident).where(Incident.id == job.incident_id).with_for_update())
     if incident is None:
         raise JobNotFound("Job not found.")
     account = session.get(Account, job.requested_by_account_id)

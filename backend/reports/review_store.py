@@ -1,4 +1,5 @@
 """Immutable GCS storage for versioned demo review submissions."""
+
 import json
 import logging
 import re
@@ -29,8 +30,9 @@ class ReviewStore:
 
     @staticmethod
     def _default_client():
-        from google.cloud import storage
-        return storage.Client()
+        from google.cloud.storage import Client
+
+        return Client()
 
     def _client(self):
         if not self.bucket_name:
@@ -41,17 +43,15 @@ class ReviewStore:
         match = SUBMISSION_ID_RE.fullmatch(submission_id or "")
         if not match:
             raise ValueError("invalid review submission id")
-        return (f"{self.prefix}/{match.group('year')}/{match.group('month')}/"
-                f"{submission_id}.json")
+        return f"{self.prefix}/{match.group('year')}/{match.group('month')}/{submission_id}.json"
 
     @staticmethod
     def _is_conflict(exc: Exception) -> bool:
         try:
             from google.api_core.exceptions import PreconditionFailed
         except ImportError:  # pragma: no cover - dependency is deployed
-            PreconditionFailed = ()
-        return (isinstance(exc, PreconditionFailed)
-                or "precondition" in str(exc).lower())
+            return "precondition" in str(exc).lower()
+        return isinstance(exc, PreconditionFailed) or "precondition" in str(exc).lower()
 
     @staticmethod
     def _is_not_found(exc: Exception) -> bool:
@@ -66,8 +66,7 @@ class ReviewStore:
     def save(self, record: dict) -> str:
         submission_id = record.get("submission_id", "")
         object_name = self._name_for_id(submission_id)
-        payload = json.dumps(
-            record, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+        payload = json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
         blob = self._client().bucket(self.bucket_name).blob(object_name)
         try:
             blob.upload_from_string(
@@ -77,8 +76,7 @@ class ReviewStore:
             )
         except Exception as exc:
             if self._is_conflict(exc):
-                raise ReviewConflictError(
-                    f"review {submission_id} already exists") from exc
+                raise ReviewConflictError(f"review {submission_id} already exists") from exc
             raise ReviewStoreUnavailable("review could not be saved") from exc
         return object_name
 
@@ -102,8 +100,7 @@ class ReviewStore:
         records = []
         skipped = 0
         try:
-            blobs = client.list_blobs(
-                self.bucket_name, prefix=f"{self.prefix}/")
+            blobs = client.list_blobs(self.bucket_name, prefix=f"{self.prefix}/")
             for blob in blobs:
                 try:
                     item = json.loads(blob.download_as_text())
@@ -122,8 +119,5 @@ class ReviewStore:
 
     def export_jsonl(self, limit: int = 1000) -> tuple[bytes, int]:
         records, skipped = self.list_records(limit=limit)
-        text = "".join(
-            json.dumps(item, sort_keys=True, ensure_ascii=False) + "\n"
-            for item in records
-        )
+        text = "".join(json.dumps(item, sort_keys=True, ensure_ascii=False) + "\n" for item in records)
         return text.encode("utf-8"), skipped

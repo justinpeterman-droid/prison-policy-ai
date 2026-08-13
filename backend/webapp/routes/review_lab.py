@@ -1,4 +1,5 @@
 """Admin-only Demo Review Lab page and persistence APIs."""
+
 from flask import Blueprint, Response, jsonify, render_template, request
 
 from backend.pipeline.config import (
@@ -75,13 +76,13 @@ def review_lab_submit():
     except ReviewValidationError as exc:
         return jsonify({"error": str(exc)}), 400
     except (ReviewStoreUnavailable, ReviewConflictError):
-        return jsonify({
-            "error": "Review could not be saved. Your edits are still on this page."
-        }), 503
-    return jsonify({
-        "submission_id": record["submission_id"],
-        "object_name": object_name,
-    }), 201
+        return jsonify({"error": "Review could not be saved. Your edits are still on this page."}), 503
+    return jsonify(
+        {
+            "submission_id": record["submission_id"],
+            "object_name": object_name,
+        }
+    ), 201
 
 
 @review_lab_bp.route("/api/review-lab/submissions", methods=["GET"])
@@ -95,10 +96,12 @@ def review_lab_list():
         return jsonify({"error": str(exc)}), 400
     except ReviewStoreUnavailable:
         return jsonify({"error": "Saved reviews are temporarily unavailable."}), 503
-    return jsonify({
-        "submissions": [review_summary(item) for item in records],
-        "skipped": skipped,
-    })
+    return jsonify(
+        {
+            "submissions": [review_summary(item) for item in records],
+            "skipped": skipped,
+        }
+    )
 
 
 @review_lab_bp.route("/api/review-lab/submissions/<submission_id>")
@@ -115,8 +118,7 @@ def review_lab_get(submission_id):
     if record is None:
         return _not_found()
     response = jsonify(record)
-    response.headers["Content-Disposition"] = (
-        f'attachment; filename="{submission_id}.json"')
+    response.headers["Content-Disposition"] = f'attachment; filename="{submission_id}.json"'
     return response
 
 
@@ -135,8 +137,7 @@ def review_lab_export():
         payload,
         mimetype="application/x-ndjson",
         headers={
-            "Content-Disposition": (
-                'attachment; filename="review-lab-submissions.jsonl"'),
+            "Content-Disposition": ('attachment; filename="review-lab-submissions.jsonl"'),
             "X-Review-Records-Skipped": str(skipped),
         },
     )

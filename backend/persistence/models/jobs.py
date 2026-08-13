@@ -24,10 +24,7 @@ from backend.persistence.base import Base
 
 JOB_TYPES = "'classify','extract','generate','disciplinary'"
 JOB_STATES = "'queued','running','succeeded','failed','cancelled'"
-JOB_STAGES = (
-    "'queued','classifying','extracting','validating','generating',"
-    "'disciplinary','completed','failed'"
-)
+JOB_STAGES = "'queued','classifying','extracting','validating','generating','disciplinary','completed','failed'"
 RESULT_REFERENCE_KEYS = frozenset({"incident_revision_number", "reports"})
 RESULT_REPORT_REFERENCE_KEYS = frozenset({"report_id", "revision_number"})
 MAX_RESULT_REPORT_REFERENCES = 20
@@ -71,12 +68,15 @@ def normalize_job_result_reference(value: object) -> dict[str, object]:
             if revision_number < 1 or report_id in seen_report_ids:
                 raise InvalidJobResultReference("job result reference is invalid")
             seen_report_ids.add(report_id)
-            normalized_reports.append({
-                "report_id": str(report_id),
-                "revision_number": revision_number,
-            })
+            normalized_reports.append(
+                {
+                    "report_id": str(report_id),
+                    "revision_number": revision_number,
+                }
+            )
         normalized["reports"] = sorted(
-            normalized_reports, key=lambda item: str(item["report_id"]),
+            normalized_reports,
+            key=lambda item: str(item["report_id"]),
         )
     return normalized
 
@@ -92,7 +92,8 @@ class AiJob(Base):
         CheckConstraint("base_incident_revision >= 1", name="base_revision_positive"),
         CheckConstraint("attempts >= 0", name="attempts_nonnegative"),
         CheckConstraint(
-            "octet_length(request_sha256) = 32", name="request_hash_length",
+            "octet_length(request_sha256) = 32",
+            name="request_hash_length",
         ),
         CheckConstraint(
             "octet_length(request_metadata::text) <= 4096",
@@ -127,22 +128,21 @@ class AiJob(Base):
             "'$.reports[*] ? (!exists(@.report_id) || !exists(@.revision_number))') "
             "AND NOT jsonb_path_exists(result_reference, "
             "'$.reports[*].keyvalue() ? "
-            "(@.key != \"report_id\" && @.key != \"revision_number\")') "
+            '(@.key != "report_id" && @.key != "revision_number")\') '
             "AND NOT jsonb_path_exists(result_reference, "
-            "'$.reports[*] ? (@.report_id.type() != \"string\" || "
-            "@.revision_number.type() != \"number\")') "
+            '\'$.reports[*] ? (@.report_id.type() != "string" || '
+            '@.revision_number.type() != "number")\') '
             "AND NOT jsonb_path_exists(result_reference, "
             "'$.reports[*] ? (!(@.report_id like_regex "
-            "\"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+            '"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
             "[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$\"))') "
             "AND NOT jsonb_path_exists(result_reference, "
             "'$.reports[*] ? (!(@.revision_number.string() like_regex "
-            "\"^[1-9][0-9]*$\"))') ELSE FALSE END ELSE TRUE END",
+            '"^[1-9][0-9]*$"))\') ELSE FALSE END ELSE TRUE END',
             name="result_reference_reports",
         ),
         CheckConstraint(
-            "((state = 'running') = "
-            "(lease_expires_at IS NOT NULL AND claim_token IS NOT NULL))",
+            "((state = 'running') = (lease_expires_at IS NOT NULL AND claim_token IS NOT NULL))",
             name="lease_matches_running_state",
         ),
         CheckConstraint(
@@ -155,34 +155,48 @@ class AiJob(Base):
         ),
         Index("ix_ai_jobs_queue", "state", "created_at", "id"),
         Index(
-            "ix_ai_jobs_claim", "state", "lease_expires_at", "created_at", "id",
+            "ix_ai_jobs_claim",
+            "state",
+            "lease_expires_at",
+            "created_at",
+            "id",
         ),
         Index(
-            "ix_ai_jobs_requested_actor", "requested_by_account_id", "created_at", "id",
+            "ix_ai_jobs_requested_actor",
+            "requested_by_account_id",
+            "created_at",
+            "id",
         ),
         Index("ix_ai_jobs_incident", "incident_id", "created_at", "id"),
         Index("ix_ai_jobs_report", "report_id", "created_at", "id"),
     )
 
     id: Mapped[UUID] = mapped_column(
-        UUIDType(as_uuid=True), primary_key=True,
+        UUIDType(as_uuid=True),
+        primary_key=True,
         server_default=text("gen_random_uuid()"),
     )
     incident_id: Mapped[UUID] = mapped_column(
-        ForeignKey("incidents.id", ondelete="RESTRICT"), nullable=False,
+        ForeignKey("incidents.id", ondelete="RESTRICT"),
+        nullable=False,
     )
     report_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("reports.id", ondelete="RESTRICT"),
     )
     requested_by_account_id: Mapped[UUID] = mapped_column(
-        ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False,
+        ForeignKey("accounts.id", ondelete="RESTRICT"),
+        nullable=False,
     )
     job_type: Mapped[str] = mapped_column(String(24), nullable=False)
     state: Mapped[str] = mapped_column(
-        String(16), nullable=False, server_default="queued",
+        String(16),
+        nullable=False,
+        server_default="queued",
     )
     stage: Mapped[str] = mapped_column(
-        String(24), nullable=False, server_default="queued",
+        String(24),
+        nullable=False,
+        server_default="queued",
     )
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
     request_sha256: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
@@ -191,10 +205,14 @@ class AiJob(Base):
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     claim_token: Mapped[UUID | None] = mapped_column(UUIDType(as_uuid=True))
     request_metadata: Mapped[dict] = mapped_column(
-        JSONB, nullable=False, server_default=text("'{}'::jsonb"),
+        JSONB,
+        nullable=False,
+        server_default=text("'{}'::jsonb"),
     )
     result_reference: Mapped[dict] = mapped_column(
-        JSONB, nullable=False, server_default=text("'{}'::jsonb"),
+        JSONB,
+        nullable=False,
+        server_default=text("'{}'::jsonb"),
     )
     error_code: Mapped[str | None] = mapped_column(String(64))
     fast_model: Mapped[str | None] = mapped_column(String(120))
@@ -203,7 +221,9 @@ class AiJob(Base):
     classification_prompt_sha256: Mapped[str | None] = mapped_column(String(64))
     generation_prompt_sha256: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -220,33 +240,39 @@ class TaskOutbox(Base):
     __table_args__ = (
         UniqueConstraint("ai_job_id", name="uq_task_outbox_ai_job_id"),
         CheckConstraint(
-            "state IN ('pending','dispatched','failed')", name="state",
+            "state IN ('pending','dispatched','failed')",
+            name="state",
         ),
         CheckConstraint("attempts >= 0", name="attempts_nonnegative"),
         CheckConstraint(
-            "last_error_code IS NULL OR "
-            "last_error_code ~ '^[a-z][a-z0-9_]{0,63}$'",
+            "last_error_code IS NULL OR last_error_code ~ '^[a-z][a-z0-9_]{0,63}$'",
             name="last_error_code_format",
         ),
         Index("ix_task_outbox_available", "state", "available_at", "id"),
     )
 
     id: Mapped[UUID] = mapped_column(
-        UUIDType(as_uuid=True), primary_key=True,
+        UUIDType(as_uuid=True),
+        primary_key=True,
         server_default=text("gen_random_uuid()"),
     )
     ai_job_id: Mapped[UUID] = mapped_column(
-        ForeignKey("ai_jobs.id", ondelete="RESTRICT"), nullable=False,
+        ForeignKey("ai_jobs.id", ondelete="RESTRICT"),
+        nullable=False,
     )
     state: Mapped[str] = mapped_column(
-        String(16), nullable=False, server_default="pending",
+        String(16),
+        nullable=False,
+        server_default="pending",
     )
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_error_code: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
 
 
@@ -256,27 +282,35 @@ class Export(Base):
     __tablename__ = "exports"
     __table_args__ = (
         CheckConstraint(
-            "octet_length(output_sha256) = 32", name="output_hash_length",
+            "octet_length(output_sha256) = 32",
+            name="output_hash_length",
         ),
         CheckConstraint("size_bytes >= 0", name="size_nonnegative"),
         Index("ix_exports_report_revision", "report_id", "report_revision_id", "id"),
         Index(
-            "ix_exports_actor_created", "exported_by_account_id", "created_at", "id",
+            "ix_exports_actor_created",
+            "exported_by_account_id",
+            "created_at",
+            "id",
         ),
     )
 
     id: Mapped[UUID] = mapped_column(
-        UUIDType(as_uuid=True), primary_key=True,
+        UUIDType(as_uuid=True),
+        primary_key=True,
         server_default=text("gen_random_uuid()"),
     )
     report_id: Mapped[UUID] = mapped_column(
-        ForeignKey("reports.id", ondelete="RESTRICT"), nullable=False,
+        ForeignKey("reports.id", ondelete="RESTRICT"),
+        nullable=False,
     )
     report_revision_id: Mapped[UUID] = mapped_column(
-        ForeignKey("report_revisions.id", ondelete="RESTRICT"), nullable=False,
+        ForeignKey("report_revisions.id", ondelete="RESTRICT"),
+        nullable=False,
     )
     exported_by_account_id: Mapped[UUID] = mapped_column(
-        ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False,
+        ForeignKey("accounts.id", ondelete="RESTRICT"),
+        nullable=False,
     )
     template_version: Mapped[str] = mapped_column(String(128), nullable=False)
     output_sha256: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
@@ -285,5 +319,7 @@ class Export(Base):
     download_name: Mapped[str] = mapped_column(String(255), nullable=False)
     request_id: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )

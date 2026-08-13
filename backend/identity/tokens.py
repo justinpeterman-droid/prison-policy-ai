@@ -30,6 +30,4 @@ def hash_device_id(device_id: str, pepper: str) -> bytes:
         raise ValueError("device id is invalid")
     if not isinstance(pepper, str) or not pepper:
         raise ValueError("device hash pepper is unavailable")
-    return hmac.new(
-        pepper.encode("utf-8"), device_id.encode("utf-8"), hashlib.sha256
-    ).digest()
+    return hmac.new(pepper.encode("utf-8"), device_id.encode("utf-8"), hashlib.sha256).digest()

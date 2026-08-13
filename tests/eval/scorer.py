@@ -9,6 +9,7 @@ Three signals:
   * retrieval hit    — did search surface at least one expected source?
   * answer pass      — does the answer state required facts and avoid forbidden ones?
 """
+
 from __future__ import annotations
 
 
@@ -75,9 +76,11 @@ def score_gate(expected_work: bool, actual_work: bool) -> bool:
 
 def summarize(results: list[dict]) -> dict:
     """Aggregate per-case results into a scorecard (rates ignore N/A cases)."""
+
     def rate(key):
         vals = [r[key] for r in results if r.get(key) is not None]
         return round(sum(1 for v in vals if v) / len(vals), 3) if vals else None
+
     return {
         "n": len(results),
         "gate_accuracy": rate("gate_ok"),

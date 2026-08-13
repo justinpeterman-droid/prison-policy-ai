@@ -23,9 +23,7 @@ def test_openapi_defines_admin_issue_and_public_redeem_contracts():
 
 
 def test_fragment_landing_never_persists_or_exposes_handoff_token():
-    script = (ROOT / "backend" / "webapp" / "static" / "js" / "access-handoff.js").read_text(
-        encoding="utf-8"
-    )
+    script = (ROOT / "backend" / "webapp" / "static" / "js" / "access-handoff.js").read_text(encoding="utf-8")
     assert "window.location.hash" in script
     assert "history.replaceState" in script
     assert script.index("history.replaceState") < script.index("fetch(")
@@ -36,9 +34,7 @@ def test_fragment_landing_never_persists_or_exposes_handoff_token():
 
 
 def test_landing_page_is_static_and_loads_only_the_handoff_script():
-    page = (ROOT / "backend" / "webapp" / "templates" / "access_handoff.html").read_text(
-        encoding="utf-8"
-    )
+    page = (ROOT / "backend" / "webapp" / "templates" / "access_handoff.html").read_text(encoding="utf-8")
     assert "access-handoff.js" in page
     assert "{{ request" not in page
     assert "window.location" not in page

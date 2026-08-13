@@ -4,6 +4,7 @@ Output is grammar-constrained by response_schema (schema.py), so it always
 parses. The model's job is extraction only: it fills slots from the notes and
 returns null for anything not stated. It never writes report prose here.
 """
+
 import json
 import logging
 import re
@@ -56,23 +57,31 @@ Rules:
 
 # ── Field labels for the trace UI ──
 FIELD_LABELS = {
-    "date": "Date", "time": "Time", "location": "Location",
-    "unit_division": "Unit/Division", "shift_assignment": "Shift",
-    "officer_last": "Officer (last)", "officer_first": "Officer (first)",
-    "rank": "Rank", "employee_number": "Employee #",
-    "inmate_injuries": "Inmate injuries", "officer_injuries": "Officer injuries",
-    "inmate_treatment": "Inmate treatment", "officer_treatment": "Officer treatment",
+    "date": "Date",
+    "time": "Time",
+    "location": "Location",
+    "unit_division": "Unit/Division",
+    "shift_assignment": "Shift",
+    "officer_last": "Officer (last)",
+    "officer_first": "Officer (first)",
+    "rank": "Rank",
+    "employee_number": "Employee #",
+    "inmate_injuries": "Inmate injuries",
+    "officer_injuries": "Officer injuries",
+    "inmate_treatment": "Inmate treatment",
+    "officer_treatment": "Officer treatment",
     "others_present": "Others present",
-    "weapon_involved": "Weapon involved", "drug_type": "Drug type",
-    "force_type": "Force type", "chemical_agent": "Chemical agent",
+    "weapon_involved": "Weapon involved",
+    "drug_type": "Drug type",
+    "force_type": "Force type",
+    "chemical_agent": "Chemical agent",
     "cell_number": "Cell number",
 }
 
 
 def extract_slots(notes: str, category_name: str) -> dict:
     checklist = load_checklist()
-    category = next(c for c in checklist["categories"]
-                    if c["name"] == category_name)
+    category = next(c for c in checklist["categories"] if c["name"] == category_name)
     schema = build_response_schema(category, checklist)
 
     def _call():
@@ -90,10 +99,12 @@ def extract_slots(notes: str, category_name: str) -> dict:
 
     response = with_retries(_call, describe="slot extraction")
     slots = json.loads(response.text)
-    logger.info("Extraction: %d persons, %d facts, nulls: %d",
-                len(slots.get("persons", [])),
-                len(slots.get("narrative_facts", [])),
-                sum(1 for v in slots.values() if v is None))
+    logger.info(
+        "Extraction: %d persons, %d facts, nulls: %d",
+        len(slots.get("persons", [])),
+        len(slots.get("narrative_facts", [])),
+        sum(1 for v in slots.values() if v is None),
+    )
     return slots
 
 
@@ -120,7 +131,7 @@ def _find_span(notes: str, notes_lower: str, value: str, vl: str) -> str | None:
     # 1) Exact substring match (case-insensitive)
     idx = notes_lower.find(vl)
     if idx >= 0:
-        snippet = notes[idx:idx + len(value)]
+        snippet = notes[idx : idx + len(value)]
         # Grab a little context
         start = max(0, idx - 20)
         end = min(len(notes), idx + len(value) + 30)
@@ -167,8 +178,7 @@ def compute_provenance(notes: str, slots: dict) -> list[dict]:
 
     # Top-level slots
     for key, val in slots.items():
-        if key in ("persons", "narrative_facts", "quotes", "actions",
-                   "incident_type"):
+        if key in ("persons", "narrative_facts", "quotes", "actions", "incident_type"):
             continue
         sv = _safe_str(val)
         if sv:
@@ -194,16 +204,16 @@ def compute_provenance(notes: str, slots: dict) -> list[dict]:
             label = f"{name} ADC#" if name else "ADC#"
             flat_slots.append((label, adc))
 
-        for inj in (person.get("injuries") or []):
+        for inj in person.get("injuries") or []:
             if isinstance(inj, str) and inj.strip():
                 flat_slots.append(("Injury noted", inj.strip()))
 
-        for act in (person.get("actions") or []):
+        for act in person.get("actions") or []:
             if isinstance(act, str) and act.strip():
                 flat_slots.append(("Action", act.strip()))
 
     # Narrative facts
-    for fact in (slots.get("narrative_facts") or []):
+    for fact in slots.get("narrative_facts") or []:
         sv = _safe_str(fact)
         if sv:
             flat_slots.append(("Narrative fact", sv))
@@ -218,10 +228,12 @@ def compute_provenance(notes: str, slots: dict) -> list[dict]:
         seen_values.add(dedup_key)
 
         source = _find_span(notes, notes_lower, value, vl)
-        entries.append({
-            "label": label,
-            "value": value,
-            "source": source,
-        })
+        entries.append(
+            {
+                "label": label,
+                "value": value,
+                "source": source,
+            }
+        )
 
     return entries

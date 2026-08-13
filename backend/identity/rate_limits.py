@@ -40,14 +40,14 @@ def consume_limit(
     maximum = LIMITS[dimension] if limit is None else limit
     digest = subject_hash(dimension, value, pepper)
     cutoff = now - timedelta(seconds=WINDOW_SECONDS)
-    statement = insert(AuthRateLimit).values(
+    insert_statement = insert(AuthRateLimit).values(
         dimension=dimension,
         subject_hash=digest,
         window_started_at=now,
         hit_count=1,
         updated_at=now,
     )
-    statement = statement.on_conflict_do_update(
+    statement = insert_statement.on_conflict_do_update(
         constraint="uq_auth_rate_limit_dimension_subject",
         set_={
             "window_started_at": case(
@@ -61,13 +61,20 @@ def consume_limit(
             "updated_at": now,
         },
     ).returning(AuthRateLimit.hit_count, AuthRateLimit.window_started_at)
-    row = session.execute(statement, {
-        "dimension": dimension,
-        "subject_hash": digest,
-    }).one()
+    row = session.execute(
+        statement,
+        {
+            "dimension": dimension,
+            "subject_hash": digest,
+        },
+    ).one()
     allowed = row.hit_count <= maximum
-    retry = 0 if allowed else max(
-        1,
-        math.ceil((row.window_started_at + timedelta(seconds=WINDOW_SECONDS) - now).total_seconds()),
+    retry = (
+        0
+        if allowed
+        else max(
+            1,
+            math.ceil((row.window_started_at + timedelta(seconds=WINDOW_SECONDS) - now).total_seconds()),
+        )
     )
     return RateLimitDecision(allowed, retry)

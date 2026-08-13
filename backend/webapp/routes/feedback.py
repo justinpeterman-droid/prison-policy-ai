@@ -1,4 +1,5 @@
 """Feedback endpoint for creating GitHub issues."""
+
 import os
 import json
 import logging
@@ -19,17 +20,17 @@ feedback_bp = Blueprint("feedback", __name__)
 # Fixed window per client key; in-memory is sufficient for the single Gunicorn
 # worker (state resets on restart — acceptable for spam protection). Everyone
 # shares one access code, so we key on client IP rather than the cookie.
-RATE_LIMIT_MAX = 5           # submissions...
-RATE_LIMIT_WINDOW = 600      # ...per 10 minutes, per client
+RATE_LIMIT_MAX = 5  # submissions...
+RATE_LIMIT_WINDOW = 600  # ...per 10 minutes, per client
 _hits: dict[str, list[float]] = defaultdict(list)
 _hits_lock = Lock()
 
 # ── Payload limits ────────────────────────────────────────────────
 # Bound what we accept so a huge or malformed payload can't create an
 # unwieldy issue (the front-end maps 413 to a "shorten it" message).
-MAX_COMMENT_LEN = 5000       # feedback body
-MAX_NAME_LEN = 120           # optional reporter name
-MAX_URL_LEN = 2000           # page URL
+MAX_COMMENT_LEN = 5000  # feedback body
+MAX_NAME_LEN = 120  # optional reporter name
+MAX_URL_LEN = 2000  # page URL
 MAX_CONTEXT_VALUE_LEN = 500  # per browser-context field
 
 # Query params stripped from the reported URL before it ever leaves the
@@ -49,9 +50,12 @@ _CONTEXT_FIELDS = {
 }
 
 
-def _rate_limited(key: str, now: float | None = None,
-                  max_hits: int = RATE_LIMIT_MAX,
-                  window: int = RATE_LIMIT_WINDOW) -> bool:
+def _rate_limited(
+    key: str,
+    now: float | None = None,
+    max_hits: int = RATE_LIMIT_MAX,
+    window: int = RATE_LIMIT_WINDOW,
+) -> bool:
     """Return True if *key* has already used its quota in the current window.
 
     Records the hit when allowed. Pure/deterministic given `now`, so it is unit
@@ -61,7 +65,7 @@ def _rate_limited(key: str, now: float | None = None,
     cutoff = now - window
     with _hits_lock:
         times = _hits[key]
-        times[:] = [t for t in times if t > cutoff]   # prune expired
+        times[:] = [t for t in times if t > cutoff]  # prune expired
         if len(times) >= max_hits:
             return True
         times.append(now)
@@ -92,12 +96,13 @@ def _sanitize_url(url: str) -> str:
         return "unknown page"
     if not parts.query:
         return url
-    kept = [(k, v) for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
-            if k.lower() not in _SENSITIVE_QUERY_KEYS]
+    kept = [
+        (k, v)
+        for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+        if k.lower() not in _SENSITIVE_QUERY_KEYS
+    ]
     cleaned = urllib.parse.urlencode(kept)
-    return urllib.parse.urlunsplit(
-        (parts.scheme, parts.netloc, parts.path, cleaned, parts.fragment)
-    )
+    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, cleaned, parts.fragment))
 
 
 def _clean_field(value, max_len: int) -> str:
@@ -114,8 +119,7 @@ def _clean_field(value, max_len: int) -> str:
     return value
 
 
-def _build_issue_body(feedback_text: str, page_url: str,
-                      name: str, context: dict) -> str:
+def _build_issue_body(feedback_text: str, page_url: str, name: str, context: dict) -> str:
     """Assemble the Markdown issue body. Pure — unit tested without network."""
     reporter = f" from **{name}**" if name else ""
     lines = [
@@ -151,7 +155,8 @@ def feedback_api():
     feedback_text = data.get("comment", "").strip()
     page_url = _sanitize_url(data.get("url", ""))
     name = _clean_field(data.get("name", ""), MAX_NAME_LEN)
-    context = data.get("context") if isinstance(data.get("context"), dict) else {}
+    raw_context = data.get("context")
+    context: dict[str, object] = raw_context if isinstance(raw_context, dict) else {}
 
     if not feedback_text:
         return jsonify({"error": "No feedback provided"}), 400
@@ -161,9 +166,7 @@ def feedback_api():
 
     if _rate_limited(_client_key()):
         logger.warning("Feedback rate limit hit")
-        return jsonify({
-            "error": "Too many feedback submissions. Please wait a few minutes and try again."
-        }), 429
+        return jsonify({"error": "Too many feedback submissions. Please wait a few minutes and try again."}), 429
 
     github_token = os.environ.get("GITHUB_TOKEN")
     if not github_token:
@@ -176,11 +179,7 @@ def feedback_api():
     issue_title = f"User Feedback from {page_url}"
     issue_body = _build_issue_body(feedback_text, page_url, name, context)
 
-    payload = json.dumps({
-        "title": issue_title,
-        "body": issue_body,
-        "labels": ["feedback"]
-    }).encode("utf-8")
+    payload = json.dumps({"title": issue_title, "body": issue_body, "labels": ["feedback"]}).encode("utf-8")
 
     req = urllib.request.Request(api_url, data=payload, method="POST")
     req.add_header("Authorization", f"Bearer {github_token}")

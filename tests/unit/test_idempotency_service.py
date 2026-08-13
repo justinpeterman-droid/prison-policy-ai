@@ -28,12 +28,14 @@ def test_submit_command_canonical_payload_is_stable_and_content_free():
         "job_type": "generate",
         "report_id": str(REPORT_ID),
     }
-    assert request_digest(canonical) == request_digest({
-        "report_id": str(REPORT_ID),
-        "job_type": "generate",
-        "incident_id": str(INCIDENT_ID),
-        "base_revision_number": 7,
-    })
+    assert request_digest(canonical) == request_digest(
+        {
+            "report_id": str(REPORT_ID),
+            "job_type": "generate",
+            "incident_id": str(INCIDENT_ID),
+            "base_revision_number": 7,
+        }
+    )
 
 
 @pytest.mark.parametrize("job_type", ["classify", "extract", "generate", "disciplinary"])
@@ -52,11 +54,14 @@ def test_submit_command_rejects_unknown_job_type_and_invalid_base_revision():
             command.canonical_payload(base_revision_number=value)
 
 
-@pytest.mark.parametrize("unsafe_reference", [
-    {"content": "Fictional report content."},
-    {"provider": {"prompt": "Fictional prompt."}},
-    {"reports": [{"report_id": str(REPORT_ID), "revision_number": 1, "raw": {}}]},
-])
+@pytest.mark.parametrize(
+    "unsafe_reference",
+    [
+        {"content": "Fictional report content."},
+        {"provider": {"prompt": "Fictional prompt."}},
+        {"reports": [{"report_id": str(REPORT_ID), "revision_number": 1, "raw": {}}]},
+    ],
+)
 def test_ai_job_mapping_rejects_non_contract_result_references(unsafe_reference):
     job = AiJob()
 

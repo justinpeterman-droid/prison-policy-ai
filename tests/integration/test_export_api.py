@@ -3,6 +3,7 @@
 Every report, officer, and document in this module is fictional and created by
 the fixtures below; nothing here reads a real ADC record.
 """
+
 import base64
 from datetime import datetime, timedelta
 import hashlib
@@ -74,8 +75,12 @@ def _temp_export_directories() -> set[Path]:
 
 # --- Deterministic bytes and single export metadata -------------------------
 
+
 def test_same_export_key_returns_one_export_record(
-    db_session, api_client, owner_bearer_headers, report_id,
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    report_id,
 ):
     db_session.commit()
     headers = _headers(owner_bearer_headers, "export-fictional-0001")
@@ -91,7 +96,10 @@ def test_same_export_key_returns_one_export_record(
 
 
 def test_export_response_carries_the_exact_locked_headers(
-    db_session, api_client, owner_bearer_headers, report_id,
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
@@ -118,7 +126,10 @@ def test_export_response_carries_the_exact_locked_headers(
 
 
 def test_exported_document_is_a_deterministic_docx_archive(
-    db_session, api_client, owner_bearer_headers, report_id,
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
@@ -137,7 +148,10 @@ def test_exported_document_is_a_deterministic_docx_archive(
 
 
 def test_export_persists_metadata_only_and_never_document_bytes(
-    db_session, api_client, owner_bearer_headers, report_id,
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
@@ -149,20 +163,18 @@ def test_export_persists_metadata_only_and_never_document_bytes(
     row = db_session.scalar(select(Export))
     assert row is not None
     assert len(row.output_sha256) == 32
-    stored = {
-        column.name: getattr(row, column.name) for column in Export.__table__.columns
-    }
-    assert not any(
-        isinstance(value, (bytes, bytearray)) and len(value) > 32
-        for value in stored.values()
-    )
+    stored = {column.name: getattr(row, column.name) for column in Export.__table__.columns}
+    assert not any(isinstance(value, (bytes, bytearray)) and len(value) > 32 for value in stored.values())
     record = db_session.scalar(select(IdempotencyRecord))
     assert record is not None
     assert "narrative" not in str(record.response_reference)
 
 
 def test_export_writes_the_user_audit_action(
-    db_session, api_client, owner_bearer_headers, report_id,
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
@@ -171,16 +183,17 @@ def test_export_writes_the_user_audit_action(
         headers=_headers(owner_bearer_headers, "export-fictional-0005"),
     )
 
-    events = db_session.scalars(
-        select(AuditEvent).where(AuditEvent.action == "report.exported")
-    ).all()
+    events = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "report.exported")).all()
     assert len(events) == 1
     assert events[0].details["export_id"] == response.headers["X-Export-ID"]
     assert events[0].details["export_format"] == "docx"
 
 
 def test_temporary_export_files_are_removed_after_the_response_closes(
-    db_session, api_client, owner_bearer_headers, report_id,
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    report_id,
 ):
     db_session.commit()
     before = _temp_export_directories()
@@ -197,20 +210,28 @@ def test_temporary_export_files_are_removed_after_the_response_closes(
 
 # --- Explicit revision validation ------------------------------------------
 
-@pytest.mark.parametrize("query", [
-    "",
-    "?revision=",
-    "?revision=0",
-    "?revision=-1",
-    "?revision=abc",
-    "?revision=1.0",
-    "?revision=01",
-    "?revision=1&revision=2",
-    "?revision=latest",
-    "?revision=1&limit=5",
-])
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "",
+        "?revision=",
+        "?revision=0",
+        "?revision=-1",
+        "?revision=abc",
+        "?revision=1.0",
+        "?revision=01",
+        "?revision=1&revision=2",
+        "?revision=latest",
+        "?revision=1&limit=5",
+    ],
+)
 def test_export_requires_an_explicit_positive_revision_query(
-    db_session, api_client, owner_bearer_headers, report_id, query,
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    report_id,
+    query,
 ):
     db_session.commit()
 
@@ -225,7 +246,10 @@ def test_export_requires_an_explicit_positive_revision_query(
 
 
 def test_export_never_accepts_a_revision_supplied_in_the_body(
-    db_session, api_client, owner_bearer_headers, report_id,
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
@@ -241,7 +265,10 @@ def test_export_never_accepts_a_revision_supplied_in_the_body(
 
 
 def test_export_rejects_a_body_alongside_an_explicit_revision(
-    db_session, api_client, owner_bearer_headers, report_id,
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
@@ -256,7 +283,10 @@ def test_export_rejects_a_body_alongside_an_explicit_revision(
 
 
 def test_export_of_an_unknown_revision_is_not_found(
-    db_session, api_client, owner_bearer_headers, report_id,
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
@@ -270,7 +300,10 @@ def test_export_of_an_unknown_revision_is_not_found(
 
 
 def test_export_requires_an_idempotency_key(
-    db_session, api_client, owner_bearer_headers, report_id,
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
@@ -285,8 +318,12 @@ def test_export_requires_an_idempotency_key(
 
 # --- Authorization ----------------------------------------------------------
 
+
 def test_an_unrelated_employee_cannot_export_another_officers_report(
-    db_session, api_client, unrelated_bearer_headers, report_id,
+    db_session,
+    api_client,
+    unrelated_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
@@ -305,7 +342,10 @@ def test_export_requires_authentication(db_session, api_client, report_id):
 
     response = api_client.post(
         f"/api/v1/reports/{report_id}/export-docx?revision=1",
-        headers={"X-Client-Version": "1.0.0", "Idempotency-Key": "export-fictional-0201"},
+        headers={
+            "X-Client-Version": "1.0.0",
+            "Idempotency-Key": "export-fictional-0201",
+        },
     )
 
     assert response.status_code == 401
@@ -313,8 +353,12 @@ def test_export_requires_authentication(db_session, api_client, report_id):
 
 # --- Admin single export ----------------------------------------------------
 
+
 def test_admin_single_export_uses_admin_route_and_explicit_revision(
-    db_session, api_client, elevated_admin_bearer_headers, report_id,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
@@ -329,7 +373,10 @@ def test_admin_single_export_uses_admin_route_and_explicit_revision(
 
 
 def test_admin_export_writes_a_distinct_admin_audit_action(
-    db_session, api_client, elevated_admin_bearer_headers, report_id,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
@@ -338,14 +385,15 @@ def test_admin_export_writes_a_distinct_admin_audit_action(
         headers=_headers(elevated_admin_bearer_headers, "admin-export-fictional-0002"),
     )
 
-    actions = set(db_session.scalars(
-        select(AuditEvent.action).where(AuditEvent.action.like("report.export%"))
-    ).all())
+    actions = set(db_session.scalars(select(AuditEvent.action).where(AuditEvent.action.like("report.export%"))).all())
     assert actions == {"report.exported_by_admin"}
 
 
 def test_admin_export_requires_active_elevation(
-    db_session, api_client, admin_bearer_headers, report_id,
+    db_session,
+    api_client,
+    admin_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
@@ -359,7 +407,10 @@ def test_admin_export_requires_active_elevation(
 
 
 def test_admin_export_route_is_concealed_from_a_regular_user(
-    db_session, api_client, user_bearer_headers, report_id,
+    db_session,
+    api_client,
+    user_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 
@@ -373,7 +424,10 @@ def test_admin_export_route_is_concealed_from_a_regular_user(
 
 
 def test_admin_export_requires_an_explicit_revision(
-    db_session, api_client, elevated_admin_bearer_headers, report_id,
+    db_session,
+    api_client,
+    elevated_admin_bearer_headers,
+    report_id,
 ):
     response = api_client.post(
         f"/api/v1/admin/reports/{report_id}/export-docx",
@@ -385,7 +439,11 @@ def test_admin_export_requires_an_explicit_revision(
 
 
 def test_admin_and_user_exports_of_the_same_revision_agree_byte_for_byte(
-    db_session, api_client, owner_bearer_headers, elevated_admin_bearer_headers, report_id,
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    elevated_admin_bearer_headers,
+    report_id,
 ):
     db_session.commit()
 

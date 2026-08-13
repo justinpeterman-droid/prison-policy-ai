@@ -28,12 +28,8 @@ class ThreadSafeAuditWriter:
 def test_two_renewals_have_one_winner_and_replay_revokes_family(db_session_factory):
     now = datetime(2026, 8, 12, 15, 0, tzinfo=UTC)
     with db_session_factory.begin() as session:
-        account = seed_fictional_account(
-            session, employee_number="TEST-7001", role="user", pin="Z9Y8X7", now=now
-        )
-        issued = issue_fictional_tokens(
-            session, account=account, device_id="device-concurrent-0001", now=now
-        )
+        account = seed_fictional_account(session, employee_number="TEST-7001", role="user", pin="Z9Y8X7", now=now)
+        issued = issue_fictional_tokens(session, account=account, device_id="device-concurrent-0001", now=now)
         session_id = issued.session_id
         supplied = issued.renewal_token
 
@@ -64,7 +60,12 @@ def test_two_renewals_have_one_winner_and_replay_revokes_family(db_session_facto
         stored = session.get(AccessSession, session_id)
         assert stored.revoked_at is not None
         assert stored.revoke_reason == "renewal_reuse"
-        assert session.scalar(select(AccessSession.id).where(
-            AccessSession.access_token_hash == stored.access_token_hash,
-            AccessSession.revoked_at.is_(None),
-        )) is None
+        assert (
+            session.scalar(
+                select(AccessSession.id).where(
+                    AccessSession.access_token_hash == stored.access_token_hash,
+                    AccessSession.revoked_at.is_(None),
+                )
+            )
+            is None
+        )

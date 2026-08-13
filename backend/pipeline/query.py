@@ -5,25 +5,35 @@ $1,000 Vertex AI Agent Builder credit.
 
 API contract unchanged: answer_question(question) -> {answer, citations, sources}
 """
+
 import json
 import logging
 import re
 import urllib.request
 import urllib.error
 from time import monotonic
+from typing import TypedDict
 
 import google.auth
 import google.auth.transport.requests
 from google import genai
 from google.genai import types
 from backend.pipeline.config import (
-    PROJECT_ID, FAST_MODEL, PRO_MODEL, MODEL_LOCATION,
-    AGENT_BUILDER_LOCATION, search_config_summary, serving_config_path,
+    PROJECT_ID,
+    FAST_MODEL,
+    PRO_MODEL,
+    MODEL_LOCATION,
+    AGENT_BUILDER_LOCATION,
+    search_config_summary,
+    serving_config_path,
 )
 from backend.pipeline.citations import build_grounded
 from backend.pipeline.retry import with_retries
 from backend.pipeline.retrieval import (
-    augment_query, format_history, parse_search_results, select_passages,
+    augment_query,
+    format_history,
+    parse_search_results,
+    select_passages,
 )
 
 logger = logging.getLogger(__name__)
@@ -94,6 +104,7 @@ def _get_gen_client() -> genai.Client:
         _gen_client = genai.Client(vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION)
     return _gen_client
 
+
 # ── Domain Guard: hard-coded facts the AI must never contradict ──
 
 DOMAIN_RULES = (
@@ -116,8 +127,7 @@ DOMAIN_RULES = (
 CHAT_SYSTEM_PROMPT = (
     "You are a policy assistant for prison staff. Answer questions "
     "using ONLY the policy documents provided. Cite document numbers "
-    "and sections. If the documents don't address the question, say so.\n\n"
-    + DOMAIN_RULES
+    "and sections. If the documents don't address the question, say so.\n\n" + DOMAIN_RULES
 )
 
 GATE_PROMPT = (
@@ -144,35 +154,108 @@ GATE_PROMPT = (
 
 STRONG_WORK_TERMS = [
     # Corrections-specific: these words essentially don't occur off-topic.
-    "prea", "use of force", "contraband", "inmate", "inmates", "offender",
-    "post order", "disciplinary", "incident report", "005", "409",
-    "barracks", "restraint", "restraints", "pat down", "shakedown",
-    "visitation", "grievance", "restrictive housing", "segregation",
-    "lockdown", "escape", "correctional", "prison", "warden",
-    "department of correction", "adc", "bmc", "bmu", "ncu",
-    "chain of command", "sally port", "commissary", "cell search",
-    "strip search", "count time", "custody", "parole", "infirmary",
-    "use-of-force", "shank", "cuff up", "dayroom",
+    "prea",
+    "use of force",
+    "contraband",
+    "inmate",
+    "inmates",
+    "offender",
+    "post order",
+    "disciplinary",
+    "incident report",
+    "005",
+    "409",
+    "barracks",
+    "restraint",
+    "restraints",
+    "pat down",
+    "shakedown",
+    "visitation",
+    "grievance",
+    "restrictive housing",
+    "segregation",
+    "lockdown",
+    "escape",
+    "correctional",
+    "prison",
+    "warden",
+    "department of correction",
+    "adc",
+    "bmc",
+    "bmu",
+    "ncu",
+    "chain of command",
+    "sally port",
+    "commissary",
+    "cell search",
+    "strip search",
+    "count time",
+    "custody",
+    "parole",
+    "infirmary",
+    "use-of-force",
+    "shank",
+    "cuff up",
+    "dayroom",
 ]
 
 # Generic on their own; a work signal when two or more appear together.
 WEAK_WORK_TERMS = [
-    "policy", "procedure", "report", "form", "training", "cell", "search",
-    "medical", "emergency", "security", "officer", "staff", "shift",
-    "classification", "count", "gate", "tower", "rover", "supervisor",
-    "sergeant", "lieutenant", "captain", "unit", "facility", "log",
+    "policy",
+    "procedure",
+    "report",
+    "form",
+    "training",
+    "cell",
+    "search",
+    "medical",
+    "emergency",
+    "security",
+    "officer",
+    "staff",
+    "shift",
+    "classification",
+    "count",
+    "gate",
+    "tower",
+    "rover",
+    "supervisor",
+    "sergeant",
+    "lieutenant",
+    "captain",
+    "unit",
+    "facility",
+    "log",
 ]
 
 _STRONG_WORK = [re.compile(rf"\b{re.escape(t)}\b") for t in STRONG_WORK_TERMS]
 _WEAK_WORK = [re.compile(rf"\b{re.escape(t)}\b") for t in WEAK_WORK_TERMS]
 
 OFF_TOPIC_TERMS = [
-    "write a poem", "tell me a joke", "recipe for", "how to cook",
-    "weather today", "who won the", "sports score", "movie review",
-    "stock price", "crypto", "bitcoin", "python code", "javascript",
-    "write code", "debug this", "explain quantum", "who is the president",
-    "what's your name", "how are you", "sing a song", "make me a",
-    "generate a", "draw a", "translate to",
+    "write a poem",
+    "tell me a joke",
+    "recipe for",
+    "how to cook",
+    "weather today",
+    "who won the",
+    "sports score",
+    "movie review",
+    "stock price",
+    "crypto",
+    "bitcoin",
+    "python code",
+    "javascript",
+    "write code",
+    "debug this",
+    "explain quantum",
+    "who is the president",
+    "what's your name",
+    "how are you",
+    "sing a song",
+    "make me a",
+    "generate a",
+    "draw a",
+    "translate to",
 ]
 
 
@@ -214,13 +297,17 @@ def _http_error_hint(code: int) -> str:
     5xx with no indication of which knob is wrong.
     """
     return {
-        404: (f"the engine or serving config does not exist at this path — check "
-              f"AGENT_BUILDER_ENGINE_ID (currently "
-              f"{search_config_summary()['engine_id']!r}) and "
-              f"AGENT_BUILDER_LOCATION (currently {LOCATION!r}); an engine "
-              f"created in 'us' or 'eu' is not reachable at 'global'"),
-        403: ("the service account lacks Discovery Engine permission on this "
-              "project, or the Discovery Engine API is not enabled"),
+        404: (
+            f"the engine or serving config does not exist at this path — check "
+            f"AGENT_BUILDER_ENGINE_ID (currently "
+            f"{search_config_summary()['engine_id']!r}) and "
+            f"AGENT_BUILDER_LOCATION (currently {LOCATION!r}); an engine "
+            f"created in 'us' or 'eu' is not reachable at 'global'"
+        ),
+        403: (
+            "the service account lacks Discovery Engine permission on this "
+            "project, or the Discovery Engine API is not enabled"
+        ),
         400: "the request body was rejected — likely an unsupported search spec field",
         401: "credentials were rejected — check Application Default Credentials",
     }.get(code, "")
@@ -232,35 +319,48 @@ def log_search_config() -> None:
     logger.info("Policy search config: %s", search_config_summary())
 
 
-_token_cache = {"token": None, "expiry": 0}
+class TokenCache(TypedDict):
+    token: str | None
+    expiry: float
+
+
+_token_cache: TokenCache = {"token": None, "expiry": 0.0}
 
 
 def _get_token(*, deadline_monotonic: float | None = None) -> str:
     """Get an OAuth token from Application Default Credentials."""
     import time
-    if _token_cache["token"] and time.time() < _token_cache["expiry"] - 60:
-        return _token_cache["token"]
+
+    cached_token = _token_cache["token"]
+    if cached_token is not None and time.time() < _token_cache["expiry"] - 60:
+        return cached_token
 
     base_request = google.auth.transport.requests.Request()
 
-    def deadline_request(url, method="GET", body=None, headers=None, timeout=120, **kwargs):
-        return base_request(
-            url,
-            method=method,
-            body=body,
-            headers=headers,
-            timeout=_bounded_seconds(timeout, deadline_monotonic),
-            **kwargs,
-        )
+    class DeadlineRequest(google.auth.transport.Request):
+        def __call__(self, url, method="GET", body=None, headers=None, timeout=120, **kwargs):
+            return base_request(
+                url,
+                method=method,
+                body=body,
+                headers=headers,
+                timeout=_bounded_seconds(timeout, deadline_monotonic),
+                **kwargs,
+            )
+
+    deadline_request = DeadlineRequest()
 
     creds, project = google.auth.default(
         scopes=["https://www.googleapis.com/auth/cloud-platform"],
         request=deadline_request,
     )
     creds.refresh(deadline_request)
-    _token_cache["token"] = creds.token
+    token = creds.token
+    if token is None:
+        raise RuntimeError("Application Default Credentials returned no access token")
+    _token_cache["token"] = token
     _token_cache["expiry"] = creds.expiry.timestamp() if creds.expiry else time.time() + 3500
-    return creds.token
+    return token
 
 
 def _classify_query(
@@ -281,11 +381,13 @@ def _classify_query(
         logger.debug("Gate: short follow-up within an active conversation")
         return True
 
-    verdict = classify_by_keyword(question)
-    if verdict is not None:
-        logger.debug("Gate decided by keyword: %s",
-                     "WORK" if verdict else "OFF_TOPIC")
-        return verdict
+    keyword_verdict = classify_by_keyword(question)
+    if keyword_verdict is not None:
+        logger.debug(
+            "Gate decided by keyword: %s",
+            "WORK" if keyword_verdict else "OFF_TOPIC",
+        )
+        return keyword_verdict
 
     # Ambiguous — use Gemini classifier
     try:
@@ -301,8 +403,10 @@ def _classify_query(
                 ),
             ),
         )
-        verdict = response.text.strip().upper()
-        is_work = "WORK" in verdict and "OFF_TOPIC" not in verdict
+        if response.text is None:
+            raise RuntimeError("Gate classification returned no verdict")
+        response_text = response.text.strip().upper()
+        is_work = "WORK" in response_text and "OFF_TOPIC" not in response_text
         logger.info("Gate classified query as %s", "WORK" if is_work else "OFF_TOPIC")
         return is_work
     except TimeoutError:
@@ -368,21 +472,24 @@ def _search_snippets_only(
     req.add_header("X-Goog-User-Project", PROJECT_ID)
     try:
         with urllib.request.urlopen(
-            req, timeout=_bounded_seconds(30, deadline_monotonic),
+            req,
+            timeout=_bounded_seconds(30, deadline_monotonic),
         ) as resp:
             result = json.loads(resp.read())
-        logger.info("Snippets-only search returned %d results",
-                    len(result.get("results", [])))
+        logger.info("Snippets-only search returned %d results", len(result.get("results", [])))
         return result
     except urllib.error.HTTPError as http_exc:
         body = http_exc.read().decode()[:1000]
-        logger.error("Search API error %s for serving config %s: %s",
-                     http_exc.code, SERVING_CONFIG, body)
+        logger.error(
+            "Search API error %s for serving config %s: %s",
+            http_exc.code,
+            SERVING_CONFIG,
+            body,
+        )
         hint = _http_error_hint(http_exc.code)
         if hint:
             logger.error("Likely cause: %s", hint)
-        logger.error("The original request was also rejected (400): %s",
-                     original_error[:300])
+        logger.error("The original request was also rejected (400): %s", original_error[:300])
         raise RuntimeError(f"Search API error {http_exc.code}") from http_exc
     except TimeoutError:
         raise
@@ -393,10 +500,13 @@ def _search_snippets_only(
         # runs whenever the data store rejects the extractive-content spec, so
         # it is a live path, not a corner — leaving it bare would reintroduce
         # the exact miscategorisation this change removes.
-        logger.error("Snippets-only search transport failure against serving "
-                     "config %s: %s: %s", SERVING_CONFIG, type(exc).__name__, exc)
-        raise RuntimeError(
-            f"Search API error (transport) {type(exc).__name__}: {exc}") from exc
+        logger.error(
+            "Snippets-only search transport failure against serving config %s: %s: %s",
+            SERVING_CONFIG,
+            type(exc).__name__,
+            exc,
+        )
+        raise RuntimeError(f"Search API error (transport) {type(exc).__name__}: {exc}") from exc
 
 
 def _search_data_store(query: str, page_size: int = 10) -> list[dict]:
@@ -421,15 +531,15 @@ def _search_with_stats(
     # told the officer "An unexpected error occurred" — with a log line that
     # never mentioned search. Name the step that failed.
     try:
-        token = (
-            _get_token() if deadline_monotonic is None
-            else _get_token(deadline_monotonic=deadline_monotonic)
-        )
+        token = _get_token() if deadline_monotonic is None else _get_token(deadline_monotonic=deadline_monotonic)
     except TimeoutError:
         raise
     except Exception as exc:
-        logger.error("Could not obtain a credential for Discovery Engine "
-                     "search: %s: %s", type(exc).__name__, exc)
+        logger.error(
+            "Could not obtain a credential for Discovery Engine search: %s: %s",
+            type(exc).__name__,
+            exc,
+        )
         raise  # re-raised unwrapped so credential errors keep their own class
 
     url = f"https://discoveryengine.googleapis.com/v1beta/{SERVING_CONFIG}:search"
@@ -443,13 +553,16 @@ def _search_with_stats(
 
     try:
         with urllib.request.urlopen(
-            req, timeout=_bounded_seconds(30, deadline_monotonic),
+            req,
+            timeout=_bounded_seconds(30, deadline_monotonic),
         ) as resp:
             raw = resp.read()
             result = json.loads(raw)
-            logger.info("Search returned %d results (totalSize=%s)",
-                        len(result.get("results", [])),
-                        result.get("totalSize", "?"))
+            logger.info(
+                "Search returned %d results (totalSize=%s)",
+                len(result.get("results", [])),
+                result.get("totalSize", "?"),
+            )
     except urllib.error.HTTPError as http_exc:
         err_body = http_exc.read().decode()[:1000]
         # A 400 means the request shape was rejected, and the only optional part
@@ -459,9 +572,11 @@ def _search_with_stats(
         # search, which is exactly the single-point-of-failure this spec was
         # added to remove.
         if http_exc.code == 400:
-            logger.warning("Search rejected the extractive-content spec (400); "
-                           "retrying with snippets only. Answers will be built "
-                           "from shorter passages on this data store.")
+            logger.warning(
+                "Search rejected the extractive-content spec (400); "
+                "retrying with snippets only. Answers will be built "
+                "from shorter passages on this data store."
+            )
             # Assign, don't return: this function's contract is
             # (contexts, raw_count), and _search_snippets_only hands back the
             # raw payload. Returning it directly gave the caller a dict, which
@@ -472,15 +587,23 @@ def _search_with_stats(
             # than any search-related category. Falling through to the shared
             # parsing below keeps both paths on one contract.
             result = _search_snippets_only(
-                url, token, query, page_size, err_body,
+                url,
+                token,
+                query,
+                page_size,
+                err_body,
                 deadline_monotonic=deadline_monotonic,
             )
         else:
             # Log the resolved config alongside the error: almost every other
             # failure here is a config mismatch, and the serving-config path is the
             # thing you need to see to spot it.
-            logger.error("Search API error %s for serving config %s: %s",
-                         http_exc.code, SERVING_CONFIG, err_body)
+            logger.error(
+                "Search API error %s for serving config %s: %s",
+                http_exc.code,
+                SERVING_CONFIG,
+                err_body,
+            )
             hint = _http_error_hint(http_exc.code)
             if hint:
                 logger.error("Likely cause: %s", hint)
@@ -495,10 +618,13 @@ def _search_with_stats(
         # happened when what actually happened is that policy search failed.
         # Wrapping it keeps the category honest, and the exception CLASS is what
         # identifies the fault — `%s` of a URLError is just "<urlopen error ...>".
-        logger.error("Search transport failure against serving config %s: %s: %s",
-                     SERVING_CONFIG, type(exc).__name__, exc)
-        raise RuntimeError(
-            f"Search API error (transport) {type(exc).__name__}: {exc}") from exc
+        logger.error(
+            "Search transport failure against serving config %s: %s: %s",
+            SERVING_CONFIG,
+            type(exc).__name__,
+            exc,
+        )
+        raise RuntimeError(f"Search API error (transport) {type(exc).__name__}: {exc}") from exc
 
     raw_count = len(result.get("results", []) or [])
     contexts = parse_search_results(result, max_chars=MAX_PASSAGE_CHARS)
@@ -506,12 +632,14 @@ def _search_with_stats(
     # worked but the text couldn't be read out of the response, which is a very
     # different problem from "nothing matched".
     if raw_count and not contexts:
-        logger.error("Search returned %d result(s) but no passage text could be "
-                     "extracted — check the data store's snippet/extractive "
-                     "configuration", raw_count)
+        logger.error(
+            "Search returned %d result(s) but no passage text could be "
+            "extracted — check the data store's snippet/extractive "
+            "configuration",
+            raw_count,
+        )
     elif raw_count != len(contexts):
-        logger.info("Search: %d raw result(s) → %d usable passage(s)",
-                    raw_count, len(contexts))
+        logger.info("Search: %d raw result(s) → %d usable passage(s)", raw_count, len(contexts))
     return contexts, raw_count
 
 
@@ -541,13 +669,12 @@ def answer_question(
     # ── Gate check ──
     _remaining_seconds(deadline_monotonic)
     if not _classify_query(
-        question, history, deadline_monotonic=deadline_monotonic,
+        question,
+        history,
+        deadline_monotonic=deadline_monotonic,
     ):
         return {
-            "answer": (
-                "Good try — you're at work. If you believe this is wrong, "
-                "contact Regional Three."
-            ),
+            "answer": ("Good try — you're at work. If you believe this is wrong, contact Regional Three."),
             "citations": [],
             "sources": [],
         }
@@ -561,9 +688,11 @@ def answer_question(
         deadline_monotonic=deadline_monotonic,
     )
     retrieved_sources = [c["source"] for c in retrieved]
-    logger.info("answer_question: %d contexts, first source=%s",
-                len(retrieved),
-                retrieved[0]["source"][:60] if retrieved else "None")
+    logger.info(
+        "answer_question: %d contexts, first source=%s",
+        len(retrieved),
+        retrieved[0]["source"][:60] if retrieved else "None",
+    )
 
     if not retrieved:
         # Matching documents but no readable text is a configuration problem,
@@ -574,8 +703,8 @@ def answer_question(
             "read back. This is a system configuration issue, not a problem with "
             "your question — please report it and verify against the source "
             "policy in the meantime."
-            if raw_count else
-            "No relevant policy documents found for this question."
+            if raw_count
+            else "No relevant policy documents found for this question."
         )
         return {
             "answer": answer,
@@ -585,12 +714,8 @@ def answer_question(
         }
 
     # Trim to the top passages (dedupe + per-source cap), numbered for citation.
-    contexts = select_passages(retrieved, MAX_CONTEXT_PASSAGES,
-                               max_total_chars=MAX_CONTEXT_CHARS)
-    numbered = "\n\n".join(
-        f"[{i + 1}] (Source: {c['source']})\n{c['text']}"
-        for i, c in enumerate(contexts)
-    )
+    contexts = select_passages(retrieved, MAX_CONTEXT_PASSAGES, max_total_chars=MAX_CONTEXT_CHARS)
+    numbered = "\n\n".join(f"[{i + 1}] (Source: {c['source']})\n{c['text']}" for i, c in enumerate(contexts))
     # History is context for READING the question, never evidence for answering
     # it. Stated explicitly because prior answers can carry the ungrounded
     # warning or an error, and treating them as fact compounds the mistake.
@@ -599,7 +724,8 @@ def answer_question(
         f"EARLIER IN THIS CONVERSATION (context only — use it to understand what "
         f"the officer is referring to. It is NOT policy and NOT evidence; never "
         f"cite it):\n{history_block}\n\n"
-        if history_block else ""
+        if history_block
+        else ""
     )
     prompt = (
         f"{preamble}"

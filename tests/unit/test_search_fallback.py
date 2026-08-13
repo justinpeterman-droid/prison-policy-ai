@@ -5,6 +5,7 @@ is provisioned for extractive answers/segments, and asking for them where they
 aren't supported gets the WHOLE request rejected with a 400 — which took the
 policy chat down entirely.
 """
+
 import pytest
 
 try:
@@ -45,14 +46,12 @@ class TestSearchBody:
 
 class TestClassifyError:
     def test_missing_credentials(self):
-        category, status = classify_error(
-            RuntimeError("Your default credentials were not found"))
+        category, status = classify_error(RuntimeError("Your default credentials were not found"))
         assert category == "credentials" and status == 503
 
     def test_model_not_found_is_its_own_category(self):
         # The M-1 failure mode: a model id that doesn't exist in this project.
-        category, status = classify_error(
-            RuntimeError("Publisher Model `gemini-9.9-pro` was not found"))
+        category, status = classify_error(RuntimeError("Publisher Model `gemini-9.9-pro` was not found"))
         assert category == "model" and status == 503
 
     def test_search_api_error(self):
@@ -72,8 +71,15 @@ class TestClassifyError:
         assert classify_error(ValueError("something odd"))[0] == "internal"
 
     def test_every_category_has_a_message(self):
-        for category in ("credentials", "model", "permission", "upstream",
-                         "timeout", "quota", "internal"):
+        for category in (
+            "credentials",
+            "model",
+            "permission",
+            "upstream",
+            "timeout",
+            "quota",
+            "internal",
+        ):
             assert ERROR_MESSAGES[category]
 
     def test_messages_leak_no_internals(self):

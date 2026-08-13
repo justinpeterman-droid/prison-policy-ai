@@ -2,6 +2,7 @@
 
 Uses an injected `now` so the fixed-window behavior is deterministic.
 """
+
 import pytest
 
 # feedback.py only imports flask + stdlib, so this runs locally and in CI.
@@ -53,6 +54,7 @@ def test_keys_are_independent():
 
 # ── URL sanitization ──────────────────────────────────────────────
 
+
 def test_sanitize_url_strips_access_code():
     out = feedback._sanitize_url("https://x.app/reports?code=slut&tab=1")
     assert "code=slut" not in out
@@ -77,6 +79,7 @@ def test_sanitize_url_handles_blank():
 
 # ── Field cleaning ────────────────────────────────────────────────
 
+
 def test_clean_field_flattens_and_escapes():
     out = feedback._clean_field("line1\nline2 | col", 500)
     assert "\n" not in out
@@ -95,9 +98,12 @@ def test_clean_field_rejects_non_strings():
 
 # ── Issue body ────────────────────────────────────────────────────
 
+
 def test_build_issue_body_includes_reporter_and_context():
     body = feedback._build_issue_body(
-        "It broke", "https://x.app/reports", "Sgt Smith",
+        "It broke",
+        "https://x.app/reports",
+        "Sgt Smith",
         {"userAgent": "Firefox", "viewport": "800×600"},
     )
     assert "Sgt Smith" in body
@@ -115,6 +121,9 @@ def test_build_issue_body_anonymous_without_name():
 
 def test_build_issue_body_ignores_unknown_context_keys():
     body = feedback._build_issue_body(
-        "hi", "https://x.app", "", {"evil": "injected"},
+        "hi",
+        "https://x.app",
+        "",
+        {"evil": "injected"},
     )
     assert "injected" not in body

@@ -6,6 +6,7 @@ for replay. So these tests check the ordinary things (closed schemas, required
 headers, fictional examples that validate) and also that the documented 409
 tells a client the honest reason a duplicate key cannot be answered.
 """
+
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -48,10 +49,7 @@ def test_policy_question_operation_exists_with_required_headers():
     refs = {item.get("$ref") for item in operation.get("parameters", [])}
     assert "#/components/parameters/XClientVersion" in refs
     assert "#/components/parameters/IdempotencyKey" in refs
-    request_id = next(
-        item for item in operation["parameters"]
-        if item.get("name") == "X-Request-ID"
-    )
+    request_id = next(item for item in operation["parameters"] if item.get("name") == "X-Request-ID")
     assert request_id["required"] is True
     assert operation["requestBody"]["required"] is True
 
@@ -85,8 +83,16 @@ def test_policy_request_schema_rejects_client_owned_provider_controls():
     document = _document()
     schema = document["components"]["schemas"]["PolicyQuestionRequest"]
     forbidden = {
-        "model", "temperature", "prompt", "system_prompt", "max_tokens",
-        "actor", "account_id", "staff_id", "request_id", "idempotency_key",
+        "model",
+        "temperature",
+        "prompt",
+        "system_prompt",
+        "max_tokens",
+        "actor",
+        "account_id",
+        "staff_id",
+        "request_id",
+        "idempotency_key",
     }
     assert forbidden.isdisjoint(schema["properties"])
     validator = _validator(document, schema)
@@ -100,14 +106,26 @@ def test_policy_response_exposes_citations_without_storage_or_identity():
     schemas = document["components"]["schemas"]
     data = schemas["PolicyAnswerData"]
     assert data["additionalProperties"] is False
-    assert set(data["properties"]) == {"answer", "citations", "sources", "retrieved_sources"}
+    assert set(data["properties"]) == {
+        "answer",
+        "citations",
+        "sources",
+        "retrieved_sources",
+    }
     citation = schemas["PolicyCitation"]
     assert citation["additionalProperties"] is False
     assert set(citation["properties"]) == {"n", "source", "text"}
     # Nothing in the answer envelope may carry an identity or a stored handle.
     forbidden = {
-        "question", "account_id", "staff_id", "employee_number", "session_id",
-        "idempotency_key", "response_id", "cached", "stored_response",
+        "question",
+        "account_id",
+        "staff_id",
+        "employee_number",
+        "session_id",
+        "idempotency_key",
+        "response_id",
+        "cached",
+        "stored_response",
     }
     assert forbidden.isdisjoint(data["properties"])
 
@@ -129,11 +147,7 @@ def test_every_policy_example_is_fictional_and_validates():
     document = _document()
     operation = document["paths"][POLICY_PATH]["post"]
     bodies = [operation["requestBody"]["content"]["application/json"]]
-    bodies += [
-        media
-        for response in operation["responses"].values()
-        for media in response.get("content", {}).values()
-    ]
+    bodies += [media for response in operation["responses"].values() for media in response.get("content", {}).values()]
     for media in bodies:
         if "schema" not in media:
             continue

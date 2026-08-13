@@ -16,6 +16,7 @@ Run from the repo root after changing any source PNG:
 `--check` exits non-zero when an output is missing or stale, so CI can catch a
 PNG that was updated without regenerating its WebP.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -139,14 +140,10 @@ def main() -> int:
         total_png += png_bytes
         total_webp += webp_bytes
         pct = (1 - webp_bytes / png_bytes) * 100 if png_bytes else 0
-        print(
-            f"{name:<28}{png_bytes / 1024:>9.0f}K{webp_bytes / 1024:>9.0f}K{pct:>8.0f}%"
-        )
+        print(f"{name:<28}{png_bytes / 1024:>9.0f}K{webp_bytes / 1024:>9.0f}K{pct:>8.0f}%")
     print("-" * 57)
     saved = (1 - total_webp / total_png) * 100 if total_png else 0
-    print(
-        f"{'total':<28}{total_png / 1024:>9.0f}K{total_webp / 1024:>9.0f}K{saved:>8.0f}%"
-    )
+    print(f"{'total':<28}{total_png / 1024:>9.0f}K{total_webp / 1024:>9.0f}K{saved:>8.0f}%")
     return 0
 
 

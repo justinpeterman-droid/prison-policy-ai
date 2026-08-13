@@ -6,6 +6,7 @@ racing over one JSON blob silently drop one of the changes. Neither shows up
 without a bucket, so these tests drive the GCS path against a fake and assert
 the compare-and-swap behaviour directly.
 """
+
 import json
 import os
 import threading
@@ -30,6 +31,7 @@ def no_cache(monkeypatch):
 
 
 # ── Local-file backend (the default: no bucket, no credentials) ──────────
+
 
 def test_local_backend_is_the_default():
     assert roster_store.using_gcs() is False
@@ -106,7 +108,8 @@ def test_local_write_atomically_replaces_complete_json(tmp_path, monkeypatch):
     assert roster_store.update(add) == "added"
     assert observed["before"] == original
     assert [person["last"] for person in observed["staged"]["staff"]] == [
-        "Alvarez", "Nguyen",
+        "Alvarez",
+        "Nguyen",
     ]
     assert json.loads(path.read_text()) == observed["staged"]
 
@@ -155,10 +158,12 @@ def test_concurrent_local_updates_keep_both_changes(tmp_path, monkeypatch):
 
     def add(last, employee_number):
         def mutate(data):
-            data["staff"].append({
-                "last": last,
-                "employee_number": employee_number,
-            })
+            data["staff"].append(
+                {
+                    "last": last,
+                    "employee_number": employee_number,
+                }
+            )
             return "added"
 
         results.append(roster_store.update(mutate))
@@ -179,6 +184,7 @@ def test_concurrent_local_updates_keep_both_changes(tmp_path, monkeypatch):
 
 
 # ── GCS backend, driven against a fake ───────────────────────────────────
+
 
 class FakePreconditionFailed(Exception):
     pass
@@ -206,8 +212,7 @@ class FakeGCS:
             hook, self.on_write = self.on_write, None
             hook(self)
         if generation != self.generation:
-            raise FakePreconditionFailed(
-                f"expected generation {generation}, object is at {self.generation}")
+            raise FakePreconditionFailed(f"expected generation {generation}, object is at {self.generation}")
         self.text = payload
         self.generation += 1
         self.writes += 1
@@ -215,13 +220,15 @@ class FakeGCS:
 
 @pytest.fixture
 def gcs(monkeypatch, no_cache):
-    fake = FakeGCS({"shifts": {}, "staff": [{"last": "Alvarez",
-                                             "employee_number": "100412"}]})
+    fake = FakeGCS({"shifts": {}, "staff": [{"last": "Alvarez", "employee_number": "100412"}]})
 
     monkeypatch.setattr(roster_store, "ROSTER_BUCKET", "test-bucket")
     monkeypatch.setattr(roster_store, "using_gcs", lambda: True)
-    monkeypatch.setattr(roster_store, "_is_conflict",
-                        lambda exc: isinstance(exc, FakePreconditionFailed))
+    monkeypatch.setattr(
+        roster_store,
+        "_is_conflict",
+        lambda exc: isinstance(exc, FakePreconditionFailed),
+    )
 
     def fake_fetch():
         try:
@@ -258,6 +265,7 @@ def test_a_concurrent_writer_does_not_lose_either_change(gcs):
     Before the compare-and-swap, the second write clobbered the first and one
     new staff member disappeared with no error anywhere.
     """
+
     def someone_else_writes_first(fake):
         current = json.loads(fake.text)
         current["staff"].append({"last": "Kaur", "employee_number": "100433"})
@@ -281,6 +289,7 @@ def test_a_concurrent_writer_does_not_lose_either_change(gcs):
 def test_the_mutation_re_runs_against_fresh_state_after_a_conflict(gcs):
     """A duplicate check inside the mutation must see the winning writer's
     change — otherwise the retry happily adds a second copy."""
+
     def someone_else_adds_the_same_person(fake):
         current = json.loads(fake.text)
         current["staff"].append({"last": "Nguyen", "employee_number": "100413"})
@@ -316,8 +325,11 @@ def test_a_missing_object_falls_back_to_the_seed(monkeypatch, no_cache):
     definitions, and nothing is written until a real edit arrives."""
     fake = FakeGCS(None)
     monkeypatch.setattr(roster_store, "using_gcs", lambda: True)
-    monkeypatch.setattr(roster_store, "_is_conflict",
-                        lambda exc: isinstance(exc, FakePreconditionFailed))
+    monkeypatch.setattr(
+        roster_store,
+        "_is_conflict",
+        lambda exc: isinstance(exc, FakePreconditionFailed),
+    )
 
     def fake_fetch():
         try:
@@ -336,6 +348,7 @@ def test_a_missing_object_falls_back_to_the_seed(monkeypatch, no_cache):
 def test_corrupt_json_raises_rather_than_reading_as_empty(monkeypatch, no_cache):
     """Returning {} for a corrupt object would let the next write replace the
     whole roster with nothing."""
+
     def boom():
         raise json.JSONDecodeError("bad", "", 0)
 
@@ -349,16 +362,19 @@ def test_corrupt_json_raises_rather_than_reading_as_empty(monkeypatch, no_cache)
 
 # ── Gap-answer parsing (the auto-add path) ───────────────────────────────
 
-@pytest.mark.parametrize("answer,expected", [
-    ("Sgt. Marek Thackeray 100888", ("Sgt", "Marek", "Thackeray", "100888")),
-    ("Sgt Marek Thackeray 100888",  ("Sgt", "Marek", "Thackeray", "100888")),
-    ("Sergeant Marek Thackeray 100888", ("Sgt", "Marek", "Thackeray", "100888")),
-    ("Cpl. Ines Ravenna 100999",    ("Cpl", "Ines", "Ravenna", "100999")),
-    ("Lt. Nora Franklin",           ("Lt", "Nora", "Franklin", "")),
-    ("Marek Thackeray 100888",      ("Ofc", "Marek", "Thackeray", "100888")),
-])
-def test_a_rank_written_with_a_period_still_parses(tmp_path, monkeypatch,
-                                                   answer, expected):
+
+@pytest.mark.parametrize(
+    "answer,expected",
+    [
+        ("Sgt. Marek Thackeray 100888", ("Sgt", "Marek", "Thackeray", "100888")),
+        ("Sgt Marek Thackeray 100888", ("Sgt", "Marek", "Thackeray", "100888")),
+        ("Sergeant Marek Thackeray 100888", ("Sgt", "Marek", "Thackeray", "100888")),
+        ("Cpl. Ines Ravenna 100999", ("Cpl", "Ines", "Ravenna", "100999")),
+        ("Lt. Nora Franklin", ("Lt", "Nora", "Franklin", "")),
+        ("Marek Thackeray 100888", ("Ofc", "Marek", "Thackeray", "100888")),
+    ],
+)
+def test_a_rank_written_with_a_period_still_parses(tmp_path, monkeypatch, answer, expected):
     """Regression: '\\b' after '\\.?' never matches, so "Sgt." matched as "Sgt"
     and left the period behind — which then became the officer's first name.
     Officers write the period, so this corrupted most auto-added records."""
@@ -371,5 +387,9 @@ def test_a_rank_written_with_a_period_still_parses(tmp_path, monkeypatch,
 
     assert roster_mod.add_staff_from_gap_answer("", answer) is True
     person = json.loads(path.read_text())["staff"][0]
-    assert (person["rank"], person["first"], person["last"],
-            person["employee_number"]) == expected
+    assert (
+        person["rank"],
+        person["first"],
+        person["last"],
+        person["employee_number"],
+    ) == expected

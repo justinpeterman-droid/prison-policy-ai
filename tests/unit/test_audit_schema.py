@@ -22,9 +22,7 @@ def test_all_identity_tables_are_registered():
 
 
 def test_audit_details_are_closed_and_size_bounded():
-    assert validate_details("auth.login_failed", {"reason": "invalid_pin"}) == {
-        "reason": "invalid_pin"
-    }
+    assert validate_details("auth.login_failed", {"reason": "invalid_pin"}) == {"reason": "invalid_pin"}
     with pytest.raises(ValueError, match="audit details are invalid"):
         validate_details("auth.login_failed", {"pin": "fictional"})
     with pytest.raises(ValueError, match="audit details are invalid"):

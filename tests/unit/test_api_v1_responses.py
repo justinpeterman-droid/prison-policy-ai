@@ -12,9 +12,7 @@ from backend.identity.sessions import SessionReauthenticationRequired
 def configured_client(monkeypatch):
     monkeypatch.setattr(app_mod, "ACCESS_CODE", "legacy-user")
     monkeypatch.setenv("ACCESS_API_ENABLED", "true")
-    monkeypatch.setenv(
-        "DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test"
-    )
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test")
     monkeypatch.setenv("IDENTITY_HASH_PEPPER", "p" * 32)
     monkeypatch.setenv("CURSOR_SIGNING_KEY", "c" * 32)
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://review.example.gov")
@@ -23,17 +21,25 @@ def configured_client(monkeypatch):
 
 def test_success_and_error_envelopes_have_exact_keys_and_headers(monkeypatch):
     client = configured_client(monkeypatch)
-    success = client.get(
-        "/api/v1/client-policy", headers={"X-Request-ID": "request_1234"}
-    )
+    success = client.get("/api/v1/client-policy", headers={"X-Request-ID": "request_1234"})
     assert success.status_code == 200
-    assert set(success.get_json()) == {"data", "request_id", "server_time", "api_version"}
+    assert set(success.get_json()) == {
+        "data",
+        "request_id",
+        "server_time",
+        "api_version",
+    }
     assert success.headers["X-Request-ID"] == "request_1234"
     assert success.headers["Cache-Control"] == "no-store"
 
     failure = client.get("/api/v1/me", headers={"X-Client-Version": "1.0.0"})
     assert failure.status_code == 401
-    assert set(failure.get_json()) == {"error", "request_id", "server_time", "api_version"}
+    assert set(failure.get_json()) == {
+        "error",
+        "request_id",
+        "server_time",
+        "api_version",
+    }
     assert set(failure.get_json()["error"]) == {"code", "message", "retryable"}
     assert failure.headers["Cache-Control"] == "no-store"
 
@@ -76,9 +82,7 @@ def test_unexpected_api_error_uses_safe_json_envelope(monkeypatch):
     assert response.headers["Cache-Control"] == "no-store"
 
 
-def test_request_events_are_closed_and_exclude_sensitive_markers(
-    monkeypatch, caplog
-):
+def test_request_events_are_closed_and_exclude_sensitive_markers(monkeypatch, caplog):
     middleware = importlib.import_module("backend.webapp.api_v1.middleware")
 
     def reject_unknown_bearer(*_args, **_kwargs):
@@ -99,11 +103,7 @@ def test_request_events_are_closed_and_exclude_sensitive_markers(
         },
     )
 
-    events = [
-        json.loads(record.message)
-        for record in caplog.records
-        if record.name == "backend.webapp.api_v1"
-    ]
+    events = [json.loads(record.message) for record in caplog.records if record.name == "backend.webapp.api_v1"]
     assert events
     for event in events:
         assert set(event) == {

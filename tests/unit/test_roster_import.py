@@ -46,7 +46,10 @@ def test_dry_run_validates_and_never_writes():
 
 
 def test_duplicate_normalized_employee_number_is_rejected_before_query():
-    duplicate = [FICTIONAL_RECORDS[0], {**FICTIONAL_RECORDS[0], "employee_number": "EMP-001"}]
+    duplicate = [
+        FICTIONAL_RECORDS[0],
+        {**FICTIONAL_RECORDS[0], "employee_number": "EMP-001"},
+    ]
     with pytest.raises(ValueError, match="duplicate employee number"):
         import_roster(EmptySession(), duplicate, apply=False)
 
@@ -64,5 +67,9 @@ def test_empty_rank_is_allowed_when_field_is_present():
 def test_checked_in_fictional_roster_has_expected_dry_run_count():
     payload = json.loads(Path("templates/staff_roster.json").read_text(encoding="utf-8"))
     summary = import_roster(EmptySession(), payload["staff"], apply=False)
-    assert (summary.source_count, summary.inserted_count, summary.existing_count) == (13, 13, 0)
+    assert (summary.source_count, summary.inserted_count, summary.existing_count) == (
+        13,
+        13,
+        0,
+    )
     assert summary.applied is False

@@ -1,4 +1,5 @@
 """Immutable, prefix-scoped review persistence over the GCS boundary."""
+
 import json
 
 import pytest
@@ -63,8 +64,7 @@ class FakeClient:
 
     def list_blobs(self, bucket_name, *, prefix):
         assert bucket_name == "private-bucket"
-        return [blob for name, blob in self.bucket_obj.blobs.items()
-                if name.startswith(prefix)]
+        return [blob for name, blob in self.bucket_obj.blobs.items() if name.startswith(prefix)]
 
 
 @pytest.fixture
@@ -83,8 +83,7 @@ def make_store(fake_client):
 def seed(fake_client, item):
     month = item["submitted_at"][5:7]
     day_prefix = item["submitted_at"][:4]
-    name = (f"review-lab/submissions/{day_prefix}/{month}/"
-            f"{item['submission_id']}.json")
+    name = f"review-lab/submissions/{day_prefix}/{month}/{item['submission_id']}.json"
     fake_client.bucket_obj.blob(name).content = json.dumps(item)
     return name
 
@@ -95,9 +94,7 @@ def test_save_uses_create_only_json_under_the_dated_prefix(fake_client):
     object_name = store.save(record(1))
     blob = fake_client.bucket_obj.blobs[object_name]
 
-    assert object_name == (
-        "review-lab/submissions/2026/08/"
-        "review_20260811T010203Z_abcdef1.json")
+    assert object_name == ("review-lab/submissions/2026/08/review_20260811T010203Z_abcdef1.json")
     assert blob.if_generation_match == 0
     assert blob.content_type == "application/json"
     assert json.loads(blob.content)["submission_id"].endswith("abcdef1")
@@ -134,8 +131,7 @@ def test_get_rejects_untrusted_submission_ids(fake_client, submission_id):
 def test_list_is_newest_first_bounded_and_skips_malformed_json(fake_client):
     for number in (1, 2, 3):
         seed(fake_client, record(number))
-    bad = fake_client.bucket_obj.blob(
-        "review-lab/submissions/2026/08/review_20260814T010203Z_abcdef4.json")
+    bad = fake_client.bucket_obj.blob("review-lab/submissions/2026/08/review_20260814T010203Z_abcdef4.json")
     bad.content = "not json"
 
     records, skipped = make_store(fake_client).list_records(limit=2)

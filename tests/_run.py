@@ -3,12 +3,14 @@
 Spawns a subprocess with the Hermes venv stripped from PYTHONPATH,
 so vertexai/grpc imports resolve from the correct site-packages.
 """
+
 import subprocess
 import sys
 import os
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HERMES_HOME = os.path.join(os.environ.get("HOME", ""), "AppData", "Local", "hermes", "hermes-agent")
+
 
 def main():
     args = sys.argv[1:]
@@ -31,8 +33,12 @@ def main():
         if k.startswith("HERMES_"):
             del env[k]
 
-    cmd = [r"C:\Python314\python.exe", os.path.join(PROJECT_ROOT, "tests", "test_pipeline.py")] + args
+    cmd = [
+        r"C:\Python314\python.exe",
+        os.path.join(PROJECT_ROOT, "tests", "test_pipeline.py"),
+    ] + args
     return subprocess.call(cmd, env=env)
+
 
 if __name__ == "__main__":
     sys.exit(main())
