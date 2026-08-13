@@ -12,14 +12,7 @@ from pathlib import Path
 DIGEST = "sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d"
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--image", required=True)
-    parser.add_argument("--output", required=True)
-    parser.add_argument("--provenance", required=True)
-    parser.add_argument("--runtime-image", required=True)
-    parser.add_argument("--generate-provenance", action="store_true")
-    args = parser.parse_args()
+def validate(args: argparse.Namespace) -> int:
     if not Path(args.output).is_file():
         print("SBOM output is absent", file=sys.stderr)
         return 1
@@ -39,7 +32,10 @@ def main() -> int:
     runtime_layers = runtime["RootFS"]["Layers"]
     provenance_path = Path(args.provenance)
     if args.generate_provenance:
-        if not any(digest.endswith("@" + DIGEST) for digest in runtime_digests):
+        if (
+            not any(digest.endswith("@" + DIGEST) for digest in runtime_digests)
+            or image_layers[: len(runtime_layers)] != runtime_layers
+        ):
             print("runtime image does not resolve to approved digest", file=sys.stderr)
             return 1
         provenance_path.write_text(
@@ -61,7 +57,11 @@ def main() -> int:
             encoding="utf-8",
         )
         return 0
-    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    try:
+        provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        print("SBOM provenance binding failed", file=sys.stderr)
+        return 1
     if (
         data.get("spdxVersion", "").startswith("SPDX-") is False
         or not data.get("packages")
@@ -84,6 +84,16 @@ def main() -> int:
         print("SBOM contains sensitive data", file=sys.stderr)
         return 1
     return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--image", required=True)
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--provenance", required=True)
+    parser.add_argument("--runtime-image", required=True)
+    parser.add_argument("--generate-provenance", action="store_true")
+    return validate(parser.parse_args())
 
 
 if __name__ == "__main__":

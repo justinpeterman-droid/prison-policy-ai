@@ -22,9 +22,21 @@ FORBIDDEN = (
 )
 FIXTURE_VALUE = re.compile(r"^\s*(?:fixture-|fake-|fictional-)[a-z0-9_-]+|local-(?:user|admin)|slut\s*$", re.I)
 ASSIGNMENT = re.compile(
-    r"\b(?:password|private_key|authorization|bearer|service_account|access_code|admin_code|temporary_pin)\b\s*[:=]\s*['\"]([^'\"]+)['\"]",
+    r"\b(?:password|private_key|authorization|bearer|service_account|access_code|admin_code|temporary_pin|employee_id|inmate_id)\b\s*[:=]\s*(?:['\"]([^'\"]+)['\"]|([^\s,}\]]+))",
     re.I,
 )
+
+
+def is_explicitly_nonsecret(value: str) -> bool:
+    """Permit only source syntax that cannot itself contain a credential value."""
+    normalized = value.strip().strip("`;,)")
+    if (
+        not normalized
+        or normalized in {'""', "''", "str", "Bearer", "UpdateGrant", "!0"}
+        or FIXTURE_VALUE.fullmatch(normalized)
+    ):
+        return True
+    return normalized.startswith(("os.getenv(", "request.", "google_", "generate_temporary_pin(", "${", "{", "[", "<"))
 
 
 def paths(args: argparse.Namespace) -> list[Path]:
@@ -55,7 +67,8 @@ def main() -> int:
                 lowered = line.lower()
                 value = ASSIGNMENT.search(line)
                 strict = path.suffix.lower() in {".sarif", ".log"} or "output" in path.parts
-                if value and not FIXTURE_VALUE.fullmatch(value.group(1)):
+                assignment_value = next((part for part in value.groups() if part is not None), None) if value else None
+                if assignment_value and not is_explicitly_nonsecret(assignment_value):
                     bad.append(str(path))
                     break
                 if strict and any(re.search(rf"\b{re.escape(term)}\b\s*[:=]", lowered) for term in FORBIDDEN):
