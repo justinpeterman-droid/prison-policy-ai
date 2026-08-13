@@ -159,3 +159,56 @@ Append a concise evidence entry to the implementation checklist indicating that 
 ## Execution Handoff
 
 Execute this prerequisite using subagent-driven development: one fresh implementation/review loop per task, followed by an independent whole-range review before OP-07 resumes.
+
+### Task 4: Align the source baseline with OP-07's Python 3.12 formatter and type configuration
+
+**Files:**
+- Modify only files reported by the exact OP-07 lock-verified `ruff format --check backend tests scripts` and `mypy backend` commands when `pyproject.toml` sets `target-version = "py312"` and `python_version = "3.12"`.
+- Test: nearest existing focused test for each behavior-affecting type correction.
+
+**Interfaces:**
+- Consumes: the approved OP-07 `pyproject.toml` target contract and the reviewed source quality baseline.
+- Produces: a source tree whose formatting and typing are stable under the exact quality-tool versions/configuration OP-07 commits.
+
+- [ ] **Step 1: Capture the configuration-sensitive RED inventory**
+
+In the OP-07 lock-verified environment, run:
+
+```powershell
+python -m ruff format --check backend tests scripts
+python -m mypy backend
+```
+
+Expected: a finite formatter inventory caused by the newly required Python 3.12 target and the exact current type errors. Record paths/error codes locally only.
+
+- [ ] **Step 2: Normalize all reported files through the exact formatter**
+
+Run the exact lock-verified formatter over `backend`, `tests`, and `scripts`, then re-run its check. This is a mechanical normalization required by the approved target; it is not an ignore, exclusion, or config relaxation.
+
+- [ ] **Step 3: Repair Python 3.12 type failures at their source**
+
+For every reported type failure, preserve runtime behavior with typed provider imports/protocols, real Literal narrowing, nullable guards, SQLAlchemy expression types, and request/adaptor contracts. Write a red focused test first if correcting a live branch or external input path. Do not change the OP-07 target-version or python_version and do not introduce suppressions.
+
+- [ ] **Step 4: Verify the exact OP-07 static contract**
+
+Run:
+
+```powershell
+python -m ruff format --check backend tests scripts
+python -m ruff check backend tests scripts
+python -m mypy backend
+python -m pytest tests/unit tests/security -q
+python -m pytest tests/integration tests/contract tests/security -q
+git diff --check
+```
+
+Expected: all static commands pass under the OP-07 lock/configuration; database-backed failures are repaired or proved unchanged on the predecessor.
+
+- [ ] **Step 5: Commit and independently review the configuration-aligned baseline**
+
+```powershell
+git add backend tests scripts
+git commit -m "fix: align quality baseline with py312 gates"
+```
+
+Review the full diff for public-contract changes and quality-gate suppressions before OP-07 resumes.
