@@ -13,6 +13,7 @@ tags:
   - name: Incidents
   - name: Reports
   - name: Admin Reports
+  - name: AI Jobs
 security:
   - AccessBearer: []
 paths:
@@ -193,6 +194,117 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/RevisionOrIdempotencyConflict" }
         "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/jobs/classify:
+    post:
+      operationId: submitClassificationJob
+      tags: [AI Jobs]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/RequiredXRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitJobRequest" }
+      responses:
+        "202": { $ref: "#/components/responses/JobAccepted" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/JobSubmissionConflict" }
+        "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/jobs/extract:
+    post:
+      operationId: submitExtractionJob
+      tags: [AI Jobs]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/RequiredXRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitJobRequest" }
+      responses:
+        "202": { $ref: "#/components/responses/JobAccepted" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/JobSubmissionConflict" }
+        "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/jobs/generate:
+    post:
+      operationId: submitGenerationJob
+      tags: [AI Jobs]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/RequiredXRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitJobRequest" }
+      responses:
+        "202": { $ref: "#/components/responses/JobAccepted" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/JobSubmissionConflict" }
+        "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/jobs/disciplinary:
+    post:
+      operationId: submitDisciplinaryJob
+      tags: [AI Jobs]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/RequiredXRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitJobRequest" }
+      responses:
+        "202": { $ref: "#/components/responses/JobAccepted" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/JobSubmissionConflict" }
+        "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/jobs/{job_id}:
+    get:
+      operationId: getAiJob
+      tags: [AI Jobs]
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/RequiredXRequestId"
+      responses:
+        "200":
+          description: Requester-and-current-access or Admin job status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/v1/reports:
     get:
@@ -1212,6 +1324,12 @@ components:
       required: false
       schema:
         $ref: "#/components/schemas/RequestId"
+    RequiredXRequestId:
+      name: X-Request-ID
+      in: header
+      required: true
+      schema:
+        $ref: "#/components/schemas/RequestId"
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -1260,6 +1378,11 @@ components:
       schema: { $ref: "#/components/schemas/Uuid" }
     IncidentId:
       name: incident_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Uuid" }
+    JobId:
+      name: job_id
       in: path
       required: true
       schema: { $ref: "#/components/schemas/Uuid" }
@@ -1416,6 +1539,50 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    JobAccepted:
+      description: Durable queued job and transactional outbox intent created
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/JobSuccessEnvelope" }
+    JobSubmissionConflict:
+      description: Revision or shared-idempotency submission conflict
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: "#/components/schemas/JobRevisionConflictEnvelope"
+              - $ref: "#/components/schemas/JobIdempotencyConflictEnvelope"
+              - $ref: "#/components/schemas/JobRequestInProgressEnvelope"
+              - $ref: "#/components/schemas/JobClientUpgradeRequiredEnvelope"
+          examples:
+            stale_revision:
+              value:
+                error:
+                  code: revision_conflict
+                  message: The fictional incident changed; reload before submitting the job.
+                  retryable: false
+                  details: { current_revision_number: 2 }
+                request_id: request_job_conflict_0001
+                server_time: "2026-08-12T15:10:01Z"
+                api_version: v1
+            changed_payload:
+              value:
+                error:
+                  code: idempotency_conflict
+                  message: The fictional key was used for another request.
+                  retryable: false
+                request_id: request_job_conflict_0002
+                server_time: "2026-08-12T15:10:02Z"
+                api_version: v1
+            still_running:
+              value:
+                error:
+                  code: request_in_progress
+                  message: The fictional job submission is still in progress.
+                  retryable: true
+                request_id: request_job_conflict_0003
+                server_time: "2026-08-12T15:10:03Z"
+                api_version: v1
     HandoffInvalid:
       description: The one-time handoff is invalid, expired, or already redeemed
       content:
@@ -1436,6 +1603,121 @@ components:
       format: uuid
       minLength: 1
       example: 00000000-0000-4000-8000-000000000001
+    SubmitJobRequest:
+      type: object
+      additionalProperties: false
+      required: [base_revision_number]
+      properties:
+        base_revision_number:
+          type: integer
+          minimum: 1
+          example: 1
+    JobState:
+      type: string
+      enum: [queued, running, succeeded, failed, cancelled]
+    JobStage:
+      type: string
+      enum:
+        - queued
+        - classifying
+        - extracting
+        - validating
+        - generating
+        - disciplinary
+        - completed
+        - failed
+    JobResultReportReference:
+      type: object
+      additionalProperties: false
+      required: [report_id, revision_number]
+      properties:
+        report_id: { $ref: "#/components/schemas/Uuid" }
+        revision_number: { type: integer, minimum: 1 }
+    JobResultReference:
+      type: object
+      additionalProperties: false
+      properties:
+        incident_revision_number: { type: integer, minimum: 1 }
+        reports:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/JobResultReportReference" }
+    Job:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - incident_id
+        - job_type
+        - state
+        - stage
+        - created_at
+        - started_at
+        - completed_at
+        - error_code
+        - result_reference
+      properties:
+        id: { $ref: "#/components/schemas/Uuid" }
+        incident_id: { $ref: "#/components/schemas/Uuid" }
+        job_type:
+          type: string
+          enum: [classify, extract, generate, disciplinary]
+        state: { $ref: "#/components/schemas/JobState" }
+        stage: { $ref: "#/components/schemas/JobStage" }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        started_at:
+          oneOf:
+            - $ref: "#/components/schemas/UtcTimestamp"
+            - type: "null"
+        completed_at:
+          oneOf:
+            - $ref: "#/components/schemas/UtcTimestamp"
+            - type: "null"
+        error_code:
+          type: [string, "null"]
+          pattern: '^[a-z][a-z0-9_]{0,63}$'
+        result_reference: { $ref: "#/components/schemas/JobResultReference" }
+    JobSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, request_id, server_time, api_version]
+      properties:
+        data: { $ref: "#/components/schemas/Job" }
+        request_id: { $ref: "#/components/schemas/RequestId" }
+        server_time: { $ref: "#/components/schemas/UtcTimestamp" }
+        api_version: { type: string, const: v1 }
+    JobRevisionConflictEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ErrorEnvelope"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties: { code: { const: revision_conflict } }
+    JobIdempotencyConflictEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ErrorEnvelope"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties: { code: { const: idempotency_conflict } }
+    JobRequestInProgressEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ErrorEnvelope"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties: { code: { const: request_in_progress } }
+    JobClientUpgradeRequiredEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ErrorEnvelope"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties: { code: { const: client_upgrade_required } }
     Cursor:
       type: string
       minLength: 40
