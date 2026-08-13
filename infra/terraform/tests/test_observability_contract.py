@@ -22,6 +22,12 @@ def test_dashboards_are_valid_and_contain_no_sensitive_fields():
         encoded = json.dumps(payload).lower()
         assert not any(field in encoded for field in FORBIDDEN)
         assert payload["displayName"].startswith("Access ")
+        layout = payload["mosaicLayout"]
+        assert layout["columns"] == 12
+        for tile in layout["tiles"]:
+            assert 0 < tile["width"] <= layout["columns"]
+            assert tile["height"] > 0
+            assert 0 <= tile.get("xPos", 0) < layout["columns"]
 
 
 def test_every_alert_links_to_a_runbook():
@@ -74,5 +80,6 @@ def test_backup_boundary_is_exact_and_workflow_is_bounded():
     assert "roles/workflows.invoker" in backup
     assert "googleapis.sqladmin.v1.operations.get" in workflow
     assert "attempt >= 20" in workflow and "sys.sleep" in workflow
+    assert "raise:" in workflow and "timed out" in workflow
     assert '"workflows.googleapis.com"' in services
     assert '"billingbudgets.googleapis.com"' in services

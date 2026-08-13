@@ -43,6 +43,13 @@ main:
           - attempt: $${attempt + 1}
         next: poll
     - done:
-        return: {operation_id: $${operation_name}, object_uri: $${"gs://${bucket_name}/" + object}, status: $${operation_status.status}}
+        switch:
+          - condition: $${len(default(operation_status.error.errors, [])) > 0}
+            next: failed
+        next: succeeded
+    - succeeded:
+        return: {operation_id: $${operation_name}, object_uri: $${"gs://${bucket_name}/" + object}, status: completed}
+    - failed:
+        raise: $${"Cloud SQL export operation failed: " + operation_name}
     - timed_out:
-        return: {operation_id: $${operation_name}, object_uri: $${"gs://${bucket_name}/" + object}, status: timeout}
+        raise: $${"Cloud SQL export operation timed out: " + operation_name}

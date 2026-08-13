@@ -15,11 +15,27 @@ resource "google_storage_bucket_iam_member" "logical_backup_creator" {
   depends_on = [terraform_data.services_ready]
 }
 
+# Cloud SQL's managed instance identity writes the offloaded object; it can
+# create only new logical-export objects in this exact private bucket.
+resource "google_storage_bucket_iam_member" "sql_export_writer" {
+  bucket = google_storage_bucket.private["logical_backup"].name
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${var.sql_export_service_account_email}"
+
+  condition {
+    title       = "AccessLogicalExportsOnly"
+    description = "Create only unique logical export objects; never read, overwrite, or delete existing objects."
+    expression  = "resource.name.startsWith(\"projects/_/buckets/${google_storage_bucket.private["logical_backup"].name}/objects/logical-exports/\")"
+  }
+
+  depends_on = [terraform_data.services_ready]
+}
+
 resource "google_project_iam_custom_role" "logical_backup_exporter" {
   role_id     = "accessLogicalBackupExport"
   title       = "Access logical backup export"
   description = "Starts Cloud SQL exports and reads their operation status; it cannot mutate SQL data or access secrets."
-  permissions = ["cloudsql.instances.export", "cloudsql.operations.get"]
+  permissions = ["cloudsql.instances.export", "cloudsql.instances.get", "cloudsql.operations.get"]
 }
 
 resource "google_project_iam_member" "logical_backup_exporter" {

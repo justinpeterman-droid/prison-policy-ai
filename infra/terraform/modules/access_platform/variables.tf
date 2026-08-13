@@ -122,6 +122,14 @@ variable "observability_owner_role" {
     error_message = "observability_owner_role must be a non-sensitive owner role, not contact or credential data."
   }
 }
+variable "sql_export_service_account_email" {
+  description = "Externally confirmed Cloud SQL instance service-account email used by offloaded exports."
+  type        = string
+  validation {
+    condition     = can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.gserviceaccount\\.com$", var.sql_export_service_account_email))
+    error_message = "sql_export_service_account_email must be the exact externally confirmed Cloud SQL service-account email."
+  }
+}
 
 variable "image_digest" {
   type        = string

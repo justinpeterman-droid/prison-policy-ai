@@ -16,6 +16,18 @@ locals {
 }
 
 locals {
+  # Metrics have producer-specific labels; a request metric never invents
+  # queue/backup labels and an RP-10 metric never promotes request correlation.
+  safe_metric_contracts = {
+    request_event           = { filter = local.safe_event_filters.request_event, labels = toset(["action", "result", "latency_bucket", "http_status_class", "error_code", "client_version", "dependency"]) }
+    dependency_health       = { filter = local.safe_event_filters.dependency_health, labels = toset(["result", "dependency", "latency_bucket"]) }
+    queue_health            = { filter = local.safe_event_filters.queue_health, labels = toset(["result", "depth_bucket", "oldest_age_bucket", "job_type", "stage", "latency_bucket"]) }
+    backup_restore_health   = { filter = local.safe_event_filters.backup_restore_health, labels = toset(["result", "recency_bucket"]) }
+    client_upgrade_required = { filter = local.safe_event_filters.client_upgrade_required, labels = toset(["result", "parsed_client_version"]) }
+  }
+}
+
+locals {
   # These filters match the exact serialized keys emitted by ID-02 and RP-10.
   # There is intentionally no invented `event_type` key.
   safe_event_filters = {
@@ -254,55 +266,26 @@ resource "google_monitoring_dashboard" "access" {
 }
 
 resource "google_logging_metric" "safe_events" {
-  for_each = local.safe_event_filters
+  for_each = local.safe_metric_contracts
   project  = var.project_id
   name     = "access_${each.key}"
-  filter   = replace(each.value, "\n", " ")
+  filter   = replace(each.value.filter, "\n", " ")
 
   metric_descriptor {
     metric_kind = "DELTA"
     value_type  = "INT64"
     unit        = "1"
 
-    labels {
-      key         = "action"
-      value_type  = "STRING"
-      description = "Bounded stable action category from the locked event contract."
-    }
-    labels {
-      key         = "latency_bucket"
-      value_type  = "STRING"
-      description = "Bounded latency bucket where emitted by the producer."
-    }
-    labels {
-      key         = "http_status_class"
-      value_type  = "STRING"
-      description = "Bounded HTTP status class emitted by request_event only."
-    }
-    labels {
-      key         = "result"
-      value_type  = "STRING"
-      description = "Bounded stable result category from the locked event contract."
-    }
-    labels {
-      key         = "error_code"
-      value_type  = "STRING"
-      description = "Bounded stable error code from the locked event contract."
-    }
-    labels {
-      key         = "dependency"
-      value_type  = "STRING"
-      description = "Bounded dependency name from the locked event contract."
+    dynamic "labels" {
+      for_each = each.value.labels
+      content {
+        key         = labels.value
+        value_type  = "STRING"
+        description = "Bounded stable field emitted by this producer."
+      }
     }
   }
 
-  label_extractors = {
-    action            = "REGEXP_EXTRACT(jsonPayload.action, \"([a-z0-9_]{1,64})\")"
-    result            = "REGEXP_EXTRACT(jsonPayload.result, \"([a-z0-9_]{1,64})\")"
-    error_code        = "REGEXP_EXTRACT(jsonPayload.error_code, \"([a-z0-9_]{1,64})\")"
-    dependency        = "REGEXP_EXTRACT(jsonPayload.dependency, \"([a-z0-9_]{1,64})\")"
-    latency_bucket    = "REGEXP_EXTRACT(jsonPayload.latency_bucket, \"([a-z0-9_]{1,64})\")"
-    http_status_class = "REGEXP_EXTRACT(jsonPayload.http_status_class, \"([1-5]xx)\")"
-  }
-  depends_on = [terraform_data.services_ready]
+  label_extractors = { for field in each.value.labels : field => "REGEXP_EXTRACT(jsonPayload.${field}, \"([a-z0-9_.-]{1,64})\")" }
+  depends_on       = [terraform_data.services_ready]
 }

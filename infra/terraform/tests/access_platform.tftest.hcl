@@ -118,43 +118,44 @@ run "private_platform_contract" {
   command = plan
 
   variables {
-    project_id                   = "slut-access-production-fixture"
-    source_repository            = "example.invalid/agency/prison-policy-ai"
-    state_bucket_name            = "slut-access-production-fixture"
-    labels                       = { fixture = "op03" }
-    image_digest                 = "example.invalid/access/fixture@sha256:0000000000000000000000000000000000000000000000000000000000000000"
-    source_commit                = "1111111111111111111111111111111111111111"
-    release_version              = "development"
-    api_version                  = "v1"
-    latest_client_version        = "development"
-    minimum_client_version       = "development"
-    minimum_server_version       = "development"
-    release_notes                = "Fixture release."
-    managed_hostname             = "fixture.example.invalid"
-    dns_zone_name                = "fixture-zone"
-    image_repository_id          = "fixture-images"
-    queue_max_attempts           = 5
-    gcp_model_location           = "us-central1"
-    agent_builder_location       = "global"
-    agent_builder_collection     = "fixture-collection"
-    agent_builder_engine_id      = "fixture-engine"
-    agent_builder_serving_config = "fixture-serving"
-    fast_model                   = "fixture-fast"
-    pro_model                    = "fixture-pro"
-    legacy_report_mode           = "disabled"
-    review_object_prefix         = "review-lab/"
-    log_level                    = "INFO"
-    api_min_instances            = 1
-    api_max_instances            = 10
-    api_max_concurrency          = 20
-    worker_min_instances         = 0
-    worker_max_instances         = 10
-    worker_max_concurrency       = 4
-    notification_channel_ids     = []
-    billing_account_id           = "fixture-billing-account"
-    monthly_budget_amount        = 1
-    budget_pubsub_topic          = "projects/slut-access-production-fixture/topics/access-budget-alerts"
-    observability_owner_role     = "platform-operations"
+    project_id                       = "slut-access-production-fixture"
+    source_repository                = "example.invalid/agency/prison-policy-ai"
+    state_bucket_name                = "slut-access-production-fixture"
+    labels                           = { fixture = "op03" }
+    image_digest                     = "example.invalid/access/fixture@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    source_commit                    = "1111111111111111111111111111111111111111"
+    release_version                  = "development"
+    api_version                      = "v1"
+    latest_client_version            = "development"
+    minimum_client_version           = "development"
+    minimum_server_version           = "development"
+    release_notes                    = "Fixture release."
+    managed_hostname                 = "fixture.example.invalid"
+    dns_zone_name                    = "fixture-zone"
+    image_repository_id              = "fixture-images"
+    queue_max_attempts               = 5
+    gcp_model_location               = "us-central1"
+    agent_builder_location           = "global"
+    agent_builder_collection         = "fixture-collection"
+    agent_builder_engine_id          = "fixture-engine"
+    agent_builder_serving_config     = "fixture-serving"
+    fast_model                       = "fixture-fast"
+    pro_model                        = "fixture-pro"
+    legacy_report_mode               = "disabled"
+    review_object_prefix             = "review-lab/"
+    log_level                        = "INFO"
+    api_min_instances                = 1
+    api_max_instances                = 10
+    api_max_concurrency              = 20
+    worker_min_instances             = 0
+    worker_max_instances             = 10
+    worker_max_concurrency           = 4
+    notification_channel_ids         = []
+    billing_account_id               = "fixture-billing-account"
+    monthly_budget_amount            = 1
+    budget_pubsub_topic              = "projects/slut-access-production-fixture/topics/access-budget-alerts"
+    observability_owner_role         = "platform-operations"
+    sql_export_service_account_email = "fixture-cloudsql-export@slut-access-production-fixture.iam.gserviceaccount.com"
   }
 
   assert {
@@ -186,7 +187,7 @@ run "private_platform_contract" {
   }
 
   assert {
-    condition     = module.access_platform.terraform_test_contract.observability.pitr_enabled && module.access_platform.terraform_test_contract.observability.backup_bucket_private && module.access_platform.terraform_test_contract.observability.backup_export_permissions == toset(["cloudsql.instances.export", "cloudsql.operations.get"]) && module.access_platform.terraform_test_contract.observability.backup_instance_condition && module.access_platform.terraform_test_contract.observability.scheduler_workflow_condition
+    condition     = module.access_platform.terraform_test_contract.observability.pitr_enabled && module.access_platform.terraform_test_contract.observability.backup_bucket_private && module.access_platform.terraform_test_contract.observability.backup_export_permissions == toset(["cloudsql.instances.export", "cloudsql.instances.get", "cloudsql.operations.get"]) && module.access_platform.terraform_test_contract.observability.backup_instance_condition && module.access_platform.terraform_test_contract.observability.scheduler_workflow_condition
     error_message = "OP-05 backup identity must be export-only on the exact instance and invoke only the exact workflow."
   }
 
