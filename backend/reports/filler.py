@@ -2,13 +2,16 @@
 DOCX template filler — pure ZIP/XML, no python-docx or lxml needed.
 Opens a .docx (ZIP of XML), replaces {{placeholders}}, saves filled copy.
 """
+
 import zipfile
 import tempfile
 import os
 from pathlib import Path
 from datetime import datetime
 
-TEMPLATE_PATH = Path(__file__).parent.parent.parent / "templates" / "005_template_v3.docx"
+TEMPLATE_PATH = (
+    Path(__file__).parent.parent.parent / "templates" / "005_template_v3.docx"
+)
 
 # What marks a ticked box on the 005 header, per the unit supervisor's ruling.
 TICK = "X"
@@ -25,14 +28,13 @@ def designation_boxes(category: str) -> dict:
     Every incident report is a 005. A use of force is filed as a 005 that ALSO
     carries the 409, so both boxes are ticked — not the 409 alone.
     """
-    return {"box_005": TICK,
-            "box_409": TICK if category in FORCE_CATEGORIES else ""}
+    return {"box_005": TICK, "box_409": TICK if category in FORCE_CATEGORIES else ""}
 
 
 def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
     """
     Fill the 005 incident report template with metadata + report text.
-    
+
     Args:
         metadata: dict with keys matching {{placeholders}} in template:
             unit_division, officer_last, officer_first, employee_number,
@@ -41,7 +43,7 @@ def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
             inmate_injuries, inmate_treatment, officer_injuries,
             officer_treatment, recommendation, narrative,
             officer_signature, date_filed, supervisor_name
-    
+
     Returns:
         {"path": "/path/to/filled.docx"} on success,
         {"text": "fallback text"} if template not found
@@ -49,13 +51,13 @@ def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
     if not TEMPLATE_PATH.exists():
         # Fallback: plain text
         return {"text": _build_text(metadata)}
-    
+
     template = _ensure_template()
     if output_path is None:
         fd, output_path = tempfile.mkstemp(suffix=".docx", prefix="incident_")
         os.close(fd)  # close fd, we'll write via zipfile
     output_path = Path(output_path)
-    
+
     # Decision §3: the 005 "middle" spot is the employee #, not middle name.
     # Map employee_number → officer_middle so the template placeholder is filled.
     metadata.setdefault("officer_middle", metadata.get("employee_number", ""))
@@ -97,29 +99,30 @@ def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
         "date_filed": datetime.now().strftime("%B %d, %Y"),
         "supervisor_name": "",
     }
-    
+
     for k, v in defaults.items():
         if k not in metadata or not metadata[k]:
             metadata[k] = v
-    
+
     # Read template, replace placeholders, write filled copy
-    with (zipfile.ZipFile(template, 'r') as zin,
-          zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zout):
-        
+    with (
+        zipfile.ZipFile(template, "r") as zin,
+        zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zout,
+    ):
         for item in zin.infolist():
             data = zin.read(item.filename)
-            
+
             # Replace placeholders in XML files
-            if item.filename.endswith('.xml') or item.filename.endswith('.rels'):
-                text = data.decode('utf-8', errors='replace')
+            if item.filename.endswith(".xml") or item.filename.endswith(".rels"):
+                text = data.decode("utf-8", errors="replace")
                 for key, value in metadata.items():
                     placeholder = "{{" + key + "}}"
                     if placeholder in text:
                         text = text.replace(placeholder, _xml_escape(str(value)))
-                data = text.encode('utf-8')
-            
+                data = text.encode("utf-8")
+
             zout.writestr(item, data)
-    
+
     return {"path": str(output_path)}
 
 
@@ -127,15 +130,21 @@ def _ensure_template() -> Path:
     """Return the template path, building it if missing."""
     if TEMPLATE_PATH.exists():
         return TEMPLATE_PATH
-    
+
     from scripts.build_template import build
+
     build()
     return TEMPLATE_PATH
 
 
 def _xml_escape(s: str) -> str:
     """Escape XML special characters."""
-    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+    return (
+        s.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
 
 
 def _build_text(metadata: dict) -> str:
@@ -154,7 +163,7 @@ def _build_text(metadata: dict) -> str:
         "",
         "STATEMENT OF FACTS",
         "-" * 20,
-        metadata.get('narrative', ''),
+        metadata.get("narrative", ""),
         "",
         f"Respectfully submitted: {metadata.get('officer_signature', '')}",
         f"Date: {metadata.get('date_filed', '')}",

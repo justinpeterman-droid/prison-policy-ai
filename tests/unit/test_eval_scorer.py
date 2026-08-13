@@ -1,6 +1,11 @@
 """Unit tests for the policy-chat eval scorer (pure functions, no GCP)."""
+
 from tests.eval.scorer import (
-    contains_any, score_answer, score_retrieval, score_gate, summarize,
+    contains_any,
+    score_answer,
+    score_retrieval,
+    score_gate,
+    summarize,
 )
 
 
@@ -10,7 +15,12 @@ class TestContainsAny:
         assert contains_any("nothing here", "prea") is False
 
     def test_synonym_list_any_of(self):
-        assert contains_any("Prison Rape Elimination Act", ["PREA", "Prison Rape Elimination Act"]) is True
+        assert (
+            contains_any(
+                "Prison Rape Elimination Act", ["PREA", "Prison Rape Elimination Act"]
+            )
+            is True
+        )
         assert contains_any("unrelated", ["PREA", "sexual misconduct"]) is False
 
     def test_empty_text(self):
@@ -19,8 +29,10 @@ class TestContainsAny:
 
 class TestScoreAnswer:
     def test_all_requirements_met(self):
-        r = score_answer("PREA is a zero tolerance policy and strictly prohibited.",
-                         must_contain=[["PREA"], ["prohibited", "zero tolerance"]])
+        r = score_answer(
+            "PREA is a zero tolerance policy and strictly prohibited.",
+            must_contain=[["PREA"], ["prohibited", "zero tolerance"]],
+        )
         assert r["passed"] is True
         assert r["missing"] == []
 
@@ -30,15 +42,20 @@ class TestScoreAnswer:
         assert [["PREA"]] == [m for m in r["missing"]]
 
     def test_forbidden_phrase_fails(self):
-        r = score_answer("Dating an inmate is allowed if discreet.",
-                         must_contain=[], must_not_contain=["is allowed"])
+        r = score_answer(
+            "Dating an inmate is allowed if discreet.",
+            must_contain=[],
+            must_not_contain=["is allowed"],
+        )
         assert r["passed"] is False
         assert "is allowed" in r["forbidden_present"]
 
     def test_negation_does_not_trip_forbidden(self):
         # "is not allowed" must NOT match the forbidden phrase "is allowed".
-        r = score_answer("This is not allowed under any circumstance.",
-                         must_not_contain=["is allowed"])
+        r = score_answer(
+            "This is not allowed under any circumstance.",
+            must_not_contain=["is allowed"],
+        )
         assert r["passed"] is True
 
     def test_no_constraints_passes(self):

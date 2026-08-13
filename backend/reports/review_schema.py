@@ -1,4 +1,5 @@
 """Validation and normalization for persisted demo review submissions."""
+
 from copy import deepcopy
 from datetime import datetime, timezone
 import json
@@ -108,17 +109,18 @@ def _reports(value, scenario_id: str) -> list[dict]:
         if report_id in seen:
             raise ReviewValidationError("duplicate report id")
         seen.add(report_id)
-        generated = _text(
-            item.get("generated_text"), "report text", MAX_REPORT_TEXT)
+        generated = _text(item.get("generated_text"), "report text", MAX_REPORT_TEXT)
         edited = _text(item.get("edited_text"), "report text", MAX_REPORT_TEXT)
-        normalized.append({
-            "report_id": report_id,
-            "report_type": report_type,
-            "reporter_id": reporter_id,
-            "generated_text": generated,
-            "edited_text": edited,
-            "changed": generated != edited,
-        })
+        normalized.append(
+            {
+                "report_id": report_id,
+                "report_type": report_type,
+                "reporter_id": reporter_id,
+                "generated_text": generated,
+                "edited_text": edited,
+                "changed": generated != edited,
+            }
+        )
     return normalized
 
 
@@ -139,8 +141,11 @@ def _prompt_fingerprints() -> dict[str, str]:
 
 
 def build_review_submission(
-        payload: dict, *, now: datetime | None = None,
-        id_factory: Callable[[], str] | None = None) -> dict:
+    payload: dict,
+    *,
+    now: datetime | None = None,
+    id_factory: Callable[[], str] | None = None,
+) -> dict:
     if not isinstance(payload, dict):
         raise ReviewValidationError("review payload must be an object")
     scenario = get_demo_scenario(payload.get("scenario_id", ""))

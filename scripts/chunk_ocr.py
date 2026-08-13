@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Chunk OCR output for RAG — character-based, matching backend/pipeline/chunk.py."""
+
 import json
 from pathlib import Path
 
-CHUNK_SIZE = 1000   # characters (matching existing pipeline)
+CHUNK_SIZE = 1000  # characters (matching existing pipeline)
 CHUNK_OVERLAP = 200
 
 INPUT_DIR = Path(r"C:\Users\justi\workspace\prison-policy-ai\data\ocr_output")
-OUTPUT_FILE = Path(r"C:\Users\justi\workspace\prison-policy-ai\data\ocr_chunks_v3.jsonl")
+OUTPUT_FILE = Path(
+    r"C:\Users\justi\workspace\prison-policy-ai\data\ocr_chunks_v3.jsonl"
+)
 
 
 def chunk_text(text, source, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
@@ -18,14 +21,16 @@ def chunk_text(text, source, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
         end = min(start + chunk_size, len(text))
         chunk_content = text[start:end].strip()
         if chunk_content:
-            chunks.append({
-                "id": f"{source}_chunk_{chunk_num:04d}",
-                "source": source,
-                "chunk_num": chunk_num,
-                "start_char": start,
-                "end_char": end,
-                "text": chunk_content,
-            })
+            chunks.append(
+                {
+                    "id": f"{source}_chunk_{chunk_num:04d}",
+                    "source": source,
+                    "chunk_num": chunk_num,
+                    "start_char": start,
+                    "end_char": end,
+                    "text": chunk_content,
+                }
+            )
             chunk_num += 1
         start += chunk_size - overlap
     return chunks

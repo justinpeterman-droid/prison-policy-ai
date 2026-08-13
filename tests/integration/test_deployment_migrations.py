@@ -25,7 +25,11 @@ def test_verify_cli_returns_nonzero_for_schema_mismatch(monkeypatch, capsys):
     monkeypatch.setattr(
         migration,
         "verify",
-        lambda: {"status": "mismatch", "revision": "20260812_0004", "head": "20260812_0005"},
+        lambda: {
+            "status": "mismatch",
+            "revision": "20260812_0004",
+            "head": "20260812_0005",
+        },
     )
     assert migration.main(["verify"]) == 1
     output = json.loads(capsys.readouterr().out)
@@ -37,7 +41,10 @@ def test_migration_history_is_one_linear_head():
     script = ScriptDirectory.from_config(migration._config())
     assert len(script.get_heads()) == 1
     revisions = list(script.walk_revisions())
-    assert all(revision.down_revision is None or isinstance(revision.down_revision, str) for revision in revisions)
+    assert all(
+        revision.down_revision is None or isinstance(revision.down_revision, str)
+        for revision in revisions
+    )
 
 
 def test_schema_constraint_contract_is_structural_not_name_only():
@@ -56,21 +63,24 @@ def test_schema_constraint_contract_is_structural_not_name_only():
     }
     role_signature = contract["checks"]["ck_accounts_account_role"]
     assert migration._check_signature("role IN ('user')") != role_signature
-    assert migration._check_signature("failed_attempts = 0") != migration._check_signature(
-        "failed_attempts >= 0"
+    assert migration._check_signature(
+        "failed_attempts = 0"
+    ) != migration._check_signature("failed_attempts >= 0")
+    assert (
+        migration._check_signature(
+            "role::text = ANY (ARRAY['user'::character varying, 'admin'::character varying])"
+        )
+        == role_signature
     )
     assert migration._check_signature(
-        "role::text = ANY (ARRAY['user'::character varying, 'admin'::character varying])"
-    ) == role_signature
-    assert migration._check_signature("error_code ~ '^[a-z]+$'") != migration._check_signature(
-        "error_code !~ '^[a-z]+$'"
-    )
-    assert migration._check_signature("result_reference - 'reports'") != migration._check_signature(
-        "result_reference"
-    )
-    assert migration._check_signature("result_reference->'reports'") != migration._check_signature(
-        "result_reference->>'reports'"
-    )
+        "error_code ~ '^[a-z]+$'"
+    ) != migration._check_signature("error_code !~ '^[a-z]+$'")
+    assert migration._check_signature(
+        "result_reference - 'reports'"
+    ) != migration._check_signature("result_reference")
+    assert migration._check_signature(
+        "result_reference->'reports'"
+    ) != migration._check_signature("result_reference->>'reports'")
 
 
 def test_verification_script_runs_from_repository_root_without_database(monkeypatch):
@@ -145,9 +155,12 @@ def test_fresh_database_exercises_only_supported_index_downgrade(
     finally:
         isolated_engine.dispose()
         with admin_engine.connect() as connection:
-            connection.execute(text(
-                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
-                "WHERE datname = :database_name AND pid <> pg_backend_pid()"
-            ), {"database_name": database_name})
+            connection.execute(
+                text(
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                    "WHERE datname = :database_name AND pid <> pg_backend_pid()"
+                ),
+                {"database_name": database_name},
+            )
             connection.execute(text(f'DROP DATABASE "{database_name}"'))
         admin_engine.dispose()

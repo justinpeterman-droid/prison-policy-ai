@@ -39,20 +39,26 @@ class GoogleCloudMonitoringMetricSink:
             raise ValueError("worker metric labels are not approved")
         if not self._project_id:
             raise RuntimeError("GCP_PROJECT_ID is required for worker metrics")
-        self._metric_client().create_time_series(request={
-            "name": f"projects/{self._project_id}",
-            "time_series": [{
-                "metric": {
-                    "type": _METRIC_TYPE,
-                    "labels": {"job_type": labels["job_type"]},
-                },
-                "resource": {
-                    "type": "global",
-                    "labels": {"project_id": self._project_id},
-                },
-                "points": [{
-                    "interval": {"end_time": {"seconds": int(self._now())}},
-                    "value": {"int64_value": 1},
-                }],
-            }],
-        })
+        self._metric_client().create_time_series(
+            request={
+                "name": f"projects/{self._project_id}",
+                "time_series": [
+                    {
+                        "metric": {
+                            "type": _METRIC_TYPE,
+                            "labels": {"job_type": labels["job_type"]},
+                        },
+                        "resource": {
+                            "type": "global",
+                            "labels": {"project_id": self._project_id},
+                        },
+                        "points": [
+                            {
+                                "interval": {"end_time": {"seconds": int(self._now())}},
+                                "value": {"int64_value": 1},
+                            }
+                        ],
+                    }
+                ],
+            }
+        )

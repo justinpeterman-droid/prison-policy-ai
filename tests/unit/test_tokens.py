@@ -20,7 +20,9 @@ def test_credentials_are_random_and_device_hash_is_peppered():
     )
 
 
-@pytest.mark.parametrize("device_id", ["short", "x" * 257, " leading-device-0001", "device-0001\nmarker"])
+@pytest.mark.parametrize(
+    "device_id", ["short", "x" * 257, " leading-device-0001", "device-0001\nmarker"]
+)
 def test_device_id_validation_is_exact_and_bounded(device_id):
     with pytest.raises(ValueError, match="device id is invalid"):
         hash_device_id(device_id, "p" * 32)

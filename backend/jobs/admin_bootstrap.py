@@ -3,6 +3,7 @@
 Only the closed result contract is written to stdout. Request contents, database
 configuration, secret payloads, and provider exception details are never emitted.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -128,7 +129,8 @@ def load_bootstrap_request(
         raise ValueError("bootstrap request is invalid")
     object_name = parsed.path.lstrip("/")
     match = re.fullmatch(
-        re.escape(expected_prefix) + r"([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.json",
+        re.escape(expected_prefix)
+        + r"([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.json",
         object_name,
     )
     if not match:
@@ -147,7 +149,12 @@ def load_bootstrap_request(
         if (
             not isinstance(data, dict)
             or set(data)
-            != {"schema_version", "operation_id", "staff_member_id", "approval_reference"}
+            != {
+                "schema_version",
+                "operation_id",
+                "staff_member_id",
+                "approval_reference",
+            }
             or data["schema_version"] != 1
         ):
             raise ValueError
@@ -190,7 +197,9 @@ def execute_admin_bootstrap(
     except InitialAdminBootstrapRefused:
         session.rollback()
         session.close()
-        return AdminBootstrapResult(request.operation_id, "bootstrap_refused", None, None)
+        return AdminBootstrapResult(
+            request.operation_id, "bootstrap_refused", None, None
+        )
     except Exception:
         session.rollback()
         session.close()

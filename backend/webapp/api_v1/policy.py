@@ -21,6 +21,7 @@ The claim is committed *before* the provider call. That ordering is the whole
 mechanism: an uncommitted claim is invisible to a concurrent duplicate, which
 would then buy a second provider request for the same key.
 """
+
 from datetime import UTC, datetime
 import hashlib
 from time import monotonic
@@ -216,8 +217,7 @@ def _policy_data(result: object) -> dict[str, object]:
         if not isinstance(value, list):
             return []
         return [
-            text for item in value
-            if (text := _bounded_string(item, MAX_SOURCE_CHARS))
+            text for item in value if (text := _bounded_string(item, MAX_SOURCE_CHARS))
         ]
 
     return {
@@ -236,7 +236,11 @@ def _settle(db, claim, *, status: int, reference: dict[str, object], now) -> Non
     have no way to tell that from a real duplicate.
     """
     complete_idempotency(
-        db, claim, response_status=status, response_reference=reference, now=now,
+        db,
+        claim,
+        response_status=status,
+        response_reference=reference,
+        now=now,
     )
     db.commit()
 
@@ -255,15 +259,20 @@ def ask_policy_question():
     digest = request_digest({"question": question, "history": history})
     try:
         claim = claim_idempotency(
-            db, actor, key=key, action=IDEMPOTENCY_ACTION,
-            request_sha256=digest, now=now,
+            db,
+            actor,
+            key=key,
+            action=IDEMPOTENCY_ACTION,
+            request_sha256=digest,
+            now=now,
         )
     except RequestInProgress:
         _rollback_quietly(db)
         raise ApiError(
             "request_in_progress",
             "That question is still being answered. Wait for the first answer.",
-            status=409, retryable=True,
+            status=409,
+            retryable=True,
         ) from None
     except IdempotencyConflict:
         _rollback_quietly(db)
@@ -318,8 +327,13 @@ def ask_policy_question():
         latency_ms = max(0, int((monotonic() - started) * 1000))
         try:
             _settle(
-                db, claim, status=http_status,
-                reference={"result": "error", "latency_bucket": _latency_bucket(latency_ms)},
+                db,
+                claim,
+                status=http_status,
+                reference={
+                    "result": "error",
+                    "latency_bucket": _latency_bucket(latency_ms),
+                },
                 now=datetime.now(UTC),
             )
         except (DatabaseUnavailable, SQLAlchemyError):
@@ -336,7 +350,10 @@ def ask_policy_question():
             ) from None
         g.api_dependency = "policy_expert"
         raise ApiError(
-            code, _SAFE_ERROR_MESSAGES[code], status=http_status, retryable=retryable,
+            code,
+            _SAFE_ERROR_MESSAGES[code],
+            status=http_status,
+            retryable=retryable,
         ) from None
 
     latency_ms = max(0, int((monotonic() - started) * 1000))
@@ -346,22 +363,27 @@ def ask_policy_question():
 
     settled_at = datetime.now(UTC)
     try:
-        current_app.config["AUDIT_WRITER"].append(db, AuditEventInput(
-            actor_account_id=actor.account_id,
-            actor_staff_member_id=actor.staff_member_id,
-            action="policy.question_answered",
-            result="success",
-            request_id=request_id(),
-            target_type="policy_question",
-            target_id=None,
-            details={
-                "document_count": len(citations),
-                "latency_ms": min(latency_ms, 1_000_000_000),
-            },
-            client_version=str(g.client_version),
-        ))
+        current_app.config["AUDIT_WRITER"].append(
+            db,
+            AuditEventInput(
+                actor_account_id=actor.account_id,
+                actor_staff_member_id=actor.staff_member_id,
+                action="policy.question_answered",
+                result="success",
+                request_id=request_id(),
+                target_type="policy_question",
+                target_id=None,
+                details={
+                    "document_count": len(citations),
+                    "latency_ms": min(latency_ms, 1_000_000_000),
+                },
+                client_version=str(g.client_version),
+            ),
+        )
         _settle(
-            db, claim, status=200,
+            db,
+            claim,
+            status=200,
             reference={
                 "result": "success",
                 "latency_bucket": _latency_bucket(latency_ms),

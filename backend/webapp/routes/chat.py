@@ -1,4 +1,5 @@
 """Policy chat endpoint."""
+
 import logging
 import uuid
 from flask import Blueprint, render_template, request, jsonify
@@ -8,7 +9,10 @@ from backend.webapp.api_v1.policy import (
     MAX_HISTORY_ITEMS,
     clean_policy_history,
 )
-from backend.webapp.errors import classify_error as _classify_error, ERROR_MESSAGES as _ERROR_MESSAGES
+from backend.webapp.errors import (
+    classify_error as _classify_error,
+    ERROR_MESSAGES as _ERROR_MESSAGES,
+)
 
 logger = logging.getLogger(__name__)
 chat_bp = Blueprint("chat", __name__)
@@ -25,7 +29,10 @@ def chat_page():
 _clean_history = clean_policy_history
 
 __all__ = [
-    "chat_bp", "MAX_HISTORY_ITEMS", "MAX_HISTORY_FIELD_CHARS", "_clean_history",
+    "chat_bp",
+    "MAX_HISTORY_ITEMS",
+    "MAX_HISTORY_FIELD_CHARS",
+    "_clean_history",
 ]
 
 
@@ -44,7 +51,9 @@ def chat_api():
         req_id = uuid.uuid4().hex[:8]
         category, status = _classify_error(exc)
         logger.exception("Chat query failed [category=%s, req_id=%s]", category, req_id)
-        return jsonify({
-            "error": _ERROR_MESSAGES[category],
-            "request_id": req_id,
-        }), status
+        return jsonify(
+            {
+                "error": _ERROR_MESSAGES[category],
+                "request_id": req_id,
+            }
+        ), status

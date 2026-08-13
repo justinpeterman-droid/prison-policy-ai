@@ -61,13 +61,24 @@ def consume_limit(
             "updated_at": now,
         },
     ).returning(AuthRateLimit.hit_count, AuthRateLimit.window_started_at)
-    row = session.execute(statement, {
-        "dimension": dimension,
-        "subject_hash": digest,
-    }).one()
+    row = session.execute(
+        statement,
+        {
+            "dimension": dimension,
+            "subject_hash": digest,
+        },
+    ).one()
     allowed = row.hit_count <= maximum
-    retry = 0 if allowed else max(
-        1,
-        math.ceil((row.window_started_at + timedelta(seconds=WINDOW_SECONDS) - now).total_seconds()),
+    retry = (
+        0
+        if allowed
+        else max(
+            1,
+            math.ceil(
+                (
+                    row.window_started_at + timedelta(seconds=WINDOW_SECONDS) - now
+                ).total_seconds()
+            ),
+        )
     )
     return RateLimitDecision(allowed, retry)

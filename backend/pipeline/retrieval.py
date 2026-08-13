@@ -20,6 +20,7 @@ Three jobs, all deterministic and unit-tested:
     document can't crowd out other relevant policies. Preserves the retriever's
     (semantic) ordering.
 """
+
 from __future__ import annotations
 
 import posixpath
@@ -78,10 +79,11 @@ def augment_query(question: str) -> str:
     Matching is on word boundaries — a substring match fires on unrelated
     sentences and steers retrieval toward the wrong policy.
     """
-    q = (question or "")
+    q = question or ""
     q_lower = q.lower()
-    extra: list[str] = [formal for pattern, formal in _SLANG_PATTERNS
-                        if pattern.search(q_lower)]
+    extra: list[str] = [
+        formal for pattern, formal in _SLANG_PATTERNS if pattern.search(q_lower)
+    ]
     if not extra:
         return q
     # Dedupe individual terms while preserving order.
@@ -141,7 +143,7 @@ def _truncate(text: str, max_chars: int) -> str:
     cut = max(window.rfind(". "), window.rfind("! "), window.rfind("? "))
     # Only honour a sentence break if it isn't discarding most of the passage.
     if cut > max_chars // 2:
-        return window[:cut + 1]
+        return window[: cut + 1]
     return window.rstrip() + "…"
 
 
@@ -166,14 +168,16 @@ def _snippet_texts(derived: dict) -> list[str]:
 def _segment_texts(derived: dict) -> list[str]:
     return _contents_of(
         _get_any(derived, "extractive_segments", "extractiveSegments"),
-        "content", "text")
+        "content",
+        "text",
+    )
 
 
 def _answer_texts(derived: dict) -> list[str]:
     # ALL extractive answers, not just the first — each is a separate passage.
     return _contents_of(
-        _get_any(derived, "extractive_answers", "extractiveAnswers"),
-        "content", "text")
+        _get_any(derived, "extractive_answers", "extractiveAnswers"), "content", "text"
+    )
 
 
 # Preference order for passage text, richest first.
@@ -210,7 +214,9 @@ def extract_passage_text(document: dict, max_chars: int = 0) -> str:
 
     # Raw indexed content, then any plain text carried on the structs.
     content = document.get("content") or {}
-    raw = _get_any(content, "raw_text", "rawText") if isinstance(content, dict) else None
+    raw = (
+        _get_any(content, "raw_text", "rawText") if isinstance(content, dict) else None
+    )
     if isinstance(raw, str) and raw.strip():
         return _truncate(raw.strip(), max_chars)
 
@@ -234,8 +240,9 @@ def extract_source_label(document: dict) -> str:
         return title.strip()
 
     # Fall back to the file name from the document's link/uri.
-    link = (_get_any(derived, "link", "uri", "url")
-            or _get_any(struct, "link", "uri", "url"))
+    link = _get_any(derived, "link", "uri", "url") or _get_any(
+        struct, "link", "uri", "url"
+    )
     if isinstance(link, str) and link.strip():
         path = urlparse(link).path or link
         name = posixpath.basename(path.rstrip("/"))
@@ -271,9 +278,11 @@ MAX_HISTORY_CHARS = 1500
 MAX_HISTORY_ANSWER_CHARS = 400
 
 
-def format_history(history: list[dict] | None,
-                   max_turns: int = MAX_HISTORY_TURNS,
-                   max_chars: int = MAX_HISTORY_CHARS) -> str:
+def format_history(
+    history: list[dict] | None,
+    max_turns: int = MAX_HISTORY_TURNS,
+    max_chars: int = MAX_HISTORY_CHARS,
+) -> str:
     """Render recent turns as a compact transcript for the generation prompt.
 
     Accepts [{"question": ..., "answer": ...}] (what the chat client keeps).
@@ -298,8 +307,11 @@ def format_history(history: list[dict] | None,
     total = 0
     for question, answer in reversed(turns):  # budget from the newest backwards
         answer = _truncate(answer, MAX_HISTORY_ANSWER_CHARS)
-        block = (f"Officer: {question}\nAssistant: {answer}" if answer
-                 else f"Officer: {question}")
+        block = (
+            f"Officer: {question}\nAssistant: {answer}"
+            if answer
+            else f"Officer: {question}"
+        )
         if blocks and total + len(block) > max_chars:
             break
         blocks.append(block)
@@ -307,8 +319,9 @@ def format_history(history: list[dict] | None,
     return "\n\n".join(reversed(blocks))
 
 
-def select_passages(contexts: list[dict], k: int, max_per_source: int = 3,
-                    max_total_chars: int = 0) -> list[dict]:
+def select_passages(
+    contexts: list[dict], k: int, max_per_source: int = 3, max_total_chars: int = 0
+) -> list[dict]:
     """Pick the top `k` passages to feed the generator.
 
     Drops empty and exact-duplicate (source, text) passages, and caps passages

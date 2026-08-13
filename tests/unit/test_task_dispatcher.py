@@ -5,7 +5,11 @@ from datetime import UTC, datetime
 import json
 from uuid import UUID
 
-from google.api_core.exceptions import AlreadyExists, InvalidArgument, ServiceUnavailable
+from google.api_core.exceptions import (
+    AlreadyExists,
+    InvalidArgument,
+    ServiceUnavailable,
+)
 
 from backend.jobs.dispatcher import DispatchSettings, dispatch_pending
 
@@ -66,8 +70,12 @@ def test_dispatcher_uses_exact_oidc_body_url_and_stable_task_name():
     repository = FakeOutboxRepository()
 
     summary = dispatch_pending(
-        limit=10, client=client, repository=repository,
-        settings=_settings(), now=NOW, sleep=lambda _delay: None,
+        limit=10,
+        client=client,
+        repository=repository,
+        settings=_settings(),
+        now=NOW,
+        sleep=lambda _delay: None,
     )
 
     assert summary.dispatched == 1
@@ -99,8 +107,12 @@ def test_already_exists_is_idempotent_dispatch_success():
     repository = FakeOutboxRepository()
 
     summary = dispatch_pending(
-        limit=10, client=client, repository=repository,
-        settings=_settings(), now=NOW, sleep=lambda _delay: None,
+        limit=10,
+        client=client,
+        repository=repository,
+        settings=_settings(),
+        now=NOW,
+        sleep=lambda _delay: None,
     )
 
     assert summary.dispatched == 1
@@ -109,16 +121,22 @@ def test_already_exists_is_idempotent_dispatch_success():
 
 
 def test_transient_task_failure_retries_then_records_only_bounded_code():
-    client = FakeTasksClient([
-        ServiceUnavailable("provider body must not persist"),
-        ServiceUnavailable("provider body must not persist"),
-        ServiceUnavailable("provider body must not persist"),
-    ])
+    client = FakeTasksClient(
+        [
+            ServiceUnavailable("provider body must not persist"),
+            ServiceUnavailable("provider body must not persist"),
+            ServiceUnavailable("provider body must not persist"),
+        ]
+    )
     repository = FakeOutboxRepository()
 
     summary = dispatch_pending(
-        limit=10, client=client, repository=repository,
-        settings=_settings(), now=NOW, sleep=lambda _delay: None,
+        limit=10,
+        client=client,
+        repository=repository,
+        settings=_settings(),
+        now=NOW,
+        sleep=lambda _delay: None,
     )
 
     assert len(client.created) == 3
@@ -135,8 +153,12 @@ def test_permanent_task_failure_is_not_retried_and_is_bounded():
     repository = FakeOutboxRepository()
 
     summary = dispatch_pending(
-        limit=10, client=client, repository=repository,
-        settings=_settings(), now=NOW, sleep=lambda _delay: None,
+        limit=10,
+        client=client,
+        repository=repository,
+        settings=_settings(),
+        now=NOW,
+        sleep=lambda _delay: None,
     )
 
     assert len(client.created) == 1

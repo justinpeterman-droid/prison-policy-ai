@@ -1,4 +1,5 @@
 """Prison Policy AI — Flask web application with simple access-code auth."""
+
 import os
 from datetime import UTC, datetime
 from pathlib import Path
@@ -71,6 +72,7 @@ def _demo_targets() -> set[str]:
     targets = {"/reports?demo=1"}
     try:
         from backend.webapp.routes.reports import _load_demo_scenarios
+
         for scenario in _load_demo_scenarios():
             targets.add(f"/reports?demo={scenario['id']}")
             targets.add(f"/review-lab?demo={scenario['id']}")
@@ -129,7 +131,8 @@ def _set_auth_cookie(resp, code: str):
     """
     resolved = ADMIN_CODE if _is_admin(code) else ACCESS_CODE
     resp.set_cookie(
-        "access_code", resolved,
+        "access_code",
+        resolved,
         max_age=60 * 60 * 24,
         httponly=True,
         secure=_request_is_https(),
@@ -155,7 +158,9 @@ def create_app() -> Flask:
     # legacy report generation, and pilot mode remains conspicuous in logs.
     report_mode = legacy_report_mode()
     if report_mode == "pilot_fallback":
-        logger.warning("Legacy report pilot fallback is enabled; reports remain transient.")
+        logger.warning(
+            "Legacy report pilot fallback is enabled; reports remain transient."
+        )
     app.config["LEGACY_REPORT_MODE"] = report_mode
 
     # Cap request bodies: field notes are text, so 1 MB is far more than any
@@ -199,6 +204,7 @@ def create_app() -> Flask:
     # chat outage, and there's no shell on Cloud Run to go inspect env vars.
     try:
         from backend.pipeline.query import log_search_config
+
         log_search_config()
     except Exception:  # pragma: no cover - never block startup over a log line
         logger.warning("Could not log search config", exc_info=True)
@@ -208,12 +214,14 @@ def create_app() -> Flask:
         """`is_admin` in every template, so the nav can hide the roster link
         from users who couldn't open it anyway."""
         from backend.webapp.routes.review_lab import REVIEW_LAB_ENABLED
+
         return {
             "is_admin": _request_is_admin(),
             "review_lab_enabled": REVIEW_LAB_ENABLED,
             "legacy_report_pilot_warning": (
                 "Pilot fallback: legacy reports are transient and are not centralized history."
-                if app.config["LEGACY_REPORT_MODE"] == "pilot_fallback" else None
+                if app.config["LEGACY_REPORT_MODE"] == "pilot_fallback"
+                else None
             ),
         }
 
@@ -233,8 +241,8 @@ def create_app() -> Flask:
             return response
         banner = (
             b'<aside role="status" data-legacy-pilot-warning="true">'
-            b'Pilot fallback: legacy reports are transient and are not centralized history.'
-            b'</aside>'
+            b"Pilot fallback: legacy reports are transient and are not centralized history."
+            b"</aside>"
         )
         response.set_data(body.replace(marker, banner + marker, 1))
         response.headers["Content-Length"] = str(len(response.get_data()))
@@ -258,7 +266,9 @@ def create_app() -> Flask:
             or request.path.startswith("/api/review-lab/")
             or request.path == "/api/review-lab"
         )
-        browser_cookie = request.cookies.get("review_session") if review_lab_path else None
+        browser_cookie = (
+            request.cookies.get("review_session") if review_lab_path else None
+        )
         if browser_cookie and identity_settings.enabled:
             from backend.identity.browser_handoffs import (
                 BrowserSessionInvalid,
@@ -270,7 +280,9 @@ def create_app() -> Flask:
             try:
                 with session_scope() as db_session:
                     g.browser_actor = resolve_browser_session(
-                        db_session, cookie_value=browser_cookie, now=datetime.now(UTC),
+                        db_session,
+                        cookie_value=browser_cookie,
+                        now=datetime.now(UTC),
                     )
                 g.review_lab_access_kind = "individual_browser_session"
                 return None
@@ -280,12 +292,17 @@ def create_app() -> Flask:
                 else:
                     response = make_response(render_template("404.html"), 404)
                 response.delete_cookie(
-                    "review_session", path="/", secure=True, samesite="Lax",
+                    "review_session",
+                    path="/",
+                    secure=True,
+                    samesite="Lax",
                 )
                 return response
             except (DatabaseUnavailable, SQLAlchemyError):
                 if request.path.startswith("/api/"):
-                    return jsonify({"error": "Review Lab access is temporarily unavailable."}), 503
+                    return jsonify(
+                        {"error": "Review Lab access is temporarily unavailable."}
+                    ), 503
                 return "Review Lab access is temporarily unavailable.", 503
         if not ACCESS_CODE:
             if review_lab_path and not identity_settings.enabled:
@@ -307,12 +324,16 @@ def create_app() -> Flask:
             resp = make_response(redirect(request.path))
             return _set_auth_cookie(resp, submitted)
         if request.path.startswith("/api/"):
-            return jsonify({"error": "Authentication required — reload the page to log in."}), 401
+            return jsonify(
+                {"error": "Authentication required — reload the page to log in."}
+            ), 401
         # Preserve the query string, not just the path — otherwise a link like
         # /reports?demo=1 lands on a bare /reports after login. Normalized
         # through the same allowlist the login handler uses, so what we hand
         # back is built from constants either way.
-        requested = request.full_path.rstrip("?") if request.query_string else request.path
+        requested = (
+            request.full_path.rstrip("?") if request.query_string else request.path
+        )
         return redirect("/login?next=" + quote(_safe_next(requested), safe="/?=&"))
 
     @app.route("/")
@@ -342,8 +363,9 @@ def create_app() -> Flask:
                 resp = make_response(redirect(target))
                 return _set_auth_cookie(resp, code)
             error = "Invalid access code."
-        return render_template("login.html", error=error,
-                               next=_safe_next(request.args.get("next", "/")))
+        return render_template(
+            "login.html", error=error, next=_safe_next(request.args.get("next", "/"))
+        )
 
     @app.route("/logout")
     def logout():
@@ -358,7 +380,8 @@ def create_app() -> Flask:
         else:
             logger.warning(
                 "No ADMIN_CODE set — the Unit Roster is unreachable for everyone. "
-                "Set ADMIN_CODE to give someone access to it.")
+                "Set ADMIN_CODE to give someone access to it."
+            )
     else:
         logger.warning("No ACCESS_CODE set — app is open to the public")
 

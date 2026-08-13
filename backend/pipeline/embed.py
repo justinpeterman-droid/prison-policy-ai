@@ -1,12 +1,10 @@
 """Vertex AI RAG corpus management."""
-import json
+
 from pathlib import Path
 from google.cloud import storage
 import vertexai
 from vertexai.preview import rag
-from backend.pipeline.config import (
-    PROJECT_ID, LOCATION, BUCKET_NAME, CORPUS_NAME
-)
+from backend.pipeline.config import PROJECT_ID, LOCATION, BUCKET_NAME, CORPUS_NAME
 
 vertexai.init(project=PROJECT_ID, location=LOCATION)
 
@@ -23,9 +21,7 @@ def get_or_create_corpus() -> str:
     rag.update_rag_engine_config(
         rag_engine_config=rag.RagEngineConfig(
             name=config_name,
-            rag_managed_db_config=rag.RagManagedDbConfig(
-                mode=rag.Serverless()
-            )
+            rag_managed_db_config=rag.RagManagedDbConfig(mode=rag.Serverless()),
         )
     )
     corpus = rag.create_corpus(display_name=CORPUS_NAME)
@@ -74,5 +70,6 @@ def embed_all(chunks_dir: Path):
 
 if __name__ == "__main__":
     from pathlib import Path
+
     chunks_dir = Path(__file__).parent.parent.parent / "chunks"
     embed_all(chunks_dir)

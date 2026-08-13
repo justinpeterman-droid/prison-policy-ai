@@ -15,19 +15,21 @@ def test_enabled_identity_requires_database_and_hashing_secrets():
 
 
 def test_enabled_identity_parses_complete_configuration():
-    settings = IdentitySettings.from_env({
-        "ACCESS_API_ENABLED": "true",
-        "DATABASE_URL": "postgresql+psycopg://app:test@localhost/access_test",
-        "IDENTITY_HASH_PEPPER": "p" * 32,
-        "CURSOR_SIGNING_KEY": "c" * 32,
-        "RELEASE_VERSION": "1.4.0",
-        "LATEST_CLIENT_VERSION": "1.4.0",
-        "MINIMUM_CLIENT_VERSION": "1.2.0",
-        "MINIMUM_SERVER_VERSION": "1.2.0",
-        "API_VERSION": "v1",
-        "RELEASE_NOTES": "Fictional reviewed release.",
-        "PUBLIC_BASE_URL": "https://review.example.gov",
-    })
+    settings = IdentitySettings.from_env(
+        {
+            "ACCESS_API_ENABLED": "true",
+            "DATABASE_URL": "postgresql+psycopg://app:test@localhost/access_test",
+            "IDENTITY_HASH_PEPPER": "p" * 32,
+            "CURSOR_SIGNING_KEY": "c" * 32,
+            "RELEASE_VERSION": "1.4.0",
+            "LATEST_CLIENT_VERSION": "1.4.0",
+            "MINIMUM_CLIENT_VERSION": "1.2.0",
+            "MINIMUM_SERVER_VERSION": "1.2.0",
+            "API_VERSION": "v1",
+            "RELEASE_NOTES": "Fictional reviewed release.",
+            "PUBLIC_BASE_URL": "https://review.example.gov",
+        }
+    )
     assert settings.enabled is True
     assert settings.minimum_client_version == "1.2.0"
     assert settings.minimum_server_version == "1.2.0"
@@ -100,12 +102,15 @@ def test_release_notes_are_one_safe_bounded_line(notes):
         IdentitySettings.from_env(env)
 
 
-@pytest.mark.parametrize("url", [
-    "http://review.example.gov",
-    "https://review.example.gov/path",
-    "https://user:pass@review.example.gov",
-    "https://review.example.gov?token=value",
-])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://review.example.gov",
+        "https://review.example.gov/path",
+        "https://user:pass@review.example.gov",
+        "https://review.example.gov?token=value",
+    ],
+)
 def test_public_base_url_must_be_an_https_origin(url):
     env = {
         "ACCESS_API_ENABLED": "true",

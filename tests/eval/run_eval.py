@@ -15,6 +15,7 @@ Usage:
     PYTHONPATH=. python3 tests/eval/run_eval.py --gate-only     # gate routing only
     PYTHONPATH=. python3 tests/eval/run_eval.py --id prea_dating  # a single case
 """
+
 import argparse
 import json
 import sys
@@ -26,7 +27,10 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from tests.eval.scorer import (  # noqa: E402
-    score_answer, score_retrieval, score_gate, summarize,
+    score_answer,
+    score_retrieval,
+    score_gate,
+    summarize,
 )
 
 CASES_PATH = Path(__file__).parent / "cases.jsonl"
@@ -129,8 +133,11 @@ def _print_scorecard(results: list[dict], scorecard: dict) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Run the policy-chat eval set")
     ap.add_argument("--cases", default=str(CASES_PATH))
-    ap.add_argument("--gate-only", action="store_true",
-                    help="Only score gate routing (fewer LLM calls)")
+    ap.add_argument(
+        "--gate-only",
+        action="store_true",
+        help="Only score gate routing (fewer LLM calls)",
+    )
     ap.add_argument("--id", help="Run a single case by id")
     args = ap.parse_args()
 
@@ -148,16 +155,17 @@ def main() -> int:
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     out = OUTPUT_DIR / "results.json"
-    out.write_text(json.dumps(
-        {"scorecard": scorecard, "results": results}, indent=2), encoding="utf-8")
+    out.write_text(
+        json.dumps({"scorecard": scorecard, "results": results}, indent=2),
+        encoding="utf-8",
+    )
 
     _print_scorecard(results, scorecard)
     print(f"  wrote {out}  ({scorecard['elapsed_s']}s)")
 
     # Non-zero exit if any hard failure, so CI/scripts can gate on it.
     hard_fail = any(
-        r.get("gate_ok") is False or r.get("answer_pass") is False
-        for r in results
+        r.get("gate_ok") is False or r.get("answer_pass") is False for r in results
     )
     return 1 if hard_fail else 0
 

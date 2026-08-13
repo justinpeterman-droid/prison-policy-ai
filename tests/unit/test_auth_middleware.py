@@ -1,4 +1,3 @@
-from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -18,7 +17,12 @@ def test_actor_is_frozen_and_contains_only_authoritative_ids():
     with pytest.raises(Exception):
         actor.role = "admin"
     assert set(actor.__dict__) == {
-        "account_id", "staff_member_id", "session_id", "role", "auth_version", "must_change_pin"
+        "account_id",
+        "staff_member_id",
+        "session_id",
+        "role",
+        "auth_version",
+        "must_change_pin",
     }
 
 
@@ -43,8 +47,13 @@ def test_bearer_resolution_stores_actor_not_raw_token(monkeypatch):
 
     account_id, staff_id, session_id = uuid4(), uuid4(), uuid4()
     stored = SimpleNamespace(id=session_id, auth_version=2)
-    account = SimpleNamespace(id=account_id, staff_member_id=staff_id, role="admin",
-                              auth_version=2, must_change_pin=False)
+    account = SimpleNamespace(
+        id=account_id,
+        staff_member_id=staff_id,
+        role="admin",
+        auth_version=2,
+        must_change_pin=False,
+    )
 
     scope_state = {"entered": False, "exited": False}
 
@@ -58,8 +67,11 @@ def test_bearer_resolution_stores_actor_not_raw_token(monkeypatch):
             return False
 
     monkeypatch.setattr(middleware, "session_scope", lambda: Scope())
-    monkeypatch.setattr(middleware, "resolve_access_session",
-                        lambda *_args, **_kwargs: (stored, account))
+    monkeypatch.setattr(
+        middleware,
+        "resolve_access_session",
+        lambda *_args, **_kwargs: (stored, account),
+    )
     app = Flask(__name__)
     app.teardown_request(close_request_session)
 
@@ -69,10 +81,13 @@ def test_bearer_resolution_stores_actor_not_raw_token(monkeypatch):
         return {
             "role": current_actor().role,
             "g_keys": sorted(g.__dict__),
-            "session_open_during_view": scope_state["entered"] and not scope_state["exited"],
+            "session_open_during_view": scope_state["entered"]
+            and not scope_state["exited"],
         }
 
-    response = app.test_client().get("/protected", headers={"Authorization": "Bearer fictional-token"})
+    response = app.test_client().get(
+        "/protected", headers={"Authorization": "Bearer fictional-token"}
+    )
     assert response.status_code == 200
     assert response.get_json()["role"] == "admin"
     assert response.get_json()["session_open_during_view"] is True
@@ -90,8 +105,11 @@ def test_protected_mutation_maps_domain_failure_without_500(monkeypatch):
     account_id, staff_id, session_id = uuid4(), uuid4(), uuid4()
     stored = SimpleNamespace(id=session_id)
     account = SimpleNamespace(
-        id=account_id, staff_member_id=staff_id, role="user",
-        auth_version=1, must_change_pin=False,
+        id=account_id,
+        staff_member_id=staff_id,
+        role="user",
+        auth_version=1,
+        must_change_pin=False,
     )
 
     class Db:
@@ -112,20 +130,26 @@ def test_protected_mutation_maps_domain_failure_without_500(monkeypatch):
 
     monkeypatch.setattr(app_mod, "ACCESS_CODE", "legacy-user")
     monkeypatch.setenv("ACCESS_API_ENABLED", "true")
-    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test")
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql+psycopg://app:test@localhost/access_test"
+    )
     monkeypatch.setenv("IDENTITY_HASH_PEPPER", "p" * 32)
     monkeypatch.setenv("CURSOR_SIGNING_KEY", "c" * 32)
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://review.example.gov")
     monkeypatch.setattr(middleware, "session_scope", lambda: Scope())
     monkeypatch.setattr(
-        middleware, "resolve_access_session", lambda *_args, **_kwargs: (stored, account)
+        middleware,
+        "resolve_access_session",
+        lambda *_args, **_kwargs: (stored, account),
     )
     monkeypatch.setattr(
-        auth_api, "change_pin",
+        auth_api,
+        "change_pin",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(InvalidCredentials("invalid")),
     )
     monkeypatch.setattr(
-        auth_api, "claim_idempotency",
+        auth_api,
+        "claim_idempotency",
         lambda *_args, **_kwargs: SimpleNamespace(replayed=False),
     )
     client = app_mod.create_app().test_client()
@@ -144,8 +168,10 @@ def test_protected_mutation_maps_domain_failure_without_500(monkeypatch):
     assert db.rolled_back is True
 
     from backend.identity.errors import PinPolicyError
+
     monkeypatch.setattr(
-        auth_api, "change_pin",
+        auth_api,
+        "change_pin",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(PinPolicyError("obvious PIN")),
     )
     policy_response = client.post(

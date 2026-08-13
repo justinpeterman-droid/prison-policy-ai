@@ -9,6 +9,7 @@ module turns that raw answer + the numbered passages into:
 Whether the answer cited anything at all is also the grounding signal: an answer
 with no valid citations is flagged rather than presented as document-backed.
 """
+
 import re
 
 _MARKER = re.compile(r"\[(\d+)\]")
@@ -32,7 +33,8 @@ _WORD = re.compile(r"[a-z0-9]+")
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
 # Words too common to be evidence that a sentence came from a given passage.
-_STOPWORDS = frozenset("""
+_STOPWORDS = frozenset(
+    """
 about above after again against all and any are because been before being below
 between both but can cannot did does doing down during each few for from further
 had has have having her here hers him his how into its itself may more most must
@@ -40,7 +42,8 @@ non nor not off once only other our out over own same shall she should some such
 than that the their them then there these they this those through too under
 until upon very was were what when where which while who whom why will with
 would you your
-""".split())
+""".split()
+)
 
 # A sentence needs at least this many content words before its overlap score
 # means anything — "Yes." can't be evidence of anything either way.
@@ -53,8 +56,11 @@ MIN_SUPPORTED_RATIO = 0.5
 
 def _content_words(text: str) -> set[str]:
     """Lowercased content words, minus stopwords and very short tokens."""
-    return {w for w in _WORD.findall((text or "").lower())
-            if len(w) > 2 and w not in _STOPWORDS}
+    return {
+        w
+        for w in _WORD.findall((text or "").lower())
+        if len(w) > 2 and w not in _STOPWORDS
+    }
 
 
 def _sentences(text: str) -> list[str]:
@@ -73,10 +79,12 @@ def support_score(sentence: str, passage: str) -> float:
     return len(words & _content_words(passage)) / len(words)
 
 
-def infer_citations(answer: str, contexts: list[dict],
-                    threshold: float = SUPPORT_THRESHOLD,
-                    min_supported_ratio: float = MIN_SUPPORTED_RATIO
-                    ) -> tuple[list[dict], bool]:
+def infer_citations(
+    answer: str,
+    contexts: list[dict],
+    threshold: float = SUPPORT_THRESHOLD,
+    min_supported_ratio: float = MIN_SUPPORTED_RATIO,
+) -> tuple[list[dict], bool]:
     """Grounding fallback for an answer that carries no [n] markers.
 
     Matches each substantive sentence to its best-supporting passage by lexical
@@ -87,8 +95,9 @@ def infer_citations(answer: str, contexts: list[dict],
     """
     if not contexts:
         return [], False
-    sentences = [s for s in _sentences(answer)
-                 if len(_content_words(s)) >= MIN_SENTENCE_WORDS]
+    sentences = [
+        s for s in _sentences(answer) if len(_content_words(s)) >= MIN_SENTENCE_WORDS
+    ]
     if not sentences:
         return [], False
 
@@ -143,8 +152,9 @@ def renumber(answer: str, cited: list[int]) -> tuple[str, dict]:
     return _MARKER.sub(_repl, answer or ""), mapping
 
 
-def build_grounded(answer: str, contexts: list[dict],
-                   infer: bool = False) -> tuple[str, list[dict], bool]:
+def build_grounded(
+    answer: str, contexts: list[dict], infer: bool = False
+) -> tuple[str, list[dict], bool]:
     """Post-process a cited answer.
 
     Args:

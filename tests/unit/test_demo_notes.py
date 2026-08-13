@@ -6,6 +6,7 @@ demo notes rot: an officer name that isn't on the roster (which turns a
 showcase run into a spurious gap panel), and the deliberate-gap scenario
 quietly becoming complete.
 """
+
 import json
 import re
 from pathlib import Path
@@ -21,8 +22,8 @@ CHECKLIST_PATH = _ROOT / "templates" / "incident_checklist_v2.json"
 # Reading it here (rather than importing classifier.VALID_CATEGORIES) keeps this
 # module runnable without the Vertex SDK — see the cross-check test below.
 VALID_CATEGORIES = {
-    c["name"] for c in
-    json.loads(CHECKLIST_PATH.read_text(encoding="utf-8"))["categories"]
+    c["name"]
+    for c in json.loads(CHECKLIST_PATH.read_text(encoding="utf-8"))["categories"]
 }
 
 try:
@@ -94,12 +95,12 @@ def test_the_three_scenarios_cover_distinct_categories(scenarios):
 
 
 # "Sgt Halvorsen", "Cpl. Alvarez", "Capt Lindholm" — rank followed by a surname.
-_RANKED_NAME = re.compile(
-    r"\b(?:Sgt|Cpl|Lt|Capt|Cpt|Maj|Col|Ofc)\.?\s+([A-Z][a-z]+)\b"
-)
+_RANKED_NAME = re.compile(r"\b(?:Sgt|Cpl|Lt|Capt|Cpt|Maj|Col|Ofc)\.?\s+([A-Z][a-z]+)\b")
 
 
-def test_every_officer_named_in_the_notes_is_on_the_roster(scenarios, roster_last_names):
+def test_every_officer_named_in_the_notes_is_on_the_roster(
+    scenarios, roster_last_names
+):
     """A demo officer who isn't on the roster produces a gap panel, which
     defeats the purpose of a showcase run."""
     for s in scenarios:
@@ -142,7 +143,8 @@ def test_the_reports_placeholder_is_not_a_copy_of_a_scenario(scenarios):
     """Regression: the placeholder used to duplicate the demo string by hand,
     so the two silently drifted apart."""
     html = (_ROOT / "backend" / "webapp" / "templates" / "reports.html").read_text(
-        encoding="utf-8")
+        encoding="utf-8"
+    )
     match = re.search(r'<textarea id="notes"[^>]*placeholder="([^"]*)"', html)
     assert match, "could not find the field-notes textarea placeholder"
     placeholder = match.group(1)

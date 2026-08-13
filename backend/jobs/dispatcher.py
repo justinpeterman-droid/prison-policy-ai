@@ -39,8 +39,12 @@ class DispatchSettings:
                 raise ValueError("Cloud Tasks resource configuration is invalid")
         parsed = urlsplit(self.worker_url)
         if (
-            parsed.scheme != "https" or not parsed.netloc or parsed.username
-            or parsed.password or parsed.query or parsed.fragment
+            parsed.scheme != "https"
+            or not parsed.netloc
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
             or parsed.path not in ("", "/")
         ):
             raise ValueError("AI_WORKER_URL must be an HTTPS origin")
@@ -57,16 +61,16 @@ class DispatchSettings:
             "worker_url": "AI_WORKER_URL",
             "oidc_service_account": "CLOUD_TASKS_OIDC_SERVICE_ACCOUNT",
         }
-        values = {field: str(source.get(name, "")).strip() for field, name in required.items()}
+        values = {
+            field: str(source.get(name, "")).strip() for field, name in required.items()
+        }
         if any(not value for value in values.values()):
             raise RuntimeError("Cloud Tasks dispatcher configuration is incomplete")
         return cls(**values)
 
     @property
     def parent(self) -> str:
-        return (
-            f"projects/{self.project}/locations/{self.location}/queues/{self.queue}"
-        )
+        return f"projects/{self.project}/locations/{self.location}/queues/{self.queue}"
 
     @property
     def audience(self) -> str:
@@ -91,7 +95,12 @@ class OutboxRepository(Protocol):
     def pending(self, *, limit: int, now: datetime) -> list[PendingDispatch]: ...
     def mark_dispatched(self, row_id: UUID, *, now: datetime) -> None: ...
     def mark_failure(
-        self, row_id: UUID, *, code: str, retryable: bool, now: datetime,
+        self,
+        row_id: UUID,
+        *,
+        code: str,
+        retryable: bool,
+        now: datetime,
     ) -> None: ...
 
 
@@ -131,7 +140,12 @@ class SqlOutboxRepository:
             row.last_error_code = None
 
     def mark_failure(
-        self, row_id: UUID, *, code: str, retryable: bool, now: datetime,
+        self,
+        row_id: UUID,
+        *,
+        code: str,
+        retryable: bool,
+        now: datetime,
     ) -> None:
         with self._scope() as session:
             row = session.scalar(
@@ -150,7 +164,9 @@ class SqlOutboxRepository:
 
 def _task(settings: DispatchSettings, job_id: UUID) -> dict[str, object]:
     body = json.dumps(
-        {"job_id": str(job_id)}, separators=(",", ":"), sort_keys=True,
+        {"job_id": str(job_id)},
+        separators=(",", ":"),
+        sort_keys=True,
     ).encode("utf-8")
     return {
         "name": f"{settings.parent}/tasks/ai-job-{job_id}",
@@ -159,9 +175,7 @@ def _task(settings: DispatchSettings, job_id: UUID) -> dict[str, object]:
             # as the documented protobuf mapping means fake-only tests do not
             # need the optional Google client installed or initialized.
             "http_method": 1,
-            "url": (
-                f"{settings.worker_url.rstrip('/')}/internal/jobs/{job_id}/run"
-            ),
+            "url": (f"{settings.worker_url.rstrip('/')}/internal/jobs/{job_id}/run"),
             "headers": {"Content-Type": "application/json"},
             "body": body,
             "oidc_token": {
@@ -187,8 +201,12 @@ def _error_code(error: BaseException) -> tuple[str, bool]:
 
 
 def dispatch_pending(
-    limit: int = 100, *, client=None, repository: OutboxRepository | None = None,
-    settings: DispatchSettings | None = None, now: datetime | None = None,
+    limit: int = 100,
+    *,
+    client=None,
+    repository: OutboxRepository | None = None,
+    settings: DispatchSettings | None = None,
+    now: datetime | None = None,
     sleep=None,
 ) -> DispatchSummary:
     """Send available committed intents and persist only bounded outcomes."""
@@ -211,7 +229,8 @@ def dispatch_pending(
             if sleep is not None:
                 retry_options["sleep"] = sleep
             with_retries(
-                lambda: tasks_client.create_task(request=request), **retry_options,
+                lambda: tasks_client.create_task(request=request),
+                **retry_options,
             )
         except AlreadyExists:
             outbox.mark_dispatched(row.id, now=fixed)
@@ -219,7 +238,10 @@ def dispatch_pending(
         except Exception as error:
             code, retryable = _error_code(error)
             outbox.mark_failure(
-                row.id, code=code, retryable=retryable, now=fixed,
+                row.id,
+                code=code,
+                retryable=retryable,
+                now=fixed,
             )
             if retryable:
                 pending += 1

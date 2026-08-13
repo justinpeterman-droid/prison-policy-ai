@@ -28,7 +28,11 @@ def roster_checksum(records: list[dict]) -> str:
 
 def _required_text(record: dict, field: str, maximum: int) -> str:
     value = str(record.get(field) or "").strip()
-    if not value or len(value) > maximum or any(ord(character) < 32 for character in value):
+    if (
+        not value
+        or len(value) > maximum
+        or any(ord(character) < 32 for character in value)
+    ):
         raise ValueError(f"roster {field} is invalid")
     return value
 
@@ -52,13 +56,15 @@ def _validate(records: list[dict]) -> list[dict[str, str]]:
         if employee_number in seen:
             raise ValueError("duplicate employee number")
         seen.add(employee_number)
-        validated.append({
-            "employee_number": employee_number,
-            "rank": _bounded_text(record, "rank", 64),
-            "first_name": _required_text(record, "first", 100),
-            "last_name": _required_text(record, "last", 100),
-            "shift": _required_text(record, "shift", 16),
-        })
+        validated.append(
+            {
+                "employee_number": employee_number,
+                "rank": _bounded_text(record, "rank", 64),
+                "first_name": _required_text(record, "first", 100),
+                "last_name": _required_text(record, "last", 100),
+                "shift": _required_text(record, "shift", 16),
+            }
+        )
     return validated
 
 
@@ -70,21 +76,36 @@ def import_roster(
     checksum = roster_checksum(records)
     validated = _validate(records)
     employee_numbers = [record["employee_number"] for record in validated]
-    existing_rows = list(session.scalars(
-        select(StaffMember).where(StaffMember.employee_number.in_(employee_numbers))
-    ).all()) if employee_numbers else []
+    existing_rows = (
+        list(
+            session.scalars(
+                select(StaffMember).where(
+                    StaffMember.employee_number.in_(employee_numbers)
+                )
+            ).all()
+        )
+        if employee_numbers
+        else []
+    )
     existing = {row.employee_number: row for row in existing_rows}
 
     for record in validated:
         current = existing.get(record["employee_number"])
         if current is None:
             continue
-        expected = (record["rank"], record["first_name"], record["last_name"], record["shift"])
+        expected = (
+            record["rank"],
+            record["first_name"],
+            record["last_name"],
+            record["shift"],
+        )
         actual = (current.rank, current.first_name, current.last_name, current.shift)
         if actual != expected:
             raise ValueError("roster conflict with existing staff data")
 
-    absent = [record for record in validated if record["employee_number"] not in existing]
+    absent = [
+        record for record in validated if record["employee_number"] not in existing
+    ]
     if apply and absent:
         session.add_all([StaffMember(**record, is_active=True) for record in absent])
         session.flush()

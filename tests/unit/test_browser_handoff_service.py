@@ -43,28 +43,42 @@ class FakeSession:
 
 def _actor():
     return SimpleNamespace(
-        account_id=uuid4(), staff_member_id=uuid4(), session_id=uuid4(),
-        role="admin", auth_version=3,
+        account_id=uuid4(),
+        staff_member_id=uuid4(),
+        session_id=uuid4(),
+        role="admin",
+        auth_version=3,
     )
 
 
 def _issue_session(actor):
     access = SimpleNamespace(
-        id=actor.session_id, account_id=actor.account_id, auth_version=actor.auth_version,
-        revoked_at=None, access_expires_at=NOW + timedelta(minutes=10),
+        id=actor.session_id,
+        account_id=actor.account_id,
+        auth_version=actor.auth_version,
+        revoked_at=None,
+        access_expires_at=NOW + timedelta(minutes=10),
     )
     account = SimpleNamespace(
-        id=actor.account_id, staff_member_id=actor.staff_member_id,
-        auth_version=actor.auth_version, role="admin", status="active",
+        id=actor.account_id,
+        staff_member_id=actor.staff_member_id,
+        auth_version=actor.auth_version,
+        role="admin",
+        status="active",
     )
     staff = SimpleNamespace(id=actor.staff_member_id, is_active=True)
     elevation = SimpleNamespace(
-        session_id=actor.session_id, revoked_at=None, last_used_at=NOW,
+        session_id=actor.session_id,
+        revoked_at=None,
+        last_used_at=NOW,
         idle_expires_at=NOW + timedelta(minutes=5),
     )
     step_up = SimpleNamespace(
-        session_id=actor.session_id, purpose="review_lab_handoff",
-        token_hash=hash_token(STEP_UP), used_at=None, revoked_at=None,
+        session_id=actor.session_id,
+        purpose="review_lab_handoff",
+        token_hash=hash_token(STEP_UP),
+        used_at=None,
+        revoked_at=None,
         expires_at=NOW + timedelta(minutes=5),
     )
     return FakeSession(access, account, staff, elevation, step_up)
@@ -76,8 +90,12 @@ def test_handoff_is_digest_only_and_expires_in_sixty_seconds():
     session = _issue_session(actor)
 
     result = issue_browser_handoff(
-        session, actor=actor, now=NOW, audit_writer=audit,
-        request_id="request-handoff-issue-1", step_up_token=STEP_UP,
+        session,
+        actor=actor,
+        now=NOW,
+        audit_writer=audit,
+        request_id="request-handoff-issue-1",
+        step_up_token=STEP_UP,
     )
 
     assert result.expires_at == NOW + timedelta(seconds=60)
@@ -94,25 +112,37 @@ def test_handoff_redeem_is_single_use_and_creates_thirty_minute_session():
     actor = _actor()
     issue_session = _issue_session(actor)
     issued = issue_browser_handoff(
-        issue_session, actor=actor, now=NOW, audit_writer=RecordingAudit(),
-        request_id="request-handoff-issue-2", step_up_token=STEP_UP,
+        issue_session,
+        actor=actor,
+        now=NOW,
+        audit_writer=RecordingAudit(),
+        request_id="request-handoff-issue-2",
+        step_up_token=STEP_UP,
     )
     handoff = issue_session.added[0]
     access_session = SimpleNamespace(
-        id=actor.session_id, account_id=actor.account_id, auth_version=3,
-        revoked_at=None, renewal_expires_at=NOW + timedelta(hours=12),
+        id=actor.session_id,
+        account_id=actor.account_id,
+        auth_version=3,
+        revoked_at=None,
+        renewal_expires_at=NOW + timedelta(hours=12),
     )
     account = SimpleNamespace(
-        id=actor.account_id, staff_member_id=actor.staff_member_id,
-        auth_version=3, role="admin", status="active",
+        id=actor.account_id,
+        staff_member_id=actor.staff_member_id,
+        auth_version=3,
+        role="admin",
+        status="active",
     )
     staff = SimpleNamespace(id=actor.staff_member_id, is_active=True)
     audit = RecordingAudit()
     redeem_session = FakeSession(handoff, access_session, account, staff)
 
     redeemed = redeem_browser_handoff(
-        redeem_session, raw_token=issued.token,
-        now=NOW + timedelta(seconds=30), audit_writer=audit,
+        redeem_session,
+        raw_token=issued.token,
+        now=NOW + timedelta(seconds=30),
+        audit_writer=audit,
         request_id="request-handoff-redeem-1",
     )
 
@@ -125,8 +155,10 @@ def test_handoff_redeem_is_single_use_and_creates_thirty_minute_session():
     replay_session = FakeSession(handoff)
     with pytest.raises(HandoffInvalid):
         redeem_browser_handoff(
-            replay_session, raw_token=issued.token,
-            now=NOW + timedelta(seconds=31), audit_writer=RecordingAudit(),
+            replay_session,
+            raw_token=issued.token,
+            now=NOW + timedelta(seconds=31),
+            audit_writer=RecordingAudit(),
             request_id="request-handoff-replay-1",
         )
 
@@ -135,15 +167,21 @@ def test_expired_handoff_is_rejected_without_creating_browser_session():
     actor = _actor()
     issue_session = _issue_session(actor)
     issued = issue_browser_handoff(
-        issue_session, actor=actor, now=NOW, audit_writer=RecordingAudit(),
-        request_id="request-handoff-issue-3", step_up_token=STEP_UP,
+        issue_session,
+        actor=actor,
+        now=NOW,
+        audit_writer=RecordingAudit(),
+        request_id="request-handoff-issue-3",
+        step_up_token=STEP_UP,
     )
     redeem_session = FakeSession(issue_session.added[0])
 
     with pytest.raises(HandoffInvalid):
         redeem_browser_handoff(
-            redeem_session, raw_token=issued.token,
-            now=NOW + timedelta(seconds=60), audit_writer=RecordingAudit(),
+            redeem_session,
+            raw_token=issued.token,
+            now=NOW + timedelta(seconds=60),
+            audit_writer=RecordingAudit(),
             request_id="request-handoff-expired-1",
         )
     assert redeem_session.added == []
@@ -155,8 +193,12 @@ def test_issue_requires_a_live_access_actor_and_active_elevation():
     revoked.scalars[0].revoked_at = NOW
     with pytest.raises(HandoffInvalid):
         issue_browser_handoff(
-            revoked, actor=actor, now=NOW, audit_writer=RecordingAudit(),
-            request_id="request-handoff-revoked-1", step_up_token=STEP_UP,
+            revoked,
+            actor=actor,
+            now=NOW,
+            audit_writer=RecordingAudit(),
+            request_id="request-handoff-revoked-1",
+            step_up_token=STEP_UP,
         )
     assert revoked.added == []
 
@@ -164,8 +206,12 @@ def test_issue_requires_a_live_access_actor_and_active_elevation():
     expired.scalars[3].idle_expires_at = NOW
     with pytest.raises(AdminElevationRequired):
         issue_browser_handoff(
-            expired, actor=actor, now=NOW, audit_writer=RecordingAudit(),
-            request_id="request-handoff-elevation-1", step_up_token=STEP_UP,
+            expired,
+            actor=actor,
+            now=NOW,
+            audit_writer=RecordingAudit(),
+            request_id="request-handoff-elevation-1",
+            step_up_token=STEP_UP,
         )
     assert expired.added == []
 
@@ -176,7 +222,10 @@ def test_issue_service_rejects_missing_or_wrong_purpose_step_up():
     session.scalars[4] = None
     with pytest.raises(Exception) as caught:
         issue_browser_handoff(
-            session, actor=actor, now=NOW, audit_writer=RecordingAudit(),
+            session,
+            actor=actor,
+            now=NOW,
+            audit_writer=RecordingAudit(),
             request_id="request-handoff-step-up-1",
             step_up_token="fictional-wrong-step-up-token-0000000000001",
         )

@@ -1,5 +1,7 @@
 """OCR all scanned policy PDFs using Vertex AI Gemini Vision."""
-import os, json, pymupdf, sys
+
+import pymupdf
+import sys
 from pathlib import Path
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part
@@ -9,6 +11,7 @@ vertexai.init(project="gen-lang-client-0968389176", location="us-central1")
 PDF_DIR = Path(__file__).parent.parent / "pdfs"
 OUT_DIR = Path(__file__).parent.parent / "data" / "extracted"
 
+
 def is_scanned(pdf_path: Path) -> bool:
     doc = pymupdf.open(str(pdf_path))
     text = ""
@@ -17,26 +20,30 @@ def is_scanned(pdf_path: Path) -> bool:
     doc.close()
     return len(text.strip()) < 200
 
+
 def ocr_pdf(pdf_path: Path) -> str:
     doc = pymupdf.open(str(pdf_path))
     model = GenerativeModel("gemini-2.5-flash")
     pages_text = []
-    
+
     for i, page in enumerate(doc):
         pix = page.get_pixmap(dpi=150)
         img_bytes = pix.tobytes("png")
-        
-        response = model.generate_content([
-            "Transcribe ALL text from this document page verbatim. "
-            "Include headers, section numbers, body text. "
-            "Do not summarize. Output raw text.",
-            Part.from_data(data=img_bytes, mime_type="image/png"),
-        ])
-        pages_text.append(f"[PAGE {i+1}]\n{response.text.strip()}")
-        print(f"  Page {i+1}/{len(doc)}")
-    
+
+        response = model.generate_content(
+            [
+                "Transcribe ALL text from this document page verbatim. "
+                "Include headers, section numbers, body text. "
+                "Do not summarize. Output raw text.",
+                Part.from_data(data=img_bytes, mime_type="image/png"),
+            ]
+        )
+        pages_text.append(f"[PAGE {i + 1}]\n{response.text.strip()}")
+        print(f"  Page {i + 1}/{len(doc)}")
+
     doc.close()
     return "\n\n".join(pages_text)
+
 
 # Find scanned PDFs
 pdfs = sorted(PDF_DIR.glob("*.pdf"))

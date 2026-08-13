@@ -4,6 +4,7 @@ Uses prompts_v2.py which receives extraction slots (narrative_facts, quotes,
 per-officer actions) + auto_content sentences. Every header field is rendered
 by code from slots — the model writes narrative prose ONLY.
 """
+
 import logging
 import threading
 import time
@@ -40,14 +41,18 @@ _thread_local = threading.local()
 
 def _get_client() -> genai.Client:
     """Return a per-thread genai.Client — httpx clients are not thread-safe."""
-    client = getattr(_thread_local, 'client', None)
+    client = getattr(_thread_local, "client", None)
     if client is None:
-        client = genai.Client(vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION)
+        client = genai.Client(
+            vertexai=True, project=PROJECT_ID, location=MODEL_LOCATION
+        )
         _thread_local.client = client
     return client
 
 
-def _generate(system_prompt: str, user_prompt: str, describe: str = "report generation") -> str:
+def _generate(
+    system_prompt: str, user_prompt: str, describe: str = "report generation"
+) -> str:
     def _call():
         response = _get_client().models.generate_content(
             model=PRO_MODEL,
@@ -67,7 +72,8 @@ def _clean_time(s: str) -> str:
     """Strip 'approximately'/'approx'/'~' prefixes from time values
     so they don't duplicate the prompt's built-in 'at approximately'."""
     import re
-    return re.sub(r'^(approximately|approx\.?|~)\s*', '', s.strip(), flags=re.I)
+
+    return re.sub(r"^(approximately|approx\.?|~)\s*", "", s.strip(), flags=re.I)
 
 
 def _fmt(val, default="[NOT IN NOTES]") -> str:
@@ -130,22 +136,24 @@ def _esc(s: str) -> str:
 def _clean_report(text: str) -> str:
     """Post-process AI-generated report to fix common mistakes."""
     import re
+
     # Rank abbreviations KEEP their period ("Sgt.", "Cpl.") — they are
     # abbreviations, and every real report writes them that way. This used to
     # strip the period, rewriting correct output into something the officers
     # don't write. See templates/gold_reports/STYLE_RULINGS.md ruling 2.
     # Ampersands between names → "and"
-    text = re.sub(r'(\w)\s*&\s*(\w)', r'\1 and \2', text)
+    text = re.sub(r"(\w)\s*&\s*(\w)", r"\1 and \2", text)
     # "placed hand restraints onto" → "applied hand restraints to"
-    text = re.sub(r'placed hand restraints onto', 'applied hand restraints to', text)
+    text = re.sub(r"placed hand restraints onto", "applied hand restraints to", text)
     return text
 
 
 # ── Per-report generators (all receive structured data ONLY) ──────
 
 
-def generate_first_person(slots: dict, auto_content: list[dict] | None = None,
-                          reporter_index: int = 0) -> str:
+def generate_first_person(
+    slots: dict, auto_content: list[dict] | None = None, reporter_index: int = 0
+) -> str:
     prompt = FIRST_PERSON_PROMPT.format(
         rank=_fmt(slots.get("rank")),
         officer_first=_fmt(slots.get("officer_first")),
@@ -160,7 +168,9 @@ def generate_first_person(slots: dict, auto_content: list[dict] | None = None,
     return _clean_report(_generate(REPORT_STYLE_SYSTEM, prompt))
 
 
-def generate_supervisor_summary(slots: dict, auto_content: list[dict] | None = None) -> str:
+def generate_supervisor_summary(
+    slots: dict, auto_content: list[dict] | None = None
+) -> str:
     prompt = SUPERVISOR_SUMMARY_PROMPT.format(
         date=_fmt(slots.get("date")),
         time=_fmt(slots.get("time")),
@@ -185,8 +195,9 @@ def generate_cover_letter(slots: dict, auto_content: list[dict] | None = None) -
     return _clean_report(_generate(REPORT_STYLE_SYSTEM, prompt))
 
 
-def generate_disciplinary(slots: dict, first_person_report: str,
-                          auto_content: list[dict] | None = None) -> str:
+def generate_disciplinary(
+    slots: dict, first_person_report: str, auto_content: list[dict] | None = None
+) -> str:
     charges = slots.get("charges", "")
     prompt = DISCIPLINARY_PROMPT.format(
         rank=_fmt(slots.get("rank")),
@@ -224,8 +235,9 @@ def generate_investigation(slots: dict, auto_content: list[dict] | None = None) 
         disposition=_esc(_fmt(slots.get("investigation_disposition"), "(none stated)")),
         quotes=_esc(_quotes_str(slots)),
     )
-    return _clean_report(_generate(REPORT_STYLE_SYSTEM, prompt,
-                                   describe="investigation report"))
+    return _clean_report(
+        _generate(REPORT_STYLE_SYSTEM, prompt, describe="investigation report")
+    )
 
 
 def has_charges(slots: dict) -> bool:
@@ -239,10 +251,13 @@ def has_charges(slots: dict) -> bool:
     return bool(charges) and charges not in ("None", "")
 
 
-def generate_all_reports(slots: dict, category: str = "",
-                         auto_content: list[dict] | None = None,
-                         reporter_actions: str = "",
-                         include_disciplinary: bool = True) -> dict:
+def generate_all_reports(
+    slots: dict,
+    category: str = "",
+    auto_content: list[dict] | None = None,
+    reporter_actions: str = "",
+    include_disciplinary: bool = True,
+) -> dict:
     """Generate all report types from structured slots.
 
     Args:
@@ -282,20 +297,34 @@ def generate_all_reports(slots: dict, category: str = "",
     # sequenced afterwards because it takes the finished first-person report as
     # its factual source.
     jobs = [
-        ("first_person", "First person report",
-         lambda: generate_first_person(slots, auto_content)),
-        ("supervisor_summary", "Supervisor summary",
-         lambda: generate_supervisor_summary(slots, auto_content)),
-        ("cover_letter", "Cover letter",
-         lambda: generate_cover_letter(slots, auto_content)),
+        (
+            "first_person",
+            "First person report",
+            lambda: generate_first_person(slots, auto_content),
+        ),
+        (
+            "supervisor_summary",
+            "Supervisor summary",
+            lambda: generate_supervisor_summary(slots, auto_content),
+        ),
+        (
+            "cover_letter",
+            "Cover letter",
+            lambda: generate_cover_letter(slots, auto_content),
+        ),
     ]
 
     # Ruling 8: the investigation report is generated only when the notes show
     # an investigation actually happened. No findings -> no report, rather than
     # an empty one padded out by the model.
     if investigation_occurred(slots):
-        jobs.append(("investigation", "Investigation report",
-                     lambda: generate_investigation(slots, auto_content)))
+        jobs.append(
+            (
+                "investigation",
+                "Investigation report",
+                lambda: generate_investigation(slots, auto_content),
+            )
+        )
     else:
         logger.debug("No investigation findings in slots — skipping report")
 
@@ -308,22 +337,30 @@ def generate_all_reports(slots: dict, category: str = "",
 
     if include_disciplinary and has_charges(slots):
         key, text, failed = _run(
-            "disciplinary", "Disciplinary supplement",
+            "disciplinary",
+            "Disciplinary supplement",
             lambda: generate_disciplinary(
-                slots, reports.get("first_person", ""), auto_content))
+                slots, reports.get("first_person", ""), auto_content
+            ),
+        )
         reports[key] = text
         if failed:
             errors.append(failed)
 
-    logger.info("Generated %d report(s) in %.1fs (%d failed)",
-                len(reports), time.monotonic() - started, len(errors))
+    logger.info(
+        "Generated %d report(s) in %.1fs (%d failed)",
+        len(reports),
+        time.monotonic() - started,
+        len(errors),
+    )
     if errors:
         reports["_errors"] = errors
     return reports
 
 
-def generate_disciplinary_only(slots: dict, first_person: str,
-                               auto_content: list[dict] | None = None) -> dict:
+def generate_disciplinary_only(
+    slots: dict, first_person: str, auto_content: list[dict] | None = None
+) -> dict:
     """Generate just the disciplinary supplement, for the deferred second pass.
 
     Returns the same `{key: text}` shape as `generate_all_reports` — including
@@ -341,11 +378,15 @@ def generate_disciplinary_only(slots: dict, first_person: str,
     started = time.monotonic()
     try:
         text = enforce_naming(
-            generate_disciplinary(slots, first_person, auto_content), slots)
-        logger.info("Generated disciplinary supplement in %.1fs",
-                    time.monotonic() - started)
+            generate_disciplinary(slots, first_person, auto_content), slots
+        )
+        logger.info(
+            "Generated disciplinary supplement in %.1fs", time.monotonic() - started
+        )
         return {"disciplinary": text}
     except Exception:
         logger.error("Disciplinary supplement generation failed", exc_info=True)
-        return {"disciplinary": "[Error generating disciplinary supplement]",
-                "_errors": ["disciplinary"]}
+        return {
+            "disciplinary": "[Error generating disciplinary supplement]",
+            "_errors": ["disciplinary"],
+        }

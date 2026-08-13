@@ -1,4 +1,5 @@
 """Validation-first, hash-bound roster import job."""
+
 from __future__ import annotations
 
 import argparse
@@ -20,9 +21,7 @@ from backend.identity.roster_import import import_roster
 from backend.persistence.models.identity import StaffMember
 
 _SHIFTS = frozenset({"A", "B", "C", "D", "U", "F"})
-_ROW_KEYS = frozenset(
-    {"employee_number", "first_name", "last_name", "rank", "shift"}
-)
+_ROW_KEYS = frozenset({"employee_number", "first_name", "last_name", "rank", "shift"})
 
 
 class PrivateObjectStore(Protocol):
@@ -57,8 +56,10 @@ class GooglePrivateObjectStore:
 
     def read(self, uri: str, *, max_bytes: int) -> bytes:
         bucket, object_name = self._location(uri)
-        payload = self._client.bucket(bucket).blob(object_name).download_as_bytes(
-            start=0, end=max_bytes
+        payload = (
+            self._client.bucket(bucket)
+            .blob(object_name)
+            .download_as_bytes(start=0, end=max_bytes)
         )
         if len(payload) > max_bytes:
             raise ValueError("private object exceeds maximum size")
@@ -106,7 +107,11 @@ def _text(row: dict[str, Any], key: str, maximum: int) -> str | None:
     if not isinstance(value, str):
         return None
     value = value.strip()
-    if not value or len(value) > maximum or any(ord(character) < 32 for character in value):
+    if (
+        not value
+        or len(value) > maximum
+        or any(ord(character) < 32 for character in value)
+    ):
         return None
     return value
 
@@ -122,9 +127,7 @@ def _existing_values(staff: object) -> dict[str, str]:
     }
 
 
-def _approved_target(
-    corrections: dict[str, Any], employee_number: str
-) -> UUID | None:
+def _approved_target(corrections: dict[str, Any], employee_number: str) -> UUID | None:
     correction = corrections.get(employee_number)
     if correction is None:
         return None
@@ -151,12 +154,9 @@ def build_roster_plan(
     exact_bytes = source_bytes if source_bytes is not None else _canonical_bytes(rows)
     source_sha256 = hashlib.sha256(exact_bytes).hexdigest()
     findings: list[RosterFinding] = []
-    if (
-        expected_sha256 is not None
-        and (
-            not re.fullmatch(r"[0-9a-f]{64}", expected_sha256)
-            or expected_sha256 != source_sha256
-        )
+    if expected_sha256 is not None and (
+        not re.fullmatch(r"[0-9a-f]{64}", expected_sha256)
+        or expected_sha256 != source_sha256
     ):
         findings.append(RosterFinding("source_hash_mismatch"))
     if not isinstance(rows, list) or not isinstance(corrections, dict):
@@ -260,7 +260,10 @@ def apply_roster_plan(
 ) -> RosterImportResult:
     if not plan.ready:
         raise ValueError("roster plan is not approved for apply")
-    if source_bytes is not None and hashlib.sha256(source_bytes).hexdigest() != plan.source_sha256:
+    if (
+        source_bytes is not None
+        and hashlib.sha256(source_bytes).hexdigest() != plan.source_sha256
+    ):
         raise ValueError("approved source hash changed before apply")
     UUID(import_run_id)
     session = session_factory()
@@ -313,14 +316,18 @@ def _decode_source(payload: bytes) -> list[dict[str, Any]]:
 
 
 def _current_migration_revision(session: Session) -> str:
-    revision = session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+    revision = session.execute(
+        text("SELECT version_num FROM alembic_version")
+    ).scalar_one()
     if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-z_]{1,64}", revision):
         raise RuntimeError("migration revision is invalid")
     return revision
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Validation-first controlled roster import")
+    parser = argparse.ArgumentParser(
+        description="Validation-first controlled roster import"
+    )
     parser.add_argument("--source-uri", required=True)
     parser.add_argument("--corrections-uri", required=True)
     parser.add_argument("--report-uri", required=True)

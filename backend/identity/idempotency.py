@@ -14,8 +14,13 @@ from backend.persistence.models.security import IdempotencyRecord
 
 IDEMPOTENCY_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{8,128}$")
 FORBIDDEN_REFERENCE_KEYS = {
-    "access_token", "renewal_token", "temporary_pin", "pin", "step_up_token",
-    "report_text", "field_notes",
+    "access_token",
+    "renewal_token",
+    "temporary_pin",
+    "pin",
+    "step_up_token",
+    "report_text",
+    "field_notes",
 }
 
 
@@ -36,7 +41,9 @@ class IdempotencyClaim:
 
 
 def request_digest(payload: object) -> bytes:
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    encoded = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
     return hashlib.sha256(encoded.encode("utf-8")).digest()
 
 
@@ -112,7 +119,10 @@ def claim_idempotency(
         raise IdempotencyConflict("The idempotency key was used for another request.")
     if record.status == "completed":
         return IdempotencyClaim(
-            record.id, True, record.response_status, dict(record.response_reference),
+            record.id,
+            True,
+            record.response_status,
+            dict(record.response_reference),
         )
     raise RequestInProgress("The idempotent operation is already in progress.")
 
@@ -127,13 +137,17 @@ def complete_idempotency(
 ) -> None:
     if claim.replayed:
         return
-    if not isinstance(response_reference, dict) or not _safe_reference(response_reference):
+    if not isinstance(response_reference, dict) or not _safe_reference(
+        response_reference
+    ):
         raise ValueError("idempotency response reference is invalid")
     encoded = json.dumps(response_reference, sort_keys=True, separators=(",", ":"))
     if len(encoded.encode("utf-8")) > 4096:
         raise ValueError("idempotency response reference is too large")
     record = session.scalar(
-        select(IdempotencyRecord).where(IdempotencyRecord.id == claim.record_id).with_for_update()
+        select(IdempotencyRecord)
+        .where(IdempotencyRecord.id == claim.record_id)
+        .with_for_update()
     )
     if record is None or record.status != "in_progress":
         raise RuntimeError("idempotency claim is unavailable")

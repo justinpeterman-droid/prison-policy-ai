@@ -70,8 +70,12 @@ class IdentitySettings:
         cursor_signing_key = env.get("CURSOR_SIGNING_KEY") or None
         release_version = env.get("RELEASE_VERSION") or "0.0.0-development"
         latest_client_version = env.get("LATEST_CLIENT_VERSION") or "0.0.0-development"
-        minimum_client_version = env.get("MINIMUM_CLIENT_VERSION") or "0.0.0-development"
-        minimum_server_version = env.get("MINIMUM_SERVER_VERSION") or "0.0.0-development"
+        minimum_client_version = (
+            env.get("MINIMUM_CLIENT_VERSION") or "0.0.0-development"
+        )
+        minimum_server_version = (
+            env.get("MINIMUM_SERVER_VERSION") or "0.0.0-development"
+        )
         api_version = env.get("API_VERSION") or "v1"
         release_notes = env.get(
             "RELEASE_NOTES", "Development build; not approved for production."
@@ -89,7 +93,9 @@ class IdentitySettings:
                 if not value
             ]
             if missing:
-                raise RuntimeError("Missing identity configuration: " + ", ".join(missing))
+                raise RuntimeError(
+                    "Missing identity configuration: " + ", ".join(missing)
+                )
             if (
                 not release_notes
                 or len(release_notes) > 500

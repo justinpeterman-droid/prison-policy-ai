@@ -1,9 +1,14 @@
 """Unit tests for the pure retrieval helpers (no AI, no GCP)."""
+
 import pytest
 
 from backend.pipeline.retrieval import (
-    augment_query, extract_passage_text, extract_source_label,
-    format_history, parse_search_results, select_passages,
+    augment_query,
+    extract_passage_text,
+    extract_source_label,
+    format_history,
+    parse_search_results,
+    select_passages,
 )
 
 
@@ -70,69 +75,119 @@ class TestParseSearchResults:
     corpus."""
 
     def test_snippets(self):
-        ctx = parse_search_results(_result({
-            "derivedStructData": {
-                "title": "AD 14-15 PREA",
-                "snippets": [{"snippet": "Zero tolerance.",
-                              "snippet_status": "SUCCESS"}],
-            }}))
+        ctx = parse_search_results(
+            _result(
+                {
+                    "derivedStructData": {
+                        "title": "AD 14-15 PREA",
+                        "snippets": [
+                            {"snippet": "Zero tolerance.", "snippet_status": "SUCCESS"}
+                        ],
+                    }
+                }
+            )
+        )
         assert ctx == [{"text": "Zero tolerance.", "source": "AD 14-15 PREA"}]
 
     def test_joins_multiple_snippets(self):
-        ctx = parse_search_results(_result({
-            "derivedStructData": {
-                "title": "T",
-                "snippets": [{"snippet": "One."}, {"snippet": "Two."}],
-            }}))
+        ctx = parse_search_results(
+            _result(
+                {
+                    "derivedStructData": {
+                        "title": "T",
+                        "snippets": [{"snippet": "One."}, {"snippet": "Two."}],
+                    }
+                }
+            )
+        )
         assert ctx[0]["text"] == "One. Two."
 
     def test_no_snippet_available_falls_through_to_extractive(self):
         # The exact shape that produced the bug: a real hit whose snippet the
         # API could not build. Previously dropped -> "no documents found".
-        ctx = parse_search_results(_result({
-            "derivedStructData": {
-                "title": "Post Order 7",
-                "snippets": [{"snippet": "", "snippet_status": "NO_SNIPPET_AVAILABLE"}],
-                "extractive_answers": [{"content": "Officers shall maintain."}],
-            }}))
+        ctx = parse_search_results(
+            _result(
+                {
+                    "derivedStructData": {
+                        "title": "Post Order 7",
+                        "snippets": [
+                            {"snippet": "", "snippet_status": "NO_SNIPPET_AVAILABLE"}
+                        ],
+                        "extractive_answers": [{"content": "Officers shall maintain."}],
+                    }
+                }
+            )
+        )
         assert ctx[0]["text"] == "Officers shall maintain."
         assert ctx[0]["source"] == "Post Order 7"
 
     def test_extractive_answers_camel_case(self):
-        ctx = parse_search_results(_result({
-            "derivedStructData": {
-                "title": "T", "extractiveAnswers": [{"content": "Body text."}],
-            }}))
+        ctx = parse_search_results(
+            _result(
+                {
+                    "derivedStructData": {
+                        "title": "T",
+                        "extractiveAnswers": [{"content": "Body text."}],
+                    }
+                }
+            )
+        )
         assert ctx[0]["text"] == "Body text."
 
     def test_uses_all_extractive_answers_not_just_the_first(self):
-        ctx = parse_search_results(_result({
-            "derivedStructData": {
-                "title": "T",
-                "extractive_answers": [{"content": "First."}, {"content": "Second."}],
-            }}))
+        ctx = parse_search_results(
+            _result(
+                {
+                    "derivedStructData": {
+                        "title": "T",
+                        "extractive_answers": [
+                            {"content": "First."},
+                            {"content": "Second."},
+                        ],
+                    }
+                }
+            )
+        )
         assert ctx[0]["text"] == "First. Second."
 
     def test_extractive_segments_fallback(self):
-        ctx = parse_search_results(_result({
-            "derivedStructData": {
-                "title": "T", "extractive_segments": [{"content": "Segment text."}],
-            }}))
+        ctx = parse_search_results(
+            _result(
+                {
+                    "derivedStructData": {
+                        "title": "T",
+                        "extractive_segments": [{"content": "Segment text."}],
+                    }
+                }
+            )
+        )
         assert ctx[0]["text"] == "Segment text."
 
     def test_raw_content_fallback(self):
-        ctx = parse_search_results(_result({
-            "derivedStructData": {"title": "T"},
-            "content": {"rawText": "Raw policy body."},
-        }))
+        ctx = parse_search_results(
+            _result(
+                {
+                    "derivedStructData": {"title": "T"},
+                    "content": {"rawText": "Raw policy body."},
+                }
+            )
+        )
         assert ctx[0]["text"] == "Raw policy body."
 
     def test_drops_only_documents_with_no_text_anywhere(self):
-        payload = {"results": [
-            {"document": {"derivedStructData": {"title": "Empty"}}},
-            {"document": {"derivedStructData": {
-                "title": "Real", "snippets": [{"snippet": "Text."}]}}},
-        ]}
+        payload = {
+            "results": [
+                {"document": {"derivedStructData": {"title": "Empty"}}},
+                {
+                    "document": {
+                        "derivedStructData": {
+                            "title": "Real",
+                            "snippets": [{"snippet": "Text."}],
+                        }
+                    }
+                },
+            ]
+        }
         assert [c["source"] for c in parse_search_results(payload)] == ["Real"]
 
     def test_empty_and_malformed_payloads(self):
@@ -144,19 +199,26 @@ class TestParseSearchResults:
 
 class TestSourceLabel:
     def test_prefers_title(self):
-        assert extract_source_label(
-            {"derivedStructData": {"title": "AD 14-15"}}) == "AD 14-15"
+        assert (
+            extract_source_label({"derivedStructData": {"title": "AD 14-15"}})
+            == "AD 14-15"
+        )
 
     def test_struct_data_title_is_reachable(self):
         # Previously unreachable: the code read structData from *inside*
         # derivedStructData, so this fallback never fired.
-        assert extract_source_label(
-            {"structData": {"title": "From structData"}}) == "From structData"
+        assert (
+            extract_source_label({"structData": {"title": "From structData"}})
+            == "From structData"
+        )
 
     def test_falls_back_to_file_name_from_link(self):
-        assert extract_source_label(
-            {"derivedStructData": {"link": "gs://bucket/policies/AD-14-15.pdf"}}
-        ) == "AD-14-15.pdf"
+        assert (
+            extract_source_label(
+                {"derivedStructData": {"link": "gs://bucket/policies/AD-14-15.pdf"}}
+            )
+            == "AD-14-15.pdf"
+        )
 
     def test_default_label(self):
         assert extract_source_label({}) == "Policy Document"
@@ -177,10 +239,16 @@ class TestRichPassagePreference:
         "derivedStructData": {
             "title": "AD 14-15",
             "snippets": [{"snippet": "…use of force must be …reported…"}],
-            "extractive_answers": [{"content": "Use of force must be reported to the shift supervisor."}],
-            "extractive_segments": [{"content": "Section 4. Any use of force, including "
-                                                "the display of a chemical agent, must be "
-                                                "reported to the shift supervisor within 24 hours."}],
+            "extractive_answers": [
+                {"content": "Use of force must be reported to the shift supervisor."}
+            ],
+            "extractive_segments": [
+                {
+                    "content": "Section 4. Any use of force, including "
+                    "the display of a chemical agent, must be "
+                    "reported to the shift supervisor within 24 hours."
+                }
+            ],
         }
     }
 
@@ -190,45 +258,72 @@ class TestRichPassagePreference:
         assert "…" not in text
 
     def test_answers_win_over_snippets(self):
-        doc = {"derivedStructData": {
-            "title": "T",
-            "snippets": [{"snippet": "…clipped…"}],
-            "extractive_answers": [{"content": "Full answer sentence."}],
-        }}
+        doc = {
+            "derivedStructData": {
+                "title": "T",
+                "snippets": [{"snippet": "…clipped…"}],
+                "extractive_answers": [{"content": "Full answer sentence."}],
+            }
+        }
         assert extract_passage_text(doc) == "Full answer sentence."
 
     def test_snippets_still_used_when_nothing_richer(self):
-        doc = {"derivedStructData": {"title": "T",
-                                     "snippets": [{"snippet": "Only a snippet."}]}}
+        doc = {
+            "derivedStructData": {
+                "title": "T",
+                "snippets": [{"snippet": "Only a snippet."}],
+            }
+        }
         assert extract_passage_text(doc) == "Only a snippet."
 
     def test_truncates_on_sentence_boundary(self):
-        doc = {"derivedStructData": {
-            "title": "T",
-            "extractive_segments": [{"content": "First sentence here. Second sentence here. "
-                                                "Third sentence runs past the limit."}],
-        }}
+        doc = {
+            "derivedStructData": {
+                "title": "T",
+                "extractive_segments": [
+                    {
+                        "content": "First sentence here. Second sentence here. "
+                        "Third sentence runs past the limit."
+                    }
+                ],
+            }
+        }
         out = extract_passage_text(doc, max_chars=45)
         assert out.endswith(".")
         assert "Third sentence" not in out
 
     def test_truncation_marks_a_hard_cut(self):
-        doc = {"derivedStructData": {
-            "title": "T",
-            "extractive_segments": [{"content": "x" * 500}],
-        }}
+        doc = {
+            "derivedStructData": {
+                "title": "T",
+                "extractive_segments": [{"content": "x" * 500}],
+            }
+        }
         out = extract_passage_text(doc, max_chars=100)
         assert len(out) <= 101 and out.endswith("…")
 
     def test_no_truncation_by_default(self):
-        doc = {"derivedStructData": {
-            "title": "T", "extractive_segments": [{"content": "y" * 5000}]}}
+        doc = {
+            "derivedStructData": {
+                "title": "T",
+                "extractive_segments": [{"content": "y" * 5000}],
+            }
+        }
         assert len(extract_passage_text(doc)) == 5000
 
     def test_parse_search_results_applies_the_cap(self):
-        payload = {"results": [{"document": {
-            "derivedStructData": {"title": "T",
-                                  "extractive_segments": [{"content": "z" * 900}]}}}]}
+        payload = {
+            "results": [
+                {
+                    "document": {
+                        "derivedStructData": {
+                            "title": "T",
+                            "extractive_segments": [{"content": "z" * 900}],
+                        }
+                    }
+                }
+            ]
+        }
         ctx = parse_search_results(payload, max_chars=200)
         assert len(ctx[0]["text"]) <= 201
 
@@ -258,8 +353,9 @@ class TestFormatHistory:
     """RC-6: recent turns, compact, newest kept when the budget bites."""
 
     def _h(self, n):
-        return [{"question": f"question {i}", "answer": f"answer {i}"}
-                for i in range(n)]
+        return [
+            {"question": f"question {i}", "answer": f"answer {i}"} for i in range(n)
+        ]
 
     def test_empty_and_malformed(self):
         assert format_history(None) == ""
@@ -299,24 +395,31 @@ class TestFormatHistory:
 # with nothing to do with policy — and injecting the WRONG policy vocabulary is
 # worse than injecting none, because it steers the retriever off the answer.
 
+
 class TestSlangWordBoundaries:
-    @pytest.mark.parametrize("question", [
-        "I shouldn't have to work a double shift",
-        "the inmate jumped down from the top bunk",
-        "he took off his jacket before the search",
-        "is a gateway drug a real thing",
-    ])
+    @pytest.mark.parametrize(
+        "question",
+        [
+            "I shouldn't have to work a double shift",
+            "the inmate jumped down from the top bunk",
+            "he took off his jacket before the search",
+            "is a gateway drug a real thing",
+        ],
+    )
     def test_ordinary_speech_is_not_augmented(self, question):
         assert augment_query(question) == question
 
-    @pytest.mark.parametrize("question,expect", [
-        ("what happens if an officer is hooking up with an inmate", "PREA"),
-        ("two inmates gave each other a beat down", "use of force"),
-        ("he jumped him in the dayroom", "assault"),
-        ("inmate cheeked his meds", "medication diversion"),
-        ("found a shank during the shakedown", "contraband"),
-        ("we gassed him after he refused", "chemical agent"),
-    ])
+    @pytest.mark.parametrize(
+        "question,expect",
+        [
+            ("what happens if an officer is hooking up with an inmate", "PREA"),
+            ("two inmates gave each other a beat down", "use of force"),
+            ("he jumped him in the dayroom", "assault"),
+            ("inmate cheeked his meds", "medication diversion"),
+            ("found a shank during the shakedown", "contraband"),
+            ("we gassed him after he refused", "chemical agent"),
+        ],
+    )
     def test_real_slang_still_maps(self, question, expect):
         assert expect in augment_query(question)
 

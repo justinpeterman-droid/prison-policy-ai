@@ -1,4 +1,5 @@
 """Security contracts for report-template rendering."""
+
 import json
 from pathlib import Path
 import re

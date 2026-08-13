@@ -38,9 +38,7 @@ def _truncate_application_tables(engine):
             return
         quote = connection.dialect.identifier_preparer.quote
         tables = ", ".join(quote(table_name) for table_name in table_names)
-        connection.execute(text(
-            f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"
-        ))
+        connection.execute(text(f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"))
 
 
 @pytest.fixture(scope="session")
@@ -105,7 +103,9 @@ def api_client(monkeypatch):
     monkeypatch.setenv("CURSOR_SIGNING_KEY", "c" * 32)
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://integration.example.invalid")
     monkeypatch.setattr(
-        app_module, "ACCESS_CODE", "fictional-local-integration-access-code",
+        app_module,
+        "ACCESS_CODE",
+        "fictional-local-integration-access-code",
     )
     app = app_module.create_app()
     app.config.update(TESTING=True)
@@ -120,32 +120,42 @@ def identity_fixed_now():
 @pytest.fixture
 def fictional_user_account(db_session, identity_fixed_now):
     return seed_fictional_account(
-        db_session, employee_number="TEST-1001", role="user",
-        pin="Z9Y8X7", now=identity_fixed_now,
+        db_session,
+        employee_number="TEST-1001",
+        role="user",
+        pin="Z9Y8X7",
+        now=identity_fixed_now,
     )
 
 
 @pytest.fixture
 def fictional_admin_account(db_session, identity_fixed_now):
     return seed_fictional_account(
-        db_session, employee_number="TEST-9001", role="admin",
-        pin="Q7W9E2", now=identity_fixed_now,
+        db_session,
+        employee_number="TEST-9001",
+        role="admin",
+        pin="Q7W9E2",
+        now=identity_fixed_now,
     )
 
 
 @pytest.fixture
 def fictional_user_tokens(db_session, fictional_user_account, identity_fixed_now):
     return issue_fictional_tokens(
-        db_session, account=fictional_user_account,
-        device_id="device-fictional-user-0001", now=identity_fixed_now,
+        db_session,
+        account=fictional_user_account,
+        device_id="device-fictional-user-0001",
+        now=identity_fixed_now,
     )
 
 
 @pytest.fixture
 def fictional_admin_tokens(db_session, fictional_admin_account, identity_fixed_now):
     return issue_fictional_tokens(
-        db_session, account=fictional_admin_account,
-        device_id="device-fictional-admin-0001", now=identity_fixed_now,
+        db_session,
+        account=fictional_admin_account,
+        device_id="device-fictional-admin-0001",
+        now=identity_fixed_now,
     )
 
 
@@ -175,16 +185,22 @@ def fictional_staff(fictional_staff_and_accounts):
 @pytest.fixture
 def fictional_incident(db_session, fictional_staff_and_accounts, identity_fixed_now):
     return make_incident(
-        db_session, fictional_staff_and_accounts.preparer, identity_fixed_now,
+        db_session,
+        fictional_staff_and_accounts.preparer,
+        identity_fixed_now,
     )
 
 
 @pytest.fixture
 def fictional_report(
-    db_session, fictional_incident, fictional_staff_and_accounts, identity_fixed_now,
+    db_session,
+    fictional_incident,
+    fictional_staff_and_accounts,
+    identity_fixed_now,
 ):
     return make_report(
-        db_session, incident=fictional_incident,
+        db_session,
+        incident=fictional_incident,
         owner=fictional_staff_and_accounts.user,
         preparer=fictional_staff_and_accounts.preparer,
         now=identity_fixed_now,
@@ -210,32 +226,48 @@ def report_id(fictional_report):
 def user_actor(fictional_staff_and_accounts, fictional_owner_tokens):
     account = fictional_staff_and_accounts.user
     return Actor(
-        account.id, account.staff_member_id, fictional_owner_tokens.session_id,
-        "user", account.auth_version, account.must_change_pin,
+        account.id,
+        account.staff_member_id,
+        fictional_owner_tokens.session_id,
+        "user",
+        account.auth_version,
+        account.must_change_pin,
     )
 
 
 @pytest.fixture
-def fictional_owner_tokens(db_session, fictional_staff_and_accounts, identity_fixed_now):
+def fictional_owner_tokens(
+    db_session, fictional_staff_and_accounts, identity_fixed_now
+):
     return issue_fictional_tokens(
-        db_session, account=fictional_staff_and_accounts.user,
-        device_id="device-fictional-owner-0001", now=identity_fixed_now,
+        db_session,
+        account=fictional_staff_and_accounts.user,
+        device_id="device-fictional-owner-0001",
+        now=identity_fixed_now,
     )
 
 
 @pytest.fixture
-def fictional_preparer_tokens(db_session, fictional_staff_and_accounts, identity_fixed_now):
+def fictional_preparer_tokens(
+    db_session, fictional_staff_and_accounts, identity_fixed_now
+):
     return issue_fictional_tokens(
-        db_session, account=fictional_staff_and_accounts.preparer,
-        device_id="device-fictional-preparer-0001", now=identity_fixed_now,
+        db_session,
+        account=fictional_staff_and_accounts.preparer,
+        device_id="device-fictional-preparer-0001",
+        now=identity_fixed_now,
     )
 
 
 @pytest.fixture
-def fictional_unrelated_tokens(db_session, fictional_staff_and_accounts, identity_fixed_now):
+def fictional_unrelated_tokens(
+    db_session, fictional_staff_and_accounts, identity_fixed_now
+):
     return issue_fictional_tokens(
-        db_session, account=fictional_staff_and_accounts.unrelated,
-        device_id="device-fictional-unrelated-0001", now=identity_fixed_now,
+        db_session,
+        account=fictional_staff_and_accounts.unrelated,
+        device_id="device-fictional-unrelated-0001",
+        now=identity_fixed_now,
     )
 
 

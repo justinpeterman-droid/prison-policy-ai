@@ -9,6 +9,7 @@ The field-notes ceiling is imported from the single ID-02 constant rather than
 restated, so the limit the client is told about in `/api/v1/client-policy` and
 the limit the server enforces cannot drift apart.
 """
+
 from datetime import date, datetime, time
 import json
 from math import isfinite
@@ -35,24 +36,26 @@ MAX_JSON_DEPTH: Final[int] = 8
 MAX_JSON_NODES: Final[int] = 2_000
 MAX_JSON_STRING_CHARACTERS: Final[int] = 5_000
 JSON_KEY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
-SERVER_OWNED_CONTENT_KEYS = frozenset({
-    "provenance",
-    "prompt_fingerprints",
-    "fast_model",
-    "pro_model",
-    "model_location",
-    "classification_prompt_sha256",
-    "generation_prompt_sha256",
-    "checklist_sha256",
-    "template_sha256",
-    "cloud_run_revision",
-    "source_commit",
-    "actor_account_id",
-    "owner_staff_member_id",
-    "preparer_staff_member_id",
-    "editor_account_id",
-    "created_by_account_id",
-})
+SERVER_OWNED_CONTENT_KEYS = frozenset(
+    {
+        "provenance",
+        "prompt_fingerprints",
+        "fast_model",
+        "pro_model",
+        "model_location",
+        "classification_prompt_sha256",
+        "generation_prompt_sha256",
+        "checklist_sha256",
+        "template_sha256",
+        "cloud_run_revision",
+        "source_commit",
+        "actor_account_id",
+        "owner_staff_member_id",
+        "preparer_staff_member_id",
+        "editor_account_id",
+        "created_by_account_id",
+    }
+)
 
 #: Values a client may place inside a bounded content map.
 JsonScalar = str | int | float | bool | None
@@ -87,7 +90,10 @@ def _has_nonfinite(value: object) -> bool:
 
 
 def _validate_recursive_json(
-    value: JsonValue, *, depth: int = 0, nodes: list[int] | None = None,
+    value: JsonValue,
+    *,
+    depth: int = 0,
+    nodes: list[int] | None = None,
 ) -> None:
     """Bound model-produced JSON while preserving its real nested shape."""
     if nodes is None:
@@ -163,15 +169,20 @@ class IncidentSnapshotV1(BoundedContent):
     location: ShortText | None = None
     category: str | None = Field(default=None, max_length=120)
     classification: dict[CodeText, JsonValue] = Field(
-        default_factory=dict, max_length=MAX_MAP_ENTRIES)
+        default_factory=dict, max_length=MAX_MAP_ENTRIES
+    )
     extracted_facts: dict[CodeText, JsonValue] = Field(
-        default_factory=dict, max_length=MAX_MAP_ENTRIES)
+        default_factory=dict, max_length=MAX_MAP_ENTRIES
+    )
     gap_answers: dict[CodeText, LongAnswer] = Field(
-        default_factory=dict, max_length=MAX_MAP_ENTRIES)
+        default_factory=dict, max_length=MAX_MAP_ENTRIES
+    )
     charges: list[ShortText] = Field(default_factory=list, max_length=MAX_CHARGES)
     validation: dict[CodeText, object] = Field(
-        default_factory=dict, max_length=MAX_MAP_ENTRIES)
+        default_factory=dict, max_length=MAX_MAP_ENTRIES
+    )
     warnings: list[ShortText] = Field(default_factory=list, max_length=MAX_WARNINGS)
+
 
 class ReportContentV1(BoundedContent):
     """One immutable version of a generated report's text and review state."""
@@ -179,9 +190,11 @@ class ReportContentV1(BoundedContent):
     schema_version: Literal[1] = CONTENT_SCHEMA_VERSION
     narrative: str = Field(max_length=MAX_NARRATIVE_CHARACTERS)
     editable_fields: dict[CodeText, JsonScalar] = Field(
-        default_factory=dict, max_length=MAX_MAP_ENTRIES)
+        default_factory=dict, max_length=MAX_MAP_ENTRIES
+    )
     validation: dict[CodeText, object] = Field(
-        default_factory=dict, max_length=MAX_MAP_ENTRIES)
+        default_factory=dict, max_length=MAX_MAP_ENTRIES
+    )
     warnings: list[ShortText] = Field(default_factory=list, max_length=MAX_WARNINGS)
 
 
@@ -207,7 +220,8 @@ class RevisionSummary(StrictApiModel):
     revision_number: int = Field(ge=0)
     reason: RevisionReasonName
     changed_fields: list[CodeText] = Field(
-        default_factory=list, max_length=MAX_MAP_ENTRIES)
+        default_factory=list, max_length=MAX_MAP_ENTRIES
+    )
     created_at: datetime
     editor_staff_member_id: UUID | None = None
     source_revision_number: int | None = Field(default=None, ge=0)
@@ -223,7 +237,8 @@ def changed_field_names(previous: dict | None, current: dict) -> list[str]:
     """
     previous = previous or {}
     names = {
-        key for key in set(previous) | set(current)
+        key
+        for key in set(previous) | set(current)
         if previous.get(key) != current.get(key)
     }
     return sorted(name for name in names if name != "schema_version")

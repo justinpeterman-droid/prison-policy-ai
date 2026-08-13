@@ -51,7 +51,11 @@ def _submit(session, actor, incident_id, key):
 
 
 def test_claim_job_uses_skip_locked_for_concurrent_delivery(
-    db_session, db_session_factory, user_actor, fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    user_actor,
+    fictional_incident,
+    fictional_report,
 ):
     db_session.commit()
     with db_session_factory() as setup:
@@ -74,11 +78,17 @@ def test_claim_job_uses_skip_locked_for_concurrent_delivery(
 
 
 def test_duplicate_redelivery_applies_one_terminal_result_and_one_audit(
-    db_session, db_session_factory, user_actor, fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    user_actor,
+    fictional_incident,
+    fictional_report,
 ):
     db_session.commit()
     with db_session_factory() as setup:
-        job_id = _submit(setup, user_actor, fictional_incident.id, "job-fictional-redelivery")
+        job_id = _submit(
+            setup, user_actor, fictional_incident.id, "job-fictional-redelivery"
+        )
 
     with db_session_factory.begin() as worker:
         claimed = claim_job(worker, job_id, now=FIXED_NOW)
@@ -94,7 +104,9 @@ def test_duplicate_redelivery_applies_one_terminal_result_and_one_audit(
     with db_session_factory.begin() as redelivery:
         assert claim_job(redelivery, job_id, now=FIXED_NOW) is None
         apply_job_result(
-            redelivery, job_id, expected_incident_revision=1,
+            redelivery,
+            job_id,
+            expected_incident_revision=1,
             claim_token=UUID("00000000-0000-4000-8000-000000000699"),
             now=FIXED_NOW,
         )
@@ -104,19 +116,32 @@ def test_duplicate_redelivery_applies_one_terminal_result_and_one_audit(
         assert job.state == "succeeded"
         assert job.stage == "completed"
         assert job.attempts == 1
-        assert verification.scalar(select(func.count()).select_from(AuditEvent).where(
-            AuditEvent.action == "ai.job_succeeded",
-            AuditEvent.target_id == job_id,
-        )) == 1
+        assert (
+            verification.scalar(
+                select(func.count())
+                .select_from(AuditEvent)
+                .where(
+                    AuditEvent.action == "ai.job_succeeded",
+                    AuditEvent.target_id == job_id,
+                )
+            )
+            == 1
+        )
 
 
 def test_stale_incident_revision_becomes_terminal_conflict_without_overwrite(
-    db_session, db_session_factory, user_actor, fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    user_actor,
+    fictional_incident,
+    fictional_report,
 ):
     original_classification = dict(fictional_incident.classification)
     db_session.commit()
     with db_session_factory() as setup:
-        job_id = _submit(setup, user_actor, fictional_incident.id, "job-fictional-stale-result")
+        job_id = _submit(
+            setup, user_actor, fictional_incident.id, "job-fictional-stale-result"
+        )
 
     with db_session_factory.begin() as advance:
         incident = advance.get(type(fictional_incident), fictional_incident.id)
@@ -143,9 +168,12 @@ def test_stale_incident_revision_becomes_terminal_conflict_without_overwrite(
         assert incident.current_revision_number == 2
         assert incident.classification == {"category": "newer_fictional_value"}
         assert incident.classification != original_classification
-        audit = verification.scalar(select(AuditEvent).where(
-            AuditEvent.action == "ai.job_failed", AuditEvent.target_id == job_id,
-        ))
+        audit = verification.scalar(
+            select(AuditEvent).where(
+                AuditEvent.action == "ai.job_failed",
+                AuditEvent.target_id == job_id,
+            )
+        )
         assert audit.details == {
             "job_id": str(job_id),
             "job_type": "classify",
@@ -154,11 +182,17 @@ def test_stale_incident_revision_becomes_terminal_conflict_without_overwrite(
 
 
 def test_expired_running_job_is_reclaimed_with_a_fenced_twenty_minute_lease(
-    db_session, db_session_factory, user_actor, fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    user_actor,
+    fictional_incident,
+    fictional_report,
 ):
     db_session.commit()
     with db_session_factory() as setup:
-        job_id = _submit(setup, user_actor, fictional_incident.id, "job-fictional-reclaim")
+        job_id = _submit(
+            setup, user_actor, fictional_incident.id, "job-fictional-reclaim"
+        )
 
     with db_session_factory.begin() as first_delivery:
         first = claim_job(first_delivery, job_id, now=FIXED_NOW)
@@ -167,9 +201,14 @@ def test_expired_running_job_is_reclaimed_with_a_fenced_twenty_minute_lease(
         assert first.lease_expires_at == FIXED_NOW + timedelta(minutes=20)
 
     with db_session_factory.begin() as early_redelivery:
-        assert claim_job(
-            early_redelivery, job_id, now=FIXED_NOW + timedelta(minutes=19),
-        ) is None
+        assert (
+            claim_job(
+                early_redelivery,
+                job_id,
+                now=FIXED_NOW + timedelta(minutes=19),
+            )
+            is None
+        )
 
     reclaim_now = FIXED_NOW + timedelta(minutes=20, seconds=1)
     with db_session_factory.begin() as recovery_delivery:
@@ -208,32 +247,50 @@ def test_expired_running_job_is_reclaimed_with_a_fenced_twenty_minute_lease(
         assert job.claim_token is None
         assert job.lease_expires_at is None
         assert job.result_reference == {"incident_revision_number": 1}
-        assert verification.scalar(select(func.count()).select_from(AuditEvent).where(
-            AuditEvent.action == "ai.job_succeeded",
-            AuditEvent.target_id == job_id,
-        )) == 1
+        assert (
+            verification.scalar(
+                select(func.count())
+                .select_from(AuditEvent)
+                .where(
+                    AuditEvent.action == "ai.job_succeeded",
+                    AuditEvent.target_id == job_id,
+                )
+            )
+            == 1
+        )
 
 
-@pytest.mark.parametrize("unsafe_reference", [
-    {"report_text": "Fictional sensitive report content."},
-    {"provider": {"prompt": "Fictional prompt.", "response": "Fictional output."}},
-    {"raw": {"field_notes": "Fictional sensitive field notes."}},
-    {
-        "reports": [{
-            "report_id": "00000000-0000-4000-8000-000000000613",
-            "revision_number": 1,
-            "narrative": "Fictional sensitive narrative.",
-        }],
-    },
-])
+@pytest.mark.parametrize(
+    "unsafe_reference",
+    [
+        {"report_text": "Fictional sensitive report content."},
+        {"provider": {"prompt": "Fictional prompt.", "response": "Fictional output."}},
+        {"raw": {"field_notes": "Fictional sensitive field notes."}},
+        {
+            "reports": [
+                {
+                    "report_id": "00000000-0000-4000-8000-000000000613",
+                    "revision_number": 1,
+                    "narrative": "Fictional sensitive narrative.",
+                }
+            ],
+        },
+    ],
+)
 def test_worker_result_rejects_content_provider_unknown_and_nested_fields_atomically(
-    db_session, db_session_factory, user_actor, fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    user_actor,
+    fictional_incident,
+    fictional_report,
     unsafe_reference,
 ):
     db_session.commit()
     with db_session_factory() as setup:
         job_id = _submit(
-            setup, user_actor, fictional_incident.id,
+            setup,
+            user_actor,
+            fictional_incident.id,
             f"job-fictional-unsafe-{len(str(unsafe_reference))}",
         )
 
@@ -259,19 +316,32 @@ def test_worker_result_rejects_content_provider_unknown_and_nested_fields_atomic
         assert job.stage == "classifying"
         assert job.result_reference == {}
         assert job.completed_at is None
-        assert verification.scalar(select(func.count()).select_from(AuditEvent).where(
-            AuditEvent.target_id == job_id,
-            AuditEvent.action.in_(("ai.job_succeeded", "ai.job_failed")),
-        )) == 0
+        assert (
+            verification.scalar(
+                select(func.count())
+                .select_from(AuditEvent)
+                .where(
+                    AuditEvent.target_id == job_id,
+                    AuditEvent.action.in_(("ai.job_succeeded", "ai.job_failed")),
+                )
+            )
+            == 0
+        )
 
 
 def test_worker_result_rejects_safe_shaped_references_that_are_not_durable_targets(
-    db_session, db_session_factory, user_actor, fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    user_actor,
+    fictional_incident,
+    fictional_report,
 ):
     db_session.commit()
     with db_session_factory() as setup:
         job_id = _submit(
-            setup, user_actor, fictional_incident.id,
+            setup,
+            user_actor,
+            fictional_incident.id,
             "job-fictional-missing-result-target",
         )
 
@@ -289,10 +359,12 @@ def test_worker_result_rejects_safe_shaped_references_that_are_not_durable_targe
                 claim_token=claim_token,
                 result_reference={
                     "incident_revision_number": 999,
-                    "reports": [{
-                        "report_id": "00000000-0000-4000-8000-000000000699",
-                        "revision_number": 1,
-                    }],
+                    "reports": [
+                        {
+                            "report_id": "00000000-0000-4000-8000-000000000699",
+                            "revision_number": 1,
+                        }
+                    ],
                 },
                 now=FIXED_NOW,
             )
@@ -305,15 +377,21 @@ def test_worker_result_rejects_safe_shaped_references_that_are_not_durable_targe
 
 
 def test_safe_result_reference_is_canonical_and_status_get_returns_only_safe_ids(
-    db_session, db_session_factory, api_client, owner_bearer_headers, user_actor,
-    fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    api_client,
+    owner_bearer_headers,
+    user_actor,
+    fictional_incident,
+    fictional_report,
 ):
     incident_id = fictional_incident.id
     report_id = fictional_report.id
     db_session.commit()
     submitted = api_client.post(
         f"/api/v1/incidents/{incident_id}/jobs/generate",
-        headers=owner_bearer_headers | {
+        headers=owner_bearer_headers
+        | {
             "Idempotency-Key": "job-fictional-safe-result",
             "X-Request-ID": "request_job_fictional_safe_result",
         },
@@ -339,7 +417,8 @@ def test_safe_result_reference_is_canonical_and_status_get_returns_only_safe_ids
 
     response = api_client.get(
         f"/api/v1/jobs/{job_id}",
-        headers=owner_bearer_headers | {
+        headers=owner_bearer_headers
+        | {
             "X-Request-ID": "request_job_fictional_safe_status",
         },
     )
@@ -351,14 +430,19 @@ def test_safe_result_reference_is_canonical_and_status_get_returns_only_safe_ids
 
 
 def test_status_get_never_reflects_a_malformed_durable_result_reference(
-    db_session, db_session_factory, api_client, owner_bearer_headers,
-    fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    api_client,
+    owner_bearer_headers,
+    fictional_incident,
+    fictional_report,
 ):
     incident_id = fictional_incident.id
     db_session.commit()
     submitted = api_client.post(
         f"/api/v1/incidents/{incident_id}/jobs/classify",
-        headers=owner_bearer_headers | {
+        headers=owner_bearer_headers
+        | {
             "Idempotency-Key": "job-fictional-corrupt-result",
             "X-Request-ID": "request_job_fictional_corrupt_result",
         },
@@ -370,23 +454,31 @@ def test_status_get_never_reflects_a_malformed_durable_result_reference(
 
     with pytest.raises(IntegrityError):
         with db_session_factory.begin() as corrupt:
-            corrupt.execute(text(
-                "UPDATE ai_jobs SET result_reference=CAST(:reference AS jsonb) "
-                "WHERE id=:job_id"
-            ), {
-                "job_id": job_id,
-                "reference": json.dumps({
-                    "reports": [{
-                        "report_id": "00000000-0000-4000-8000-000000000613",
-                        "revision_number": 1,
-                        "provider_output": marker,
-                    }],
-                }),
-            })
+            corrupt.execute(
+                text(
+                    "UPDATE ai_jobs SET result_reference=CAST(:reference AS jsonb) "
+                    "WHERE id=:job_id"
+                ),
+                {
+                    "job_id": job_id,
+                    "reference": json.dumps(
+                        {
+                            "reports": [
+                                {
+                                    "report_id": "00000000-0000-4000-8000-000000000613",
+                                    "revision_number": 1,
+                                    "provider_output": marker,
+                                }
+                            ],
+                        }
+                    ),
+                },
+            )
 
     response = api_client.get(
         f"/api/v1/jobs/{job_id}",
-        headers=owner_bearer_headers | {
+        headers=owner_bearer_headers
+        | {
             "X-Request-ID": "request_job_fictional_corrupt_status",
         },
     )

@@ -70,7 +70,10 @@ def _counts(factory):
 
 def test_bootstrap_result_is_a_closed_safe_contract():
     assert set(AdminBootstrapResult.__annotations__) == {
-        "operation_id", "status", "expires_at", "secret_version_reference"
+        "operation_id",
+        "status",
+        "expires_at",
+        "secret_version_reference",
     }
 
 
@@ -90,7 +93,9 @@ def test_active_staff_bootstraps_only_after_secret_version_returns(db_session_fa
     assert _counts(db_session_factory) == (1, 1)
 
 
-def test_missing_inactive_or_existing_account_refuses_without_secret_add(db_session_factory):
+def test_missing_inactive_or_existing_account_refuses_without_secret_add(
+    db_session_factory,
+):
     for staff_id in (uuid4(), _staff(db_session_factory, active=False)):
         secret = SecretAdder()
         result = execute_admin_bootstrap(
@@ -125,10 +130,18 @@ def test_missing_inactive_or_existing_account_refuses_without_secret_add(db_sess
     assert secret.calls == []
 
 
-def test_secret_rejection_and_ambiguous_outcome_roll_back_account_and_audit(db_session_factory):
+def test_secret_rejection_and_ambiguous_outcome_roll_back_account_and_audit(
+    db_session_factory,
+):
     for error, status in (
-        (google_exceptions.InvalidArgument("definitive fixture rejection"), "pin_version_add_failed"),
-        (TimeoutError("ambiguous fixture timeout"), "pin_version_outcome_unknown_cleanup_required"),
+        (
+            google_exceptions.InvalidArgument("definitive fixture rejection"),
+            "pin_version_add_failed",
+        ),
+        (
+            TimeoutError("ambiguous fixture timeout"),
+            "pin_version_outcome_unknown_cleanup_required",
+        ),
     ):
         staff_id = _staff(db_session_factory)
         secret = SecretAdder(error)
@@ -145,7 +158,9 @@ def test_secret_rejection_and_ambiguous_outcome_roll_back_account_and_audit(db_s
         assert _counts(db_session_factory) == (0, 0)
 
 
-def test_known_secret_version_and_commit_failure_returns_orphan_cleanup(db_session_factory):
+def test_known_secret_version_and_commit_failure_returns_orphan_cleanup(
+    db_session_factory,
+):
     staff_id = _staff(db_session_factory)
 
     class CommitFailureSession:
@@ -186,7 +201,8 @@ def test_concurrent_attempts_create_exactly_one_admin(db_session_factory):
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(executor.map(attempt, (0, 1)))
     assert sorted(result.status for result in results) == [
-        "bootstrap_refused", "bootstrapped"
+        "bootstrap_refused",
+        "bootstrapped",
     ]
     assert sum(len(secret.calls) for secret in secrets) == 1
     assert _counts(db_session_factory) == (1, 1)

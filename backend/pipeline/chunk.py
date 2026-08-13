@@ -1,11 +1,12 @@
 """Text chunking for RAG embedding."""
+
 import json
 from pathlib import Path
 
 
-def chunk_text(text: str, source: str,
-               chunk_size: int = 1000,
-               overlap: int = 200) -> list[dict]:
+def chunk_text(
+    text: str, source: str, chunk_size: int = 1000, overlap: int = 200
+) -> list[dict]:
     """Split text into overlapping chunks with metadata."""
     chunks = []
     start = 0
@@ -15,23 +16,25 @@ def chunk_text(text: str, source: str,
         end = min(start + chunk_size, len(text))
         chunk_content = text[start:end].strip()
         if chunk_content:
-            chunks.append({
-                "id": f"{source}_chunk_{chunk_num:04d}",
-                "source": source,
-                "chunk_num": chunk_num,
-                "start_char": start,
-                "end_char": end,
-                "text": chunk_content,
-            })
+            chunks.append(
+                {
+                    "id": f"{source}_chunk_{chunk_num:04d}",
+                    "source": source,
+                    "chunk_num": chunk_num,
+                    "start_char": start,
+                    "end_char": end,
+                    "text": chunk_content,
+                }
+            )
             chunk_num += 1
-        start += (chunk_size - overlap)
+        start += chunk_size - overlap
 
     return chunks
 
 
-def chunk_all(reviewed_dir: Path, out_dir: Path,
-              chunk_size: int = 1000,
-              overlap: int = 200) -> Path:
+def chunk_all(
+    reviewed_dir: Path, out_dir: Path, chunk_size: int = 1000, overlap: int = 200
+) -> Path:
     """Chunk all reviewed files → chunks/all_chunks.jsonl."""
     out_dir.mkdir(parents=True, exist_ok=True)
     reviewed = sorted(reviewed_dir.glob("*.txt"))
@@ -51,8 +54,7 @@ def chunk_all(reviewed_dir: Path, out_dir: Path,
         if "\n\n# REVIEWED:" in body:
             body = body.split("\n\n# REVIEWED:")[0]
 
-        chunks = chunk_text(body, source=f.stem,
-                           chunk_size=chunk_size, overlap=overlap)
+        chunks = chunk_text(body, source=f.stem, chunk_size=chunk_size, overlap=overlap)
         all_chunks.extend(chunks)
         print(f"  {f.name}: {len(chunks)} chunks")
 

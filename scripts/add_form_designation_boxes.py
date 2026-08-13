@@ -9,6 +9,7 @@ One-shot: run once, commit the modified .docx, done. Re-running is a no-op.
 
     PYTHONPATH=. python3 scripts/add_form_designation_boxes.py
 """
+
 from pathlib import Path
 
 from docx import Document
@@ -40,7 +41,8 @@ def add_placeholders() -> int:
         if actual != label:
             raise SystemExit(
                 f"Expected '{label}' at row {row_idx} col {LABEL_COL}, found "
-                f"{actual!r}. The template layout changed — update BOXES.")
+                f"{actual!r}. The template layout changed — update BOXES."
+            )
 
         box = cells[BOX_COL]
         if placeholder in box.text:
@@ -49,7 +51,8 @@ def add_placeholders() -> int:
         if box.text.strip():
             raise SystemExit(
                 f"Checkbox cell for {label} is not empty ({box.text!r}) — "
-                f"refusing to overwrite it.")
+                f"refusing to overwrite it."
+            )
 
         para = box.paragraphs[0]
         if para.runs:

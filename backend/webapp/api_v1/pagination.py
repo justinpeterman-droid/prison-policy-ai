@@ -1,5 +1,5 @@
 import base64
-from datetime import UTC, datetime
+from datetime import datetime
 import hashlib
 import hmac
 import json

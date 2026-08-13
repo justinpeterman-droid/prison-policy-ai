@@ -2,6 +2,7 @@
 
 `sleep` is injected so the backoff is exercised without real delays.
 """
+
 import pytest
 
 from backend.pipeline.retry import is_transient, with_retries
@@ -18,25 +19,31 @@ class _Recorder:
 
 
 class TestIsTransient:
-    @pytest.mark.parametrize("message", [
-        "503 Service Unavailable",
-        "RESOURCE_EXHAUSTED: quota exceeded",
-        "429 Too Many Requests",
-        "deadline exceeded",
-        "the request timed out",
-        "502 Bad Gateway",
-        "Connection reset by peer",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "503 Service Unavailable",
+            "RESOURCE_EXHAUSTED: quota exceeded",
+            "429 Too Many Requests",
+            "deadline exceeded",
+            "the request timed out",
+            "502 Bad Gateway",
+            "Connection reset by peer",
+        ],
+    )
     def test_retryable_conditions(self, message):
         assert is_transient(RuntimeError(message)) is True
 
-    @pytest.mark.parametrize("message", [
-        "403 PERMISSION_DENIED",
-        "404 not_found: model does not exist",
-        "400 INVALID_ARGUMENT: bad schema",
-        "401 unauthenticated",
-        "Your default credentials were not found",
-    ])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "403 PERMISSION_DENIED",
+            "404 not_found: model does not exist",
+            "400 INVALID_ARGUMENT: bad schema",
+            "401 unauthenticated",
+            "Your default credentials were not found",
+        ],
+    )
     def test_permanent_conditions(self, message):
         # Retrying these only costs the officer three timeouts.
         assert is_transient(RuntimeError(message)) is False
@@ -50,7 +57,9 @@ class TestIsTransient:
 
     def test_permanent_wins_over_transient_wording(self):
         # A 403 that happens to mention a timeout must still not be retried.
-        assert is_transient(RuntimeError("403 permission_denied after timeout")) is False
+        assert (
+            is_transient(RuntimeError("403 permission_denied after timeout")) is False
+        )
 
 
 class TestWithRetries:
@@ -117,8 +126,11 @@ class TestWithRetries:
     def test_single_attempt_never_sleeps(self):
         sleep = _Recorder()
         with pytest.raises(RuntimeError):
-            with_retries(lambda: (_ for _ in ()).throw(RuntimeError("503")),
-                         attempts=1, sleep=sleep)
+            with_retries(
+                lambda: (_ for _ in ()).throw(RuntimeError("503")),
+                attempts=1,
+                sleep=sleep,
+            )
         assert sleep.delays == []
 
     def test_original_exception_reaches_the_caller(self):
@@ -126,5 +138,7 @@ class TestWithRetries:
             pass
 
         with pytest.raises(Custom):
-            with_retries(lambda: (_ for _ in ()).throw(Custom("permission_denied")),
-                         sleep=_Recorder())
+            with_retries(
+                lambda: (_ for _ in ()).throw(Custom("permission_denied")),
+                sleep=_Recorder(),
+            )

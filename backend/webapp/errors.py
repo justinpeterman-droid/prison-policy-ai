@@ -5,6 +5,7 @@ Introduced for the chat endpoint (RC-3) and shared with reports: a generic
 debugging even less. Credentials, an upstream API rejection and a timeout all
 need different responses, so they get different messages and log lines.
 """
+
 import socket
 
 
@@ -14,6 +15,7 @@ def classify_error(exc: Exception) -> tuple[str, int]:
 
     try:
         from google.auth.exceptions import DefaultCredentialsError
+
         if isinstance(exc, DefaultCredentialsError):
             return "credentials", 503
     except ImportError:

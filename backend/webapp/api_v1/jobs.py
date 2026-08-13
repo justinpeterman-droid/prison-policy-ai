@@ -87,7 +87,10 @@ def _submit(incident_id: UUID, job_type: str):
     except RequestInProgress as error:
         db.rollback()
         raise ApiError(
-            "request_in_progress", str(error), status=409, retryable=True,
+            "request_in_progress",
+            str(error),
+            status=409,
+            retryable=True,
         ) from None
     except IdempotencyConflict as error:
         db.rollback()
@@ -105,11 +108,14 @@ def _submit(incident_id: UUID, job_type: str):
         raise ApiError("not_found", "Job target not found.", status=404) from None
     except ValueError:
         db.rollback()
-        raise ApiError("validation_failed", "The job request is invalid.", status=400) from None
+        raise ApiError(
+            "validation_failed", "The job request is invalid.", status=400
+        ) from None
     except IntegrityError:
         db.rollback()
         raise ApiError(
-            "idempotency_conflict", "The job submission conflicts with an existing request.",
+            "idempotency_conflict",
+            "The job submission conflicts with an existing request.",
             status=409,
         ) from None
     except OperationalError as error:
@@ -117,23 +123,30 @@ def _submit(incident_id: UUID, job_type: str):
         sqlstate = getattr(getattr(error, "orig", None), "sqlstate", None)
         if sqlstate in {"40P01", "40001", "55P03"}:
             raise ApiError(
-                "request_in_progress", "The job submission is still in progress.",
-                status=409, retryable=True,
+                "request_in_progress",
+                "The job submission is still in progress.",
+                status=409,
+                retryable=True,
             ) from None
         raise ApiError(
-            "dependency_unavailable", "Job storage is temporarily unavailable.",
-            status=503, retryable=True,
+            "dependency_unavailable",
+            "Job storage is temporarily unavailable.",
+            status=503,
+            retryable=True,
         ) from None
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
         db.rollback()
         raise ApiError(
-            "dependency_unavailable", "Job storage is temporarily unavailable.",
-            status=503, retryable=True,
+            "dependency_unavailable",
+            "Job storage is temporarily unavailable.",
+            status=503,
+            retryable=True,
         ) from None
 
 
 @jobs_bp.post(
-    "/incidents/<uuid:incident_id>/jobs/classify", endpoint="submit_classify",
+    "/incidents/<uuid:incident_id>/jobs/classify",
+    endpoint="submit_classify",
 )
 @require_access_token
 @require_compatible_write
@@ -142,7 +155,8 @@ def submit_classify(incident_id: UUID):
 
 
 @jobs_bp.post(
-    "/incidents/<uuid:incident_id>/jobs/extract", endpoint="submit_extract",
+    "/incidents/<uuid:incident_id>/jobs/extract",
+    endpoint="submit_extract",
 )
 @require_access_token
 @require_compatible_write
@@ -151,7 +165,8 @@ def submit_extract(incident_id: UUID):
 
 
 @jobs_bp.post(
-    "/incidents/<uuid:incident_id>/jobs/generate", endpoint="submit_generate",
+    "/incidents/<uuid:incident_id>/jobs/generate",
+    endpoint="submit_generate",
 )
 @require_access_token
 @require_compatible_write
@@ -160,7 +175,8 @@ def submit_generate(incident_id: UUID):
 
 
 @jobs_bp.post(
-    "/incidents/<uuid:incident_id>/jobs/disciplinary", endpoint="submit_disciplinary",
+    "/incidents/<uuid:incident_id>/jobs/disciplinary",
+    endpoint="submit_disciplinary",
 )
 @require_access_token
 @require_compatible_write
@@ -175,15 +191,26 @@ def status(job_id: UUID):
     if not REQUEST_ID_PATTERN.fullmatch(supplied_request_id):
         raise ApiError("validation_failed", "X-Request-ID is required.", status=400)
     try:
-        return success(_job_data(get_job(
-            current_request_session(), current_actor(), job_id,
-        )))
+        return success(
+            _job_data(
+                get_job(
+                    current_request_session(),
+                    current_actor(),
+                    job_id,
+                )
+            )
+        )
     except JobNotFound:
         raise ApiError("not_found", "Job not found.", status=404) from None
     except (
-        DatabaseUnavailable, InvalidJobResultReference, SQLAlchemyError, RuntimeError,
+        DatabaseUnavailable,
+        InvalidJobResultReference,
+        SQLAlchemyError,
+        RuntimeError,
     ):
         raise ApiError(
-            "dependency_unavailable", "Job storage is temporarily unavailable.",
-            status=503, retryable=True,
+            "dependency_unavailable",
+            "Job storage is temporarily unavailable.",
+            status=503,
+            retryable=True,
         ) from None

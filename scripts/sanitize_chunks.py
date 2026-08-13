@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Sanitize chunk IDs and re-export for RAG import."""
+
 import json
 from pathlib import Path
 
 INPUT = Path(r"C:\Users\justi\workspace\prison-policy-ai\data\ocr_chunks.jsonl")
-OUTPUT = Path(r"C:\Users\justi\workspace\prison-policy-ai\data\ocr_chunks_sanitized.jsonl")
+OUTPUT = Path(
+    r"C:\Users\justi\workspace\prison-policy-ai\data\ocr_chunks_sanitized.jsonl"
+)
 
 with open(INPUT, encoding="utf-8") as fin, open(OUTPUT, "w", encoding="utf-8") as fout:
     for line in fin:

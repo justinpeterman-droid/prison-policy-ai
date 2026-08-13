@@ -13,6 +13,7 @@ Needs GCP Application Default Credentials. Run from the repo root:
 Exit code is 0 when the search returns usable passages, 1 otherwise, so it can
 double as a smoke check.
 """
+
 import sys
 import time
 

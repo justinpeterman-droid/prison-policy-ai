@@ -139,7 +139,9 @@ def _authorize_incident(session: Session, actor: Actor, incident_id: UUID) -> In
 
 
 def _authorize_bound_report(
-    session: Session, actor: Actor, command: SubmitJobCommand,
+    session: Session,
+    actor: Actor,
+    command: SubmitJobCommand,
 ) -> None:
     if command.report_id is None:
         return
@@ -173,17 +175,20 @@ def _append_audit(
     client_version: str,
     details: dict[str, object],
 ) -> None:
-    writer.append(session, AuditEventInput(
-        actor_account_id=actor_account_id,
-        actor_staff_member_id=actor_staff_member_id,
-        action=action,
-        result="success" if action != "ai.job_failed" else "failed",
-        request_id=request_id,
-        target_type="ai_job",
-        target_id=job.id,
-        details=details,
-        client_version=client_version,
-    ))
+    writer.append(
+        session,
+        AuditEventInput(
+            actor_account_id=actor_account_id,
+            actor_staff_member_id=actor_staff_member_id,
+            action=action,
+            result="success" if action != "ai.job_failed" else "failed",
+            request_id=request_id,
+            target_type="ai_job",
+            target_id=job.id,
+            details=details,
+            client_version=client_version,
+        ),
+    )
 
 
 def submit_job(
@@ -278,7 +283,10 @@ def get_job(session: Session, actor: Actor, job_id: UUID) -> AiJob:
 
 
 def claim_job(
-    session: Session, job_id: UUID, *, now: datetime | None = None,
+    session: Session,
+    job_id: UUID,
+    *,
+    now: datetime | None = None,
 ) -> AiJob | None:
     """Claim queued work or safely reclaim a worker whose lease expired."""
     fixed = now or datetime.now(UTC)
@@ -313,14 +321,18 @@ def claim_job(
 
 
 def _validate_result_targets(
-    session: Session, job: AiJob, reference: dict[str, object],
+    session: Session,
+    job: AiJob,
+    reference: dict[str, object],
 ) -> None:
     incident_revision_number = reference.get("incident_revision_number")
     if incident_revision_number is not None:
-        incident_revision_id = session.scalar(select(IncidentRevision.id).where(
-            IncidentRevision.incident_id == job.incident_id,
-            IncidentRevision.revision_number == incident_revision_number,
-        ))
+        incident_revision_id = session.scalar(
+            select(IncidentRevision.id).where(
+                IncidentRevision.incident_id == job.incident_id,
+                IncidentRevision.revision_number == incident_revision_number,
+            )
+        )
         if incident_revision_id is None:
             raise InvalidJobResultReference("job result reference is invalid")
 
@@ -363,9 +375,7 @@ def apply_job_result(
         {} if result_reference is None else result_reference,
     )
     fixed = now or datetime.now(UTC)
-    job = session.scalar(
-        select(AiJob).where(AiJob.id == job_id).with_for_update()
-    )
+    job = session.scalar(select(AiJob).where(AiJob.id == job_id).with_for_update())
     if job is None:
         raise JobNotFound("Job not found.")
     if job.state in TERMINAL_STATES:
@@ -426,7 +436,9 @@ def apply_job_result(
     job.completed_at = fixed
     job.claim_token = None
     job.lease_expires_at = None
-    latency_ms = max(0, min(int((fixed - job.created_at).total_seconds() * 1000), 1_000_000_000))
+    latency_ms = max(
+        0, min(int((fixed - job.created_at).total_seconds() * 1000), 1_000_000_000)
+    )
     _append_audit(
         session,
         writer,

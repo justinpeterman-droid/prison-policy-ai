@@ -4,6 +4,7 @@ The field-notes limit is the contract release one promises the Access client, so
 these tests pin both the exact boundary and *where the number comes from*: a
 duplicate literal would drift silently the first time ID-02 changes the limit.
 """
+
 import ast
 import json
 from pathlib import Path
@@ -70,7 +71,8 @@ def test_field_notes_rejects_one_character_over_the_limit(model):
 @pytest.mark.parametrize("model", [IncidentSnapshotV1, SaveIncidentRequest])
 def test_non_bmp_boundary_counts_code_points_not_bytes_or_units(model):
     accepted = model.model_validate(
-        {"field_notes": NON_BMP * FIELD_NOTES_MAX_CHARACTERS})
+        {"field_notes": NON_BMP * FIELD_NOTES_MAX_CHARACTERS}
+    )
 
     assert len(accepted.field_notes) == 30_000
     # 120,000 UTF-8 bytes and 60,000 UTF-16 units still fit: only code points count.
@@ -78,11 +80,11 @@ def test_non_bmp_boundary_counts_code_points_not_bytes_or_units(model):
 
     with pytest.raises(ValidationError):
         model.model_validate(
-            {"field_notes": NON_BMP * (FIELD_NOTES_MAX_CHARACTERS + 1)})
+            {"field_notes": NON_BMP * (FIELD_NOTES_MAX_CHARACTERS + 1)}
+        )
 
 
-@pytest.mark.parametrize(
-    "class_name", ["IncidentSnapshotV1", "SaveIncidentRequest"])
+@pytest.mark.parametrize("class_name", ["IncidentSnapshotV1", "SaveIncidentRequest"])
 def test_field_notes_limit_is_sourced_from_the_id_02_constant(class_name):
     node = _field_notes_max_length_node(class_name)
 
@@ -111,28 +113,34 @@ def test_field_notes_limit_is_not_read_from_environment_or_version_metadata():
 
 def test_report_content_rejects_unknown_fields():
     with pytest.raises(ValidationError):
-        ReportContentV1.model_validate({
-            "schema_version": 1,
-            "narrative": "Fictional narrative.",
-            "unexpected": "not accepted",
-        })
+        ReportContentV1.model_validate(
+            {
+                "schema_version": 1,
+                "narrative": "Fictional narrative.",
+                "unexpected": "not accepted",
+            }
+        )
 
 
 def test_incident_snapshot_rejects_unknown_fields():
     with pytest.raises(ValidationError):
-        IncidentSnapshotV1.model_validate({
-            "field_notes": "Fictional field notes.",
-            "unexpected": "not accepted",
-        })
+        IncidentSnapshotV1.model_validate(
+            {
+                "field_notes": "Fictional field notes.",
+                "unexpected": "not accepted",
+            }
+        )
 
 
 @pytest.mark.parametrize("model", [IncidentSnapshotV1, SaveIncidentRequest])
 def test_incident_clients_cannot_supply_server_provenance(model):
     with pytest.raises(ValidationError):
-        model.model_validate({
-            "field_notes": "Fictional field notes.",
-            "provenance": {"source_commit": "client-owned"},
-        })
+        model.model_validate(
+            {
+                "field_notes": "Fictional field notes.",
+                "provenance": {"source_commit": "client-owned"},
+            }
+        )
 
 
 @pytest.mark.parametrize(
@@ -141,34 +149,43 @@ def test_incident_clients_cannot_supply_server_provenance(model):
 )
 def test_client_supplied_fingerprints_are_rejected(forbidden):
     with pytest.raises(ValidationError):
-        ReportContentV1.model_validate({
-            "schema_version": 1,
-            "narrative": "Fictional narrative.",
-            forbidden: "client-owned value",
-        })
+        ReportContentV1.model_validate(
+            {
+                "schema_version": 1,
+                "narrative": "Fictional narrative.",
+                forbidden: "client-owned value",
+            }
+        )
 
 
-@pytest.mark.parametrize("forbidden", [
-    "actor_account_id",
-    "owner_staff_member_id",
-    "preparer_staff_member_id",
-    "editor_account_id",
-    "created_by_account_id",
-])
+@pytest.mark.parametrize(
+    "forbidden",
+    [
+        "actor_account_id",
+        "owner_staff_member_id",
+        "preparer_staff_member_id",
+        "editor_account_id",
+        "created_by_account_id",
+    ],
+)
 def test_client_supplied_identity_fields_are_rejected(forbidden):
     with pytest.raises(ValidationError):
-        SaveReportRequest.model_validate({
-            "content": {"schema_version": 1, "narrative": "Fictional narrative."},
-            "base_revision_number": 1,
-            forbidden: str(uuid4()),
-        })
+        SaveReportRequest.model_validate(
+            {
+                "content": {"schema_version": 1, "narrative": "Fictional narrative."},
+                "base_revision_number": 1,
+                forbidden: str(uuid4()),
+            }
+        )
 
     with pytest.raises(ValidationError):
-        SaveIncidentRequest.model_validate({
-            "field_notes": "Fictional field notes.",
-            "base_revision_number": 1,
-            forbidden: str(uuid4()),
-        })
+        SaveIncidentRequest.model_validate(
+            {
+                "field_notes": "Fictional field notes.",
+                "base_revision_number": 1,
+                forbidden: str(uuid4()),
+            }
+        )
 
 
 def test_schema_version_is_pinned_to_one():
@@ -185,66 +202,82 @@ def test_strict_mode_refuses_coercion():
     with pytest.raises(ValidationError):
         ReportContentV1.model_validate({"schema_version": 1, "narrative": 12345})
     with pytest.raises(ValidationError):
-        SaveReportRequest.model_validate({
-            "content": {"schema_version": 1, "narrative": "Fictional narrative."},
-            "base_revision_number": "1",
-        })
+        SaveReportRequest.model_validate(
+            {
+                "content": {"schema_version": 1, "narrative": "Fictional narrative."},
+                "base_revision_number": "1",
+            }
+        )
 
 
 @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
 def test_nonfinite_numbers_are_rejected(bad):
     with pytest.raises(ValidationError):
-        ReportContentV1.model_validate({
-            "schema_version": 1,
-            "narrative": "Fictional narrative.",
-            "editable_fields": {"confidence": bad},
-        })
+        ReportContentV1.model_validate(
+            {
+                "schema_version": 1,
+                "narrative": "Fictional narrative.",
+                "editable_fields": {"confidence": bad},
+            }
+        )
     with pytest.raises(ValidationError):
-        IncidentSnapshotV1.model_validate({
-            "field_notes": "Fictional field notes.",
-            "validation": {"score": bad},
-        })
+        IncidentSnapshotV1.model_validate(
+            {
+                "field_notes": "Fictional field notes.",
+                "validation": {"score": bad},
+            }
+        )
 
 
 def test_oversized_json_is_rejected():
     with pytest.raises(ValidationError):
-        ReportContentV1.model_validate({
-            "schema_version": 1,
-            "narrative": "Fictional narrative.",
-            "validation": {"blob": "x" * (reporting.MAX_CONTENT_JSON_BYTES + 1)},
-        })
+        ReportContentV1.model_validate(
+            {
+                "schema_version": 1,
+                "narrative": "Fictional narrative.",
+                "validation": {"blob": "x" * (reporting.MAX_CONTENT_JSON_BYTES + 1)},
+            }
+        )
 
 
 def test_collections_are_bounded():
     with pytest.raises(ValidationError):
-        ReportContentV1.model_validate({
-            "schema_version": 1,
-            "narrative": "Fictional narrative.",
-            "warnings": ["w"] * (reporting.MAX_WARNINGS + 1),
-        })
+        ReportContentV1.model_validate(
+            {
+                "schema_version": 1,
+                "narrative": "Fictional narrative.",
+                "warnings": ["w"] * (reporting.MAX_WARNINGS + 1),
+            }
+        )
     with pytest.raises(ValidationError):
-        IncidentSnapshotV1.model_validate({
-            "field_notes": "Fictional field notes.",
-            "charges": ["fictional charge"] * (reporting.MAX_CHARGES + 1),
-        })
+        IncidentSnapshotV1.model_validate(
+            {
+                "field_notes": "Fictional field notes.",
+                "charges": ["fictional charge"] * (reporting.MAX_CHARGES + 1),
+            }
+        )
 
 
 def test_incident_snapshot_carries_bounded_searchable_fields():
     # JSON is the wire format the routes parse; strict mode still refuses
     # coercion, it just knows JSON has no native date type.
-    snapshot = IncidentSnapshotV1.model_validate_json(json.dumps({
-        "field_notes": "Fictional field notes for contract testing.",
-        "incident_date": "2026-08-12",
-        "incident_time": "14:35:00",
-        "facility": "Fictional Unit",
-        "shift": "A",
-        "location": "Fictional Dayroom B",
-        "category": "inmate_fight",
-        "classification": {"incident_type": "inmate_fight"},
-        "extracted_facts": {"inmate_count": 2},
-        "gap_answers": {"oc_lot_number": "fictional-lot-1"},
-        "charges": ["fictional charge"],
-    }))
+    snapshot = IncidentSnapshotV1.model_validate_json(
+        json.dumps(
+            {
+                "field_notes": "Fictional field notes for contract testing.",
+                "incident_date": "2026-08-12",
+                "incident_time": "14:35:00",
+                "facility": "Fictional Unit",
+                "shift": "A",
+                "location": "Fictional Dayroom B",
+                "category": "inmate_fight",
+                "classification": {"incident_type": "inmate_fight"},
+                "extracted_facts": {"inmate_count": 2},
+                "gap_answers": {"oc_lot_number": "fictional-lot-1"},
+                "charges": ["fictional charge"],
+            }
+        )
+    )
 
     assert snapshot.incident_date.isoformat() == "2026-08-12"
     assert snapshot.incident_time.isoformat() == "14:35:00"
@@ -255,76 +288,91 @@ def test_incident_snapshot_carries_bounded_searchable_fields():
     assert snapshot.category == "inmate_fight"
 
     with pytest.raises(ValidationError):
-        IncidentSnapshotV1.model_validate({
-            "field_notes": "Fictional field notes.",
-            "location": "x" * (reporting.MAX_SHORT_TEXT + 1),
-        })
+        IncidentSnapshotV1.model_validate(
+            {
+                "field_notes": "Fictional field notes.",
+                "location": "x" * (reporting.MAX_SHORT_TEXT + 1),
+            }
+        )
 
 
 def test_incident_snapshot_accepts_realistic_nested_classifier_and_extractor_shapes():
-    snapshot = IncidentSnapshotV1.model_validate({
-        "field_notes": "Fictional Officer Example observed a staged incident.",
-        "classification": {
-            "incident_type": "inmate_fight",
-            "label": "Inmate Fight",
-            "persons_involved": [{
-                "role": "inmate",
-                "name": "Example, Jordan",
-                "rank": None,
-                "adc_number": "000000",
-            }],
-            "charges_applicable": [{
-                "code": "12-1",
-                "inmate": "Example",
-                "description": "Fictional charge description.",
-            }],
-            "charge_descriptions": {
-                "12-1": "Fictional charge description.",
+    snapshot = IncidentSnapshotV1.model_validate(
+        {
+            "field_notes": "Fictional Officer Example observed a staged incident.",
+            "classification": {
+                "incident_type": "inmate_fight",
+                "label": "Inmate Fight",
+                "persons_involved": [
+                    {
+                        "role": "inmate",
+                        "name": "Example, Jordan",
+                        "rank": None,
+                        "adc_number": "000000",
+                    }
+                ],
+                "charges_applicable": [
+                    {
+                        "code": "12-1",
+                        "inmate": "Example",
+                        "description": "Fictional charge description.",
+                    }
+                ],
+                "charge_descriptions": {
+                    "12-1": "Fictional charge description.",
+                },
+                "facility": "Fictional Unit",
+                "shift": "A",
+                "location": "Fictional Dayroom",
+                "date": "2026-08-12",
+                "time": "2:35pm",
             },
-            "facility": "Fictional Unit",
-            "shift": "A",
-            "location": "Fictional Dayroom",
-            "date": "2026-08-12",
-            "time": "2:35pm",
-        },
-        "extracted_facts": {
-            "persons": [{
-                "role": "inmate",
-                "last": "Example",
-                "first": "Jordan",
-                "adc_number": "000000",
-                "actions": ["Raised hands in a staged confrontation."],
-            }],
-            "narrative_facts": [
-                "Officer Example observed the fictional staged incident.",
-                "Staff separated the fictional participants.",
-            ],
-            "quotes": [{
-                "speaker": "Example, Jordan",
-                "text": "Fictional quoted statement.",
-            }],
-            "investigation_findings": [
-                "Reviewed fictional training footage.",
-            ],
-        },
-    })
+            "extracted_facts": {
+                "persons": [
+                    {
+                        "role": "inmate",
+                        "last": "Example",
+                        "first": "Jordan",
+                        "adc_number": "000000",
+                        "actions": ["Raised hands in a staged confrontation."],
+                    }
+                ],
+                "narrative_facts": [
+                    "Officer Example observed the fictional staged incident.",
+                    "Staff separated the fictional participants.",
+                ],
+                "quotes": [
+                    {
+                        "speaker": "Example, Jordan",
+                        "text": "Fictional quoted statement.",
+                    }
+                ],
+                "investigation_findings": [
+                    "Reviewed fictional training footage.",
+                ],
+            },
+        }
+    )
 
     assert snapshot.classification["persons_involved"][0]["role"] == "inmate"
     assert snapshot.classification["charges_applicable"][0]["code"] == "12-1"
     assert snapshot.extracted_facts["persons"][0]["actions"] == [
-        "Raised hands in a staged confrontation."]
+        "Raised hands in a staged confrontation."
+    ]
 
 
 def test_recursive_incident_json_rejects_unbounded_or_unsafe_nested_values():
     with pytest.raises(ValidationError):
-        IncidentSnapshotV1.model_validate({
-            "classification": {
-                "persons_involved": [
-                    {"role": "inmate"}
-                    for _ in range(reporting.MAX_JSON_COLLECTION_ITEMS + 1)
-                ],
-            },
-        })
+        IncidentSnapshotV1.model_validate(
+            {
+                "classification": {
+                    "persons_involved": [
+                        {"role": "inmate"}
+                        for _ in range(reporting.MAX_JSON_COLLECTION_ITEMS + 1)
+                    ],
+                },
+            }
+        )
 
     nested = "fictional"
     for _ in range(reporting.MAX_JSON_DEPTH + 1):
@@ -333,16 +381,20 @@ def test_recursive_incident_json_rejects_unbounded_or_unsafe_nested_values():
         IncidentSnapshotV1.model_validate({"extracted_facts": {"nested": nested}})
 
     with pytest.raises(ValidationError):
-        IncidentSnapshotV1.model_validate({
-            "extracted_facts": {
-                "persons": [{"actions": [float("nan")]}],
-            },
-        })
+        IncidentSnapshotV1.model_validate(
+            {
+                "extracted_facts": {
+                    "persons": [{"actions": [float("nan")]}],
+                },
+            }
+        )
 
     with pytest.raises(ValidationError):
-        IncidentSnapshotV1.model_validate({
-            "classification": {"provenance": {"source_commit": "client-owned"}},
-        })
+        IncidentSnapshotV1.model_validate(
+            {
+                "classification": {"provenance": {"source_commit": "client-owned"}},
+            }
+        )
 
 
 def test_server_owned_content_keys_cover_every_collected_provenance_key():
@@ -357,49 +409,84 @@ def test_server_owned_content_keys_cover_every_collected_provenance_key():
     "forbidden",
     sorted(COLLECTED_PROVENANCE_KEYS | {"provenance", "prompt_fingerprints"}),
 )
-@pytest.mark.parametrize("model,payload", [
-    (ReportContentV1, lambda key: {
-        "narrative": "Fictional narrative.",
-        "editable_fields": {key: "client-owned"},
-    }),
-    (ReportContentV1, lambda key: {
-        "narrative": "Fictional narrative.",
-        "validation": {"result": {key: "client-owned"}},
-    }),
-    (ReportContentV1, lambda key: {
-        "narrative": "Fictional narrative.",
-        "warnings": [{key: "client-owned"}],
-    }),
-    (IncidentSnapshotV1, lambda key: {
-        "classification": {"result": {key: "client-owned"}},
-    }),
-    (IncidentSnapshotV1, lambda key: {
-        "extracted_facts": {"result": {key: "client-owned"}},
-    }),
-    (IncidentSnapshotV1, lambda key: {
-        "gap_answers": {key: "client-owned"},
-    }),
-    (IncidentSnapshotV1, lambda key: {
-        "charges": [{key: "client-owned"}],
-    }),
-    (IncidentSnapshotV1, lambda key: {
-        "validation": {"result": {key: "client-owned"}},
-    }),
-    (IncidentSnapshotV1, lambda key: {
-        "warnings": [{key: "client-owned"}],
-    }),
-])
+@pytest.mark.parametrize(
+    "model,payload",
+    [
+        (
+            ReportContentV1,
+            lambda key: {
+                "narrative": "Fictional narrative.",
+                "editable_fields": {key: "client-owned"},
+            },
+        ),
+        (
+            ReportContentV1,
+            lambda key: {
+                "narrative": "Fictional narrative.",
+                "validation": {"result": {key: "client-owned"}},
+            },
+        ),
+        (
+            ReportContentV1,
+            lambda key: {
+                "narrative": "Fictional narrative.",
+                "warnings": [{key: "client-owned"}],
+            },
+        ),
+        (
+            IncidentSnapshotV1,
+            lambda key: {
+                "classification": {"result": {key: "client-owned"}},
+            },
+        ),
+        (
+            IncidentSnapshotV1,
+            lambda key: {
+                "extracted_facts": {"result": {key: "client-owned"}},
+            },
+        ),
+        (
+            IncidentSnapshotV1,
+            lambda key: {
+                "gap_answers": {key: "client-owned"},
+            },
+        ),
+        (
+            IncidentSnapshotV1,
+            lambda key: {
+                "charges": [{key: "client-owned"}],
+            },
+        ),
+        (
+            IncidentSnapshotV1,
+            lambda key: {
+                "validation": {"result": {key: "client-owned"}},
+            },
+        ),
+        (
+            IncidentSnapshotV1,
+            lambda key: {
+                "warnings": [{key: "client-owned"}],
+            },
+        ),
+    ],
+)
 def test_all_client_content_containers_reject_server_owned_keys(
-    model, payload, forbidden,
+    model,
+    payload,
+    forbidden,
 ):
     with pytest.raises(ValidationError):
         model.model_validate(payload(forbidden))
 
 
-@pytest.mark.parametrize("model,base", [
-    (ReportContentV1, {"narrative": "Fictional narrative."}),
-    (IncidentSnapshotV1, {}),
-])
+@pytest.mark.parametrize(
+    "model,base",
+    [
+        (ReportContentV1, {"narrative": "Fictional narrative."}),
+        (IncidentSnapshotV1, {}),
+    ],
+)
 def test_complete_client_content_applies_recursive_bounds_to_validation(model, base):
     too_deep = "fictional"
     for _ in range(reporting.MAX_JSON_DEPTH + 1):
@@ -423,112 +510,142 @@ def test_complete_client_content_applies_recursive_bounds_to_validation(model, b
 
 
 def test_ordinary_source_identifiers_remain_valid_client_content():
-    report = ReportContentV1.model_validate({
-        "narrative": "Fictional narrative.",
-        "editable_fields": {"source_id": "fictional-source-1"},
-        "validation": {
-            "source_document_id": "fictional-document-1",
-            "source_ids": ["fictional-source-1", "fictional-source-2"],
-        },
-    })
-    incident = IncidentSnapshotV1.model_validate({
-        "classification": {
-            "source_id": "fictional-source-1",
-            "source_ids": ["fictional-source-1", "fictional-source-2"],
-        },
-        "gap_answers": {"source_id": "fictional-source-1"},
-    })
+    report = ReportContentV1.model_validate(
+        {
+            "narrative": "Fictional narrative.",
+            "editable_fields": {"source_id": "fictional-source-1"},
+            "validation": {
+                "source_document_id": "fictional-document-1",
+                "source_ids": ["fictional-source-1", "fictional-source-2"],
+            },
+        }
+    )
+    incident = IncidentSnapshotV1.model_validate(
+        {
+            "classification": {
+                "source_id": "fictional-source-1",
+                "source_ids": ["fictional-source-1", "fictional-source-2"],
+            },
+            "gap_answers": {"source_id": "fictional-source-1"},
+        }
+    )
 
     assert report.validation["source_document_id"] == "fictional-document-1"
     assert incident.classification["source_ids"] == [
-        "fictional-source-1", "fictional-source-2"]
+        "fictional-source-1",
+        "fictional-source-2",
+    ]
 
 
 def test_save_incident_has_one_authoritative_top_level_field_notes_source():
-    request = SaveIncidentRequest.model_validate_json(json.dumps({
-        "field_notes": "Fictional authoritative notes.",
-        "base_revision_number": 1,
-        "reason": "manual_save",
-        "facility": "Fictional Unit",
-        "shift": "A",
-        "location": "Fictional Dayroom B",
-        "extracted_facts": {"staff_count": 2},
-    }))
+    request = SaveIncidentRequest.model_validate_json(
+        json.dumps(
+            {
+                "field_notes": "Fictional authoritative notes.",
+                "base_revision_number": 1,
+                "reason": "manual_save",
+                "facility": "Fictional Unit",
+                "shift": "A",
+                "location": "Fictional Dayroom B",
+                "extracted_facts": {"staff_count": 2},
+            }
+        )
+    )
 
     assert request.field_notes == "Fictional authoritative notes."
     assert request.extracted_facts == {"staff_count": 2}
     assert not hasattr(request, "snapshot")
 
     with pytest.raises(ValidationError):
-        SaveIncidentRequest.model_validate({
-            "field_notes": "Top-level notes.",
-            "snapshot": {"field_notes": "Contradictory nested notes."},
-            "base_revision_number": 1,
-        })
+        SaveIncidentRequest.model_validate(
+            {
+                "field_notes": "Top-level notes.",
+                "snapshot": {"field_notes": "Contradictory nested notes."},
+                "base_revision_number": 1,
+            }
+        )
 
 
 def test_revision_summary_is_closed_and_carries_no_content():
-    summary = RevisionSummary.model_validate_json(json.dumps({
-        "revision_number": 2,
-        "reason": "manual_save",
-        "changed_fields": ["narrative"],
-        "created_at": "2026-08-12T00:00:00Z",
-        "editor_staff_member_id": None,
-        "client_version": "1.0.0",
-    }))
+    summary = RevisionSummary.model_validate_json(
+        json.dumps(
+            {
+                "revision_number": 2,
+                "reason": "manual_save",
+                "changed_fields": ["narrative"],
+                "created_at": "2026-08-12T00:00:00Z",
+                "editor_staff_member_id": None,
+                "client_version": "1.0.0",
+            }
+        )
+    )
 
     assert summary.revision_number == 2
     assert "narrative" in summary.changed_fields
 
     with pytest.raises(ValidationError):
-        RevisionSummary.model_validate_json(json.dumps({
-            "revision_number": 2,
-            "reason": "manual_save",
-            "changed_fields": ["narrative"],
-            "created_at": "2026-08-12T00:00:00Z",
-            "narrative": "Fictional narrative.",
-        }))
+        RevisionSummary.model_validate_json(
+            json.dumps(
+                {
+                    "revision_number": 2,
+                    "reason": "manual_save",
+                    "changed_fields": ["narrative"],
+                    "created_at": "2026-08-12T00:00:00Z",
+                    "narrative": "Fictional narrative.",
+                }
+            )
+        )
 
 
 def test_save_requests_reject_negative_base_revisions():
     with pytest.raises(ValidationError):
-        SaveReportRequest.model_validate({
-            "content": {"schema_version": 1, "narrative": "Fictional narrative."},
-            "base_revision_number": -1,
-        })
+        SaveReportRequest.model_validate(
+            {
+                "content": {"schema_version": 1, "narrative": "Fictional narrative."},
+                "base_revision_number": -1,
+            }
+        )
 
 
 def test_save_report_reason_is_bounded():
-    request = SaveReportRequest.model_validate({
-        "content": {"schema_version": 1, "narrative": "Fictional narrative."},
-        "base_revision_number": 1,
-        "reason": "autosave",
-    })
+    request = SaveReportRequest.model_validate(
+        {
+            "content": {"schema_version": 1, "narrative": "Fictional narrative."},
+            "base_revision_number": 1,
+            "reason": "autosave",
+        }
+    )
 
     assert request.reason == "autosave"
 
     with pytest.raises(ValidationError):
-        SaveReportRequest.model_validate({
-            "content": {"schema_version": 1, "narrative": "Fictional narrative."},
-            "base_revision_number": 1,
-            "reason": "not_a_reason",
-        })
+        SaveReportRequest.model_validate(
+            {
+                "content": {"schema_version": 1, "narrative": "Fictional narrative."},
+                "base_revision_number": 1,
+                "reason": "not_a_reason",
+            }
+        )
 
 
 @pytest.mark.parametrize("server_reason", ["ai_result", "admin_edit"])
 def test_report_request_rejects_server_owned_reasons(server_reason):
     with pytest.raises(ValidationError):
-        SaveReportRequest.model_validate({
-            "content": {"schema_version": 1, "narrative": "Fictional narrative."},
-            "base_revision_number": 1,
-            "reason": server_reason,
-        })
+        SaveReportRequest.model_validate(
+            {
+                "content": {"schema_version": 1, "narrative": "Fictional narrative."},
+                "base_revision_number": 1,
+                "reason": server_reason,
+            }
+        )
 
 
 def test_incident_request_rejects_admin_edit_reason():
     with pytest.raises(ValidationError):
-        SaveIncidentRequest.model_validate({
-            "field_notes": "Fictional field notes.",
-            "base_revision_number": 1,
-            "reason": "admin_edit",
-        })
+        SaveIncidentRequest.model_validate(
+            {
+                "field_notes": "Fictional field notes.",
+                "base_revision_number": 1,
+                "reason": "admin_edit",
+            }
+        )

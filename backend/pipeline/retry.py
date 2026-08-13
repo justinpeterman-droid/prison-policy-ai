@@ -13,6 +13,7 @@ error.
 
 Pure Python — no AI, no GCP — so it is unit tested directly.
 """
+
 import logging
 import random
 import time
@@ -27,18 +28,38 @@ MAX_DELAY = 8.0
 # several different exception classes for what is operationally the same
 # transient condition.
 _TRANSIENT_MARKERS = (
-    "resource_exhausted", "rate limit", "ratelimit", "quota",
-    "unavailable", "deadline", "timed out", "timeout",
-    "internal error", "internalservererror", "connection reset",
-    "connection aborted", "server error",
-    "500", "502", "503", "504", "429",
+    "resource_exhausted",
+    "rate limit",
+    "ratelimit",
+    "quota",
+    "unavailable",
+    "deadline",
+    "timed out",
+    "timeout",
+    "internal error",
+    "internalservererror",
+    "connection reset",
+    "connection aborted",
+    "server error",
+    "500",
+    "502",
+    "503",
+    "504",
+    "429",
 )
 
 # Checked first: retrying these is pure latency, the answer will not change.
 _PERMANENT_MARKERS = (
-    "permission_denied", "unauthenticated", "invalid_argument",
-    "not_found", "failed_precondition", "default credentials were not found",
-    "400", "401", "403", "404",
+    "permission_denied",
+    "unauthenticated",
+    "invalid_argument",
+    "not_found",
+    "failed_precondition",
+    "default credentials were not found",
+    "400",
+    "401",
+    "403",
+    "404",
 )
 
 
@@ -52,9 +73,14 @@ def is_transient(exc: BaseException) -> bool:
     return any(marker in text for marker in _TRANSIENT_MARKERS)
 
 
-def with_retries(fn, *, attempts: int = DEFAULT_ATTEMPTS,
-                 base_delay: float = DEFAULT_BASE_DELAY,
-                 sleep=time.sleep, describe: str = "upstream call"):
+def with_retries(
+    fn,
+    *,
+    attempts: int = DEFAULT_ATTEMPTS,
+    base_delay: float = DEFAULT_BASE_DELAY,
+    sleep=time.sleep,
+    describe: str = "upstream call",
+):
     """Call `fn()`, retrying transient failures with exponential backoff.
 
     Permanent failures and the final attempt re-raise, so the caller always sees
@@ -72,6 +98,12 @@ def with_retries(fn, *, attempts: int = DEFAULT_ATTEMPTS,
             delay += random.uniform(0, delay * 0.1)  # jitter: avoid retry convoys
             # Log the type, not the message — upstream errors can echo back
             # request content, and these prompts carry inmate/staff detail.
-            logger.warning("%s failed (attempt %d/%d), retrying in %.1fs: %s",
-                           describe, attempt, attempts, delay, type(exc).__name__)
+            logger.warning(
+                "%s failed (attempt %d/%d), retrying in %.1fs: %s",
+                describe,
+                attempt,
+                attempts,
+                delay,
+                type(exc).__name__,
+            )
             sleep(delay)

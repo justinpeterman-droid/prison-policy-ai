@@ -24,6 +24,7 @@ def test_legacy_cookie_value_cannot_resolve_as_access_token(
 
     with pytest.raises(SessionReauthenticationRequired):
         resolve_access_session(
-            db_session, access_token="fictional-legacy-cookie-value",
+            db_session,
+            access_token="fictional-legacy-cookie-value",
             now=identity_fixed_now,
         )

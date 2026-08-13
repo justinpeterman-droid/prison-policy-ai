@@ -32,24 +32,31 @@ def test_google_monitoring_sink_writes_exact_repeat_risk_metric_with_bounded_lab
     assert metric["type"] == "custom.googleapis.com/ai_provider_repeat_risk_total"
     assert metric["labels"] == {"job_type": "generate"}
     assert series[0]["resource"] == {
-        "type": "global", "labels": {"project_id": "fictional-project"},
+        "type": "global",
+        "labels": {"project_id": "fictional-project"},
     }
-    assert series[0]["points"] == [{
-        "interval": {"end_time": {"seconds": 1_786_665_600}},
-        "value": {"int64_value": 1},
-    }]
+    assert series[0]["points"] == [
+        {
+            "interval": {"end_time": {"seconds": 1_786_665_600}},
+            "value": {"int64_value": 1},
+        }
+    ]
 
 
-@pytest.mark.parametrize("labels", [
-    {},
-    {"job_type": None},
-    {"job_type": "employee-0042-private"},
-    {"job_type": "generate", "employee_id": "0042"},
-])
+@pytest.mark.parametrize(
+    "labels",
+    [
+        {},
+        {"job_type": None},
+        {"job_type": "employee-0042-private"},
+        {"job_type": "generate", "employee_id": "0042"},
+    ],
+)
 def test_google_monitoring_sink_rejects_unbounded_or_sensitive_labels(labels):
     client = FakeMonitoringClient()
     sink = GoogleCloudMonitoringMetricSink(
-        project_id="fictional-project", client=client,
+        project_id="fictional-project",
+        client=client,
     )
 
     with pytest.raises(ValueError, match="labels are not approved"):

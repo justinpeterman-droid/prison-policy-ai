@@ -4,6 +4,7 @@ These are worth pinning down because the failure modes are quiet and long-lived:
 a wrong `immutable` header is a year-long stale-asset bug that no amount of
 reloading clears, and a gzip bug corrupts the body rather than erroring.
 """
+
 import gzip
 
 import pytest
@@ -47,6 +48,7 @@ GZIP = {"Accept-Encoding": "gzip"}
 
 # ── versioned URLs ────────────────────────────────────────────────────────────
 
+
 def test_asset_url_appends_content_hash(app):
     with app.app_context():
         url = app.jinja_env.globals["asset_url"]("small.css")
@@ -77,6 +79,7 @@ def test_asset_url_survives_missing_file(app):
 
 # ── cache headers ─────────────────────────────────────────────────────────────
 
+
 def test_versioned_static_is_immutable(client):
     resp = client.get("/static/small.css?v=deadbeef")
     assert resp.headers["Cache-Control"] == (
@@ -98,6 +101,7 @@ def test_html_is_not_given_a_static_cache_policy(client):
 
 
 # ── compression ───────────────────────────────────────────────────────────────
+
 
 def test_html_is_gzipped_and_round_trips(client):
     resp = client.get("/page", headers=GZIP)
