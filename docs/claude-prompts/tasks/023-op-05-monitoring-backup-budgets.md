@@ -56,6 +56,8 @@ Modify only:
 - `infra/terraform/modules/access_platform/outputs.tf`
 - `infra/terraform/environments/test/main.tf`
 - `infra/terraform/environments/production/main.tf`
+- `infra/terraform/environments/test/variables.tf`
+- `infra/terraform/environments/production/variables.tf`
 - `infra/terraform/tests/access_platform.tftest.hcl`
 
 No deletion is authorized. Other infrastructure and application files are consume-only.
