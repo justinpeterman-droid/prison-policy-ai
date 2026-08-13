@@ -1,6 +1,7 @@
 """Authorized employee report queues, content, history, restore, and recovery."""
 from datetime import UTC, date, datetime
 import json
+import re
 from uuid import UUID
 
 from flask import Blueprint, current_app, g, request
@@ -24,6 +25,11 @@ from backend.reports.persistence import (
     save_report_record,
     save_report_status_record,
 )
+from backend.reports.export_service import (
+    EXPORT_MIME_TYPE,
+    perform_single_export,
+    stream_export,
+)
 from backend.reports.revisions import RevisionConflict, RevisionTargetMissing
 from backend.webapp.api_v1.client_policy import require_compatible_write
 from backend.webapp.api_v1.context import request_id
@@ -46,6 +52,35 @@ LIST_FIELDS = {
 SAVE_FIELDS = {"content", "base_revision_number", "reason"}
 STATUS_FIELDS = {"status", "base_revision_number"}
 STATUSES = {"in_progress", "completed", "archived"}
+#: The export revision is explicit, positive, and canonical -- never inferred.
+EXPORT_REVISION_PATTERN = re.compile(r"^[1-9][0-9]{0,8}$")
+
+
+def export_revision_query() -> int:
+    """Read the required, explicit, positive `revision` query parameter.
+
+    An export names one immutable revision. A missing, repeated, malformed,
+    zero-padded, or non-positive value is a rejection -- never a silent
+    coercion and never a fallback to "latest", which is exactly the ambiguity
+    an evidentiary export must not have.
+    """
+    values = request.args.getlist("revision")
+    if set(request.args) != {"revision"} or len(values) != 1:
+        raise ApiError("validation_failed", "An explicit revision is required.", status=400)
+    if not EXPORT_REVISION_PATTERN.fullmatch(values[0]):
+        raise ApiError("validation_failed", "An explicit revision is required.", status=400)
+    # The revision is a URL-addressable identity, so a request body -- which is
+    # where a client would try to smuggle a different one -- is refused.
+    if request.get_data(cache=True):
+        raise ApiError("validation_failed", "An export request carries no body.", status=400)
+    return int(values[0])
+
+
+def export_idempotency_key() -> str:
+    key = request.headers.get("Idempotency-Key", "")
+    if not key:
+        raise ApiError("validation_failed", "Idempotency-Key is required.", status=400)
+    return key
 
 
 def _timestamp(value) -> str | None:
@@ -463,3 +498,57 @@ def recovery_route(report_id: UUID):
         ),
         201,
     ), recovery=True)
+
+
+@reports_bp.post("/<uuid:report_id>/export-docx", endpoint="export_docx")
+@require_access_token
+def export_docx_route(report_id: UUID):
+    """Export one explicit, immutable revision of the officer's own report.
+
+    Deliberately *not* gated by `require_compatible_write`: an out-of-date
+    client is held to read-and-export, so blocking the export here would strand
+    the very officer the upgrade prompt is asking to wait.
+    """
+    g.api_action = "report_export"
+    revision_number = export_revision_query()
+    key = export_idempotency_key()
+    db = current_request_session()
+    try:
+        view = get_report(db, current_actor(), report_id)
+        revision = get_report_revision(db, current_actor(), report_id, revision_number)
+        document = perform_single_export(
+            db, actor=current_actor(),
+            report=view.report, revision=revision,
+            request_id=request_id(), idempotency_key=key,
+            idempotency_action="report.export_docx",
+            audit_action="report.exported",
+            audit_writer=current_app.config["AUDIT_WRITER"],
+            client_version=str(g.client_version), now=datetime.now(UTC),
+        )
+        db.commit()
+    except RequestInProgress as error:
+        db.rollback()
+        raise ApiError("request_in_progress", str(error), status=409, retryable=True) from None
+    except IdempotencyConflict as error:
+        db.rollback()
+        raise ApiError("idempotency_conflict", str(error), status=409) from None
+    except (ReportNotFound, ReportRevisionNotFound):
+        db.rollback()
+        raise ApiError("not_found", "Report not found.", status=404) from None
+    except (ValidationError, ValueError, TypeError):
+        db.rollback()
+        raise ApiError("validation_failed", "The export request is invalid.", status=400) from None
+    except (DatabaseUnavailable, SQLAlchemyError, RuntimeError, OSError):
+        db.rollback()
+        raise ApiError(
+            "dependency_unavailable", "Report export is temporarily unavailable.",
+            status=503, retryable=True,
+        ) from None
+    response = stream_export(
+        data=document.data, mime_type=EXPORT_MIME_TYPE, name=document.download_name,
+        sha256=document.sha256, export_id=document.export_id,
+        template_version_value=document.template_version,
+        revision_number=document.revision_number,
+    )
+    response.headers["X-Request-ID"] = request_id()
+    return response
