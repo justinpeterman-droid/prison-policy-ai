@@ -6,6 +6,8 @@ google-genai~=1.0                # serving code imports `from google import gena
 google-cloud-aiplatform~=1.60    # vertexai — legacy corpus build (pipeline/embed.py)
 google-cloud-storage~=2.18
 google-cloud-tasks>=2.23,<3.0
+google-cloud-monitoring>=2.23,<3.0
+google-cloud-secret-manager>=2.20,<3.0
 pymupdf~=1.24
 python-docx~=1.1
 # lxml 6.1.2 was published without a compatible runner wheel and its sdist

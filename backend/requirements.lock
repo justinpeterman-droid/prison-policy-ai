@@ -73,7 +73,6 @@ certifi==2026.7.22 \
     --hash=sha256:62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775 \
     --hash=sha256:741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55
     # via
-    #   google-cloud-aiplatform
     #   httpcore
     #   httpx
     #   requests
@@ -426,7 +425,9 @@ google-api-core[grpc]==2.34.0 \
     #   google-cloud-aiplatform
     #   google-cloud-bigquery
     #   google-cloud-core
+    #   google-cloud-monitoring
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-storage
     #   google-cloud-tasks
 google-auth[pyopenssl,requests]==2.56.3 \
@@ -437,7 +438,9 @@ google-auth[pyopenssl,requests]==2.56.3 \
     #   google-cloud-aiplatform
     #   google-cloud-bigquery
     #   google-cloud-core
+    #   google-cloud-monitoring
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-storage
     #   google-cloud-tasks
     #   google-genai
@@ -455,10 +458,18 @@ google-cloud-core==2.6.1 \
     # via
     #   google-cloud-bigquery
     #   google-cloud-storage
+google-cloud-monitoring==2.31.0 \
+    --hash=sha256:64f3d56ead48f0a0674f650cb2828c47b936582a02a27c55f2836681a86281c3 \
+    --hash=sha256:b4c9d3528c8643d4eb4b9d688cbb3c5914bc5f69b314ff7c5e1b47bdc073a9ae
+    # via -r backend/requirements.txt
 google-cloud-resource-manager==1.18.0 \
     --hash=sha256:69bab144acd75878ebe44b720903dc3d140cb7d3be3261eaa8bc81e48afaff33 \
     --hash=sha256:db689f800a14c66d041196a7fbb8bb8aae8dc87f28c2929e101a5ec766b15512
     # via google-cloud-aiplatform
+google-cloud-secret-manager==2.30.0 \
+    --hash=sha256:0f285e77d09a73700e3fca9abbc77f844a50276989bf76d64a76b6e2b871e396 \
+    --hash=sha256:26ec87737731b483f7f95c26a8c7ab79e22cb66317c95006e7f6985dbc43c8a2
+    # via -r backend/requirements.txt
 google-cloud-storage==2.19.0 \
     --hash=sha256:aeb971b5c29cf8ab98445082cbfe7b161a1f48ed275822f59ed3f1524ea54fba \
     --hash=sha256:cd05e9e7191ba6cb68934d8eb76054d9be4562aa89dbc4236feee4d7d51342b2
@@ -611,6 +622,7 @@ grpc-google-iam-v1==0.14.5 \
     --hash=sha256:0f5e680b20aa0a9441e68c769da04d94d70fca4e43751a82d8abb8aa6a7181ca
     # via
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-tasks
 grpcio==1.83.0 \
     --hash=sha256:009667eaf3dcd5224c713589cdc98e7ca4ed0ff0b61132c6b276e930eb83a2df \
@@ -666,7 +678,9 @@ grpcio==1.83.0 \
     --hash=sha256:fba099b716e73512d61b97f71ea3c31a72abb36904036e316bf4dd148ca8dcc8
     # via
     #   google-api-core
+    #   google-cloud-monitoring
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-tasks
     #   googleapis-common-protos
     #   grpc-google-iam-v1
@@ -957,7 +971,9 @@ proto-plus==1.28.3 \
     # via
     #   google-api-core
     #   google-cloud-aiplatform
+    #   google-cloud-monitoring
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-tasks
 protobuf==6.33.6 \
     --hash=sha256:0cd27b587afca21b7cfa59a74dcbd48a50f0a6400cfb59391340ad729d91d326 \
@@ -973,7 +989,9 @@ protobuf==6.33.6 \
     # via
     #   google-api-core
     #   google-cloud-aiplatform
+    #   google-cloud-monitoring
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-tasks
     #   googleapis-common-protos
     #   grpc-google-iam-v1

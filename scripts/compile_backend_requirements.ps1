@@ -12,6 +12,7 @@ CUSTOM_COMPILE_COMMAND="powershell -File scripts/compile_backend_requirements.ps
   --output-file=backend/requirements.lock \
   backend/requirements.txt
 '@
+$compile = $compile -replace "`r", ""
 
 docker run --rm `
   --mount $mount `

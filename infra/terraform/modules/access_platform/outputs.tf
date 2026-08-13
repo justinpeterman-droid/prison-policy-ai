@@ -6,6 +6,18 @@ output "logical_backup_service_account_email" {
   value = google_service_account.logical_backup.email
 }
 
+output "migration_job_name" {
+  value = google_cloud_run_v2_job.migration.name
+}
+
+output "roster_import_job_name" {
+  value = google_cloud_run_v2_job.roster_import.name
+}
+
+output "bootstrap_admin_job_name" {
+  value = google_cloud_run_v2_job.bootstrap_admin.name
+}
+
 output "worker_service_account_email" {
   value = google_service_account.worker.email
 }
