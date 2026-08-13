@@ -4,7 +4,7 @@ from functools import wraps
 from uuid import UUID, uuid4
 
 from flask import g, jsonify, request
-from sqlalchemy import select
+from sqlalchemy import false, select
 from sqlalchemy.orm import Session
 
 from backend.identity.audit import AuditEventInput, AuditWriter
@@ -165,7 +165,7 @@ def redeem_browser_handoff(
         .where(StaffMember.id == account.staff_member_id)
         .with_for_update()
         if account is not None
-        else select(StaffMember).where(False)
+        else select(StaffMember).where(false())
     )
     if (
         access_session is None
@@ -246,7 +246,7 @@ def resolve_browser_session(
         .where(StaffMember.id == account.staff_member_id)
         .with_for_update()
         if account is not None
-        else select(StaffMember).where(False)
+        else select(StaffMember).where(false())
     )
     if (
         account is None

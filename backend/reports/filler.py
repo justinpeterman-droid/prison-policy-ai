@@ -53,10 +53,13 @@ def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
         return {"text": _build_text(metadata)}
 
     template = _ensure_template()
+    resolved_output_path: Path
     if output_path is None:
-        fd, output_path = tempfile.mkstemp(suffix=".docx", prefix="incident_")
+        fd, temp_name = tempfile.mkstemp(suffix=".docx", prefix="incident_")
         os.close(fd)  # close fd, we'll write via zipfile
-    output_path = Path(output_path)
+        resolved_output_path = Path(temp_name)
+    else:
+        resolved_output_path = output_path
 
     # Decision §3: the 005 "middle" spot is the employee #, not middle name.
     # Map employee_number → officer_middle so the template placeholder is filled.
@@ -107,7 +110,7 @@ def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
     # Read template, replace placeholders, write filled copy
     with (
         zipfile.ZipFile(template, "r") as zin,
-        zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zout,
+        zipfile.ZipFile(resolved_output_path, "w", zipfile.ZIP_DEFLATED) as zout,
     ):
         for item in zin.infolist():
             data = zin.read(item.filename)
@@ -123,7 +126,7 @@ def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
 
             zout.writestr(item, data)
 
-    return {"path": str(output_path)}
+    return {"path": str(resolved_output_path)}
 
 
 def _ensure_template() -> Path:

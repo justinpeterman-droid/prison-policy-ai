@@ -187,19 +187,28 @@ def build_roster_plan(
         if employee_number in seen:
             findings.append(RosterFinding("duplicate_employee_number", row_number))
         seen.add(employee_number)
-        values = {
-            "employee_number": employee_number,
-            "first_name": _text(row, "first_name", 100),
-            "last_name": _text(row, "last_name", 100),
-            "rank": _text(row, "rank", 64),
-            "shift": _text(row, "shift", 1),
-        }
-        if values["shift"] not in _SHIFTS:
+        first_name = _text(row, "first_name", 100)
+        last_name = _text(row, "last_name", 100)
+        rank = _text(row, "rank", 64)
+        shift = _text(row, "shift", 1)
+        if shift is None:
             findings.append(RosterFinding("invalid_shift", row_number))
-        if any(values[key] is None for key in ("first_name", "last_name", "rank")):
+            if first_name is None or last_name is None or rank is None:
+                findings.append(RosterFinding("missing_required_field", row_number))
+            continue
+        if shift not in _SHIFTS:
+            findings.append(RosterFinding("invalid_shift", row_number))
+        if first_name is None or last_name is None or rank is None:
             findings.append(RosterFinding("missing_required_field", row_number))
-        if all(value is not None for value in values.values()):
-            normalized_rows.append((row_number, values))
+            continue
+        values: dict[str, str] = {
+            "employee_number": employee_number,
+            "first_name": first_name,
+            "last_name": last_name,
+            "rank": rank,
+            "shift": shift,
+        }
+        normalized_rows.append((row_number, values))
 
     inserts: list[dict[str, str]] = []
     updates: list[dict[str, str]] = []

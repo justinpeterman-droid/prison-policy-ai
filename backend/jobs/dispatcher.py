@@ -221,17 +221,25 @@ def dispatch_pending(
     for row in outbox.pending(limit=limit, now=fixed):
         request = {"parent": config.parent, "task": _task(config, row.ai_job_id)}
         try:
-            retry_options = {
-                "attempts": 3,
-                "base_delay": 0.25,
-                "describe": "Cloud Tasks create",
-            }
-            if sleep is not None:
-                retry_options["sleep"] = sleep
-            with_retries(
-                lambda: tasks_client.create_task(request=request),
-                **retry_options,
-            )
+
+            def create_task():
+                return tasks_client.create_task(request=request)
+
+            if sleep is None:
+                with_retries(
+                    create_task,
+                    attempts=3,
+                    base_delay=0.25,
+                    describe="Cloud Tasks create",
+                )
+            else:
+                with_retries(
+                    create_task,
+                    attempts=3,
+                    base_delay=0.25,
+                    describe="Cloud Tasks create",
+                    sleep=sleep,
+                )
         except AlreadyExists:
             outbox.mark_dispatched(row.id, now=fixed)
             dispatched += 1

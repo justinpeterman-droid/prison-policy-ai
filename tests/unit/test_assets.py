@@ -77,6 +77,15 @@ def test_asset_url_survives_missing_file(app):
     assert url == "/static/nope.css"
 
 
+def test_asset_initialization_requires_a_static_folder():
+    application = Flask(__name__, static_folder=None)
+
+    with pytest.raises(
+        RuntimeError, match="static asset delivery requires a configured static folder"
+    ):
+        init_assets(application)
+
+
 # ── cache headers ─────────────────────────────────────────────────────────────
 
 

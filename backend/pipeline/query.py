@@ -12,6 +12,7 @@ import re
 import urllib.request
 import urllib.error
 from time import monotonic
+from typing import TypedDict
 
 import google.auth
 import google.auth.transport.requests
@@ -321,40 +322,52 @@ def log_search_config() -> None:
     logger.info("Policy search config: %s", search_config_summary())
 
 
-_token_cache = {"token": None, "expiry": 0}
+class TokenCache(TypedDict):
+    token: str | None
+    expiry: float
+
+
+_token_cache: TokenCache = {"token": None, "expiry": 0.0}
 
 
 def _get_token(*, deadline_monotonic: float | None = None) -> str:
     """Get an OAuth token from Application Default Credentials."""
     import time
 
-    if _token_cache["token"] and time.time() < _token_cache["expiry"] - 60:
-        return _token_cache["token"]
+    cached_token = _token_cache["token"]
+    if cached_token is not None and time.time() < _token_cache["expiry"] - 60:
+        return cached_token
 
     base_request = google.auth.transport.requests.Request()
 
-    def deadline_request(
-        url, method="GET", body=None, headers=None, timeout=120, **kwargs
-    ):
-        return base_request(
-            url,
-            method=method,
-            body=body,
-            headers=headers,
-            timeout=_bounded_seconds(timeout, deadline_monotonic),
-            **kwargs,
-        )
+    class DeadlineRequest(google.auth.transport.Request):
+        def __call__(
+            self, url, method="GET", body=None, headers=None, timeout=120, **kwargs
+        ):
+            return base_request(
+                url,
+                method=method,
+                body=body,
+                headers=headers,
+                timeout=_bounded_seconds(timeout, deadline_monotonic),
+                **kwargs,
+            )
+
+    deadline_request = DeadlineRequest()
 
     creds, project = google.auth.default(
         scopes=["https://www.googleapis.com/auth/cloud-platform"],
         request=deadline_request,
     )
     creds.refresh(deadline_request)
-    _token_cache["token"] = creds.token
+    token = creds.token
+    if token is None:
+        raise RuntimeError("Application Default Credentials returned no access token")
+    _token_cache["token"] = token
     _token_cache["expiry"] = (
         creds.expiry.timestamp() if creds.expiry else time.time() + 3500
     )
-    return creds.token
+    return token
 
 
 def _classify_query(
@@ -375,10 +388,13 @@ def _classify_query(
         logger.debug("Gate: short follow-up within an active conversation")
         return True
 
-    verdict = classify_by_keyword(question)
-    if verdict is not None:
-        logger.debug("Gate decided by keyword: %s", "WORK" if verdict else "OFF_TOPIC")
-        return verdict
+    keyword_verdict = classify_by_keyword(question)
+    if keyword_verdict is not None:
+        logger.debug(
+            "Gate decided by keyword: %s",
+            "WORK" if keyword_verdict else "OFF_TOPIC",
+        )
+        return keyword_verdict
 
     # Ambiguous — use Gemini classifier
     try:
@@ -394,8 +410,10 @@ def _classify_query(
                 ),
             ),
         )
-        verdict = response.text.strip().upper()
-        is_work = "WORK" in verdict and "OFF_TOPIC" not in verdict
+        if response.text is None:
+            raise RuntimeError("Gate classification returned no verdict")
+        response_text = response.text.strip().upper()
+        is_work = "WORK" in response_text and "OFF_TOPIC" not in response_text
         logger.info("Gate classified query as %s", "WORK" if is_work else "OFF_TOPIC")
         return is_work
     except TimeoutError:

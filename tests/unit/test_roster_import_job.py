@@ -35,6 +35,23 @@ def test_roster_plan_rejects_duplicate_normalized_employee_numbers_and_invalid_s
     assert plan.inserts == ()
 
 
+def test_roster_plan_classifies_missing_shift_only_as_invalid_shift():
+    rows = [
+        {
+            "employee_number": "FX-101",
+            "first_name": "Morgan",
+            "last_name": "Lake",
+            "rank": "Officer",
+            "shift": "",
+        }
+    ]
+
+    plan = build_roster_plan(rows, corrections={})
+
+    assert [finding.code for finding in plan.findings] == ["invalid_shift"]
+    assert plan.inserts == ()
+
+
 def test_roster_plan_is_hash_bound():
     rows = [
         {

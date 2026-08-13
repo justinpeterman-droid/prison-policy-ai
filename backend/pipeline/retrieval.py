@@ -220,8 +220,8 @@ def extract_passage_text(document: dict, max_chars: int = 0) -> str:
     if isinstance(raw, str) and raw.strip():
         return _truncate(raw.strip(), max_chars)
 
-    for source in (derived, struct):
-        v = _get_any(source, "content", "text", "raw_text", "rawText", "body")
+    for data in (derived, struct):
+        v = _get_any(data, "content", "text", "raw_text", "rawText", "body")
         if isinstance(v, str) and v.strip():
             return _truncate(v.strip(), max_chars)
 

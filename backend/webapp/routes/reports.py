@@ -583,8 +583,8 @@ def _prepare_generation(data: dict) -> dict:
     elif reporters := [
         p for p in slots.get("persons", []) if p.get("role") == "security_staff"
     ]:
+        slots = bind_reporter(slots, reporters[0])
         reporter = reporters[0]
-        slots = bind_reporter(slots, reporter)
 
     # Sanitize null/None officer names — only when ALL fields are null.
     # Don't touch slots that already have real data or partial data.

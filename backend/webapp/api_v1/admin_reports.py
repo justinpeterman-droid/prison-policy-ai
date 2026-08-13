@@ -14,11 +14,13 @@ Persistence and revision logic live in `backend.reports.persistence` and
 shape, drives the shared services, and renders the response.
 """
 
+from collections.abc import Callable, Mapping
 from datetime import UTC, date, datetime
 from functools import wraps
 import hashlib
 import hmac
 import json
+from typing import TypeVar
 from uuid import UUID
 
 from flask import Blueprint, current_app, g, request
@@ -101,30 +103,6 @@ from backend.persistence.models.security import IdempotencyRecord
 admin_reports_bp = Blueprint("admin_reports_api", __name__)
 
 STATUSES = {"in_progress", "completed", "archived"}
-_UUID_FILTERS = {
-    "report_id",
-    "incident_id",
-    "reporting_staff_id",
-    "preparer_staff_id",
-    "last_editor_staff_id",
-}
-_DATE_FILTERS = {"incident_date_from", "incident_date_to"}
-_DATETIME_FILTERS = {
-    "created_at_from",
-    "created_at_to",
-    "modified_at_from",
-    "modified_at_to",
-}
-_TEXT_FILTERS = {
-    "inmate_first_name",
-    "inmate_middle_name",
-    "inmate_last_name",
-    "inmate_adc_number",
-    "category",
-    "facility",
-    "location",
-    "shift",
-}
 _RANGE_PAIRS = (
     ("incident_date_from", "incident_date_to"),
     ("created_at_from", "created_at_to"),
@@ -205,11 +183,13 @@ def _staff_display(session, staff_id: UUID) -> tuple[str, str]:
 
 def _view_data(session, view: ReportView) -> dict[str, object]:
     row = view.report
+    owner_name: str | None
     if view.reporting_staff_member_id is None:
         owner_id, owner_name = _staff_display(session, row.reporting_staff_member_id)
     else:
         owner_id = str(view.reporting_staff_member_id)
         owner_name = view.reporting_officer_display_name
+    preparer_name: str | None
     if view.prepared_by_staff_member_id is None:
         preparer_id, preparer_name = _staff_display(
             session,
@@ -318,39 +298,87 @@ def _parse_datetime(value: str) -> datetime:
     return parsed
 
 
-def _parse_filter_value(name: str, raw: str):
+T = TypeVar("T")
+
+
+def _optional_filter(
+    values: Mapping[str, str], name: str, parser: Callable[[str], T]
+) -> T | None:
+    raw = values.get(name)
+    if raw is None:
+        return None
     if raw == "":
         raise ValueError("search filters are invalid")
-    if name in _UUID_FILTERS:
-        try:
-            return UUID(raw)
-        except ValueError:
-            raise ValueError("search filters are invalid") from None
-    if name in _DATE_FILTERS:
-        return _parse_date(raw)
-    if name in _DATETIME_FILTERS:
-        return _parse_datetime(raw)
-    if name == "status":
-        if raw not in STATUSES:
-            raise ValueError("search filters are invalid")
-        return raw
-    if name in _TEXT_FILTERS:
-        if len(raw) > 200:
-            raise ValueError("search filters are invalid")
-        return raw
-    raise ValueError("search filters are invalid")
+    return parser(raw)
+
+
+def _parse_uuid_filter(value: str) -> UUID:
+    try:
+        return UUID(value)
+    except ValueError:
+        raise ValueError("search filters are invalid") from None
+
+
+def _parse_text_filter(value: str) -> str:
+    if len(value) > 200:
+        raise ValueError("search filters are invalid")
+    return value
+
+
+def _parse_status_filter(value: str) -> str:
+    if value not in STATUSES:
+        raise ValueError("search filters are invalid")
+    return value
+
+
+def _filters_from_raw(values: Mapping[str, str]) -> AdminReportFilters:
+    return AdminReportFilters(
+        report_id=_optional_filter(values, "report_id", _parse_uuid_filter),
+        incident_id=_optional_filter(values, "incident_id", _parse_uuid_filter),
+        reporting_staff_id=_optional_filter(
+            values, "reporting_staff_id", _parse_uuid_filter
+        ),
+        preparer_staff_id=_optional_filter(
+            values, "preparer_staff_id", _parse_uuid_filter
+        ),
+        incident_date_from=_optional_filter(values, "incident_date_from", _parse_date),
+        incident_date_to=_optional_filter(values, "incident_date_to", _parse_date),
+        created_at_from=_optional_filter(values, "created_at_from", _parse_datetime),
+        created_at_to=_optional_filter(values, "created_at_to", _parse_datetime),
+        inmate_first_name=_optional_filter(
+            values, "inmate_first_name", _parse_text_filter
+        ),
+        inmate_middle_name=_optional_filter(
+            values, "inmate_middle_name", _parse_text_filter
+        ),
+        inmate_last_name=_optional_filter(
+            values, "inmate_last_name", _parse_text_filter
+        ),
+        inmate_adc_number=_optional_filter(
+            values, "inmate_adc_number", _parse_text_filter
+        ),
+        category=_optional_filter(values, "category", _parse_text_filter),
+        facility=_optional_filter(values, "facility", _parse_text_filter),
+        location=_optional_filter(values, "location", _parse_text_filter),
+        shift=_optional_filter(values, "shift", _parse_text_filter),
+        status=_optional_filter(values, "status", _parse_status_filter),
+        last_editor_staff_id=_optional_filter(
+            values, "last_editor_staff_id", _parse_uuid_filter
+        ),
+        modified_at_from=_optional_filter(values, "modified_at_from", _parse_datetime),
+        modified_at_to=_optional_filter(values, "modified_at_to", _parse_datetime),
+    )
 
 
 def _parse_admin_filters(args) -> AdminReportFilters:
     if not set(args) <= ADMIN_SEARCH_QUERY_FIELDS:
         raise ValueError("search filters are invalid")
-    values: dict[str, object] = {}
-    for name in ADMIN_REPORT_FILTER_FIELDS:
-        raw = args.get(name)
-        if raw is None:
-            continue
-        values[name] = _parse_filter_value(name, raw)
-    filters = AdminReportFilters(**values)
+    values = {
+        name: raw
+        for name in ADMIN_REPORT_FILTER_FIELDS
+        if (raw := args.get(name)) is not None
+    }
+    filters = _filters_from_raw(values)
     for lo_name, hi_name in _RANGE_PAIRS:
         lo, hi = getattr(filters, lo_name), getattr(filters, hi_name)
         if lo is not None and hi is not None and lo > hi:
@@ -846,21 +874,21 @@ def _bulk_filters(selection: dict) -> AdminReportFilters:
         raise ApiError(
             "validation_failed", "The bulk export selection is invalid.", status=400
         )
-    values: dict[str, object] = {}
+    values: dict[str, str] = {}
     for name, value in raw.items():
         if not isinstance(value, str):
             raise ApiError(
                 "validation_failed", "The bulk export selection is invalid.", status=400
             )
-        try:
-            values[name] = _parse_filter_value(name, value)
-        except ValueError:
-            raise ApiError(
-                "validation_failed",
-                "The bulk export selection is invalid.",
-                status=400,
-            ) from None
-    filters = AdminReportFilters(**values)
+        values[name] = value
+    try:
+        filters = _filters_from_raw(values)
+    except ValueError:
+        raise ApiError(
+            "validation_failed",
+            "The bulk export selection is invalid.",
+            status=400,
+        ) from None
     for lo_name, hi_name in _RANGE_PAIRS:
         lo, hi = getattr(filters, lo_name), getattr(filters, hi_name)
         if lo is not None and hi is not None and lo > hi:

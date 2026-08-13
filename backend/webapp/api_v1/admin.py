@@ -528,27 +528,28 @@ def account_unlock_route(account_id: UUID):
             "validation_failed", "This operation does not accept a body.", status=400
         )
     payload = {"account_id": str(account_id)}
+
+    def operation(db, actor, now, _claim):
+        row = unlock_account(
+            db,
+            actor=actor,
+            target_account_id=account_id,
+            now=now,
+            audit_writer=current_app.config["AUDIT_WRITER"],
+            request_id=request_id(),
+        )
+        if row is None:
+            raise LookupError("account not found")
+        return (
+            _account_data(row),
+            {"account_id": str(row.id), "status": row.status},
+        )
+
     return _mutation(
         "admin.account_unlock",
         "account_unlock",
         payload,
-        lambda db, actor, now, _claim: (
-            (
-                lambda row: (
-                    _account_data(row),
-                    {"account_id": str(row.id), "status": row.status},
-                )
-            )(
-                unlock_account(
-                    db,
-                    actor=actor,
-                    target_account_id=account_id,
-                    now=now,
-                    audit_writer=current_app.config["AUDIT_WRITER"],
-                    request_id=request_id(),
-                )
-            )
-        ),
+        operation,
     )
 
 

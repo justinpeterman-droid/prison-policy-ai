@@ -302,7 +302,12 @@ def main(argv: list[str] | None = None) -> int:
         "ADMIN_BOOTSTRAP_REQUEST_PREFIX", "admin-bootstrap-requests/"
     )
     secret_parent = os.environ.get("INITIAL_ADMIN_PIN_SECRET")
-    if not all((database_url, expected_bucket, expected_prefix, secret_parent)):
+    if (
+        not database_url
+        or not expected_bucket
+        or not expected_prefix
+        or not secret_parent
+    ):
         return 1
 
     try:

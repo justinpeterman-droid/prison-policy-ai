@@ -186,7 +186,7 @@ def test_health_stage_latency_bucket_contract_has_distinct_second_boundaries():
 def test_health_emits_bucketed_queue_age_and_failed_stage_latency(
     api_client,
     admin_bearer_headers,
-    owner_bearer_headers,
+    preparer_bearer_headers,
     db_session,
     fictional_incident,
     monkeypatch,
@@ -195,15 +195,17 @@ def test_health_emits_bucketed_queue_age_and_failed_stage_latency(
     import backend.webapp.api_v1.admin_health as health_api
 
     now = datetime.now(UTC)
+    db_session.commit()
     queued = api_client.post(
         f"/api/v1/incidents/{fictional_incident.id}/jobs/classify",
-        headers=owner_bearer_headers
+        headers=preparer_bearer_headers
         | {
             "Idempotency-Key": "rp10-health-queued-0001",
             "X-Request-ID": "request-rp10-health-queued",
         },
         json={"base_revision_number": 1},
     )
+    assert queued.status_code != 401, queued.get_json()
     assert queued.status_code == 202, queued.get_json()
     job = db_session.get(AiJob, queued.get_json()["data"]["id"])
     assert job is not None
@@ -215,7 +217,7 @@ def test_health_emits_bucketed_queue_age_and_failed_stage_latency(
 
     failed = api_client.post(
         f"/api/v1/incidents/{fictional_incident.id}/jobs/generate",
-        headers=owner_bearer_headers
+        headers=preparer_bearer_headers
         | {
             "Idempotency-Key": "rp10-health-failed-0001",
             "X-Request-ID": "request-rp10-health-failed",
@@ -246,7 +248,7 @@ def test_health_emits_bucketed_queue_age_and_failed_stage_latency(
     assert response.status_code == 200, response.get_json()
     assert (
         "queue_health",
-        "operational",
+        "degraded",
         {
             "depth_bucket": "one_to_999",
             "oldest_age_bucket": "30m_to_2h",

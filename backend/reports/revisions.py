@@ -688,11 +688,11 @@ def transfer_report_ownership(
         if staff_id not in final_staff_ids and row.revoked_at is None:
             row.revoked_at = fixed
     for staff_id, relationship in relationships:
-        row = existing_by_staff.get(staff_id)
-        if row is not None:
-            row.relationship = relationship
-            row.revoked_at = None
-            row.granted_by_account_id = actor.account_id
+        existing_access = existing_by_staff.get(staff_id)
+        if existing_access is not None:
+            existing_access.relationship = relationship
+            existing_access.revoked_at = None
+            existing_access.granted_by_account_id = actor.account_id
         else:
             session.add(
                 ReportAccess(

@@ -53,6 +53,8 @@ def _hash_file(path: Path) -> str:
 
 def init_assets(app: Flask) -> None:
     """Wire versioned asset URLs, cache headers and gzip into `app`."""
+    if app.static_folder is None:
+        raise RuntimeError("static asset delivery requires a configured static folder")
     static_dir = Path(app.static_folder)
     # Hashes are computed once per process. The container is immutable in
     # production, so re-stat-ing on every request would buy nothing; in debug we
