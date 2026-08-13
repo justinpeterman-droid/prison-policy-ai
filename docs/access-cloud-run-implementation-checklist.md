@@ -77,7 +77,7 @@ dependency or external approval.
 ## Google Cloud and delivery infrastructure
 
 - [x] 020 OP-02 — Terraform state bootstrap. `MERGED`
-- [ ] 021 OP-03 — Private network, PostgreSQL 17, identities, secrets.
+- [x] 021 OP-03 — Private network, PostgreSQL 17, identities, secrets. `MERGED` and independently reviewed at `fc1159f`.
 - [ ] 022 OP-04 — Serverless edge and storage.
 - [ ] 023 OP-05 — Monitoring, backup, and budgets.
 - [ ] 024 OP-06 — Migration, roster, and first-Admin jobs.
