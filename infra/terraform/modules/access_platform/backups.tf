@@ -9,9 +9,14 @@ resource "google_service_account" "logical_backup" {
 }
 
 resource "google_storage_bucket_iam_member" "logical_backup_creator" {
-  bucket     = google_storage_bucket.private["logical_backup"].name
-  role       = "roles/storage.objectCreator"
-  member     = google_service_account.logical_backup.member
+  bucket = google_storage_bucket.private["logical_backup"].name
+  role   = "roles/storage.objectCreator"
+  member = google_service_account.logical_backup.member
+  condition {
+    title       = "AccessLogicalBackupExportsOnly"
+    description = "Create only unique logical export objects; no read, overwrite, or delete permission is granted."
+    expression  = "resource.name.startsWith(\"projects/_/buckets/${google_storage_bucket.private["logical_backup"].name}/objects/logical-exports/\")"
+  }
   depends_on = [terraform_data.services_ready]
 }
 
@@ -34,8 +39,8 @@ resource "google_storage_bucket_iam_member" "sql_export_writer" {
 resource "google_project_iam_custom_role" "logical_backup_exporter" {
   role_id     = "accessLogicalBackupExport"
   title       = "Access logical backup export"
-  description = "Starts Cloud SQL exports and reads their operation status; it cannot mutate SQL data or access secrets."
-  permissions = ["cloudsql.instances.export", "cloudsql.instances.get", "cloudsql.operations.get"]
+  description = "Starts Cloud SQL exports for the configured instance; it cannot mutate SQL data or access secrets."
+  permissions = ["cloudsql.instances.export", "cloudsql.instances.get"]
 }
 
 resource "google_project_iam_member" "logical_backup_exporter" {
@@ -57,7 +62,7 @@ resource "google_workflows_workflow" "logical_export" {
   region          = var.region
   name            = "access-${var.environment}-logical-export"
   service_account = google_service_account.logical_backup.email
-  source_contents = templatefile("${path.module}/sql_export_workflow.yaml.tftpl", { project_id = var.project_id, instance_name = google_sql_database_instance.postgres.name, bucket_name = google_storage_bucket.private["logical_backup"].name })
+  source_contents = templatefile("${path.module}/sql_export_workflow.yaml.tftpl", { project_id = var.project_id, instance_name = google_sql_database_instance.postgres.name, database_name = google_sql_database.application.name, bucket_name = google_storage_bucket.private["logical_backup"].name })
   depends_on = [
     terraform_data.services_ready,
     google_project_iam_member.logical_backup_exporter,

@@ -13,6 +13,7 @@ main:
             exportContext:
               fileType: SQL
               uri: $${"gs://${bucket_name}/" + object}
+              databases: [${database_name}]
               offload: true
               sqlExportOptions: {schemaOnly: false}
         result: operation

@@ -188,7 +188,7 @@ run "private_platform_contract" {
   }
 
   assert {
-    condition     = module.access_platform.terraform_test_contract.observability.pitr_enabled && module.access_platform.terraform_test_contract.observability.backup_bucket_private && module.access_platform.terraform_test_contract.observability.backup_export_permissions == toset(["cloudsql.instances.export", "cloudsql.instances.get", "cloudsql.operations.get"]) && module.access_platform.terraform_test_contract.observability.backup_instance_condition && module.access_platform.terraform_test_contract.observability.scheduler_workflow_condition
+    condition     = module.access_platform.terraform_test_contract.observability.pitr_enabled && module.access_platform.terraform_test_contract.observability.backup_bucket_private && module.access_platform.terraform_test_contract.observability.backup_export_permissions == toset(["cloudsql.instances.export", "cloudsql.instances.get"]) && module.access_platform.terraform_test_contract.observability.backup_instance_condition && module.access_platform.terraform_test_contract.observability.scheduler_workflow_condition
     error_message = "OP-05 backup identity must be export-only on the exact instance and invoke only the exact workflow."
   }
 

@@ -9,9 +9,35 @@ locals {
     sql_backup              = { filter = "metric.type=\"logging.googleapis.com/user/access_backup_restore_health\" AND metric.label.\"result\"=\"unavailable\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
     ai_provider_repeat_risk = { filter = "metric.type=\"custom.googleapis.com/ai_provider_repeat_risk_total\"", comparison = "COMPARISON_GT", threshold = 0, duration = "60s" }
     ai_job_latency          = { filter = "metric.type=\"logging.googleapis.com/user/access_queue_health\" AND metric.label.\"latency_bucket\"=\"2000ms_or_more\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
-    policy_search           = { filter = "metric.type=\"logging.googleapis.com/user/access_dependency_health\" AND metric.label.\"result\"=\"unavailable\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
+    policy_search           = { filter = "metric.type=\"logging.googleapis.com/user/access_dependency_health\" AND metric.label.\"dependency\"=\"policy_search\" AND metric.label.\"result\"=\"unavailable\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
     sensitive_log_scanner   = { filter = "metric.type=\"${var.sensitive_log_scanner_metric_type}\"", comparison = "COMPARISON_GT", threshold = 0, duration = "60s" }
   }
+}
+
+# A real external health probe distinguishes lack of successful response from
+# ordinary traffic volume. It checks only the public /health endpoint.
+resource "google_monitoring_uptime_check_config" "api_health" {
+  project      = var.project_id
+  display_name = "Access ${var.environment} API health"
+  timeout      = "10s"
+  period       = "60s"
+
+  monitored_resource {
+    type = "uptime_url"
+    labels = {
+      host       = var.managed_hostname
+      project_id = var.project_id
+    }
+  }
+
+  http_check {
+    path           = "/health"
+    port           = 443
+    use_ssl        = true
+    request_method = "GET"
+  }
+
+  depends_on = [terraform_data.services_ready]
 }
 
 locals {
@@ -71,6 +97,7 @@ resource "google_monitoring_alert_policy" "api_availability_documented" {
   display_name          = "Access API availability documentation"
   combiner              = "OR"
   notification_channels = tolist(var.notification_channel_ids)
+  depends_on            = [terraform_data.services_ready]
   documentation {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
@@ -78,8 +105,8 @@ resource "google_monitoring_alert_policy" "api_availability_documented" {
   conditions {
     display_name = "threshold"
     condition_threshold {
-      filter          = "metric.type=\"logging.googleapis.com/user/access_request_event\" AND metric.label.\"http_status_class\"=\"5xx\""
-      comparison      = "COMPARISON_GT"
+      filter          = "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\""
+      comparison      = "COMPARISON_LT"
       threshold_value = 1
       duration        = "300s"
     }
@@ -91,6 +118,7 @@ resource "google_monitoring_alert_policy" "api_latency_documented" {
   display_name          = "Access API latency documentation"
   combiner              = "OR"
   notification_channels = tolist(var.notification_channel_ids)
+  depends_on            = [terraform_data.services_ready]
   documentation {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
@@ -111,6 +139,7 @@ resource "google_monitoring_alert_policy" "api_5xx_documented" {
   display_name          = "Access API 5xx documentation"
   combiner              = "OR"
   notification_channels = tolist(var.notification_channel_ids)
+  depends_on            = [terraform_data.services_ready]
   documentation {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
@@ -131,6 +160,7 @@ resource "google_monitoring_alert_policy" "auth_denials_documented" {
   display_name          = "Access auth denials documentation"
   combiner              = "OR"
   notification_channels = tolist(var.notification_channel_ids)
+  depends_on            = [terraform_data.services_ready]
   documentation {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
@@ -151,6 +181,7 @@ resource "google_monitoring_alert_policy" "sql_saturation_documented" {
   display_name          = "Access SQL saturation documentation"
   combiner              = "OR"
   notification_channels = tolist(var.notification_channel_ids)
+  depends_on            = [terraform_data.services_ready]
   documentation {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
@@ -171,6 +202,7 @@ resource "google_monitoring_alert_policy" "sql_storage_documented" {
   display_name          = "Access SQL storage documentation"
   combiner              = "OR"
   notification_channels = tolist(var.notification_channel_ids)
+  depends_on            = [terraform_data.services_ready]
   documentation {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
@@ -191,6 +223,7 @@ resource "google_monitoring_alert_policy" "queue_depth_documented" {
   display_name          = "Access queue depth documentation"
   combiner              = "OR"
   notification_channels = tolist(var.notification_channel_ids)
+  depends_on            = [terraform_data.services_ready]
   documentation {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
@@ -199,7 +232,7 @@ resource "google_monitoring_alert_policy" "queue_depth_documented" {
   conditions {
     display_name = "threshold"
     condition_threshold {
-      filter          = "metric.type=\"cloudtasks.googleapis.com/queue/tasks\""
+      filter          = "metric.type=\"cloudtasks.googleapis.com/queue/depth\""
       comparison      = "COMPARISON_GT"
       threshold_value = 1000
       duration        = "300s"
@@ -211,6 +244,7 @@ resource "google_monitoring_alert_policy" "queue_age_documented" {
   display_name          = "Access queue age documentation"
   combiner              = "OR"
   notification_channels = tolist(var.notification_channel_ids)
+  depends_on            = [terraform_data.services_ready]
   documentation {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
@@ -219,7 +253,7 @@ resource "google_monitoring_alert_policy" "queue_age_documented" {
   conditions {
     display_name = "threshold"
     condition_threshold {
-      filter          = "metric.type=\"logging.googleapis.com/user/access_queue_health\""
+      filter          = "metric.type=\"logging.googleapis.com/user/access_queue_health\" AND metric.label.\"result\"=\"degraded\""
       comparison      = "COMPARISON_GT"
       threshold_value = 0
       duration        = "60s"
@@ -231,6 +265,7 @@ resource "google_monitoring_alert_policy" "logical_export_documented" {
   display_name          = "Access logical export documentation"
   combiner              = "OR"
   notification_channels = tolist(var.notification_channel_ids)
+  depends_on            = [terraform_data.services_ready]
   documentation {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"
@@ -239,7 +274,7 @@ resource "google_monitoring_alert_policy" "logical_export_documented" {
   conditions {
     display_name = "threshold"
     condition_threshold {
-      filter          = "metric.type=\"logging.googleapis.com/user/access_backup_restore_health\""
+      filter          = "metric.type=\"workflows.googleapis.com/finished_execution_count\" AND metric.label.\"status\"=\"FAILED\""
       comparison      = "COMPARISON_GT"
       threshold_value = 0
       duration        = "60s"
@@ -251,6 +286,7 @@ resource "google_monitoring_alert_policy" "client_upgrade_documented" {
   display_name          = "Access client upgrade documentation"
   combiner              = "OR"
   notification_channels = tolist(var.notification_channel_ids)
+  depends_on            = [terraform_data.services_ready]
   documentation {
     content   = "Owner role: ${var.observability_owner_role}. Runbook: docs/runbooks/backup-restore-disaster-recovery.md"
     mime_type = "text/markdown"

@@ -74,15 +74,19 @@ def test_backup_boundary_is_exact_and_workflow_is_bounded():
     workflow = (MODULE / "sql_export_workflow.yaml.tftpl").read_text(encoding="utf-8")
     services = (MODULE / "project_services.tf").read_text(encoding="utf-8")
     assert 'account_id   = "access-${local.environment_id}-backup"' in backup
-    assert "cloudsql.instances.export" in backup and "cloudsql.operations.get" in backup
+    assert "cloudsql.instances.export" in backup and "cloudsql.instances.get" in backup
+    assert "cloudsql.operations.get" not in backup
     assert "roles/cloudsql.editor" not in backup
     assert "AccessLogicalBackupExactInstance" in backup
+    assert "AccessLogicalBackupExportsOnly" in backup
+    assert "objects/logical-exports/" in backup
     assert "roles/workflows.invoker" in backup
     assert "googleapis.sqladmin.v1.operations.get" in workflow
     assert "attempt >= 20" in workflow and "sys.sleep" in workflow
     assert "raise:" in workflow and "timed out" in workflow
     assert '"workflows.googleapis.com"' in services
     assert '"billingbudgets.googleapis.com"' in services
+    assert "databases: [${database_name}]" in workflow
 
 
 def test_all_alerts_have_real_unhealthy_sources_and_never_autoclose():
@@ -106,3 +110,15 @@ def test_metric_labels_are_specific_to_actual_producer_shapes():
     ):
         assert field in observability
     assert "safe_metric_contracts" in observability
+
+
+def test_platform_metric_contracts_use_supported_types_only():
+    dashboards = "\n".join(path.read_text(encoding="utf-8") for path in DASHBOARDS.glob("*.json"))
+    observability = (MODULE / "observability.tf").read_text(encoding="utf-8")
+    assert "cloudtasks.googleapis.com/queue/depth" in dashboards
+    assert "cloudtasks.googleapis.com/queue/oldest_task_age" not in dashboards
+    assert "cloudtasks.googleapis.com/queue/tasks" not in observability
+    assert "workflows.googleapis.com/finished_execution_count" in observability
+    assert 'metric.label.\\"status\\"=\\"FAILED\\"' in observability
+    assert "google_monitoring_uptime_check_config" in observability
+    assert observability.count("depends_on            = [terraform_data.services_ready]") >= 10
