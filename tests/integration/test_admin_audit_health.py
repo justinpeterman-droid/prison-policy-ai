@@ -74,7 +74,7 @@ def test_health_emits_bounded_policy_search_and_failed_job_signals(
     )
 
     assert response.status_code == 200, response.get_json()
-    assert ("dependency_health", "operational", {
+    assert ("dependency_health", "unavailable", {
         "dependency": "policy_search", "latency_bucket": "unknown",
     }) in signals
     assert ("queue_health", "failed", {

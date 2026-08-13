@@ -16,7 +16,6 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from backend.build_info import build_metadata
 from backend.identity.audit import AuditEventInput
-from backend.pipeline import config as pipeline_config
 from backend.persistence.database import DatabaseUnavailable, database_ready
 from backend.persistence.models import AiJob, AuditEvent, Report, TaskOutbox
 from backend.webapp.api_v1.context import request_id
@@ -67,15 +66,8 @@ def emit_client_upgrade_required(parsed_client_version: str) -> None:
 
 
 def _policy_search_status() -> str:
-    """Return a bounded readiness projection without exposing configuration."""
-    required = (
-        pipeline_config.PROJECT_ID,
-        pipeline_config.AGENT_BUILDER_LOCATION,
-        pipeline_config.AGENT_BUILDER_COLLECTION,
-        pipeline_config.AGENT_BUILDER_ENGINE_ID,
-        pipeline_config.AGENT_BUILDER_SERVING_CONFIG,
-    )
-    return "Operational" if all(isinstance(value, str) and value.strip() for value in required) else "Unavailable"
+    """Fail closed until policy search has an approved live safe producer."""
+    return "Unavailable"
 
 
 def _failed_job_types(session) -> tuple[str, ...]:

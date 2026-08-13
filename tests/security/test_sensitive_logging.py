@@ -39,7 +39,5 @@ def test_failed_ai_job_health_signal_is_bounded_and_has_no_identifier(monkeypatc
     )]
 
 
-def test_policy_search_health_is_a_bounded_configuration_projection(monkeypatch):
-    monkeypatch.setattr(health_api.pipeline_config, "AGENT_BUILDER_ENGINE_ID", "")
-
+def test_policy_search_health_fails_closed_without_a_live_safe_producer():
     assert health_api._policy_search_status() == "Unavailable"
