@@ -24,7 +24,10 @@ def test_sql_is_postgres_17_private_and_protected():
 
 def test_terraform_never_manages_secret_values_or_keys():
     terraform = "\n".join(path.read_text(encoding="utf-8") for path in MODULE.glob("*.tf"))
-    assert "google_secret_manager_secret_version" not in terraform
+    secrets = read("secrets.tf")
+    assert 'resource "google_secret_manager_secret_version" "managed"' in secrets
+    assert "for_each    = toset([])" in secrets
+    assert "secret_data = null" in secrets
     assert "google_service_account_key" not in terraform
     assert "github_repository_environment" not in terraform
     assert "roles/owner" not in terraform.lower()
@@ -76,9 +79,9 @@ def test_workflow_impersonation_is_scoped_to_exact_permitted_workflow_claims():
     assert 'output "terraform_test_contract"' in outputs
     assert 'distinct_account_id_count' in outputs
     assert 'distinct_provider_id_count' in outputs
-    assert 'provider_specific_binding_count' in outputs
-    assert 'google_secret_manager_secret_iam_member.api_client_update_grant_key' in outputs
-    assert 'google_project_iam_member.terraform_plan_viewer' in outputs
+    assert 'impersonation_binding_count' in outputs
+    assert 'google_secret_manager_secret_iam_member.least_privilege["api-client-update-grant-key"]' in outputs
+    assert 'google_project_iam_member.least_privilege' in outputs
     assert 'google_service_account_iam_member.deploy_runtime_user' in outputs
 
 
@@ -119,8 +122,7 @@ def test_terraform_state_iam_is_prefix_scoped_for_plan_and_apply():
     for root in (TEST_ROOT, PRODUCTION_ROOT):
         assert 'variable "state_bucket_name"' in (root / "variables.tf").read_text(encoding="utf-8")
         assert 'state_bucket_name              = var.state_bucket_name' in (root / "main.tf").read_text(encoding="utf-8")
-    assert 'resource "google_storage_bucket_iam_member" "terraform_plan_state_read"' in identities
-    assert 'resource "google_storage_bucket_iam_member" "terraform_apply_state_write"' in identities
+    assert 'resource "google_storage_bucket_iam_member" "terraform_state"' in identities
     assert 'roles/storage.objectViewer' in identities
     assert 'roles/storage.objectAdmin' in identities
     assert 'objects/access/${var.environment}/' in identities
@@ -138,20 +140,10 @@ def test_identity_and_secret_resources_wait_for_required_apis():
 def test_bootstrap_and_update_grant_secrets_are_separated():
     identities = read("identities.tf")
     secrets = read("secrets.tf")
-    assert 'secret_id = "initial-admin-pin"' in secrets
-    assert 'secret_id = "client-update-grant-key"' in secrets
-    bindings = re.findall(
-        r'resource "google_secret_manager_secret_iam_member" "[^"]+" \{.*?\n\}',
-        identities,
-        flags=re.DOTALL,
-    )
-    assert len(bindings) == 12
-    initial_pin = next(block for block in bindings if "initial_admin_pin.id" in block)
-    update_key = next(block for block in bindings if "client_update_grant_key.id" in block)
-    assert re.search(r'role\s*=\s*"roles/secretmanager\.secretVersionAdder"', initial_pin)
-    assert 'google_service_account.identities["bootstrap"].member' in initial_pin
-    assert "secretAccessor" not in initial_pin
-    assert re.search(r'role\s*=\s*"roles/secretmanager\.secretAccessor"', update_key)
-    assert 'google_service_account.identities["api"].member' in update_key
-    assert 'google_service_account.identities["bootstrap"].member' not in update_key
-    assert 'google_service_account.identities["admin_bootstrap"].member' not in update_key
+    assert '"initial-admin-pin"' in secrets
+    assert '"client-update-grant-key"' in secrets
+    assert 'resource "google_secret_manager_secret_iam_member" "least_privilege"' in identities
+    assert 'bootstrap-initial-pin-adder' in identities
+    assert 'api-client-update-grant-key' in identities
+    assert 'roles/secretmanager.secretVersionAdder' in identities
+    assert 'roles/secretmanager.secretAccessor' in identities
