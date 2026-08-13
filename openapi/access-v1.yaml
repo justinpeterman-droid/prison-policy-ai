@@ -560,6 +560,45 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/RevisionOrIdempotencyConflict" }
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/reports/{report_id}/export-docx:
+    post:
+      operationId: exportEmployeeReportDocx
+      tags: [Reports]
+      description: >-
+        Generate the official 005 Word document for one explicit, immutable
+        revision. `revision` is required and positive: the server never infers
+        "latest", never accepts a revision in a request body, and never
+        silently coerces a malformed value. Bytes are deterministic, so the
+        same revision replayed under the same `Idempotency-Key` reproduces the
+        same document, the same `Digest`, and the same `X-Export-ID` without
+        creating a second export record. Only metadata is persisted
+        (identifiers, SHA-256, byte length, MIME type, download name, template
+        version); the document itself is streamed and its temporary file is
+        removed when the response closes.
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/ExportRevision" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200":
+          description: Deterministic Word document for the named immutable revision
+          headers:
+            Content-Disposition: { $ref: "#/components/headers/ContentDisposition" }
+            Digest: { $ref: "#/components/headers/Digest" }
+            X-Export-ID: { $ref: "#/components/headers/XExportId" }
+            X-Report-Revision: { $ref: "#/components/headers/XReportRevision" }
+            X-Template-Version: { $ref: "#/components/headers/XTemplateVersion" }
+            X-Request-ID: { $ref: "#/components/headers/XRequestId" }
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/v1/auth/login:
     post:
       operationId: loginAccessClient
@@ -1283,6 +1322,105 @@ paths:
                   - $ref: "#/components/schemas/ReportRequestInProgressEnvelope"
                   - $ref: "#/components/schemas/ClientUpgradeRequiredEnvelope"
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/{report_id}/export-docx:
+    post:
+      operationId: exportAdminReportDocx
+      tags: [Admin Reports]
+      description: >-
+        The same deterministic bytes as the employee export, for any report,
+        under a *distinct* `report.exported_by_admin` audit action. Requires
+        Admin role and active elevation; a regular User receives a concealed
+        404. `revision` is required and positive and is never inferred or read
+        from a body.
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/ExportRevision" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200":
+          description: Deterministic Word document for the named immutable revision
+          headers:
+            Content-Disposition: { $ref: "#/components/headers/ContentDisposition" }
+            Digest: { $ref: "#/components/headers/Digest" }
+            X-Export-ID: { $ref: "#/components/headers/XExportId" }
+            X-Report-Revision: { $ref: "#/components/headers/XReportRevision" }
+            X-Template-Version: { $ref: "#/components/headers/XTemplateVersion" }
+            X-Request-ID: { $ref: "#/components/headers/XRequestId" }
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/bulk-export:
+    post:
+      operationId: bulkExportAdminReports
+      tags: [Admin Reports]
+      description: >-
+        Export up to 100 report revisions as one deterministic ZIP containing
+        each authorized document plus a sorted-key `manifest.json`. Requires
+        Admin role, active elevation, a purpose-scoped single-use
+        `bulk_export` step-up token, an `Idempotency-Key`, and a reason.
+        Exactly one closed selection branch is accepted and
+        `revision_selection` has the single release-1 value
+        `current_at_request` -- no client-supplied limit and no floating
+        "latest". The selection is resolved and persisted inside one
+        repeatable-read transaction *before* any document is generated: zero
+        matches is `404 not_found`, more than 100 is `409
+        bulk_export_limit_exceeded` with no partial archive produced. The
+        manifest carries report/revision/export identifiers, hashes, the actor
+        id, the persisted idempotency timestamp, explicit failures, the reason,
+        and normalized filter *names* -- never filter values. A failure after
+        the selection is bounded stays explicit in the manifest and is never
+        recorded as exported.
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminBulkExportRequest" }
+            examples:
+              report_ids:
+                value:
+                  selection:
+                    mode: report_ids
+                    report_ids: [00000000-0000-4000-8000-000000000041]
+                  revision_selection: current_at_request
+                  reason: Fictional records request fixture.
+              filters:
+                value:
+                  selection:
+                    mode: filters
+                    filters: { status: completed }
+                  revision_selection: current_at_request
+                  reason: Fictional records request fixture.
+      responses:
+        "200":
+          description: Bounded ZIP archive of exported revisions plus its manifest
+          headers:
+            Content-Disposition: { $ref: "#/components/headers/ContentDisposition" }
+            Digest: { $ref: "#/components/headers/Digest" }
+            X-Export-ID: { $ref: "#/components/headers/XExportId" }
+            X-Template-Version: { $ref: "#/components/headers/XTemplateVersion" }
+            X-Request-ID: { $ref: "#/components/headers/XRequestId" }
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/BulkExportConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/browser-handoffs/redeem:
     post:
       operationId: redeemReviewLabHandoff
@@ -1482,11 +1620,46 @@ components:
       in: path
       required: true
       schema: { $ref: "#/components/schemas/Uuid" }
+    ExportRevision:
+      name: revision
+      in: query
+      required: true
+      description: >-
+        The exact immutable revision to export. Positive integer; never
+        inferred, never defaulted to the current revision, never read from a
+        request body.
+      schema: { type: integer, minimum: 1, example: 2 }
   headers:
     XRequestId:
       description: Validated request correlation identifier.
       schema:
         $ref: "#/components/schemas/RequestId"
+    ContentDisposition:
+      description: Attachment disposition whose filename is built from identifiers only.
+      schema:
+        type: string
+        example: attachment; filename="report-00000000-0000-4000-8000-000000000041-revision-2.docx"
+    Digest:
+      description: RFC 3230 digest of the exported bytes, base64 SHA-256.
+      schema:
+        type: string
+        pattern: '^sha-256=[A-Za-z0-9+/]{43}=$'
+    XExportId:
+      description: Identifier of the persisted export metadata record.
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    XReportRevision:
+      description: The exact immutable revision number the document was built from.
+      schema:
+        type: integer
+        minimum: 1
+        example: 2
+    XTemplateVersion:
+      description: Stable identity of the 005 template that produced the document.
+      schema:
+        type: string
+        maxLength: 64
+        example: 005_template_v3:0123456789abcdef
   responses:
     ValidationFailed:
       description: Closed request validation failed
@@ -1677,6 +1850,19 @@ components:
                 request_id: request_job_conflict_0004
                 server_time: "2026-08-12T15:10:04Z"
                 api_version: v1
+    BulkExportConflict:
+      description: >-
+        Bulk export conflict; code is bulk_export_limit_exceeded when the
+        resolved selection exceeds 100 documents (no archive is generated), or
+        idempotency_conflict / request_in_progress for a reused key
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+          examples:
+            bulk_export_limit_exceeded:
+              value: { error: { code: bulk_export_limit_exceeded, message: A bulk export is limited to 100 documents., retryable: false }, request_id: req_20260812_bulk_export_limit, server_time: "2026-08-12T15:11:01Z", api_version: v1 }
+            idempotency_conflict:
+              value: { error: { code: idempotency_conflict, message: The idempotency key was used for another fictional request., retryable: false }, request_id: req_20260812_bulk_export_conflict, server_time: "2026-08-12T15:11:01Z", api_version: v1 }
     HandoffInvalid:
       description: The one-time handoff is invalid, expired, or already redeemed
       content:
@@ -2799,6 +2985,82 @@ components:
       example:
         new_owner_staff_id: 00000000-0000-4000-8000-000000000023
         reason: Fictional reassignment for shift coverage.
+    AdminReportFilterSet:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: >-
+        The RP-05 closed structured filter set, reused verbatim by bulk
+        export. Structured columns only; never narrative or field-notes text.
+      properties:
+        report_id: { $ref: "#/components/schemas/Uuid" }
+        incident_id: { $ref: "#/components/schemas/Uuid" }
+        reporting_staff_id: { $ref: "#/components/schemas/Uuid" }
+        preparer_staff_id: { $ref: "#/components/schemas/Uuid" }
+        incident_date_from: { type: string, format: date, minLength: 1 }
+        incident_date_to: { type: string, format: date, minLength: 1 }
+        created_at_from: { $ref: "#/components/schemas/UtcTimestamp" }
+        created_at_to: { $ref: "#/components/schemas/UtcTimestamp" }
+        inmate_first_name: { type: string, minLength: 1, maxLength: 200 }
+        inmate_middle_name: { type: string, minLength: 1, maxLength: 200 }
+        inmate_last_name: { type: string, minLength: 1, maxLength: 200 }
+        inmate_adc_number: { type: string, minLength: 1, maxLength: 200 }
+        category: { type: string, minLength: 1, maxLength: 200 }
+        facility: { type: string, minLength: 1, maxLength: 200 }
+        location: { type: string, minLength: 1, maxLength: 200 }
+        shift: { type: string, minLength: 1, maxLength: 200 }
+        status: { type: string, enum: [in_progress, completed, archived] }
+        last_editor_staff_id: { $ref: "#/components/schemas/Uuid" }
+        modified_at_from: { $ref: "#/components/schemas/UtcTimestamp" }
+        modified_at_to: { $ref: "#/components/schemas/UtcTimestamp" }
+      example: { status: completed }
+    AdminBulkExportSelectionByIds:
+      type: object
+      additionalProperties: false
+      required: [mode, report_ids]
+      properties:
+        mode: { type: string, const: report_ids }
+        report_ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/Uuid" }
+      example:
+        mode: report_ids
+        report_ids: [00000000-0000-4000-8000-000000000041]
+    AdminBulkExportSelectionByFilters:
+      type: object
+      additionalProperties: false
+      required: [mode, filters]
+      properties:
+        mode: { type: string, const: filters }
+        filters: { $ref: "#/components/schemas/AdminReportFilterSet" }
+      example:
+        mode: filters
+        filters: { status: completed }
+    AdminBulkExportRequest:
+      type: object
+      additionalProperties: false
+      required: [selection, revision_selection, reason]
+      properties:
+        selection:
+          oneOf:
+            - { $ref: "#/components/schemas/AdminBulkExportSelectionByIds" }
+            - { $ref: "#/components/schemas/AdminBulkExportSelectionByFilters" }
+        revision_selection:
+          type: string
+          const: current_at_request
+          description: >-
+            The sole release-1 value. A floating "latest" is rejected, as is
+            any client-supplied document limit.
+        reason: { type: string, minLength: 1, maxLength: 500 }
+      example:
+        selection:
+          mode: filters
+          filters: { status: completed }
+        revision_selection: current_at_request
+        reason: Fictional records request fixture.
     AdminReportSearchItem:
       type: object
       additionalProperties: false
