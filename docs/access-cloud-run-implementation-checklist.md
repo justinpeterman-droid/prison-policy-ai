@@ -47,7 +47,11 @@ dependency or external approval.
   fresh focused PostgreSQL verification passed 40 tests, and full PostgreSQL
   integration passed 170 tests with one existing opt-in skip.
 - [ ] 016 RP-07 — Private worker/dispatcher.
-- [ ] 017 RP-08 — Policy Expert API.
+- [x] 017 RP-08 — Policy Expert API. `LOCAL bf2baff`; PR #80 open (draft)
+  against `integration/access-cloud-run-rp02` (no migration, so based on the
+  integration tip rather than stacked); focused policy/browser-parity suite
+  148 passed, full regression 1,400 passed/1 skipped; independent review
+  pending.
 - [ ] 018 RP-09 — Word exports.
 - [ ] 019 RP-10 — Reporting operations and legacy controls.
 
