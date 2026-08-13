@@ -744,6 +744,8 @@ git commit -m "infra: define private sql and least privilege identities"
 - Modify: `infra/terraform/modules/access_platform/outputs.tf`
 - Modify: `infra/terraform/environments/test/main.tf`
 - Modify: `infra/terraform/environments/production/main.tf`
+- Modify: `infra/terraform/environments/test/variables.tf`
+- Modify: `infra/terraform/environments/production/variables.tf`
 - Modify: `infra/terraform/tests/access_platform.tftest.hcl`
 - Create: `infra/terraform/tests/test_serverless_contract.py`
 - Create: `docs/runbooks/edge-and-service-verification.md`
