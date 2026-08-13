@@ -107,11 +107,17 @@ def test_backend_quality_has_supported_python_and_postgres():
     assert "--framework" not in text and "--skip-check" not in text and "--baseline" not in text
 
 
-def test_container_security_uses_fixed_provenance_checked_tooling():
+def test_container_security_uses_signed_release_asset_provenance():
     text = (WORKFLOWS / "container-security.yml").read_text(encoding="utf-8")
-    assert "docker.io/anchore/syft@sha256:678bfa565b60f747aac0f8e964fe5588a24445b8d0a480e91f6efd70020dfbb0" in text
-    assert "docker.io/anchore/grype@sha256:ddf9e9f204049f3a4a0955ef70873cabab6a31432125ad4f20a490b54950a253" in text
-    assert "cosign verify" in text
+    assert "https://github.com/anchore/syft/releases/download/v1.51.0/syft_1.51.0_checksums.txt" in text
+    assert "https://github.com/anchore/grype/releases/download/v0.117.0/grype_0.117.0_checksums.txt" in text
+    assert "cosign verify-blob" in text
+    assert "https://github.com/anchore/syft/.github/workflows/release.yaml@refs/heads/main" in text
+    assert "https://github.com/anchore/grype/.github/workflows/release.yaml@refs/heads/main" in text
+    assert "sha256sum --check --strict" in text
+    assert "cosign verify --certificate-identity-regexp '^https://github.com/anchore/(syft|grype)/'" not in text
+    assert "docker.io/anchore/syft@" not in text
+    assert "docker.io/anchore/grype@" not in text
     assert "insecure-ignore-tlog" not in text
     assert text.count("docker build --tag prison-policy-ai:ci .") == 3
     assert "permissions: {contents: read}" in text
