@@ -51,6 +51,8 @@ Modify only:
 - `infra/terraform/modules/access_platform/outputs.tf`
 - `infra/terraform/environments/test/main.tf`
 - `infra/terraform/environments/production/main.tf`
+- `infra/terraform/environments/test/variables.tf`
+- `infra/terraform/environments/production/variables.tf`
 - `infra/terraform/tests/access_platform.tftest.hcl`
 
 No deletion is authorized. All other upstream files are consume-only.
@@ -60,7 +62,7 @@ No deletion is authorized. All other upstream files are consume-only.
 - Consume the OP-03 network, identities, DB connection name, and secret resource IDs plus one Artifact Registry `image_digest` ending in `@sha256:` and exactly 64 lowercase hex characters.
 - After its concrete resources exist, bind the already-created OP-03 workflow accounts at resource scope only: deploy to this environment's Artifact Registry repository, API/worker/migration Cloud Run services/jobs and their runtime service accounts; rollback through its custom traffic role to only API/worker services; and production access-release to immutable release-bucket paths. Never replace these with project-wide roles. Vertex AI/Discovery Engine data-store and managed-signing-service permissions remain external resource-interface gates until their approved resource IDs and IAM interfaces are supplied.
 - API and worker use the identical `var.image_digest`; never a tag or source deployment.
-- API entry point is Gunicorn `backend.webapp.app:create_app()` with ingress exactly `INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER`.
+- API entry point is Gunicorn `backend.webapp.app:create_app()` with ingress exactly `INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER`. Grant `roles/run.invoker` to `allUsers` only on that API service, because Cloud Run still enforces invoker IAM after the external HTTPS load balancer. The internal-and-cloud-load-balancing ingress setting is the mandatory direct-`run.app` bypass control; never grant `allUsers` on worker or any other service/job.
 - Worker entry point is Gunicorn `backend.worker.app:create_worker_app()` with ingress exactly `INGRESS_TRAFFIC_INTERNAL_ONLY`.
 - Only task-invoker receives worker `roles/run.invoker`; never `allUsers`.
 - Create one environment-specific queue with reviewed retry/backoff/concurrency/rate settings. API enqueues; RP-07 supplies OIDC service-account email and audience equal to the reviewed worker URL.
@@ -71,8 +73,10 @@ No deletion is authorized. All other upstream files are consume-only.
 - Consume all exact runtime names in the plan, including `ACCESS_API_ENABLED=true`, Google/model/search settings, Cloud Tasks/worker URL, source/version compatibility, public base URL, legacy mode, `ACCESS_RELEASE_BUCKET`, roster/review bucket names, bootstrap request bucket/prefix, legacy/feedback secret projections, and logging.
 - Secret values are referenced only by the OP-03 Secret Manager resources. Project `DATABASE_URL`, `IDENTITY_HASH_PEPPER`, `CURSOR_SIGNING_KEY`, and `CLIENT_UPDATE_GRANT_KEY` from their exact containers into the API; worker receives no client-update key. The bootstrap bucket/prefix values are reserved for the OP-06 job, not injected into API/worker.
 - Compatibility variables are `source_commit`, `release_version`, `api_version`, `latest_client_version`, `minimum_client_version`, `minimum_server_version`, and `release_notes`; production gives them no defaults. Require `api_version == "v1"`, validate four versions as SemVer-or-development, source commit as 40 hex outside fixtures, and one-line 1–500 character release notes without controls.
+- The production root obtains image, source/version, hostname, model/search, capacity, and DNS values only through required external variables declared in its permitted `variables.tf`; no fictional/default production value may be embedded in `production/main.tf`. Test-only fictional values remain allowed only in test-root fixtures.
 - Exact environment projection: `RELEASE_VERSION`, `API_VERSION`, `LATEST_CLIENT_VERSION`, `MINIMUM_CLIENT_VERSION`, `MINIMUM_SERVER_VERSION`, `RELEASE_NOTES`. Set managed HTTPS `PUBLIC_BASE_URL`; stamp both services with the same source, release, and digest labels.
 - Outputs are exactly `api_service_name`, `worker_service_name`, `api_revision_uri`, `worker_uri`, `queue_name`, `managed_hostname`, `load_balancer_ip`, `release_bucket_name`, `configuration_bucket_name`, `logical_backup_bucket_name`, `roster_bucket_name`, and `review_bucket_name`.
+- Native Terraform assertions may use a non-sensitive `terraform_test_contract` output containing only booleans, counts, role categories, and fixed labels. It must not expose image references, IAM members, resource names/IDs, hostnames, IPs, or any secret value. Every security assertion must derive from complete actual Terraform resource collections and exact safe per-key relationships, never source text or selected intended subsets.
 
 ## TDD and local validation
 
