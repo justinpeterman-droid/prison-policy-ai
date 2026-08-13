@@ -17,7 +17,7 @@ jobs:
       - run: >-
           cosign verify --certificate-identity-regexp '^https://github.com/anchore/(syft|grype)/'
           --certificate-oidc-issuer https://token.actions.githubusercontent.com
-          docker.io/anchore/syft@sha256:ddf9e9f204049f3a4a0955ef70873cabab6a31432125ad4f20a490b54950a253
+          docker.io/anchore/syft@sha256:678bfa565b60f747aac0f8e964fe5588a24445b8d0a480e91f6efd70020dfbb0
       - run: >-
           cosign verify --certificate-identity-regexp '^https://github.com/anchore/(syft|grype)/'
           --certificate-oidc-issuer https://token.actions.githubusercontent.com
@@ -32,10 +32,10 @@ jobs:
       - run: >-
           cosign verify --certificate-identity-regexp '^https://github.com/anchore/(syft|grype)/'
           --certificate-oidc-issuer https://token.actions.githubusercontent.com
-          docker.io/anchore/syft@sha256:ddf9e9f204049f3a4a0955ef70873cabab6a31432125ad4f20a490b54950a253
+          docker.io/anchore/syft@sha256:678bfa565b60f747aac0f8e964fe5588a24445b8d0a480e91f6efd70020dfbb0
       - run: >-
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
-          docker.io/anchore/syft@sha256:ddf9e9f204049f3a4a0955ef70873cabab6a31432125ad4f20a490b54950a253
+          docker.io/anchore/syft@sha256:678bfa565b60f747aac0f8e964fe5588a24445b8d0a480e91f6efd70020dfbb0
           prison-policy-ai:ci -o spdx-json=sbom.spdx.json
       - run: docker pull cgr.dev/chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d
       - run: python scripts/ci/validate_sbom.py --image prison-policy-ai:ci --runtime-image cgr.dev/chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d --output sbom.spdx.json --provenance sbom.provenance.json --generate-provenance

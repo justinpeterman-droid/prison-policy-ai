@@ -109,7 +109,7 @@ def test_backend_quality_has_supported_python_and_postgres():
 
 def test_container_security_uses_fixed_provenance_checked_tooling():
     text = (WORKFLOWS / "container-security.yml").read_text(encoding="utf-8")
-    assert "docker.io/anchore/syft@sha256:ddf9e9f204049f3a4a0955ef70873cabab6a31432125ad4f20a490b54950a253" in text
+    assert "docker.io/anchore/syft@sha256:678bfa565b60f747aac0f8e964fe5588a24445b8d0a480e91f6efd70020dfbb0" in text
     assert "docker.io/anchore/grype@sha256:ddf9e9f204049f3a4a0955ef70873cabab6a31432125ad4f20a490b54950a253" in text
     assert "cosign verify" in text
     assert "insecure-ignore-tlog" not in text
