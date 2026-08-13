@@ -13,16 +13,19 @@ from backend.persistence.models.reporting import (
     ReportType,
     RevisionReason,
 )
+from backend.persistence.models.jobs import AiJob, Export, TaskOutbox
 
 __all__ = [
     "AccessSession",
     "Account",
     "AdminElevation",
     "AdminStepUpToken",
+    "AiJob",
     "AuditEvent",
     "AuthRateLimit",
     "BrowserHandoff",
     "BrowserSession",
+    "Export",
     "Incident",
     "IncidentRevision",
     "Report",
@@ -33,4 +36,5 @@ __all__ = [
     "RevisionReason",
     "RenewalTokenHistory",
     "StaffMember",
+    "TaskOutbox",
 ]

@@ -5,6 +5,7 @@
 google-genai~=1.0                # serving code imports `from google import genai`
 google-cloud-aiplatform~=1.60    # vertexai — legacy corpus build (pipeline/embed.py)
 google-cloud-storage~=2.18
+google-cloud-tasks>=2.23,<3.0     # RP-06 outbox records reference this; RP-07 dispatches
 pymupdf~=1.24
 python-docx~=1.1
 python-dotenv~=1.0

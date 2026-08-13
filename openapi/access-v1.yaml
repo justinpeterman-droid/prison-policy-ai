@@ -13,6 +13,7 @@ tags:
   - name: Incidents
   - name: Reports
   - name: Admin Reports
+  - name: AI Jobs
 security:
   - AccessBearer: []
 paths:
@@ -1170,6 +1171,119 @@ paths:
                   - $ref: "#/components/schemas/ReportRequestInProgressEnvelope"
                   - $ref: "#/components/schemas/ClientUpgradeRequiredEnvelope"
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/jobs/classify:
+    post:
+      operationId: submitClassifyJob
+      tags: [AI Jobs]
+      description: >-
+        Authorizes actor+incident+base revision, claims the ID-06 idempotency
+        record, and queues one classify job plus its transactional outbox row
+        -- all in one transaction (`backend.jobs.service.submit_job`). RP-07's
+        dispatcher/worker call the report engine; this endpoint never does.
+      parameters:
+        - { $ref: "#/components/parameters/IncidentId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JobSubmitRequest" }
+      responses:
+        "202": { description: Job queued, content: { application/json: { schema: { $ref: "#/components/schemas/JobSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/JobSubmissionConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/jobs/extract:
+    post:
+      operationId: submitExtractJob
+      tags: [AI Jobs]
+      description: Same one-transaction submission contract as `submitClassifyJob`, for job_type extract.
+      parameters:
+        - { $ref: "#/components/parameters/IncidentId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JobSubmitRequest" }
+      responses:
+        "202": { description: Job queued, content: { application/json: { schema: { $ref: "#/components/schemas/JobSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/JobSubmissionConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/jobs/generate:
+    post:
+      operationId: submitGenerateJob
+      tags: [AI Jobs]
+      description: Same one-transaction submission contract as `submitClassifyJob`, for job_type generate.
+      parameters:
+        - { $ref: "#/components/parameters/IncidentId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JobSubmitRequest" }
+      responses:
+        "202": { description: Job queued, content: { application/json: { schema: { $ref: "#/components/schemas/JobSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/JobSubmissionConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/jobs/disciplinary:
+    post:
+      operationId: submitDisciplinaryJob
+      tags: [AI Jobs]
+      description: Same one-transaction submission contract as `submitClassifyJob`, for job_type disciplinary.
+      parameters:
+        - { $ref: "#/components/parameters/IncidentId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JobSubmitRequest" }
+      responses:
+        "202": { description: Job queued, content: { application/json: { schema: { $ref: "#/components/schemas/JobSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/JobSubmissionConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/jobs/{job_id}:
+    get:
+      operationId: getJobStatus
+      tags: [AI Jobs]
+      description: >-
+        Readable only by the requesting actor with current live incident
+        access, or an Admin; any other caller receives a concealed 404.
+      parameters:
+        - { $ref: "#/components/parameters/JobId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+      responses:
+        "200":
+          description: Authorized job status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/browser-handoffs/redeem:
     post:
       operationId: redeemReviewLabHandoff
@@ -1265,6 +1379,11 @@ components:
       schema: { $ref: "#/components/schemas/Uuid" }
     ReportId:
       name: report_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Uuid" }
+    JobId:
+      name: job_id
       in: path
       required: true
       schema: { $ref: "#/components/schemas/Uuid" }
@@ -1391,6 +1510,18 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    JobSubmissionConflict:
+      description: Job submission conflict; code is revision_conflict, idempotency_conflict, request_in_progress, or job_result_conflict
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+          examples:
+            idempotency_conflict:
+              value: { error: { code: idempotency_conflict, message: The idempotency key was already used for a different fictional request., retryable: false }, request_id: req_20260812_job_idempotency_conflict, server_time: "2026-08-12T15:10:01Z", api_version: v1 }
+            revision_conflict:
+              value: { error: { code: revision_conflict, message: The incident changed; reload before submitting., retryable: false, details: { current_revision_number: 2 } }, request_id: req_20260812_job_revision_conflict, server_time: "2026-08-12T15:10:01Z", api_version: v1 }
+            job_result_conflict:
+              value: { error: { code: job_result_conflict, message: "the incident changed since the job was queued; current revision is 2", retryable: false }, request_id: req_20260812_job_result_conflict, server_time: "2026-08-12T15:10:01Z", api_version: v1 }
     ReportRevisionConflict:
       description: Safe report conflict metadata only; no report content is returned
       content:
@@ -2043,6 +2174,41 @@ components:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/IncidentRevisionListData" } } }]
     IncidentRevisionSuccessEnvelope:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/IncidentRevisionData" } } }]
+    JobSubmitRequest:
+      type: object
+      additionalProperties: false
+      required: [base_revision_number]
+      properties:
+        base_revision_number: { type: integer, minimum: 0, example: 1 }
+      example: { base_revision_number: 1 }
+    JobData:
+      type: object
+      additionalProperties: false
+      required: [id, incident_id, job_type, state, stage, created_at, started_at, completed_at]
+      properties:
+        id: { $ref: "#/components/schemas/Uuid" }
+        incident_id: { $ref: "#/components/schemas/Uuid" }
+        job_type: { type: string, enum: [classify, extract, generate, disciplinary] }
+        state: { type: string, enum: [queued, running, succeeded, failed, cancelled] }
+        stage:
+          type: string
+          enum: [queued, classifying, extracting, validating, generating, disciplinary, completed, failed]
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        started_at:
+          oneOf: [{ $ref: "#/components/schemas/UtcTimestamp" }, { type: "null" }]
+        completed_at:
+          oneOf: [{ $ref: "#/components/schemas/UtcTimestamp" }, { type: "null" }]
+      example:
+        id: 00000000-0000-4000-8000-000000000051
+        incident_id: 00000000-0000-4000-8000-000000000031
+        job_type: classify
+        state: queued
+        stage: queued
+        created_at: "2026-08-12T15:00:00Z"
+        started_at: null
+        completed_at: null
+    JobSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/JobData" } } }]
     ReportContent:
       type: object
       additionalProperties: false
