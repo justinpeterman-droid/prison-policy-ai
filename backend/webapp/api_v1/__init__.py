@@ -87,6 +87,9 @@ def prepare_api_request():
         "api_v1.jobs_api.submit_disciplinary": "ai_job_submit",
         "api_v1.jobs_api.status": "ai_job_read",
         "api_v1.policy_api.ask": "policy_question",
+        "api_v1.admin_health_api.overview": "admin_operations_overview",
+        "api_v1.admin_health_api.health": "admin_operations_health",
+        "api_v1.admin_audit_api.list_events": "admin_audit_list",
     }.get(request.endpoint or "", "unknown")
     if request.endpoint != "api_v1.client_policy":
         if getattr(g, "client_version", None) is None:
@@ -179,6 +182,14 @@ api_v1_bp.register_blueprint(jobs_bp)
 from backend.webapp.api_v1.policy import policy_bp
 
 api_v1_bp.register_blueprint(policy_bp, url_prefix="/policy")
+
+from backend.webapp.api_v1.admin_health import admin_health_bp
+
+api_v1_bp.register_blueprint(admin_health_bp, url_prefix="/admin")
+
+from backend.webapp.api_v1.admin_audit import admin_audit_bp
+
+api_v1_bp.register_blueprint(admin_audit_bp, url_prefix="/admin")
 
 
 @api_v1_bp.get("/me", endpoint="me")

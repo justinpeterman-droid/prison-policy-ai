@@ -1421,6 +1421,94 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/BulkExportConflict" }
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/overview:
+    get:
+      operationId: getAdminOverview
+      tags: [Operations]
+      summary: Get bounded operational counters
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+      responses:
+        "200":
+          description: Elevated Admin overview with safe counts and build metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverviewSuccessEnvelope"
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/health:
+    get:
+      operationId: getAdminHealth
+      tags: [Operations]
+      summary: Get safe operational health
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+      responses:
+        "200":
+          description: Elevated Admin health with no infrastructure detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminHealthSuccessEnvelope" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/audit-events:
+    get:
+      operationId: listAdminAuditEvents
+      tags: [Operations]
+      summary: List immutable safe audit events
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { name: occurred_at_from, in: query, schema: { type: string, format: date-time } }
+        - { name: occurred_at_to, in: query, schema: { type: string, format: date-time } }
+        - { name: actor_account_id, in: query, schema: { $ref: "#/components/schemas/Uuid" } }
+        - { name: actor_staff_member_id, in: query, schema: { $ref: "#/components/schemas/Uuid" } }
+        - { name: action_family, in: query, schema: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' } }
+        - { name: target_type, in: query, schema: { type: string, maxLength: 64 } }
+        - { name: target_id, in: query, schema: { $ref: "#/components/schemas/Uuid" } }
+        - { name: result, in: query, schema: { type: string, enum: [success, denied, failed] } }
+        - { name: limit, in: query, schema: { type: integer, default: 50, minimum: 1, maximum: 100 } }
+        - { name: cursor, in: query, schema: { type: string, minLength: 16, maxLength: 512 } }
+      responses:
+        "200": { description: Safe immutable audit page, content: { application/json: { schema: { $ref: "#/components/schemas/AuditEventListSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/audit-events/export:
+    post:
+      operationId: exportAdminAuditEvents
+      tags: [Operations]
+      summary: Export up to 10,000 safe audit rows as one-time CSV
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AuditExportRequest" }
+      responses:
+        "200":
+          description: Fixed-column UTF-8 CSV with no detail JSON or identity hashes
+          headers:
+            Content-Disposition: { $ref: "#/components/headers/ContentDisposition" }
+            Digest: { $ref: "#/components/headers/Digest" }
+            X-Export-ID: { $ref: "#/components/headers/XExportId" }
+            X-Audit-Row-Count: { schema: { type: integer, minimum: 0, maximum: 10000 } }
+          content: { text/csv: { schema: { type: string, format: binary } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "409": { $ref: "#/components/responses/AuditExportConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/browser-handoffs/redeem:
     post:
       operationId: redeemReviewLabHandoff
@@ -1863,6 +1951,18 @@ components:
               value: { error: { code: bulk_export_limit_exceeded, message: A bulk export is limited to 100 documents., retryable: false }, request_id: req_20260812_bulk_export_limit, server_time: "2026-08-12T15:11:01Z", api_version: v1 }
             idempotency_conflict:
               value: { error: { code: idempotency_conflict, message: The idempotency key was used for another fictional request., retryable: false }, request_id: req_20260812_bulk_export_conflict, server_time: "2026-08-12T15:11:01Z", api_version: v1 }
+    AuditExportConflict:
+      description: >-
+        Audit export conflict. `audit_export_limit_exceeded` means the filtered
+        immutable result set exceeded 10,000 rows; no CSV was generated.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+          examples:
+            audit_export_limit_exceeded:
+              value: { error: { code: audit_export_limit_exceeded, message: Narrow the fictional audit filters before exporting., retryable: false }, request_id: request_audit_limit_0001, server_time: '2026-08-12T18:30:00Z', api_version: v1 }
+            idempotency_conflict:
+              value: { error: { code: idempotency_conflict, message: The fictional export request conflicts with an existing request., retryable: false }, request_id: request_audit_conflict_0001, server_time: '2026-08-12T18:30:00Z', api_version: v1 }
     HandoffInvalid:
       description: The one-time handoff is invalid, expired, or already redeemed
       content:
@@ -1883,6 +1983,150 @@ components:
       format: uuid
       minLength: 1
       example: 00000000-0000-4000-8000-000000000001
+    BuildMetadata:
+      type: object
+      additionalProperties: false
+      required: [source_commit, cloud_run_revision, alembic_revision]
+      properties:
+        source_commit: { type: string, maxLength: 64, example: development }
+        cloud_run_revision: { type: string, maxLength: 128, example: development }
+        alembic_revision: { type: string, maxLength: 64, example: '20260812_0005' }
+    AdminOverviewData:
+      type: object
+      additionalProperties: false
+      required: [reports, queued_jobs, pending_outbox, recent_audit_events, build]
+      properties:
+        reports: { type: integer, minimum: 0, maximum: 1000000000 }
+        queued_jobs: { type: integer, minimum: 0, maximum: 1000000000 }
+        pending_outbox: { type: integer, minimum: 0, maximum: 1000000000 }
+        recent_audit_events: { type: integer, minimum: 0, maximum: 1000000000 }
+        build: { $ref: "#/components/schemas/BuildMetadata" }
+    AdminOverviewSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, request_id, server_time, api_version]
+      properties:
+        data: { $ref: "#/components/schemas/AdminOverviewData" }
+        request_id: { $ref: "#/components/schemas/RequestId" }
+        server_time: { $ref: "#/components/schemas/UtcTimestamp" }
+        api_version: { type: string, const: v1 }
+    HealthComponent:
+      type: object
+      additionalProperties: false
+      required: [component, status]
+      properties:
+        component: { type: string, enum: [database, queue, backup_restore] }
+        status: { type: string, enum: [Operational, Degraded, Unavailable] }
+    AdminHealthData:
+      type: object
+      additionalProperties: false
+      required: [status, components, build]
+      properties:
+        status: { type: string, enum: [Operational, Degraded, Unavailable] }
+        components:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: { $ref: "#/components/schemas/HealthComponent" }
+        build: { $ref: "#/components/schemas/BuildMetadata" }
+    AdminHealthSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, request_id, server_time, api_version]
+      properties:
+        data: { $ref: "#/components/schemas/AdminHealthData" }
+        request_id: { $ref: "#/components/schemas/RequestId" }
+        server_time: { $ref: "#/components/schemas/UtcTimestamp" }
+        api_version: { type: string, const: v1 }
+    AuditEventDetails:
+      type: object
+      additionalProperties: false
+      properties:
+        persistent: { type: boolean }
+        reason: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
+        lock_minutes: { type: integer, minimum: 0, maximum: 1000000000 }
+        session_count: { type: integer, minimum: 0, maximum: 1000000000 }
+        purpose: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
+        target_staff_id: { $ref: "#/components/schemas/Uuid" }
+        target_account_id: { $ref: "#/components/schemas/Uuid" }
+        role: { type: string, enum: [user, admin] }
+        old_role: { type: string, enum: [user, admin] }
+        new_role: { type: string, enum: [user, admin] }
+        handoff_id: { $ref: "#/components/schemas/Uuid" }
+        browser_session_id: { $ref: "#/components/schemas/Uuid" }
+        operation_id: { $ref: "#/components/schemas/Uuid" }
+        approval_reference_sha256: { type: string, pattern: '^[0-9a-f]{64}$' }
+        incident_id: { $ref: "#/components/schemas/Uuid" }
+        report_id: { $ref: "#/components/schemas/Uuid" }
+        export_id: { $ref: "#/components/schemas/Uuid" }
+        job_id: { $ref: "#/components/schemas/Uuid" }
+        revision_number: { type: integer, minimum: 0, maximum: 1000000000 }
+        source_revision_number: { type: integer, minimum: 0, maximum: 1000000000 }
+        result_count: { type: integer, minimum: 0, maximum: 1000000000 }
+        report_count: { type: integer, minimum: 0, maximum: 1000000000 }
+        event_count: { type: integer, minimum: 0, maximum: 1000000000 }
+        latency_ms: { type: integer, minimum: 0, maximum: 1000000000 }
+        document_count: { type: integer, minimum: 0, maximum: 1000000000 }
+        changed_fields: { type: array, maxItems: 100, items: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' } }
+        filters: { type: array, maxItems: 100, items: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' } }
+        report_type: { type: string, enum: [first_person, supervisor_summary, cover_letter, disciplinary, investigation, form_005] }
+        export_format: { type: string, const: docx }
+        job_type: { type: string, enum: [classify, extract, generate, disciplinary] }
+        result_code: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
+        question_sha256: { type: string, pattern: '^[0-9a-f]{64}$' }
+        old_status: { type: string, enum: [in_progress, completed, archived] }
+        new_status: { type: string, enum: [in_progress, completed, archived] }
+        old_owner_staff_id: { $ref: "#/components/schemas/Uuid" }
+        new_owner_staff_id: { $ref: "#/components/schemas/Uuid" }
+    AuditEventData:
+      type: object
+      additionalProperties: false
+      required: [event_id, occurred_at, actor_account_id, actor_staff_member_id, action, target_type, target_id, result, details]
+      properties:
+        event_id: { $ref: "#/components/schemas/Uuid" }
+        occurred_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        actor_account_id: { oneOf: [{ $ref: "#/components/schemas/Uuid" }, { type: 'null' }] }
+        actor_staff_member_id: { oneOf: [{ $ref: "#/components/schemas/Uuid" }, { type: 'null' }] }
+        action: { type: string, maxLength: 120 }
+        target_type: { type: string, maxLength: 64 }
+        target_id: { oneOf: [{ $ref: "#/components/schemas/Uuid" }, { type: 'null' }] }
+        result: { type: string, enum: [success, denied, failed] }
+        details: { $ref: "#/components/schemas/AuditEventDetails" }
+    AuditEventListData:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, maxItems: 100, items: { $ref: "#/components/schemas/AuditEventData" } }
+        next_cursor: { oneOf: [{ type: string, minLength: 16, maxLength: 512 }, { type: 'null' }] }
+    AuditEventListSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, request_id, server_time, api_version]
+      properties:
+        data: { $ref: "#/components/schemas/AuditEventListData" }
+        request_id: { $ref: "#/components/schemas/RequestId" }
+        server_time: { $ref: "#/components/schemas/UtcTimestamp" }
+        api_version: { type: string, const: v1 }
+    AuditExportRequest:
+      type: object
+      additionalProperties: false
+      required: [filters, format, reason]
+      properties:
+        filters:
+          type: object
+          additionalProperties: false
+          properties:
+            occurred_at_from: { type: string, format: date-time }
+            occurred_at_to: { type: string, format: date-time }
+            actor_account_id: { $ref: "#/components/schemas/Uuid" }
+            actor_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+            action_family: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
+            target_type: { type: string, maxLength: 64 }
+            target_id: { $ref: "#/components/schemas/Uuid" }
+            result: { type: string, enum: [success, denied, failed] }
+        format: { type: string, const: csv }
+        reason: { type: string, minLength: 1, maxLength: 500 }
     SubmitJobRequest:
       type: object
       additionalProperties: false
