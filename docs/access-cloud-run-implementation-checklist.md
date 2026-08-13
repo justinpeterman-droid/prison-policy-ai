@@ -81,12 +81,14 @@ dependency or external approval.
 - [x] 022 OP-04 — Serverless edge and storage. `MERGED` and independently reviewed at `0ce9d8d`.
 - [x] 023 OP-05 — Monitoring, backup, and budgets. `MERGED` and independently reviewed at `f5e8f24`.
 - [x] 024 OP-06 — Migration, roster, and first-Admin jobs. Reviewed and integrated at `00119a9`; local Docker and dedicated PostgreSQL lifecycle gates remain external.
-- [ ] 025 OP-07 — Quality and supply-chain gates. `BLOCKED`: implementation,
-  hash-locked developer environment, static checks, tests, and local Docker
-  build are ready. Fixed Syft/Grype releases cannot be verified because this
-  environment's Rekor transparency-log request fails with `tls: access denied`.
-  Do not bypass transparency-log verification; resume from a trusted runner or
-  network that can verify the signed release artifacts.
+- [ ] 025 OP-07 — Quality and supply-chain gates. `BLOCKED`: fixed,
+  hash-verified Syft/Grype tooling now runs locally and the candidate's
+  application/container/SBOM checks are ready, but the required pinned Checkov
+  Terraform scan reports 24 inherited findings across OP-03 through OP-05.
+  OP-07's exact allowlist forbids remediating those Terraform resources, and
+  the scanner's free findings do not supply dependable severity metadata for a
+  truthful Critical/High-only gate. Do not suppress or baseline the findings;
+  resume after an approved upstream Terraform hardening task resolves them.
 - [ ] 026 OP-08 — Controlled delivery workflows.
 
 ## Microsoft Access employee client
