@@ -1,4 +1,5 @@
 """Roster mutation route integrity."""
+
 import json
 
 import pytest
@@ -10,19 +11,29 @@ from backend.webapp import app as app_mod
 @pytest.fixture
 def roster_client(tmp_path, monkeypatch):
     path = tmp_path / "staff_roster.json"
-    path.write_text(json.dumps({
-        "shifts": {},
-        "staff": [
+    path.write_text(
+        json.dumps(
             {
-                "rank": "Cpl", "first": "Ray", "last": "Alvarez",
-                "employee_number": "EMP-A", "shift": "A",
-            },
-            {
-                "rank": "Cpl", "first": "Tara", "last": "Nguyen",
-                "employee_number": "EMP-B", "shift": "B",
-            },
-        ],
-    }))
+                "shifts": {},
+                "staff": [
+                    {
+                        "rank": "Cpl",
+                        "first": "Ray",
+                        "last": "Alvarez",
+                        "employee_number": "EMP-A",
+                        "shift": "A",
+                    },
+                    {
+                        "rank": "Cpl",
+                        "first": "Tara",
+                        "last": "Nguyen",
+                        "employee_number": "EMP-B",
+                        "shift": "B",
+                    },
+                ],
+            }
+        )
+    )
     monkeypatch.setattr(roster_store, "SEED_PATH", path)
     monkeypatch.setattr(app_mod, "ACCESS_CODE", "")
     monkeypatch.setattr(app_mod, "ADMIN_CODE", "")

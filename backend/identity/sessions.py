@@ -155,20 +155,25 @@ def login(
         now=now,
         settings=settings,
     )
-    audit_writer.append(session, AuditEventInput(
-        account.id,
-        account.staff_member_id,
-        "auth.login_succeeded",
-        "success",
-        request_id,
-        "session",
-        pair.session_id,
-        {"persistent": bool(persistent)},
-    ))
+    audit_writer.append(
+        session,
+        AuditEventInput(
+            account.id,
+            account.staff_member_id,
+            "auth.login_succeeded",
+            "success",
+            request_id,
+            "session",
+            pair.session_id,
+            {"persistent": bool(persistent)},
+        ),
+    )
     return pair
 
 
-def _account_for_session(session: Session, stored: AccessSession, *, lock: bool = False) -> Account | None:
+def _account_for_session(
+    session: Session, stored: AccessSession, *, lock: bool = False
+) -> Account | None:
     statement = (
         select(Account)
         .join(StaffMember, Account.staff_member_id == StaffMember.id)
@@ -191,12 +196,14 @@ def _revoke_family(
     now: datetime,
     reason: str,
 ) -> int:
-    rows = list(session.scalars(
-        select(AccessSession)
-        .where(AccessSession.renewal_family_id == current.renewal_family_id)
-        .order_by(AccessSession.id)
-        .with_for_update()
-    ).all())
+    rows = list(
+        session.scalars(
+            select(AccessSession)
+            .where(AccessSession.renewal_family_id == current.renewal_family_id)
+            .order_by(AccessSession.id)
+            .with_for_update()
+        ).all()
+    )
     if current not in rows:
         rows.append(current)
     count = 0
@@ -243,23 +250,28 @@ def renew_session(
         history.reuse_detected_at = history.reuse_detected_at or now
         _revoke_family(session, current, now=now, reason="renewal_reuse")
         if account is not None:
-            audit_writer.append(session, AuditEventInput(
-                account.id,
-                account.staff_member_id,
-                "auth.session_revoked",
-                "failed",
-                request_id,
-                "session",
-                current.id,
-                {"reason": "renewal_reuse"},
-            ))
+            audit_writer.append(
+                session,
+                AuditEventInput(
+                    account.id,
+                    account.staff_member_id,
+                    "auth.session_revoked",
+                    "failed",
+                    request_id,
+                    "session",
+                    current.id,
+                    {"reason": "renewal_reuse"},
+                ),
+            )
         session.flush()
         raise SessionReauthenticationRequired()
 
     account = _account_for_session(session, current, lock=True)
     if account is None:
         raise SessionReauthenticationRequired()
-    expected_device_hash = hash_device_id(device_id, settings.identity_hash_pepper or "")
+    expected_device_hash = hash_device_id(
+        device_id, settings.identity_hash_pepper or ""
+    )
     if (
         current.revoked_at is not None
         or current.renewal_expires_at <= now
@@ -270,13 +282,15 @@ def renew_session(
     _require_active(account)
 
     old_expiry = current.renewal_expires_at
-    session.add(RenewalTokenHistory(
-        session_id=current.id,
-        renewal_family_id=current.renewal_family_id,
-        token_hash=current.renewal_token_hash,
-        rotated_at=now,
-        expires_at=old_expiry,
-    ))
+    session.add(
+        RenewalTokenHistory(
+            session_id=current.id,
+            renewal_family_id=current.renewal_family_id,
+            token_hash=current.renewal_token_hash,
+            rotated_at=now,
+            expires_at=old_expiry,
+        )
+    )
     access = issue_credential()
     renewal = issue_credential()
     current.access_token_hash = access.digest
@@ -287,16 +301,19 @@ def renew_session(
         current.renewal_expires_at = now + timedelta(
             seconds=settings.persistent_renewal_ttl_seconds
         )
-    audit_writer.append(session, AuditEventInput(
-        account.id,
-        account.staff_member_id,
-        "auth.session_renewed",
-        "success",
-        request_id,
-        "session",
-        current.id,
-        {"persistent": current.persistent},
-    ))
+    audit_writer.append(
+        session,
+        AuditEventInput(
+            account.id,
+            account.staff_member_id,
+            "auth.session_renewed",
+            "success",
+            request_id,
+            "session",
+            current.id,
+            {"persistent": current.persistent},
+        ),
+    )
     session.flush()
     return _pair(current, account, access.raw, renewal.raw)
 
@@ -346,16 +363,19 @@ def revoke_session(
     if account is None:
         raise SessionReauthenticationRequired()
     count = _revoke_family(session, target, now=now, reason="user_revoked")
-    audit_writer.append(session, AuditEventInput(
-        actor_account_id,
-        account.staff_member_id,
-        "auth.session_revoked",
-        "success",
-        request_id,
-        "session",
-        target.id,
-        {"reason": "user_revoked"},
-    ))
+    audit_writer.append(
+        session,
+        AuditEventInput(
+            actor_account_id,
+            account.staff_member_id,
+            "auth.session_revoked",
+            "success",
+            request_id,
+            "session",
+            target.id,
+            {"reason": "user_revoked"},
+        ),
+    )
     return count
 
 
@@ -367,12 +387,14 @@ def logout_all(
     audit_writer: AuditWriter,
     request_id: str,
 ) -> int:
-    rows = list(session.scalars(
-        select(AccessSession)
-        .where(AccessSession.account_id == account_id)
-        .order_by(AccessSession.id)
-        .with_for_update()
-    ).all())
+    rows = list(
+        session.scalars(
+            select(AccessSession)
+            .where(AccessSession.account_id == account_id)
+            .order_by(AccessSession.id)
+            .with_for_update()
+        ).all()
+    )
     account = session.scalar(
         select(Account).where(Account.id == account_id).with_for_update()
     )
@@ -385,16 +407,19 @@ def logout_all(
             row.revoked_at = now
             row.revoke_reason = "logout_all"
             count += 1
-    audit_writer.append(session, AuditEventInput(
-        account.id,
-        account.staff_member_id,
-        "auth.logout_all",
-        "success",
-        request_id,
-        "account",
-        account.id,
-        {"session_count": count},
-    ))
+    audit_writer.append(
+        session,
+        AuditEventInput(
+            account.id,
+            account.staff_member_id,
+            "auth.logout_all",
+            "success",
+            request_id,
+            "account",
+            account.id,
+            {"session_count": count},
+        ),
+    )
     return count
 
 
@@ -445,24 +470,28 @@ def change_pin(
     account.must_change_pin = False
     account.temporary_pin_expires_at = None
     account.auth_version += 1
-    rows = list(session.scalars(
-        select(AccessSession)
-        .where(AccessSession.account_id == account_id)
-        .order_by(AccessSession.id)
-        .with_for_update()
-    ).all())
+    rows = list(
+        session.scalars(
+            select(AccessSession)
+            .where(AccessSession.account_id == account_id)
+            .order_by(AccessSession.id)
+            .with_for_update()
+        ).all()
+    )
     for row in rows:
         if row.id != current.id and row.revoked_at is None:
             row.revoked_at = now
             row.revoke_reason = "pin_changed"
 
-    session.add(RenewalTokenHistory(
-        session_id=current.id,
-        renewal_family_id=current.renewal_family_id,
-        token_hash=current.renewal_token_hash,
-        rotated_at=now,
-        expires_at=current.renewal_expires_at,
-    ))
+    session.add(
+        RenewalTokenHistory(
+            session_id=current.id,
+            renewal_family_id=current.renewal_family_id,
+            token_hash=current.renewal_token_hash,
+            rotated_at=now,
+            expires_at=current.renewal_expires_at,
+        )
+    )
     access = issue_credential()
     renewal = issue_credential()
     current.auth_version = account.auth_version
@@ -474,16 +503,19 @@ def change_pin(
         current.renewal_expires_at = now + timedelta(
             seconds=settings.persistent_renewal_ttl_seconds
         )
-    audit_writer.append(session, AuditEventInput(
-        account.id,
-        account.staff_member_id,
-        "auth.pin_changed",
-        "success",
-        request_id,
-        "account",
-        account.id,
-        {},
-    ))
+    audit_writer.append(
+        session,
+        AuditEventInput(
+            account.id,
+            account.staff_member_id,
+            "auth.pin_changed",
+            "success",
+            request_id,
+            "account",
+            account.id,
+            {},
+        ),
+    )
     session.flush()
     return _pair(current, account, access.raw, renewal.raw)
 
@@ -494,11 +526,13 @@ def list_sessions(
     account_id: UUID,
     current_session_id: UUID,
 ) -> list[SessionSummary]:
-    rows = list(session.scalars(
-        select(AccessSession)
-        .where(AccessSession.account_id == account_id)
-        .order_by(AccessSession.created_at.desc(), AccessSession.id)
-    ).all())
+    rows = list(
+        session.scalars(
+            select(AccessSession)
+            .where(AccessSession.account_id == account_id)
+            .order_by(AccessSession.created_at.desc(), AccessSession.id)
+        ).all()
+    )
     return [
         SessionSummary(
             session_id=row.id,

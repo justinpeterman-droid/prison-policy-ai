@@ -1,4 +1,5 @@
 """Report generation endpoints — v2 three-step pipeline."""
+
 import json
 import logging
 import re
@@ -8,11 +9,15 @@ from pathlib import Path
 from flask import Blueprint, current_app, render_template, request, jsonify, send_file
 from backend.reports.classifier import classify_incident
 from backend.reports.generator import (
-    has_charges, generate_all_reports, generate_disciplinary_only,
+    has_charges,
+    generate_all_reports,
+    generate_disciplinary_only,
 )
 from backend.reports.filler import fill_template, designation_boxes
 from backend.reports.report_validator import (
-    repair_all, summarize, validate_all,
+    repair_all,
+    summarize,
+    validate_all,
 )
 from backend.reports.demo_scenarios import load_demo_scenarios
 from backend.reports.gap_answers import build_incident_number, merge_gap_answers
@@ -24,13 +29,15 @@ from backend.pipeline.config import legacy_report_mode
 logger = logging.getLogger(__name__)
 reports_bp = Blueprint("reports", __name__)
 
-_RESTRICTED_LEGACY_ACTIONS = frozenset({
-    "/api/reports/classify",
-    "/api/reports/extract",
-    "/api/reports/generate",
-    "/api/reports/disciplinary",
-    "/api/reports/download",
-})
+_RESTRICTED_LEGACY_ACTIONS = frozenset(
+    {
+        "/api/reports/classify",
+        "/api/reports/extract",
+        "/api/reports/generate",
+        "/api/reports/disciplinary",
+        "/api/reports/download",
+    }
+)
 
 
 @reports_bp.before_request
@@ -49,12 +56,17 @@ def legacy_report_control():
     if not current_app.config["IDENTITY_SETTINGS"].enabled:
         return None
     if legacy_report_mode() == "restricted":
-        return jsonify({
-            "error": "Legacy report actions are temporarily unavailable. Use the Access workspace.",
-        }), 503
+        return jsonify(
+            {
+                "error": "Legacy report actions are temporarily unavailable. Use the Access workspace.",
+            }
+        ), 503
     return None
 
-_LOCATION_MAP_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "location_map.json"
+
+_LOCATION_MAP_PATH = (
+    Path(__file__).parent.parent.parent.parent / "templates" / "location_map.json"
+)
 
 
 @lru_cache(maxsize=1)
@@ -79,6 +91,7 @@ def _load_demo_scenarios() -> list:
         logger.warning("Could not load demo_notes.json; demo CTA will be inert")
         return []
 
+
 # 005 field values, taken from real filed forms (see
 # templates/gold_reports/STYLE_RULINGS.md, rulings 1 and 3). The injury and
 # treatment lines carry the medical form reference rather than being left blank
@@ -91,8 +104,12 @@ FIRST_NAME_NEEDED = "[FIRST NAME NEEDED]"
 # Incidents that, by their nature, involve an inmate going to medical — the
 # medical disposition pre-selects "Seen by Infirmary staff" (still changeable).
 MEDICAL_SEEN_CATEGORIES = {
-    "inmate_fight", "staff_assault", "forced_cell_movement", "prea",
-    "use_of_force", "medical_emergency",
+    "inmate_fight",
+    "staff_assault",
+    "forced_cell_movement",
+    "prea",
+    "use_of_force",
+    "medical_emergency",
 }
 # Medical dispositions where the inmate was seen/offered medical.
 # Injury/treatment lines on 005 are left blank (no cross-reference text).
@@ -139,6 +156,7 @@ def _titlecase(value):
         return value
     return " ".join(w[:1].upper() + w[1:] if w else w for w in str(value).split())
 
+
 def _to_12h(value):
     """Normalize a time to 12-hour 'H:MM am/pm' (see STYLE_RULINGS.md ruling 12).
 
@@ -149,16 +167,17 @@ def _to_12h(value):
     """
     if not value:
         return value
-    core = re.sub(r'^(approximately|approx\.?|~)\s*', '', str(value).strip(),
-                  flags=re.I).strip()
-    m = re.match(r'^(\d{1,2}):?(\d{2})\s*([ap])\.?\s*m\.?$', core, re.I)
+    core = re.sub(
+        r"^(approximately|approx\.?|~)\s*", "", str(value).strip(), flags=re.I
+    ).strip()
+    m = re.match(r"^(\d{1,2}):?(\d{2})\s*([ap])\.?\s*m\.?$", core, re.I)
     if m:  # already 12-hour, just canonicalize
         return f"{int(m.group(1))}:{m.group(2)} {m.group(3).lower()}m"
-    m = re.match(r'^(\d{1,2}):?(\d{2})$', core)
+    m = re.match(r"^(\d{1,2}):?(\d{2})$", core)
     if m:  # 24-hour
         h, mm = int(m.group(1)), m.group(2)
         if 0 <= h <= 23:
-            ap = 'am' if h < 12 else 'pm'
+            ap = "am" if h < 12 else "pm"
             return f"{h % 12 or 12}:{mm} {ap}"
     return value
 
@@ -176,28 +195,28 @@ def _validate_and_clean_time(value):
         return value, False
     raw = str(value).strip()
     # Already valid — let _to_12h handle it
-    if re.match(r'^\d{1,2}:?\d{2}\s*[ap]\.?m\.?$', raw, re.I):
+    if re.match(r"^\d{1,2}:?\d{2}\s*[ap]\.?m\.?$", raw, re.I):
         return _to_12h(raw), True
     # Bare 24-hour (e.g. '2200', '1422')
-    if re.match(r'^\d{3,4}$', raw):
+    if re.match(r"^\d{3,4}$", raw):
         h, mm = int(raw[:-2]), raw[-2:]
         if 0 <= h <= 23 and 0 <= int(mm) <= 59:
             return _to_12h(f"{h}:{mm}"), True
         return raw, False
     # Try to clean: strip any trailing letters, keep digits and colon
-    cleaned = re.sub(r'\s*[a-zA-Z]+$', '', raw).strip()
+    cleaned = re.sub(r"\s*[a-zA-Z]+$", "", raw).strip()
     # '7:22AAm' -> '7:22' after strip, then append 'am' based on hour guess
-    m = re.match(r'^(\d{1,2}):?(\d{2})$', cleaned)
+    m = re.match(r"^(\d{1,2}):?(\d{2})$", cleaned)
     if m:
         h, mm = int(m.group(1)), m.group(2)
         if 1 <= h <= 12 and 0 <= int(mm) <= 59:
             # Can't know AM/PM, use the suffix if any hint
-            suffix_match = re.search(r'([ap])', raw, re.I)
-            ap = suffix_match.group(1).lower() + 'm' if suffix_match else 'am'
+            suffix_match = re.search(r"([ap])", raw, re.I)
+            ap = suffix_match.group(1).lower() + "m" if suffix_match else "am"
             return _to_12h(f"{h}:{mm}{ap}"), True
         return raw, False
     # 'approximately' prefix
-    approx = re.match(r'^(approximately|approx\.?|~)\s+(.+)', raw, re.I)
+    approx = re.match(r"^(approximately|approx\.?|~)\s+(.+)", raw, re.I)
     if approx:
         inner, valid = _validate_and_clean_time(approx.group(2))
         if valid:
@@ -215,7 +234,7 @@ def _to_form_time(value):
     if not value:
         return value
     normalized = _to_12h(value)
-    m = re.match(r'^(\d{1,2}):(\d{2})\s*([ap])m$', str(normalized).strip(), re.I)
+    m = re.match(r"^(\d{1,2}):(\d{2})\s*([ap])m$", str(normalized).strip(), re.I)
     if not m:
         return value
     return f"APX. {int(m.group(1))}:{m.group(2)} {m.group(3).upper()}M"
@@ -239,9 +258,11 @@ def _apply_gap_defaults(category: str, gaps: list) -> None:
     for g in gaps:
         slot = g.get("slot")
         if slot == "medical_disposition":
-            g["default"] = ("Seen by Infirmary staff"
-                            if category in MEDICAL_SEEN_CATEGORIES
-                            else "N/A - no injuries reported")
+            g["default"] = (
+                "Seen by Infirmary staff"
+                if category in MEDICAL_SEEN_CATEGORIES
+                else "N/A - no injuries reported"
+            )
         elif slot == "drug_test_disposition":
             g["default"] = "N/A"
         elif slot == "escort_destination" and category in FIGHT_RH_CATEGORIES:
@@ -256,7 +277,7 @@ def _today() -> str:
 
 def _is_first_person_unnamed(notes: str, slots: dict) -> bool:
     """Detect notes that use first-person ('I'/'me') but no officer name extracted."""
-    has_first_person = bool(re.search(r'\bI\b|\bme\b|\bmy\b', notes, re.I))
+    has_first_person = bool(re.search(r"\bI\b|\bme\b|\bmy\b", notes, re.I))
     last = slots.get("officer_last")
     first = slots.get("officer_first")
     unnamed = not last or not first or last == "None" or first == "None"
@@ -274,16 +295,21 @@ def _format_inmates(slots: dict) -> str:
         if p.get("role") != "inmate" or not p.get("last"):
             continue
         first = _titlecase(p.get("first")) or FIRST_NAME_NEEDED
-        parts.append(f"Inmate {_titlecase(p.get('last', ''))}, {first} "
-                     f"ADC#{p.get('adc_number') or 'UNKNOWN'}")
+        parts.append(
+            f"Inmate {_titlecase(p.get('last', ''))}, {first} "
+            f"ADC#{p.get('adc_number') or 'UNKNOWN'}"
+        )
     return ", ".join(parts)
 
 
 def _inmates_missing_first(slots: dict) -> list:
     """Inmates named by last name but with no first name — each one needs a
     gap question, and if still blank at generation, a supplement marker."""
-    return [p.get("last") for p in slots.get("persons", [])
-            if p.get("role") == "inmate" and p.get("last") and not p.get("first")]
+    return [
+        p.get("last")
+        for p in slots.get("persons", [])
+        if p.get("role") == "inmate" and p.get("last") and not p.get("first")
+    ]
 
 
 def _apply_first_name_answers(slots: dict, answers: dict) -> None:
@@ -293,8 +319,11 @@ def _apply_first_name_answers(slots: dict, answers: dict) -> None:
             continue
         last = key.split("::", 1)[1]
         for p in slots.get("persons", []):
-            if (p.get("role") == "inmate" and p.get("last") == last
-                    and not p.get("first")):
+            if (
+                p.get("role") == "inmate"
+                and p.get("last") == last
+                and not p.get("first")
+            ):
                 p["first"] = _titlecase(val)
 
 
@@ -334,14 +363,36 @@ def _parse_rank(full_name: str) -> str:
     """Extract rank prefix from a name like 'Sgt. Dana Halvorsen'."""
     if not full_name:
         return ""
-    RANKS = ["Cpt.", "Lt.", "Sgt.", "Cpl.", "Ofc.", "Officer", "Capt.",
-             "Captain", "Lieutenant", "Sergeant", "Corporal", "Major",
-             "Maj.", "Col.", "Colonel", "Warden", "Deputy Warden"]
+    RANKS = [
+        "Cpt.",
+        "Lt.",
+        "Sgt.",
+        "Cpl.",
+        "Ofc.",
+        "Officer",
+        "Capt.",
+        "Captain",
+        "Lieutenant",
+        "Sergeant",
+        "Corporal",
+        "Major",
+        "Maj.",
+        "Col.",
+        "Colonel",
+        "Warden",
+        "Deputy Warden",
+    ]
     for r in sorted(RANKS, key=len, reverse=True):
         if full_name.startswith(r) or full_name.startswith(r.lower().capitalize()):
-            abbr = {"Corporal": "Cpl.", "Sergeant": "Sgt.", "Captain": "Cpt.",
-                    "Lieutenant": "Lt.", "Colonel": "Col.", "Major": "Maj.",
-                    "Officer": "Ofc."}
+            abbr = {
+                "Corporal": "Cpl.",
+                "Sergeant": "Sgt.",
+                "Captain": "Cpt.",
+                "Lieutenant": "Lt.",
+                "Colonel": "Col.",
+                "Major": "Maj.",
+                "Officer": "Ofc.",
+            }
             return abbr.get(r, r)
     return ""
 
@@ -357,6 +408,7 @@ def reports_page():
 
 # ── v2 three-step pipeline ──────────────────────────────────────
 
+
 @reports_bp.route("/api/reports/classify", methods=["POST"])
 def reports_classify():
     data = request.get_json(silent=True) or {}
@@ -365,8 +417,11 @@ def reports_classify():
         return jsonify({"error": "No field notes provided"}), 400
     try:
         classification = report_service.classify_incident_notes(notes)
-        logger.info("Classify → %s, %d charges", classification.get("incident_type"),
-                    len(classification.get("charges", [])))
+        logger.info(
+            "Classify → %s, %d charges",
+            classification.get("incident_type"),
+            len(classification.get("charges", [])),
+        )
         return jsonify(classification)
     except Exception as exc:
         category, status = classify_error(exc)
@@ -382,8 +437,9 @@ def reports_extract():
     if not notes or not category:
         return jsonify({"error": "notes and category required"}), 400
     try:
-        return jsonify(report_service.extract_incident_notes(
-            notes, category, FileStaffProvider()))
+        return jsonify(
+            report_service.extract_incident_notes(notes, category, FileStaffProvider())
+        )
     except Exception as exc:
         category, status = classify_error(exc)
         logger.exception("Extraction failed [category=%s]", category)
@@ -393,8 +449,12 @@ def reports_extract():
 # Report keys a client may hand back for the deferred second pass. Anything
 # else is dropped: the phase-2 request re-validates the whole set, and letting
 # unknown keys through would put unvalidated text into that set.
-RESUMABLE_REPORT_KEYS = ("first_person", "supervisor_summary", "cover_letter",
-                         "investigation")
+RESUMABLE_REPORT_KEYS = (
+    "first_person",
+    "supervisor_summary",
+    "cover_letter",
+    "investigation",
+)
 
 
 def _prepare_generation(data: dict) -> dict:
@@ -425,10 +485,12 @@ def _prepare_generation(data: dict) -> dict:
     # When the officer fills in a staff_identity gap, learn it permanently
     # so the same name never triggers the same gap again.
     from backend.reports.roster import add_staff_from_gap_answer
+
     for key, val in answers.items():
         if key.startswith("officer_identity_") and val:
             added = add_staff_from_gap_answer(
-                key.replace("officer_identity_", ""), str(val))
+                key.replace("officer_identity_", ""), str(val)
+            )
             if added:
                 logger.info("Persisted new staff to roster from gap answer")
         elif key.startswith("officer_fields_") and val:
@@ -436,9 +498,10 @@ def _prepare_generation(data: dict) -> dict:
             # patch the matching person dict if we can identify the officer
             name_hint = key.replace("officer_fields_", "")
             for p in slots.get("persons", []):
-                if (p.get("role") == "security_staff"
-                        and (p.get("last", "").lower() == name_hint.lower()
-                             or p.get("name", "").lower() == name_hint.lower())):
+                if p.get("role") == "security_staff" and (
+                    p.get("last", "").lower() == name_hint.lower()
+                    or p.get("name", "").lower() == name_hint.lower()
+                ):
                     p["first"] = _titlecase(str(val))
                     logger.info("Filled a missing staff field from gap answer")
                     break
@@ -455,7 +518,8 @@ def _prepare_generation(data: dict) -> dict:
     last3 = slots.get("incident_number_last3") or answers.get("incident_number_last3")
     if last3 and not slots.get("incident_number"):
         slots["incident_number"] = _build_incident_number(
-            last3, incident_date=slots.get("date"))
+            last3, incident_date=slots.get("date")
+        )
     # Inmate drug test defaults to N/A unless the officer chose otherwise.
     if not slots.get("drug_test_disposition"):
         slots["drug_test_disposition"] = "N/A"
@@ -472,7 +536,9 @@ def _prepare_generation(data: dict) -> dict:
         elif "restrictive" not in dest.lower():
             slots["escort_destination"] = (
                 f"Infirmary, then {RESTRICTIVE_HOUSING}"
-                if "infirmary" in dest.lower() else RESTRICTIVE_HOUSING)
+                if "infirmary" in dest.lower()
+                else RESTRICTIVE_HOUSING
+            )
 
     # Re-resolve auto_content with answered slots
     gap_result = find_gaps(category, slots)
@@ -496,7 +562,7 @@ def _prepare_generation(data: dict) -> dict:
         name = str(officer_name).strip()
         rank_parsed = _parse_rank(name)
         if rank_parsed:
-            name = name[len(rank_parsed):].strip()
+            name = name[len(rank_parsed) :].strip()
         if "," in name:
             last, first, middle = _parse_name(name)
         else:
@@ -514,8 +580,9 @@ def _prepare_generation(data: dict) -> dict:
         # Do not log the name itself (PII); just note parsing happened.
         logger.debug("Parsed officer_name from gap answer into rank/first/last")
 
-    elif reporters := [p for p in slots.get("persons", [])
-                      if p.get("role") == "security_staff"]:
+    elif reporters := [
+        p for p in slots.get("persons", []) if p.get("role") == "security_staff"
+    ]:
         reporter = reporters[0]
         slots = bind_reporter(slots, reporter)
 
@@ -523,8 +590,14 @@ def _prepare_generation(data: dict) -> dict:
     # Don't touch slots that already have real data or partial data.
     officer_last = slots.get("officer_last")
     officer_first = slots.get("officer_first")
-    null_last = not officer_last or str(officer_last).lower() in ("none", "[not in notes]")
-    null_first = not officer_first or str(officer_first).lower() in ("none", "[not in notes]")
+    null_last = not officer_last or str(officer_last).lower() in (
+        "none",
+        "[not in notes]",
+    )
+    null_first = not officer_first or str(officer_first).lower() in (
+        "none",
+        "[not in notes]",
+    )
     if null_last or null_first:
         if not null_last:
             # Have last name but no first — leave as-is, gap asks for first
@@ -576,18 +649,21 @@ def _finalize_generation(reports: dict, ctx: dict) -> dict:
     generation_errors_pending = reports.pop("_errors", [])
     reports, repaired = repair_all(reports)
     if repaired:
-        logger.info("Auto-repaired: %s",
-                    "; ".join(f"{k}={','.join(v)}" for k, v in repaired.items()))
+        logger.info(
+            "Auto-repaired: %s",
+            "; ".join(f"{k}={','.join(v)}" for k, v in repaired.items()),
+        )
 
     # ── 005 injury / present line logic (deterministic) ──
     # Injury/treatment lines are left blank — medical detail lives elsewhere.
     inmate_hurt = slots.get("medical_disposition") in MEDICAL_INJURY_DISPOSITIONS
     inmate_injury_line = MSF_REFERENCE if inmate_hurt else "N/A"
     # Officer injury/treatment: blank ("N/A" if no force involvement).
-    officer_force = (category in OFFICER_FORCE_CATEGORIES
-                     or bool(slots.get("officer_injuries"))
-                     or str(slots.get("staff_injured", "")).lower()
-                     in ("yes", "true"))
+    officer_force = (
+        category in OFFICER_FORCE_CATEGORIES
+        or bool(slots.get("officer_injuries"))
+        or str(slots.get("staff_injured", "")).lower() in ("yes", "true")
+    )
     officer_injury_line = MSF_REFERENCE if officer_force else "N/A"
 
     form005 = {
@@ -626,21 +702,25 @@ def _finalize_generation(reports: dict, ctx: dict) -> dict:
     # the fallback date (when the notes stated none), and the built incident
     # number — are legitimate output, not invented facts. Allow-list them so
     # the trust signal doesn't fire on the system's own correct work.
-    code_derived = [slots.get("time"), slots.get("date"),
-                    slots.get("incident_number")]
+    code_derived = [slots.get("time"), slots.get("date"), slots.get("incident_number")]
     flags = invented_facts(all_text, notes, answers, allow=code_derived)
 
     # Score every report against the style rulings, using the SAME inputs
     # as the fabrication check above so the two can never disagree.
-    style = summarize(validate_all(
-        reports,
-        officer={"rank": slots.get("rank"), "first": slots.get("officer_first"),
-                 "last": slots.get("officer_last")},
-        notes=notes,
-        auto_content=auto_content,   # routed per report type by insert_into
-        allow=code_derived,
-        answers=answers,
-    ))
+    style = summarize(
+        validate_all(
+            reports,
+            officer={
+                "rank": slots.get("rank"),
+                "first": slots.get("officer_first"),
+                "last": slots.get("officer_last"),
+            },
+            notes=notes,
+            auto_content=auto_content,  # routed per report type by insert_into
+            allow=code_derived,
+            answers=answers,
+        )
+    )
 
     # Any report that failed after retries is reported as a failure rather
     # than left to pass for a finished document with an error line in it.
@@ -648,9 +728,15 @@ def _finalize_generation(reports: dict, ctx: dict) -> dict:
     if generation_errors:
         logger.error("Generation failed for: %s", ", ".join(generation_errors))
 
-    logger.info("Generate → %d reports, %d invented-fact flags, %d markers, "
-                "style %.2f (%d blocking)", len(reports), len(flags),
-                len(markers), style["score"], style["blocking_count"])
+    logger.info(
+        "Generate → %d reports, %d invented-fact flags, %d markers, "
+        "style %.2f (%d blocking)",
+        len(reports),
+        len(flags),
+        len(markers),
+        style["score"],
+        style["blocking_count"],
+    )
     return {
         "generation_errors": generation_errors,
         "reports": reports,
@@ -669,15 +755,12 @@ def reports_generate():
     if not data.get("notes", "").strip() or not data.get("category", "").strip():
         return jsonify({"error": "notes and category required"}), 400
 
-    # The disciplinary supplement consumes the finished first-person report, so
-    # it cannot join the concurrent batch and roughly doubles the request to
-    # ~40s. Phones drop connections over that, losing all the work. Clients can
-    # ask for it to be deferred to a second, shorter request.
-    defer = bool(data.get("defer_disciplinary"))
     try:
         payload = report_service._generate_report_set(
-            data, staff_provider=FileStaffProvider(),
-            generate_all=generate_all_reports, charges_present=has_charges,
+            data,
+            staff_provider=FileStaffProvider(),
+            generate_all=generate_all_reports,
+            charges_present=has_charges,
         )
         return jsonify(payload)
     except Exception as exc:
@@ -700,7 +783,8 @@ def reports_disciplinary():
         return jsonify({"error": "notes and category required"}), 400
     try:
         payload = report_service._generate_disciplinary_report(
-            data, staff_provider=FileStaffProvider(),
+            data,
+            staff_provider=FileStaffProvider(),
             generate_only=generate_disciplinary_only,
         )
         return jsonify(payload)
@@ -708,6 +792,7 @@ def reports_disciplinary():
         category_, status = classify_error(exc)
         logger.exception("Disciplinary generation failed [category=%s]", category_)
         return jsonify({"error": ERROR_MESSAGES[category_]}), status
+
 
 @reports_bp.route("/api/reports", methods=["POST"])
 def reports_api():
@@ -720,9 +805,11 @@ def reports_api():
 
     try:
         classification = classify_incident(notes)
-        logger.info("Classification complete — type: %s, charges: %d",
-                     classification.get("incident_type"),
-                     len(classification.get("charges_applicable", [])))
+        logger.info(
+            "Classification complete — type: %s, charges: %d",
+            classification.get("incident_type"),
+            len(classification.get("charges_applicable", [])),
+        )
 
         reports = generate_all_reports(notes, classification)
 
@@ -732,33 +819,38 @@ def reports_api():
 
         # Extract inmates
         inmates = [
-            p for p in classification.get("persons_involved", [])
+            p
+            for p in classification.get("persons_involved", [])
             if p.get("role") == "inmate"
         ]
         inmate_names = ", ".join(i.get("name", "") for i in inmates)
 
-        return jsonify({
-            "incident_type": classification.get("incident_type"),
-            "label": classification.get("label", classification.get("incident_type", "")),
-            "forms_required": classification.get("forms_required", []),
-            "charges": classification.get("charges_applicable", []),
-            "charge_descriptions": classification.get("charge_descriptions", {}),
-            "persons": classification.get("persons_involved", []),
-            # Flattened metadata for UI preview
-            "metadata": {
-                "officer_last": last,
-                "officer_first": first,
-                "employee_number": officer.get("employee_number", ""),
-                "rank": officer.get("rank", ""),
-                "facility": classification.get("facility", ""),
-                "shift": classification.get("shift", ""),
-                "location": classification.get("location", ""),
-                "date": classification.get("date", ""),
-                "time": classification.get("time", ""),
-                "inmates_involved": inmate_names,
-            },
-            "reports": reports,
-        })
+        return jsonify(
+            {
+                "incident_type": classification.get("incident_type"),
+                "label": classification.get(
+                    "label", classification.get("incident_type", "")
+                ),
+                "forms_required": classification.get("forms_required", []),
+                "charges": classification.get("charges_applicable", []),
+                "charge_descriptions": classification.get("charge_descriptions", {}),
+                "persons": classification.get("persons_involved", []),
+                # Flattened metadata for UI preview
+                "metadata": {
+                    "officer_last": last,
+                    "officer_first": first,
+                    "employee_number": officer.get("employee_number", ""),
+                    "rank": officer.get("rank", ""),
+                    "facility": classification.get("facility", ""),
+                    "shift": classification.get("shift", ""),
+                    "location": classification.get("location", ""),
+                    "date": classification.get("date", ""),
+                    "time": classification.get("time", ""),
+                    "inmates_involved": inmate_names,
+                },
+                "reports": reports,
+            }
+        )
     except Exception:
         logger.exception("Report generation failed")
         return jsonify({"error": "Report generation failed"}), 500
@@ -769,17 +861,19 @@ def _send_filled(metadata: dict):
     output = fill_template(metadata)
 
     if output.get("text"):
-        return jsonify({
-            "format": "text",
-            "content": output["text"],
-            "message": "DOC template not available — text report returned"
-        })
+        return jsonify(
+            {
+                "format": "text",
+                "content": output["text"],
+                "message": "DOC template not available — text report returned",
+            }
+        )
 
     return send_file(
         output["path"],
         as_attachment=True,
         download_name="Incident_Report_Form.docx",
-        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 
 
@@ -797,7 +891,9 @@ def reports_download():
     metadata = data.get("metadata")
     if isinstance(metadata, dict) and metadata:
         metadata = {k: str(v) for k, v in metadata.items() if isinstance(k, str)}
-        logger.info("Document download from reviewed metadata — %d fields", len(metadata))
+        logger.info(
+            "Document download from reviewed metadata — %d fields", len(metadata)
+        )
         try:
             return _send_filled(metadata)
         except Exception:
@@ -819,7 +915,8 @@ def reports_download():
         last, first, middle = _parse_name(officer.get("name", ""))
 
         inmates = [
-            p for p in classification.get("persons_involved", [])
+            p
+            for p in classification.get("persons_involved", [])
             if p.get("role") == "inmate"
         ]
         inmate_names = ", ".join(i.get("name", "") for i in inmates)

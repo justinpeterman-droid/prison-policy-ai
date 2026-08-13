@@ -4,6 +4,7 @@ This surface deliberately reports only stable status codes, bounded counts,
 and deployment identifiers.  It never returns configuration, credentials,
 query text, or report content.
 """
+
 from __future__ import annotations
 
 import json
@@ -36,7 +37,9 @@ logger = logging.getLogger("backend.webapp.operations")
 _MAX_COUNT = 1_000_000_000
 _SIGNAL_FIELDS = {
     "dependency_health": frozenset({"dependency", "latency_bucket"}),
-    "queue_health": frozenset({"depth_bucket", "oldest_age_bucket", "job_type", "stage", "latency_bucket"}),
+    "queue_health": frozenset(
+        {"depth_bucket", "oldest_age_bucket", "job_type", "stage", "latency_bucket"}
+    ),
     "backup_restore_health": frozenset({"recency_bucket"}),
     "client_upgrade_required": frozenset({"parsed_client_version"}),
 }
@@ -74,12 +77,18 @@ def _emit(signal: str, result: str, **fields: str) -> None:
         for value in fields.values()
     ):
         raise ValueError("operational signal values are invalid")
-    logger.info(json.dumps({"signal": signal, "result": result, **fields}, sort_keys=True))
+    logger.info(
+        json.dumps({"signal": signal, "result": result, **fields}, sort_keys=True)
+    )
 
 
 def emit_client_upgrade_required(parsed_client_version: str) -> None:
     """Emit the only allowed client-upgrade signal projection."""
-    _emit("client_upgrade_required", "required", parsed_client_version=parsed_client_version)
+    _emit(
+        "client_upgrade_required",
+        "required",
+        parsed_client_version=parsed_client_version,
+    )
 
 
 def _age_bucket(duration: timedelta | None) -> str:
@@ -122,13 +131,14 @@ def _policy_search_status() -> str:
 def _oldest_pending_or_running_at(session):
     """Return only the oldest pending outbox/running job time, never the value itself."""
     active_times = union_all(
-        select(TaskOutbox.created_at.label("queued_at")).where(TaskOutbox.state == "pending"),
-        select(func.coalesce(AiJob.started_at, AiJob.created_at).label("queued_at"))
-        .where(AiJob.state == "running"),
+        select(TaskOutbox.created_at.label("queued_at")).where(
+            TaskOutbox.state == "pending"
+        ),
+        select(
+            func.coalesce(AiJob.started_at, AiJob.created_at).label("queued_at")
+        ).where(AiJob.state == "running"),
     ).subquery()
-    return session.scalar(
-        select(func.min(active_times.c.queued_at))
-    )
+    return session.scalar(select(func.min(active_times.c.queued_at)))
 
 
 def _failed_job_health(session) -> tuple[tuple[str, str], ...]:
@@ -143,7 +153,9 @@ def _failed_job_health(session) -> tuple[tuple[str, str], ...]:
         ).one_or_none()
         if row is not None:
             started_at, completed_at = row
-            duration = completed_at - started_at if started_at and completed_at else None
+            duration = (
+                completed_at - started_at if started_at and completed_at else None
+            )
             signals.append((job_type, _latency_bucket(duration)))
     return tuple(signals)
 
@@ -152,7 +164,8 @@ def _emit_failed_job_health(jobs: tuple[tuple[str, str], ...]) -> None:
     """Emit one identifier-free failure signal for each bounded job category."""
     for job_type, latency_bucket in jobs:
         _emit(
-            "queue_health", "failed",
+            "queue_health",
+            "failed",
             depth_bucket="unknown",
             oldest_age_bucket="unknown",
             job_type=job_type,
@@ -191,16 +204,41 @@ def overview():
     """Return compact, bounded operational counters for an elevated Admin."""
     db = current_request_session()
     try:
-        return success({
-            "reports": _bounded_count(db.scalar(select(func.count()).select_from(Report)) or 0),
-            "queued_jobs": _bounded_count(db.scalar(select(func.count()).select_from(AiJob).where(AiJob.state == "queued")) or 0),
-            "pending_outbox": _bounded_count(db.scalar(select(func.count()).select_from(TaskOutbox).where(TaskOutbox.state == "pending")) or 0),
-            "recent_audit_events": _bounded_count(db.scalar(select(func.count()).select_from(AuditEvent)) or 0),
-            "build": build_metadata(),
-        })
+        return success(
+            {
+                "reports": _bounded_count(
+                    db.scalar(select(func.count()).select_from(Report)) or 0
+                ),
+                "queued_jobs": _bounded_count(
+                    db.scalar(
+                        select(func.count())
+                        .select_from(AiJob)
+                        .where(AiJob.state == "queued")
+                    )
+                    or 0
+                ),
+                "pending_outbox": _bounded_count(
+                    db.scalar(
+                        select(func.count())
+                        .select_from(TaskOutbox)
+                        .where(TaskOutbox.state == "pending")
+                    )
+                    or 0
+                ),
+                "recent_audit_events": _bounded_count(
+                    db.scalar(select(func.count()).select_from(AuditEvent)) or 0
+                ),
+                "build": build_metadata(),
+            }
+        )
     except (DatabaseUnavailable, SQLAlchemyError):
         g.identity_db_failed = True
-        raise ApiError("dependency_unavailable", "Operations data is temporarily unavailable.", status=503, retryable=True) from None
+        raise ApiError(
+            "dependency_unavailable",
+            "Operations data is temporarily unavailable.",
+            status=503,
+            retryable=True,
+        ) from None
 
 
 @admin_health_bp.get("/health", endpoint="health")
@@ -214,10 +252,17 @@ def health():
     backup_restore_status = "Unavailable"
     queue_status = "Operational"
     try:
-        pending = current_request_session().scalar(
-            select(func.count()).select_from(TaskOutbox).where(TaskOutbox.state == "pending")
-        ) or 0
-        oldest_pending_or_running_at = _oldest_pending_or_running_at(current_request_session())
+        pending = (
+            current_request_session().scalar(
+                select(func.count())
+                .select_from(TaskOutbox)
+                .where(TaskOutbox.state == "pending")
+            )
+            or 0
+        )
+        oldest_pending_or_running_at = _oldest_pending_or_running_at(
+            current_request_session()
+        )
         failed_job_health = _failed_job_health(current_request_session())
         if pending > 10_000:
             queue_status = "Degraded"
@@ -226,29 +271,61 @@ def health():
         _append_health_audit()
     except (DatabaseUnavailable, SQLAlchemyError):
         g.identity_db_failed = True
-        raise ApiError("dependency_unavailable", "Operations data is temporarily unavailable.", status=503, retryable=True) from None
+        raise ApiError(
+            "dependency_unavailable",
+            "Operations data is temporarily unavailable.",
+            status=503,
+            retryable=True,
+        ) from None
     safe_database = db_status.lower()
     safe_queue = queue_status.lower()
     safe_policy_search = policy_search_status.lower()
-    depth_bucket = "zero" if pending == 0 else "one_to_999" if pending < 1_000 else "1000_or_more"
-    _emit("dependency_health", safe_database, dependency="database", latency_bucket="unknown")
-    _emit("dependency_health", safe_policy_search, dependency="policy_search", latency_bucket="unknown")
-    oldest_age_bucket = "zero" if oldest_pending_or_running_at is None else _age_bucket(
-        datetime.now(UTC) - oldest_pending_or_running_at
+    depth_bucket = (
+        "zero" if pending == 0 else "one_to_999" if pending < 1_000 else "1000_or_more"
     )
-    _emit("queue_health", safe_queue, depth_bucket=depth_bucket, oldest_age_bucket=oldest_age_bucket)
+    _emit(
+        "dependency_health",
+        safe_database,
+        dependency="database",
+        latency_bucket="unknown",
+    )
+    _emit(
+        "dependency_health",
+        safe_policy_search,
+        dependency="policy_search",
+        latency_bucket="unknown",
+    )
+    oldest_age_bucket = (
+        "zero"
+        if oldest_pending_or_running_at is None
+        else _age_bucket(datetime.now(UTC) - oldest_pending_or_running_at)
+    )
+    _emit(
+        "queue_health",
+        safe_queue,
+        depth_bucket=depth_bucket,
+        oldest_age_bucket=oldest_age_bucket,
+    )
     _emit_failed_job_health(failed_job_health)
-    _emit("backup_restore_health", backup_restore_status.lower(), recency_bucket="unknown")
-    overall = "Unavailable" if "Unavailable" in {db_status, policy_search_status} else "Degraded" if (
-        queue_status == "Degraded" or backup_restore_status == "Unavailable"
-    ) else "Operational"
-    return success({
-        "status": overall,
-        "components": [
-            _component("database", db_status),
-            _component("policy_search", policy_search_status),
-            _component("queue", queue_status),
-            _component("backup_restore", backup_restore_status),
-        ],
-        "build": build_metadata(),
-    })
+    _emit(
+        "backup_restore_health", backup_restore_status.lower(), recency_bucket="unknown"
+    )
+    overall = (
+        "Unavailable"
+        if "Unavailable" in {db_status, policy_search_status}
+        else "Degraded"
+        if (queue_status == "Degraded" or backup_restore_status == "Unavailable")
+        else "Operational"
+    )
+    return success(
+        {
+            "status": overall,
+            "components": [
+                _component("database", db_status),
+                _component("policy_search", policy_search_status),
+                _component("queue", queue_status),
+                _component("backup_restore", backup_restore_status),
+            ],
+            "build": build_metadata(),
+        }
+    )

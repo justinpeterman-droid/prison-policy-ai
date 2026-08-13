@@ -1,4 +1,5 @@
 """Prison Policy AI — configuration."""
+
 import os
 import logging
 from pathlib import Path
@@ -56,15 +57,19 @@ MODEL_LOCATION = os.getenv("GCP_MODEL_LOCATION", "global")
 AGENT_BUILDER_LOCATION = os.getenv("AGENT_BUILDER_LOCATION", "global")
 AGENT_BUILDER_COLLECTION = os.getenv("AGENT_BUILDER_COLLECTION", "default_collection")
 AGENT_BUILDER_ENGINE_ID = os.getenv("AGENT_BUILDER_ENGINE_ID", "prison-policies-engine")
-AGENT_BUILDER_SERVING_CONFIG = os.getenv("AGENT_BUILDER_SERVING_CONFIG", "default_search")
+AGENT_BUILDER_SERVING_CONFIG = os.getenv(
+    "AGENT_BUILDER_SERVING_CONFIG", "default_search"
+)
 
 
 def serving_config_path() -> str:
     """Fully-qualified Discovery Engine serving config for the policy search."""
-    return (f"projects/{PROJECT_ID}/locations/{AGENT_BUILDER_LOCATION}"
-            f"/collections/{AGENT_BUILDER_COLLECTION}"
-            f"/engines/{AGENT_BUILDER_ENGINE_ID}"
-            f"/servingConfigs/{AGENT_BUILDER_SERVING_CONFIG}")
+    return (
+        f"projects/{PROJECT_ID}/locations/{AGENT_BUILDER_LOCATION}"
+        f"/collections/{AGENT_BUILDER_COLLECTION}"
+        f"/engines/{AGENT_BUILDER_ENGINE_ID}"
+        f"/servingConfigs/{AGENT_BUILDER_SERVING_CONFIG}"
+    )
 
 
 def search_config_summary() -> dict:
@@ -81,6 +86,7 @@ def search_config_summary() -> dict:
         "fast_model": FAST_MODEL,
         "pro_model": PRO_MODEL,
     }
+
 
 CORPUS_NAME = os.getenv("RAG_CORPUS_NAME", "prison-policies")
 
@@ -120,18 +126,23 @@ ROSTER_OBJECT = os.getenv("ROSTER_OBJECT", "staff_roster.json")
 # lag behind an edit made on another.
 ROSTER_CACHE_TTL = float(os.getenv("ROSTER_CACHE_TTL", "30"))
 
+
 # Temporary administrator evaluation surface. It is disabled unless explicitly
 # enabled, and stores immutable review objects under a dedicated bucket prefix.
 def _env_bool(name: str, default: bool = False) -> bool:
     return os.getenv(name, str(default)).strip().lower() in {
-        "1", "true", "yes", "on",
+        "1",
+        "true",
+        "yes",
+        "on",
     }
 
 
 REVIEW_LAB_ENABLED = _env_bool("REVIEW_LAB_ENABLED")
 REVIEW_BUCKET = os.getenv("REVIEW_BUCKET", ROSTER_BUCKET or "")
 REVIEW_OBJECT_PREFIX = os.getenv(
-    "REVIEW_OBJECT_PREFIX", "review-lab/submissions").strip("/")
+    "REVIEW_OBJECT_PREFIX", "review-lab/submissions"
+).strip("/")
 
 
 def legacy_report_mode() -> str:
@@ -146,6 +157,7 @@ def legacy_report_mode() -> str:
             "LEGACY_REPORT_MODE must be 'pilot_fallback' or 'restricted'"
         )
     return value
+
 
 # Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

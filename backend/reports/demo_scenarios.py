@@ -1,4 +1,5 @@
 """Canonical fictional demo scenarios used by web and CLI review flows."""
+
 from copy import deepcopy
 from functools import lru_cache
 import json

@@ -1,6 +1,9 @@
 import pytest
 
-from backend.identity.normalization import normalize_device_label, normalize_employee_number
+from backend.identity.normalization import (
+    normalize_device_label,
+    normalize_employee_number,
+)
 
 
 def test_employee_number_is_trimmed_and_uppercase():

@@ -13,12 +13,14 @@ def _finalize(response: Response) -> Response:
 
 
 def success(data: object, status: int = 200) -> Response:
-    response = jsonify({
-        "data": data,
-        "request_id": request_id(),
-        "server_time": server_time(),
-        "api_version": API_VERSION,
-    })
+    response = jsonify(
+        {
+            "data": data,
+            "request_id": request_id(),
+            "server_time": server_time(),
+            "api_version": API_VERSION,
+        }
+    )
     response.status_code = status
     return _finalize(response)
 
@@ -37,11 +39,13 @@ def failure(
     }
     if details is not None:
         error["details"] = details
-    response = jsonify({
-        "error": error,
-        "request_id": request_id(),
-        "server_time": server_time(),
-        "api_version": API_VERSION,
-    })
+    response = jsonify(
+        {
+            "error": error,
+            "request_id": request_id(),
+            "server_time": server_time(),
+            "api_version": API_VERSION,
+        }
+    )
     response.status_code = status
     return _finalize(response)

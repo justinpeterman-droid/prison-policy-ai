@@ -10,15 +10,14 @@ Usage:
     python scripts/test_reports.py --notes "..."      # test custom notes
     python scripts/test_reports.py --loop 3           # loop N times to check consistency
 """
-import json
+
 import sys
 import requests
 import argparse
-import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend" / "reports"))
-from report_validator import validate_report, validate_all
+from report_validator import validate_all
 
 BASE_URL = "https://prison-policy-ai-403037827694.us-central1.run.app"
 ACCESS_CODE = "slut"
@@ -59,25 +58,29 @@ def extract(notes: str, category: str) -> dict:
     return _api("/api/reports/extract", {"notes": notes, "category": category})
 
 
-def generate(notes: str, category: str, slots: dict, answers: dict,
-             reporter_index: int = 0) -> dict:
-    return _api("/api/reports/generate", {
-        "notes": notes,
-        "category": category,
-        "slots": slots,
-        "answers": answers,
-        "reporter_index": reporter_index,
-    })
+def generate(
+    notes: str, category: str, slots: dict, answers: dict, reporter_index: int = 0
+) -> dict:
+    return _api(
+        "/api/reports/generate",
+        {
+            "notes": notes,
+            "category": category,
+            "slots": slots,
+            "answers": answers,
+            "reporter_index": reporter_index,
+        },
+    )
 
 
 def run_test(name: str, notes: str, verbose: bool = True) -> dict:
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"TEST: {name}")
     print(f"NOTES: {notes}")
-    print(f"{'='*60}")
-    
+    print(f"{'=' * 60}")
+
     result = {"name": name, "notes": notes}
-    
+
     # Step 1: Classify
     print("\n[1/3] Classifying...", end=" ", flush=True)
     try:
@@ -88,7 +91,7 @@ def run_test(name: str, notes: str, verbose: bool = True) -> dict:
     except Exception as e:
         print(f"FAIL: {e}")
         return result
-    
+
     # Step 2: Extract
     print("[2/3] Extracting...", end=" ", flush=True)
     try:
@@ -98,7 +101,7 @@ def run_test(name: str, notes: str, verbose: bool = True) -> dict:
         officers = e.get("officers", [])
         blocking = e.get("blocking_remaining", 0)
         print(f"-> {len(officers)} officers, {len(gaps)} gaps ({blocking} blocking)")
-        
+
         # Use first officer — fall back to default if names are null
         if officers:
             raw = officers[0]
@@ -114,20 +117,28 @@ def run_test(name: str, notes: str, verbose: bool = True) -> dict:
                     "employee_number": raw.get("employee_number", ""),
                 }
             else:
-                officer = {"rank": "Sgt.", "first": "Dana", "last": "Halvorsen",
-                           "employee_number": "100411"}
+                officer = {
+                    "rank": "Sgt.",
+                    "first": "Dana",
+                    "last": "Halvorsen",
+                    "employee_number": "100411",
+                }
                 print("  Reporter: [default] (unnamed in notes)")
         else:
-            officer = {"rank": "Sgt.", "first": "Dana", "last": "Halvorsen",
-                       "employee_number": "100411"}
+            officer = {
+                "rank": "Sgt.",
+                "first": "Dana",
+                "last": "Halvorsen",
+                "employee_number": "100411",
+            }
             print("  Reporter: [default]")
     except Exception as e:
         print(f"FAIL: {e}")
         return result
-    
+
     # Step 3: Generate
     print("[3/3] Generating reports...", end=" ", flush=True)
-    
+
     # Fill gaps with defaults
     answers = {}
     for g in gaps:
@@ -136,14 +147,16 @@ def run_test(name: str, notes: str, verbose: bool = True) -> dict:
             continue
         atype = g.get("answer_type", "text")
         if atype == "choice":
-            answers[slot] = g.get("default", "") or (g.get("options", [""])[0] if g.get("options") else "")
+            answers[slot] = g.get("default", "") or (
+                g.get("options", [""])[0] if g.get("options") else ""
+            )
         elif atype == "yes_no":
             answers[slot] = "Yes"
         elif slot == "officer_name":
             answers[slot] = "Sgt. Dana Halvorsen"
         else:
             answers[slot] = f"TEST-{slot}"
-    
+
     reports = {}
     try:
         gen = generate(notes, incident_type, slots, answers, 0)
@@ -156,18 +169,18 @@ def run_test(name: str, notes: str, verbose: bool = True) -> dict:
         print(f"FAIL: {e}")
         result["generate_error"] = str(e)[:200]
         return result
-    
+
     # ─── VALIDATION ──────────────────────────────────────────────────
-    print(f"\n{'─'*60}")
+    print(f"\n{'─' * 60}")
     print("VALIDATION")
-    print(f"{'─'*60}")
-    
+    print(f"{'─' * 60}")
+
     if not reports:
         print("  No reports to validate")
         return result
-    
+
     results = validate_all(reports, officer, notes)
-    
+
     total = 0
     blocking = 0
     for rtype, vr in results.items():
@@ -175,29 +188,33 @@ def run_test(name: str, notes: str, verbose: bool = True) -> dict:
         score_pct = vr.score * 100
         passed = vr.checks_passed
         failed = vr.checks_failed
-        print(f"\n  [{rtype}] {score_pct:.0f}% ({passed}/{passed + failed} checks passed)")
-        
+        print(
+            f"\n  [{rtype}] {score_pct:.0f}% ({passed}/{passed + failed} checks passed)"
+        )
+
         # Show the generated text snippet
-        short = text[:200].replace('\n', ' ')
+        short = text[:200].replace("\n", " ")
         print(f"  Text: {short}...")
-        
+
         for v in vr.violations:
             sev = v.severity
-            marker = "BLOCK" if sev == "BLOCKING" else "ERROR" if sev == "ERROR" else "WARN "
+            marker = (
+                "BLOCK" if sev == "BLOCKING" else "ERROR" if sev == "ERROR" else "WARN "
+            )
             print(f"    [{marker}] {v.rule_id}: {v.message[:150]}")
             total += 1
             if sev == "BLOCKING":
                 blocking += 1
-    
+
     result["validation"] = {
         "total_violations": total,
         "blocking": blocking,
         "scores": {rt: vr.score for rt, vr in results.items()},
     }
-    
+
     print(f"\n  -> {total} violations ({blocking} blocking)")
     print(f"  -> {'PASS' if blocking == 0 else 'FAIL'}")
-    
+
     return result
 
 
@@ -205,19 +222,22 @@ def run_all(loop: int = 1):
     all_results = []
     for i in range(loop):
         if loop > 1:
-            print(f"\n{'#'*60}")
+            print(f"\n{'#' * 60}")
             print(f"ITERATION {i + 1}/{loop}")
-            print(f"{'#'*60}")
+            print(f"{'#' * 60}")
         for tc in TEST_CASES:
             r = run_test(tc["name"], tc["notes"])
             all_results.append(r)
-    
-    print(f"\n{'='*60}")
+
+    print(f"\n{'=' * 60}")
     print("FINAL SUMMARY")
-    print(f"{'='*60}")
-    passed = sum(1 for r in all_results
-                 if r.get("validation", {}).get("blocking", 999) == 0)
-    print(f"  {len(all_results)} tests: {passed} PASS, {len(all_results) - passed} FAIL")
+    print(f"{'=' * 60}")
+    passed = sum(
+        1 for r in all_results if r.get("validation", {}).get("blocking", 999) == 0
+    )
+    print(
+        f"  {len(all_results)} tests: {passed} PASS, {len(all_results) - passed} FAIL"
+    )
     for r in all_results:
         v = r.get("validation", {})
         b = v.get("blocking", "?")
@@ -231,7 +251,7 @@ if __name__ == "__main__":
     p.add_argument("--loop", type=int, default=1)
     p.add_argument("--quiet", action="store_true")
     args = p.parse_args()
-    
+
     if args.notes:
         run_test("Custom", args.notes)
     else:

@@ -1,4 +1,5 @@
 """Fail-closed ACCESS_CODE configuration tests."""
+
 import os
 import subprocess
 import sys
@@ -54,9 +55,13 @@ def test_review_lab_feature_flag_accepts_explicit_truthy_values(value):
     env = os.environ.copy()
     env["REVIEW_LAB_ENABLED"] = value
     result = subprocess.run(
-        [sys.executable, "-c", (
-            "from backend.pipeline.config import REVIEW_LAB_ENABLED; "
-            "print(REVIEW_LAB_ENABLED)"),
+        [
+            sys.executable,
+            "-c",
+            (
+                "from backend.pipeline.config import REVIEW_LAB_ENABLED; "
+                "print(REVIEW_LAB_ENABLED)"
+            ),
         ],
         env=env,
         capture_output=True,
@@ -70,9 +75,13 @@ def test_review_lab_feature_flag_defaults_off():
     env = os.environ.copy()
     env.pop("REVIEW_LAB_ENABLED", None)
     result = subprocess.run(
-        [sys.executable, "-c", (
-            "from backend.pipeline.config import REVIEW_LAB_ENABLED; "
-            "print(REVIEW_LAB_ENABLED)"),
+        [
+            sys.executable,
+            "-c",
+            (
+                "from backend.pipeline.config import REVIEW_LAB_ENABLED; "
+                "print(REVIEW_LAB_ENABLED)"
+            ),
         ],
         env=env,
         capture_output=True,

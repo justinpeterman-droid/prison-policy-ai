@@ -10,6 +10,7 @@ Also builds the Gemini response_schema so extraction output is guaranteed-valid 
 Every field is nullable: the model returns null for anything the notes don't state —
 nulls are what drive the gap-question screen.
 """
+
 import json
 from functools import lru_cache
 from pathlib import Path
@@ -25,23 +26,43 @@ def load_checklist() -> dict:
 
 
 # ── Reporter-level slots (swap per selected officer) ──────────────
-REPORTER_SLOTS = ["officer_last", "officer_first", "employee_number",
-                  "rank", "shift_assignment"]
+REPORTER_SLOTS = [
+    "officer_last",
+    "officer_first",
+    "employee_number",
+    "rank",
+    "shift_assignment",
+]
 
 _PERSON = {
     "type": "OBJECT",
     "properties": {
-        "role": {"type": "STRING", "enum": ["inmate", "security_staff",
-                                            "medical_staff", "other"]},
+        "role": {
+            "type": "STRING",
+            "enum": ["inmate", "security_staff", "medical_staff", "other"],
+        },
         "last": {"type": "STRING", "nullable": True},
         "first": {"type": "STRING", "nullable": True},
-        "employee_number": {"type": "STRING", "nullable": True, "description": "staff employee # (goes in the 005 middle spot)"},
-        "rank": {"type": "STRING", "nullable": True,
-                 "description": "Cpl. / Sgt. / Lt. / Cpt. — staff only"},
-        "adc_number": {"type": "STRING", "nullable": True,
-                       "description": "inmates only, digits"},
-        "actions": {"type": "ARRAY", "items": {"type": "STRING"},
-                    "description": "actions/observations the notes attribute to THIS person, verbatim-faithful"},
+        "employee_number": {
+            "type": "STRING",
+            "nullable": True,
+            "description": "staff employee # (goes in the 005 middle spot)",
+        },
+        "rank": {
+            "type": "STRING",
+            "nullable": True,
+            "description": "Cpl. / Sgt. / Lt. / Cpt. — staff only",
+        },
+        "adc_number": {
+            "type": "STRING",
+            "nullable": True,
+            "description": "inmates only, digits",
+        },
+        "actions": {
+            "type": "ARRAY",
+            "items": {"type": "STRING"},
+            "description": "actions/observations the notes attribute to THIS person, verbatim-faithful",
+        },
         "injuries": {"type": "STRING", "nullable": True},
     },
     "required": ["role", "last", "actions"],
@@ -58,34 +79,58 @@ def build_response_schema(category: dict, checklist: dict) -> dict:
         "incident_number": {"type": "STRING", "nullable": True},
         "unit_division": {"type": "STRING", "nullable": True},
         "date": {"type": "STRING", "nullable": True},
-        "time": {"type": "STRING", "nullable": True,
-                 "description": "as written, e.g. 'approximately 10:42pm'"},
+        "time": {
+            "type": "STRING",
+            "nullable": True,
+            "description": "as written, e.g. 'approximately 10:42pm'",
+        },
         "location": {"type": "STRING", "nullable": True},
         "persons": {"type": "ARRAY", "items": _PERSON},
-        "reporting_officer_index": {"type": "INTEGER", "nullable": True,
-            "description": "index into persons of the officer writing these notes (the 'I')"},
+        "reporting_officer_index": {
+            "type": "INTEGER",
+            "nullable": True,
+            "description": "index into persons of the officer writing these notes (the 'I')",
+        },
         "inmate_injuries": {"type": "STRING", "nullable": True},
         "officer_injuries": {"type": "STRING", "nullable": True},
-        "narrative_facts": {"type": "ARRAY", "items": {"type": "STRING"},
-            "description": "chronological list of factual events from the notes, one per entry, no embellishment"},
-        "quotes": {"type": "ARRAY", "items": {"type": "STRING"},
-            "description": "verbatim statements/profanity to quote as evidence"},
+        "narrative_facts": {
+            "type": "ARRAY",
+            "items": {"type": "STRING"},
+            "description": "chronological list of factual events from the notes, one per entry, no embellishment",
+        },
+        "quotes": {
+            "type": "ARRAY",
+            "items": {"type": "STRING"},
+            "description": "verbatim statements/profanity to quote as evidence",
+        },
         # Ruling 8: the investigation report is generated ONLY when the notes
         # show an investigation actually happened. Findings is the deterministic
         # signal — an empty list means no investigation, so no report. The model
         # must never populate it to "look thorough".
-        "investigation_findings": {"type": "ARRAY", "items": {"type": "STRING"},
+        "investigation_findings": {
+            "type": "ARRAY",
+            "items": {"type": "STRING"},
             "description": "EMPTY unless the notes describe an investigation this "
-                           "officer conducted (statements taken, camera footage "
-                           "reviewed, conclusions reached). Then: what was found, "
-                           "chronological, one plain factual sentence each."},
-        "investigation_start_time": {"type": "STRING", "nullable": True,
-            "description": "when the investigation began, only if the notes state it"},
-        "investigation_end_time": {"type": "STRING", "nullable": True,
-            "description": "when the investigation concluded, only if the notes state it"},
-        "investigation_disposition": {"type": "STRING", "nullable": True,
+            "officer conducted (statements taken, camera footage "
+            "reviewed, conclusions reached). Then: what was found, "
+            "chronological, one plain factual sentence each.",
+        },
+        "investigation_start_time": {
+            "type": "STRING",
+            "nullable": True,
+            "description": "when the investigation began, only if the notes state it",
+        },
+        "investigation_end_time": {
+            "type": "STRING",
+            "nullable": True,
+            "description": "when the investigation concluded, only if the notes state it",
+        },
+        "investigation_disposition": {
+            "type": "STRING",
+            "nullable": True,
             "description": "what the investigation resulted in — rehousing, "
-                           "separation alert, medical referral, evidence secured"},
+            "separation alert, medical referral, evidence secured",
+        },
     }
 
     extra = set(category.get("required_slots", []))
@@ -95,8 +140,11 @@ def build_response_schema(category: dict, checklist: dict) -> dict:
         if slot not in props:
             props[slot] = {"type": "STRING", "nullable": True}
 
-    return {"type": "OBJECT", "properties": props,
-            "required": ["persons", "narrative_facts"]}
+    return {
+        "type": "OBJECT",
+        "properties": props,
+        "required": ["persons", "narrative_facts"],
+    }
 
 
 def bind_reporter(slots: dict, person: dict) -> dict:
@@ -110,11 +158,14 @@ def bind_reporter(slots: dict, person: dict) -> dict:
     out["officer_first"] = person.get("first") or None
     out["employee_number"] = person.get("employee_number") or None
     out["rank"] = person.get("rank") or None
-    out["shift_assignment"] = person.get("shift_assignment") or slots.get("shift_assignment")
+    out["shift_assignment"] = person.get("shift_assignment") or slots.get(
+        "shift_assignment"
+    )
     return out
 
 
 def security_staff(extraction: dict) -> list[dict]:
     """All named security staff — one report button each in the UI."""
-    return [p for p in extraction.get("persons", [])
-            if p.get("role") == "security_staff"]
+    return [
+        p for p in extraction.get("persons", []) if p.get("role") == "security_staff"
+    ]

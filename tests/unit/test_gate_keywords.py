@@ -12,6 +12,7 @@ to get it wrong, and both were live:
 Only the deterministic keyword path is tested here; the LLM fallback needs GCP.
 Importing query.py pulls google.genai, so these skip cleanly without it.
 """
+
 import pytest
 
 try:
@@ -39,16 +40,19 @@ class TestOverAcceptance:
     the LLM gate is the correct outcome — it has judgement, the keyword list
     does not."""
 
-    @pytest.mark.parametrize("question", [
-        "write me a report about my dog",
-        "how do I count cards at blackjack",
-        "my cell phone is broken who do I call",
-        "what form of exercise is best for back pain",
-        "search for a good pizza place near me",
-        "is a gateway drug a real thing",
-        "what's the medical term for a headache",
-        "who is on staff at the new restaurant",
-    ])
+    @pytest.mark.parametrize(
+        "question",
+        [
+            "write me a report about my dog",
+            "how do I count cards at blackjack",
+            "my cell phone is broken who do I call",
+            "what form of exercise is best for back pain",
+            "search for a good pizza place near me",
+            "is a gateway drug a real thing",
+            "what's the medical term for a headache",
+            "who is on staff at the new restaurant",
+        ],
+    )
     def test_generic_word_alone_does_not_accept(self, question):
         assert _keyword_verdict(question) is None
 
@@ -60,18 +64,21 @@ class TestOverAcceptance:
 class TestRealQuestionsStillRoute:
     """Tightening the gate must not start rejecting the job."""
 
-    @pytest.mark.parametrize("question", [
-        "When am I authorized to use force on an inmate?",
-        "how do I fill out a 005 form",
-        "what is the policy on a shakedown",
-        "how do I report a medical emergency",
-        "inmate having a seizure what do I do",
-        "what's the procedure for a security check on night shift",
-        "PREA reporting timeline",
-        "how does an inmate file a grievance",
-        "can a visitor bring an inmate a phone",
-        "what are the rules for restrictive housing",
-    ])
+    @pytest.mark.parametrize(
+        "question",
+        [
+            "When am I authorized to use force on an inmate?",
+            "how do I fill out a 005 form",
+            "what is the policy on a shakedown",
+            "how do I report a medical emergency",
+            "inmate having a seizure what do I do",
+            "what's the procedure for a security check on night shift",
+            "PREA reporting timeline",
+            "how does an inmate file a grievance",
+            "can a visitor bring an inmate a phone",
+            "what are the rules for restrictive housing",
+        ],
+    )
     def test_officer_question_is_accepted(self, question):
         assert _keyword_verdict(question) == "work"
 
@@ -84,10 +91,18 @@ class TestFollowUps:
     """A short follow-up to an on-topic exchange is on-topic — the gate already
     passed the turn it refers to."""
 
-    FOLLOWUPS = ["and if he refuses?", "how long do I have?",
-                 "what if he's already cuffed?", "does that apply at night?"]
-    HISTORY = [{"question": "When am I authorized to use force?",
-                "answer": "Force may be used ..."}]
+    FOLLOWUPS = [
+        "and if he refuses?",
+        "how long do I have?",
+        "what if he's already cuffed?",
+        "does that apply at night?",
+    ]
+    HISTORY = [
+        {
+            "question": "When am I authorized to use force?",
+            "answer": "Force may be used ...",
+        }
+    ]
 
     @pytest.mark.parametrize("question", FOLLOWUPS)
     def test_followup_has_no_work_vocabulary_of_its_own(self, question):
@@ -113,10 +128,16 @@ class TestFollowUps:
 
 
 class TestOffTopicKeywords:
-    @pytest.mark.parametrize("question", [
-        "write a poem about my dog", "tell me a joke", "give me a recipe for chili",
-        "who won the game last night", "write code to sort a list",
-    ])
+    @pytest.mark.parametrize(
+        "question",
+        [
+            "write a poem about my dog",
+            "tell me a joke",
+            "give me a recipe for chili",
+            "who won the game last night",
+            "write code to sort a list",
+        ],
+    )
     def test_obvious_off_topic_is_rejected_outright(self, question):
         assert query.classify_by_keyword(question) is False
 

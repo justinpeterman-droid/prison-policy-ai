@@ -1,4 +1,5 @@
 """Immutable GCS storage for versioned demo review submissions."""
+
 import json
 import logging
 import re
@@ -30,6 +31,7 @@ class ReviewStore:
     @staticmethod
     def _default_client():
         from google.cloud import storage
+
         return storage.Client()
 
     def _client(self):
@@ -41,8 +43,10 @@ class ReviewStore:
         match = SUBMISSION_ID_RE.fullmatch(submission_id or "")
         if not match:
             raise ValueError("invalid review submission id")
-        return (f"{self.prefix}/{match.group('year')}/{match.group('month')}/"
-                f"{submission_id}.json")
+        return (
+            f"{self.prefix}/{match.group('year')}/{match.group('month')}/"
+            f"{submission_id}.json"
+        )
 
     @staticmethod
     def _is_conflict(exc: Exception) -> bool:
@@ -50,8 +54,7 @@ class ReviewStore:
             from google.api_core.exceptions import PreconditionFailed
         except ImportError:  # pragma: no cover - dependency is deployed
             PreconditionFailed = ()
-        return (isinstance(exc, PreconditionFailed)
-                or "precondition" in str(exc).lower())
+        return isinstance(exc, PreconditionFailed) or "precondition" in str(exc).lower()
 
     @staticmethod
     def _is_not_found(exc: Exception) -> bool:
@@ -66,8 +69,9 @@ class ReviewStore:
     def save(self, record: dict) -> str:
         submission_id = record.get("submission_id", "")
         object_name = self._name_for_id(submission_id)
-        payload = json.dumps(
-            record, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+        payload = (
+            json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+        )
         blob = self._client().bucket(self.bucket_name).blob(object_name)
         try:
             blob.upload_from_string(
@@ -78,7 +82,8 @@ class ReviewStore:
         except Exception as exc:
             if self._is_conflict(exc):
                 raise ReviewConflictError(
-                    f"review {submission_id} already exists") from exc
+                    f"review {submission_id} already exists"
+                ) from exc
             raise ReviewStoreUnavailable("review could not be saved") from exc
         return object_name
 
@@ -96,14 +101,17 @@ class ReviewStore:
             raise ReviewStoreUnavailable("review could not be read") from exc
 
     def list_records(self, limit: int = 50) -> tuple[list[dict], int]:
-        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or not 1 <= limit <= 1000
+        ):
             raise ValueError("review list limit must be from 1 to 1000")
         client = self._client()
         records = []
         skipped = 0
         try:
-            blobs = client.list_blobs(
-                self.bucket_name, prefix=f"{self.prefix}/")
+            blobs = client.list_blobs(self.bucket_name, prefix=f"{self.prefix}/")
             for blob in blobs:
                 try:
                     item = json.loads(blob.download_as_text())

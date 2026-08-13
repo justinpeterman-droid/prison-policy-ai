@@ -1,4 +1,5 @@
 """Noninteractive Alembic migration entry point (upgrade/verify only)."""
+
 from __future__ import annotations
 
 import argparse
@@ -68,11 +69,13 @@ def _constraint_contract(table) -> dict[str, object]:
             unique.add(columns)
         elif isinstance(constraint, ForeignKeyConstraint):
             elements = list(constraint.elements)
-            foreign_keys.add((
-                columns,
-                elements[0].column.table.name,
-                tuple(sorted(element.column.name for element in elements)),
-            ))
+            foreign_keys.add(
+                (
+                    columns,
+                    elements[0].column.table.name,
+                    tuple(sorted(element.column.name for element in elements)),
+                )
+            )
         elif isinstance(constraint, CheckConstraint):
             checks[str(constraint.name)] = _check_signature(str(constraint.sqltext))
     return {
@@ -93,12 +96,14 @@ def _check_signature(sql: str) -> tuple[str, ...]:
     normalized = _CHECK_CAST.sub("", sql.lower())
     normalized = re.sub(r"=\s*any\s*\(\s*array\s*\[", " in (", normalized)
     normalized = normalized.replace("]", ")")
-    return tuple(re.findall(
-        r"'(?:''|[^'])*'|!~\*|~\*|!~|->>|->|>=|<=|<>|!=|\?\||\?&|"
-        r"@>|<@|~|=|>|<|-|\?|"
-        r"[a-z_][a-z0-9_]*|\d+",
-        normalized,
-    ))
+    return tuple(
+        re.findall(
+            r"'(?:''|[^'])*'|!~\*|~\*|!~|->>|->|>=|<=|<>|!=|\?\||\?&|"
+            r"@>|<@|~|=|>|<|-|\?|"
+            r"[a-z_][a-z0-9_]*|\d+",
+            normalized,
+        )
+    )
 
 
 def _schema_matches(inspector) -> bool:
@@ -107,7 +112,9 @@ def _schema_matches(inspector) -> bool:
         return False
     for table_name, table in Base.metadata.tables.items():
         expected_columns = set(table.columns.keys())
-        actual_columns = {column["name"] for column in inspector.get_columns(table_name)}
+        actual_columns = {
+            column["name"] for column in inspector.get_columns(table_name)
+        }
         if expected_columns != actual_columns:
             return False
 
@@ -118,9 +125,11 @@ def _schema_matches(inspector) -> bool:
             return False
 
         expected = _constraint_contract(table)
-        actual_primary_key = tuple(sorted(
-            inspector.get_pk_constraint(table_name).get("constrained_columns") or ()
-        ))
+        actual_primary_key = tuple(
+            sorted(
+                inspector.get_pk_constraint(table_name).get("constrained_columns") or ()
+            )
+        )
         if expected["primary_key"] != actual_primary_key:
             return False
         actual_unique_columns = {
@@ -143,7 +152,9 @@ def _schema_matches(inspector) -> bool:
             _check_signature(item.get("sqltext") or "")
             for item in inspector.get_check_constraints(table_name)
         ]
-        if any(signature not in actual_checks for signature in expected["checks"].values()):
+        if any(
+            signature not in actual_checks for signature in expected["checks"].values()
+        ):
             return False
     return True
 
@@ -152,13 +163,16 @@ def verify() -> dict[str, str]:
     """Return only safe migration/database compatibility state."""
     head = _single_head()
     import os
+
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         raise RuntimeError("database unavailable")
     engine = create_engine(database_url)
     try:
         with engine.connect() as connection:
-            revision = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
+            revision = connection.exec_driver_sql(
+                "SELECT version_num FROM alembic_version"
+            ).scalar_one()
             schema_ok = _schema_matches(inspect(connection))
     finally:
         engine.dispose()
@@ -184,10 +198,28 @@ def main(argv: list[str] | None = None) -> int:
             result = verify()
             revision = result["revision"]
             status = result["status"]
-        print(json.dumps({"status": status, "revision": revision, "duration": f"{time.monotonic()-started:.3f}"}, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "status": status,
+                    "revision": revision,
+                    "duration": f"{time.monotonic() - started:.3f}",
+                },
+                sort_keys=True,
+            )
+        )
         return 0 if status == "ok" else 1
     except Exception:
-        print(json.dumps({"status": "failed", "revision": "unknown", "duration": f"{time.monotonic()-started:.3f}"}, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "status": "failed",
+                    "revision": "unknown",
+                    "duration": f"{time.monotonic() - started:.3f}",
+                },
+                sort_keys=True,
+            )
+        )
         return 1
 
 

@@ -21,11 +21,13 @@ def test_identity_upgrade_creates_complete_schema(db_engine):
 
 def test_audit_rows_cannot_be_updated_or_deleted(db_engine):
     with db_engine.begin() as connection:
-        event_id = connection.execute(text(
-            "SELECT append_audit_event(NULL, NULL, 'auth.login_failed', "
-            "'account', NULL, 'failed', 'request-test-1', '1.0.0', NULL, NULL, "
-            "'{\"reason\":\"unknown\"}'::jsonb)"
-        )).scalar_one()
+        event_id = connection.execute(
+            text(
+                "SELECT append_audit_event(NULL, NULL, 'auth.login_failed', "
+                "'account', NULL, 'failed', 'request-test-1', '1.0.0', NULL, NULL, "
+                '\'{"reason":"unknown"}\'::jsonb)'
+            )
+        ).scalar_one()
     for statement in (
         text("UPDATE audit_events SET result='success' WHERE id=:id"),
         text("DELETE FROM audit_events WHERE id=:id"),

@@ -5,6 +5,7 @@ the catalog is an allowlist: an action may record stable identifiers, revision
 numbers, counts, hashes and latency, and nothing that could carry a person's
 name, an inmate identifier, or the text of a report.
 """
+
 import pytest
 
 from backend.identity.audit import AUDIT_ACTION_FIELDS, validate_details
@@ -59,8 +60,7 @@ SAFE_EXAMPLES = {
         "incident_id": "11111111-1111-4111-8111-111111111111",
         "report_type": "first_person",
     },
-    "report.viewed_by_admin": {
-        "report_id": "22222222-2222-4222-8222-222222222222"},
+    "report.viewed_by_admin": {"report_id": "22222222-2222-4222-8222-222222222222"},
     "report.saved": {
         "report_id": "22222222-2222-4222-8222-222222222222",
         "revision_number": 2,
@@ -192,34 +192,51 @@ def test_unknown_action_is_rejected():
 
 def test_changed_field_names_must_be_stable_codes():
     with pytest.raises(ValueError):
-        validate_details("report.saved", {
-            "report_id": "22222222-2222-4222-8222-222222222222",
-            "changed_fields": ["Fictional Inmate was moved to segregation"],
-        })
+        validate_details(
+            "report.saved",
+            {
+                "report_id": "22222222-2222-4222-8222-222222222222",
+                "changed_fields": ["Fictional Inmate was moved to segregation"],
+            },
+        )
 
 
 def test_changed_field_names_are_bounded_in_number():
     with pytest.raises(ValueError):
-        validate_details("report.saved", {
-            "changed_fields": [f"field_{index}" for index in range(101)],
-        })
+        validate_details(
+            "report.saved",
+            {
+                "changed_fields": [f"field_{index}" for index in range(101)],
+            },
+        )
 
 
 def test_search_filter_names_must_be_stable_codes():
     with pytest.raises(ValueError):
-        validate_details("admin.report_search", {
-            "filters": ["owner=Fictional Officer"],
-            "result_count": 1,
-        })
+        validate_details(
+            "admin.report_search",
+            {
+                "filters": ["owner=Fictional Officer"],
+                "result_count": 1,
+            },
+        )
 
 
-@pytest.mark.parametrize("key", [
-    "incident_id", "report_id", "job_id", "export_id",
-    "old_owner_staff_id", "new_owner_staff_id",
-])
+@pytest.mark.parametrize(
+    "key",
+    [
+        "incident_id",
+        "report_id",
+        "job_id",
+        "export_id",
+        "old_owner_staff_id",
+        "new_owner_staff_id",
+    ],
+)
 def test_stable_id_fields_require_uuid_values(key):
     action = next(
-        action for action, fields in AUDIT_ACTION_FIELDS.items() if key in fields)
+        action for action, fields in AUDIT_ACTION_FIELDS.items() if key in fields
+    )
 
     with pytest.raises(ValueError):
         validate_details(action, {key: "Fictional Officer raw identity text"})
@@ -227,13 +244,19 @@ def test_stable_id_fields_require_uuid_values(key):
 
 def test_sha256_fields_require_lowercase_hex_digest():
     with pytest.raises(ValueError):
-        validate_details("policy.question_answered", {
-            "question_sha256": "Fictional policy question text",
-        })
+        validate_details(
+            "policy.question_answered",
+            {
+                "question_sha256": "Fictional policy question text",
+            },
+        )
     with pytest.raises(ValueError):
-        validate_details("policy.question_answered", {
-            "question_sha256": "A" * 64,
-        })
+        validate_details(
+            "policy.question_answered",
+            {
+                "question_sha256": "A" * 64,
+            },
+        )
 
 
 @pytest.mark.parametrize("value", [-1, True, 1.5, "12", 1_000_000_001])
@@ -242,13 +265,16 @@ def test_count_latency_and_revision_fields_require_bounded_integers(value):
         validate_details("ai.job_succeeded", {"latency_ms": value})
 
 
-@pytest.mark.parametrize("key,value", [
-    ("reason", "Fictional report narrative"),
-    ("reason", "admin_edit"),
-    ("job_type", "invented_job"),
-    ("export_format", "pdf"),
-    ("new_status", "deleted"),
-])
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("reason", "Fictional report narrative"),
+        ("reason", "admin_edit"),
+        ("job_type", "invented_job"),
+        ("export_format", "pdf"),
+        ("new_status", "deleted"),
+    ],
+)
 def test_code_and_enum_fields_reject_raw_or_unapproved_values(key, value):
     action = {
         "reason": "incident.saved",
@@ -261,11 +287,14 @@ def test_code_and_enum_fields_reject_raw_or_unapproved_values(key, value):
         validate_details(action, {key: value})
 
 
-@pytest.mark.parametrize("action,key", [
-    ("auth.login_failed", "reason"),
-    ("auth.session_revoked", "reason"),
-    ("auth.step_up_failed", "purpose"),
-])
+@pytest.mark.parametrize(
+    "action,key",
+    [
+        ("auth.login_failed", "reason"),
+        ("auth.session_revoked", "reason"),
+        ("auth.step_up_failed", "purpose"),
+    ],
+)
 def test_identity_code_fields_reject_content_disguised_as_codes(action, key):
     with pytest.raises(ValueError):
         validate_details(action, {key: "fictional_officer_private_detail"})
@@ -273,28 +302,43 @@ def test_identity_code_fields_reject_content_disguised_as_codes(action, key):
 
 def test_name_lists_reject_duplicates_and_unapproved_names():
     with pytest.raises(ValueError):
-        validate_details("report.saved", {
-            "changed_fields": ["narrative", "narrative"],
-        })
+        validate_details(
+            "report.saved",
+            {
+                "changed_fields": ["narrative", "narrative"],
+            },
+        )
     with pytest.raises(ValueError):
-        validate_details("report.saved", {
-            "changed_fields": ["fictional_inmate_confession"],
-        })
+        validate_details(
+            "report.saved",
+            {
+                "changed_fields": ["fictional_inmate_confession"],
+            },
+        )
     with pytest.raises(ValueError):
-        validate_details("admin.report_search", {
-            "filters": ["fictional_employee_name"],
-        })
+        validate_details(
+            "admin.report_search",
+            {
+                "filters": ["fictional_employee_name"],
+            },
+        )
 
     with pytest.raises(ValueError):
-        validate_details("report.saved", {
-            "changed_fields": [{"narrative": "Fictional raw text"}],
-        })
+        validate_details(
+            "report.saved",
+            {
+                "changed_fields": [{"narrative": "Fictional raw text"}],
+            },
+        )
 
 
 def test_oversized_details_are_rejected():
     # Every name here is a valid stable code, so only the total size can reject
     # it — the size rule and the name rule are tested apart from each other.
     with pytest.raises(ValueError):
-        validate_details("report.saved", {
-            "changed_fields": [f"{'f' * 58}_{index:03d}" for index in range(100)],
-        })
+        validate_details(
+            "report.saved",
+            {
+                "changed_fields": [f"{'f' * 58}_{index:03d}" for index in range(100)],
+            },
+        )

@@ -19,6 +19,7 @@ there.
     from backend.reports.report_validator import validate_all, repair_all
     results = validate_all(reports, officer, notes, auto_content)
 """
+
 import re
 from dataclasses import dataclass, field
 
@@ -26,28 +27,50 @@ from backend.reports.validate import invented_facts
 
 # Clinical language belongs in the infirmary report, never the 005.
 MEDICAL_WORDS = [
-    "laceration", "fracture", "contusion", "abrasion", "hematoma",
-    "diagnosed", "treated by", "prescribed", "stitches", "sutures",
-    "concussion", "hemorrhage", "internal injury", "spinal",
+    "laceration",
+    "fracture",
+    "contusion",
+    "abrasion",
+    "hematoma",
+    "diagnosed",
+    "treated by",
+    "prescribed",
+    "stitches",
+    "sutures",
+    "concussion",
+    "hemorrhage",
+    "internal injury",
+    "spinal",
 ]
 
 # Editorializing. A report states what happened.
 FORBIDDEN_WORDS = [
-    "clearly", "obviously", "unfortunately", "thankfully",
-    "luckily", "miraculously",
+    "clearly",
+    "obviously",
+    "unfortunately",
+    "thankfully",
+    "luckily",
+    "miraculously",
 ]
 
 # Placeholders the model must never emit. NOTE: '[TO BE SUPPLEMENTED:' is NOT
 # here — that marker is produced deliberately by validate.py when the officer
 # answers UNKNOWN, and flagging it would fight the checklist design.
 FORBIDDEN_PLACEHOLDERS = [
-    "[incident number]", "[name]", "[date]", "[time]", "[location]",
-    "[NOT IN NOTES]", "[NEEDED:",
+    "[incident number]",
+    "[name]",
+    "[date]",
+    "[time]",
+    "[location]",
+    "[NOT IN NOTES]",
+    "[NEEDED:",
 ]
 
 # Ruling 13: the house style has no closer. Individual officers write these.
 CLOSERS = [
-    "end of report.", "end of statement.", "end of report",
+    "end of report.",
+    "end of statement.",
+    "end of report",
     "disciplinary action taken.",
 ]
 
@@ -63,8 +86,8 @@ FIRST_PERSON_TYPES = ("first_person", "disciplinary")
 
 @dataclass
 class Violation:
-    rule_id: str       # e.g. "RW-001"
-    severity: str      # BLOCKING | WARN
+    rule_id: str  # e.g. "RW-001"
+    severity: str  # BLOCKING | WARN
     message: str
     context: str = ""  # snippet that triggered it
 
@@ -95,17 +118,26 @@ class ValidationResult:
             "report_type": self.report_type,
             "score": round(self.score, 3),
             "violations": [
-                {"rule_id": v.rule_id, "severity": v.severity,
-                 "message": v.message, "context": v.context}
+                {
+                    "rule_id": v.rule_id,
+                    "severity": v.severity,
+                    "message": v.message,
+                    "context": v.context,
+                }
                 for v in self.violations
             ],
         }
 
 
-def validate_report(report_type: str, text: str, officer: dict,
-                    notes: str = "", auto_content: list | None = None,
-                    allow: list | None = None,
-                    answers: dict | None = None) -> ValidationResult:
+def validate_report(
+    report_type: str,
+    text: str,
+    officer: dict,
+    notes: str = "",
+    auto_content: list | None = None,
+    allow: list | None = None,
+    answers: dict | None = None,
+) -> ValidationResult:
     """Check one generated report against the rulings."""
     r = ValidationResult(report_type=report_type)
     if not text or not text.strip():
@@ -138,6 +170,7 @@ def validate_report(report_type: str, text: str, officer: dict,
 
 # ── Individual rules ────────────────────────────────────────────────────────
 
+
 def _check_inmate_naming(r, text):
     """RW-001 — first mention carries the full form (rulings 4, 6)."""
     # 'inmate' may be either case: capital at a sentence start, lowercase
@@ -148,9 +181,13 @@ def _check_inmate_naming(r, text):
     if full or last_adc:
         r.checks_passed += 1
     elif bare:
-        _fail(r, "RW-001", "WARN",
-              "Inmate referenced by last name only — no ADC# on first mention",
-              _snippet(text, bare.start()))
+        _fail(
+            r,
+            "RW-001",
+            "WARN",
+            "Inmate referenced by last name only — no ADC# on first mention",
+            _snippet(text, bare.start()),
+        )
     else:
         # Not every report names an inmate (a staff-only incident, a cover
         # letter). Absence is not a violation.
@@ -161,8 +198,13 @@ def _check_adc_spacing(r, text):
     """RW-002 — 'ADC# 123456', one space after the hash (ruling 4)."""
     m = ADC_NO_SPACE.search(text)
     if m:
-        _fail(r, "RW-002", "BLOCKING", "ADC# written without a space after the hash",
-              _snippet(text, m.start()))
+        _fail(
+            r,
+            "RW-002",
+            "BLOCKING",
+            "ADC# written without a space after the hash",
+            _snippet(text, m.start()),
+        )
     else:
         r.checks_passed += 1
 
@@ -171,9 +213,13 @@ def _check_rank_periods(r, text):
     """RW-003 — ranks keep their period: Sgt. / Cpl. / Lt. / Cpt. (ruling 2)."""
     m = RANK_NO_PERIOD.search(text)
     if m:
-        _fail(r, "RW-003", "BLOCKING",
-              f"Rank abbreviation missing its period: {m.group(1)}",
-              _snippet(text, m.start()))
+        _fail(
+            r,
+            "RW-003",
+            "BLOCKING",
+            f"Rank abbreviation missing its period: {m.group(1)}",
+            _snippet(text, m.start()),
+        )
     else:
         r.checks_passed += 1
 
@@ -193,15 +239,23 @@ def _check_self_reference(r, report_type, text, rank, first, last):
     elif count == 0:
         _fail(r, "RW-004", "BLOCKING", f"Missing self-reference '{full_ref}'")
     else:
-        _fail(r, "RW-004", "BLOCKING",
-              f"Self-reference '{full_ref}' appears {count} times (must be exactly 1)")
+        _fail(
+            r,
+            "RW-004",
+            "BLOCKING",
+            f"Self-reference '{full_ref}' appears {count} times (must be exactly 1)",
+        )
 
     if count and last and first:
         after = text.split(full_ref, 1)[1]
         for form in (f"{rank} {first} {last}".strip(), f"{rank} {last}".strip()):
             if form and form in after:
-                _fail(r, "RW-004", "WARN",
-                      "Officer refers to himself by rank/name after the first mention")
+                _fail(
+                    r,
+                    "RW-004",
+                    "WARN",
+                    "Officer refers to himself by rank/name after the first mention",
+                )
                 return
 
 
@@ -209,8 +263,9 @@ def _check_time_format(r, text):
     """RW-005 — narrative times read '9:50 pm' (ruling 11)."""
     bad = BAD_TIME.findall(text)
     if bad:
-        _fail(r, "RW-005", "BLOCKING",
-              f"Non-standard time format: {sorted(set(bad))[:3]}")
+        _fail(
+            r, "RW-005", "BLOCKING", f"Non-standard time format: {sorted(set(bad))[:3]}"
+        )
     else:
         r.checks_passed += 1
 
@@ -219,8 +274,13 @@ def _check_placeholder_names(r, text):
     """RW-006 — 'None'/'Unknown' must never stand in for a name."""
     m = re.search(r"(?:[Ii]nmate|Sgt\.?|Cpl\.?|Lt\.?|Cpt\.?)\s+(None|Unknown)\b", text)
     if m:
-        _fail(r, "RW-006", "BLOCKING",
-              f"Placeholder '{m.group(1)}' used as a name", _snippet(text, m.start()))
+        _fail(
+            r,
+            "RW-006",
+            "BLOCKING",
+            f"Placeholder '{m.group(1)}' used as a name",
+            _snippet(text, m.start()),
+        )
     else:
         r.checks_passed += 1
 
@@ -246,8 +306,9 @@ def _check_opening(r, report_type, text):
     if ok:
         r.checks_passed += 1
     else:
-        _fail(r, "RW-010", "WARN",
-              f"Opening may not match the formula: {opening[:90]!r}")
+        _fail(
+            r, "RW-010", "WARN", f"Opening may not match the formula: {opening[:90]!r}"
+        )
 
 
 def _check_charging_closer(r, report_type, text):
@@ -257,8 +318,12 @@ def _check_charging_closer(r, report_type, text):
     if re.search(r"Due to the above stated facts", text, re.I):
         r.checks_passed += 1
     else:
-        _fail(r, "RW-013", "BLOCKING",
-              "Disciplinary report missing the 'Due to the above stated facts' closer")
+        _fail(
+            r,
+            "RW-013",
+            "BLOCKING",
+            "Disciplinary report missing the 'Due to the above stated facts' closer",
+        )
     if re.search(r"pending DCR", text, re.I):
         r.checks_passed += 1
     else:
@@ -269,8 +334,12 @@ def _check_statement_closer(r, text, lower):
     """RW-014 — no statement closer (ruling 13)."""
     hit = next((c for c in CLOSERS if c in lower), None)
     if hit:
-        _fail(r, "RW-014", "BLOCKING",
-              f"Statement closer {hit!r} — the house style has none")
+        _fail(
+            r,
+            "RW-014",
+            "BLOCKING",
+            f"Statement closer {hit!r} — the house style has none",
+        )
     else:
         r.checks_passed += 1
 
@@ -283,8 +352,12 @@ def _check_secondhand(r, text, notes, lower):
     notes_lower = notes.lower()
     told = any(w in notes_lower for w in ("notified", "reported to me", "informed"))
     if told and re.search(r"\bI (observed|witnessed|saw)\b", text):
-        _fail(r, "RW-020", "BLOCKING",
-              "Claims firsthand observation, but the notes say the officer was notified")
+        _fail(
+            r,
+            "RW-020",
+            "BLOCKING",
+            "Claims firsthand observation, but the notes say the officer was notified",
+        )
     else:
         r.checks_passed += 1
 
@@ -323,8 +396,13 @@ def _check_required_sentences(r, text, auto_content):
     lower = text.lower()
     missing = [s for s in auto_content if isinstance(s, str) and s.lower() not in lower]
     if missing:
-        _fail(r, "RW-032", "BLOCKING",
-              f"{len(missing)} required sentence(s) missing", missing[0][:120])
+        _fail(
+            r,
+            "RW-032",
+            "BLOCKING",
+            f"{len(missing)} required sentence(s) missing",
+            missing[0][:120],
+        )
     else:
         r.checks_passed += 1
 
@@ -353,8 +431,7 @@ def _check_third_person(r, report_type, text):
         return
     stripped = re.sub(r'"[^"]*"', "", text)
     if re.search(r"\b(I|me|my)\b", stripped):
-        _fail(r, "RW-035", "BLOCKING",
-              "First-person pronoun in the supervisor summary")
+        _fail(r, "RW-035", "BLOCKING", "First-person pronoun in the supervisor summary")
     else:
         r.checks_passed += 1
 
@@ -364,6 +441,7 @@ def _check_third_person(r, report_type, text):
 # Only mechanical transforms of text that is already present. Nothing here can
 # add, remove or change a fact — a "repair" that invents the missing piece is
 # the failure mode this whole system exists to prevent.
+
 
 def repair(text: str) -> tuple[str, list[str]]:
     """Apply the safe deterministic fixes. Returns (text, rules_repaired)."""
@@ -378,15 +456,20 @@ def repair(text: str) -> tuple[str, list[str]]:
         text = new
 
     # RW-003: 'Sgt Smith' -> 'Sgt. Smith' (ruling 2)
-    new = RANK_NO_PERIOD.sub(lambda m: m.group(0).replace(
-        m.group(1), m.group(1) + ".", 1), text)
+    new = RANK_NO_PERIOD.sub(
+        lambda m: m.group(0).replace(m.group(1), m.group(1) + ".", 1), text
+    )
     if new != text:
         fixed.append("RW-003")
         text = new
 
     # RW-014: strip a statement closer (ruling 13)
-    new = re.sub(r"\s*(?:End of (?:report|statement)\.?|Disciplinary action taken\.)\s*$",
-                 "", text, flags=re.I)
+    new = re.sub(
+        r"\s*(?:End of (?:report|statement)\.?|Disciplinary action taken\.)\s*$",
+        "",
+        text,
+        flags=re.I,
+    )
     if new != text:
         fixed.append("RW-014")
         text = new.rstrip()
@@ -427,15 +510,25 @@ def required_sentences_for(report_type: str, auto_content: list | None) -> list[
     return [s for s in out if s]
 
 
-def validate_all(reports: dict, officer: dict, notes: str = "",
-                 auto_content: list | None = None,
-                 allow: list | None = None,
-                 answers: dict | None = None) -> dict:
+def validate_all(
+    reports: dict,
+    officer: dict,
+    notes: str = "",
+    auto_content: list | None = None,
+    allow: list | None = None,
+    answers: dict | None = None,
+) -> dict:
     """Validate every generated report. Keys mirror `reports`."""
     return {
-        rtype: validate_report(rtype, text, officer, notes,
-                               required_sentences_for(rtype, auto_content),
-                               allow, answers)
+        rtype: validate_report(
+            rtype,
+            text,
+            officer,
+            notes,
+            required_sentences_for(rtype, auto_content),
+            allow,
+            answers,
+        )
         for rtype, text in reports.items()
         if isinstance(text, str)
     }
@@ -444,30 +537,40 @@ def validate_all(reports: dict, officer: dict, notes: str = "",
 def summarize(results: dict) -> dict:
     """Flatten results into the JSON the UI renders."""
     blocking = [
-        {"report_type": rtype, "rule_id": v.rule_id,
-         "message": v.message, "context": v.context}
-        for rtype, res in results.items() for v in res.blocking
+        {
+            "report_type": rtype,
+            "rule_id": v.rule_id,
+            "message": v.message,
+            "context": v.context,
+        }
+        for rtype, res in results.items()
+        for v in res.blocking
     ]
     return {
         "reports": {rtype: res.as_dict() for rtype, res in results.items()},
         "blocking": blocking,
         "blocking_count": len(blocking),
-        "score": (round(sum(r.score for r in results.values()) / len(results), 3)
-                  if results else 1.0),
+        "score": (
+            round(sum(r.score for r in results.values()) / len(results), 3)
+            if results
+            else 1.0
+        ),
     }
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
-def _fail(r: ValidationResult, rule_id: str, severity: str,
-          message: str, context: str = ""):
+
+def _fail(
+    r: ValidationResult, rule_id: str, severity: str, message: str, context: str = ""
+):
     r.violations.append(Violation(rule_id, severity, message, context))
     r.checks_failed += 1
 
 
 def _snippet(text: str, at: int, width: int = 60) -> str:
     start = max(0, at - width // 3)
-    return text[start:start + width].strip()
+    return text[start : start + width].strip()
 
 
 # Ruling 2 requires the period on ranks, which makes a naive sentence split
@@ -475,8 +578,10 @@ def _snippet(text: str, at: int, width: int = 60) -> str:
 # opening-formula check fails on correct text. Abbreviations that legitimately
 # end in a period never end a sentence here.
 # The split point sits AFTER the period, so each lookbehind has to include it.
-_ABBREV = (r"(?<!\bSgt\.)(?<!\bCpl\.)(?<!\bLt\.)(?<!\bCpt\.)"
-           r"(?<!\bMr\.)(?<!\bMs\.)(?<!\bDr\.)(?<!\bAPX\.)")
+_ABBREV = (
+    r"(?<!\bSgt\.)(?<!\bCpl\.)(?<!\bLt\.)(?<!\bCpt\.)"
+    r"(?<!\bMr\.)(?<!\bMs\.)(?<!\bDr\.)(?<!\bAPX\.)"
+)
 _SENTENCE_SPLIT = re.compile(rf"(?<=[.!?]){_ABBREV}\s+")
 
 

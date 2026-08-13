@@ -12,6 +12,7 @@ Three things were costing every page load more than they needed to:
 which then makes the year-long immutable policy in (1) safe: a changed file gets
 a new URL, so a stale cache entry is unreachable rather than merely unlikely.
 """
+
 from __future__ import annotations
 
 import gzip

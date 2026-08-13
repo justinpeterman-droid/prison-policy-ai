@@ -16,6 +16,7 @@ Run from the repo root after changing any source PNG:
 `--check` exits non-zero when an output is missing or stale, so CI can catch a
 PNG that was updated without regenerating its WebP.
 """
+
 from __future__ import annotations
 
 import argparse

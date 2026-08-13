@@ -14,6 +14,7 @@ rewritten: member order (sorted by name), every entry timestamp (the fixed
 saved revision's timestamp, in UTC). Nothing in this module reads or logs
 document text.
 """
+
 from datetime import UTC, datetime
 import io
 import re
@@ -28,16 +29,18 @@ ZIP_ENTRY_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 DEFAULT_DOCUMENT_TIME = datetime(1980, 1, 1, tzinfo=UTC)
 
 _CREATED_PATTERN = re.compile(
-    r"(<dcterms:created\b[^>]*>)(.*?)(</dcterms:created>)", re.DOTALL,
+    r"(<dcterms:created\b[^>]*>)(.*?)(</dcterms:created>)",
+    re.DOTALL,
 )
 _MODIFIED_PATTERN = re.compile(
-    r"(<dcterms:modified\b[^>]*>)(.*?)(</dcterms:modified>)", re.DOTALL,
+    r"(<dcterms:modified\b[^>]*>)(.*?)(</dcterms:modified>)",
+    re.DOTALL,
 )
 
 
 def core_timestamp(value: datetime | None) -> str:
     """Render one W3CDTF UTC timestamp for the core-properties part."""
-    moment = (value or DEFAULT_DOCUMENT_TIME)
+    moment = value or DEFAULT_DOCUMENT_TIME
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=UTC)
     return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")

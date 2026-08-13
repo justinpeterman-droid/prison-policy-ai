@@ -55,7 +55,11 @@ def test_two_renewals_have_one_winner_and_replay_revokes_family(db_session_facto
                 )
             except SessionReauthenticationRequired as error:
                 pending = error
-        return "reauthentication_required" if pending else ("rotated" if pair else "unknown")
+        return (
+            "reauthentication_required"
+            if pending
+            else ("rotated" if pair else "unknown")
+        )
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda _index: attempt(), range(2)))
@@ -64,7 +68,12 @@ def test_two_renewals_have_one_winner_and_replay_revokes_family(db_session_facto
         stored = session.get(AccessSession, session_id)
         assert stored.revoked_at is not None
         assert stored.revoke_reason == "renewal_reuse"
-        assert session.scalar(select(AccessSession.id).where(
-            AccessSession.access_token_hash == stored.access_token_hash,
-            AccessSession.revoked_at.is_(None),
-        )) is None
+        assert (
+            session.scalar(
+                select(AccessSession.id).where(
+                    AccessSession.access_token_hash == stored.access_token_hash,
+                    AccessSession.revoked_at.is_(None),
+                )
+            )
+            is None
+        )

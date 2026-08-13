@@ -22,6 +22,7 @@ Idempotent — re-running replaces existing tags rather than stacking them.
 
     PYTHONPATH=. python3 scripts/annotate_review.py [--check]
 """
+
 import re
 import sys
 from pathlib import Path
@@ -52,30 +53,43 @@ EXPLAIN = {
 def _blocking(text: str) -> list[str]:
     """Style-only check: no notes, so the fabrication rule is skipped —
     these are real filed reports, not model output."""
-    return sorted({v.rule_id for v in
-                   validate_report("first_person", text, {}, notes="").violations
-                   if v.severity == "BLOCKING"})
+    return sorted(
+        {
+            v.rule_id
+            for v in validate_report("first_person", text, {}, notes="").violations
+            if v.severity == "BLOCKING"
+        }
+    )
 
 
 def classify(text: str) -> tuple[str, str, list[str]]:
     """Return (status, tag_line, remaining_issues) for one report."""
     before = _blocking(text)
     if not before:
-        return ("conforms",
-                "> ✅ CONFORMS — matches the style rulings. Judge it on content.", [])
+        return (
+            "conforms",
+            "> ✅ CONFORMS — matches the style rulings. Judge it on content.",
+            [],
+        )
 
     after = _blocking(repair(text)[0])
     fixed = [r for r in before if r not in after]
     if not after:
         what = ", ".join(EXPLAIN.get(r, r) for r in fixed)
-        return ("auto",
-                f"> 🔧 AUTO-FIXABLE — {what}. Normalized automatically before use; "
-                f"judge it on content.", [])
+        return (
+            "auto",
+            f"> 🔧 AUTO-FIXABLE — {what}. Normalized automatically before use; "
+            f"judge it on content.",
+            [],
+        )
 
     what = ", ".join(EXPLAIN.get(r, r) for r in after)
-    return ("edit",
-            f"> ⚠️ NEEDS YOUR EDIT — {what}. No code can fix this without "
-            f"changing what the report says.", after)
+    return (
+        "edit",
+        f"> ⚠️ NEEDS YOUR EDIT — {what}. No code can fix this without "
+        f"changing what the report says.",
+        after,
+    )
 
 
 def main(check_only: bool = False) -> int:
@@ -103,7 +117,9 @@ def main(check_only: bool = False) -> int:
         print("\n  reasons the ⚠️ ones need a human:")
         for reason in sorted(set(needs_edit)):
             n = needs_edit.count(reason)
-            print(f"    {n:2}  {', '.join(EXPLAIN.get(r, r) for r in reason.split(', '))}")
+            print(
+                f"    {n:2}  {', '.join(EXPLAIN.get(r, r) for r in reason.split(', '))}"
+            )
 
     if check_only:
         print("\n--check: nothing written.")

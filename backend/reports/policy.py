@@ -1,4 +1,5 @@
 """Shared owner, preparer, and Admin report record policies."""
+
 from backend.persistence.models.reporting import Report
 from backend.webapp.api_v1.middleware import Actor
 

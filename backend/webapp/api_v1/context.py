@@ -22,7 +22,9 @@ def begin_request() -> None:
         return
     try:
         parsed = Version(raw_version)
-        g.client_version = parsed if parsed.local is None and len(parsed.release) >= 3 else None
+        g.client_version = (
+            parsed if parsed.local is None and len(parsed.release) >= 3 else None
+        )
     except InvalidVersion:
         g.client_version = None
 
@@ -77,6 +79,8 @@ def request_event(
         "error_code": (
             _stable_code(error_code, "internal_error") if error_code else None
         ),
-        "client_version": str(parsed_version) if parsed_version is not None else "missing",
+        "client_version": str(parsed_version)
+        if parsed_version is not None
+        else "missing",
         "dependency": _stable_code(dependency, "none"),
     }

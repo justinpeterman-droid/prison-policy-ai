@@ -1,4 +1,5 @@
 """RP-10 legacy browser-report rollout control."""
+
 import pytest
 
 
@@ -17,10 +18,16 @@ def legacy_client(monkeypatch):
     return client
 
 
-@pytest.mark.parametrize("path", [
-    "/api/reports/classify", "/api/reports/extract", "/api/reports/generate",
-    "/api/reports/disciplinary", "/api/reports/download",
-])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/reports/classify",
+        "/api/reports/extract",
+        "/api/reports/generate",
+        "/api/reports/disciplinary",
+        "/api/reports/download",
+    ],
+)
 def test_restricted_legacy_actions_return_safe_maintenance(legacy_client, path):
     response = legacy_client.post(path, json={"notes": "fictional marker"})
     assert response.status_code == 503

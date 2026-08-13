@@ -42,7 +42,9 @@ def test_public_client_policy_has_exact_nine_safe_fields(monkeypatch):
 
 
 def test_public_client_policy_exposes_only_safe_origin(monkeypatch):
-    policy = configured_client(monkeypatch).get("/api/v1/client-policy").get_json()["data"]
+    policy = (
+        configured_client(monkeypatch).get("/api/v1/client-policy").get_json()["data"]
+    )
     assert policy["minimum_server_version"] == "1.2.0"
     assert policy["api_version"] == "v1"
     assert policy["review_lab_origin"] == "https://review.example.gov"

@@ -15,7 +15,7 @@ from backend.webapp.api_v1.middleware import (
     current_request_session,
     require_access_token,
 )
-from backend.persistence.database import DatabaseUnavailable, session_scope
+from backend.persistence.database import DatabaseUnavailable
 from backend.persistence.models import Account, StaffMember
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -151,45 +151,31 @@ def client_policy():
     return success(policy_data(settings))
 
 
-from backend.webapp.api_v1.auth import auth_bp
+def _register_blueprints():
+    from backend.webapp.api_v1.admin import admin_bp
+    from backend.webapp.api_v1.admin_audit import admin_audit_bp
+    from backend.webapp.api_v1.admin_health import admin_health_bp
+    from backend.webapp.api_v1.admin_reports import admin_reports_bp
+    from backend.webapp.api_v1.auth import auth_bp
+    from backend.webapp.api_v1.incidents import incidents_bp
+    from backend.webapp.api_v1.jobs import jobs_bp
+    from backend.webapp.api_v1.policy import policy_bp
+    from backend.webapp.api_v1.reports import reports_bp
+    from backend.webapp.api_v1.staff import staff_bp
 
-api_v1_bp.register_blueprint(auth_bp, url_prefix="/auth")
+    api_v1_bp.register_blueprint(auth_bp, url_prefix="/auth")
+    api_v1_bp.register_blueprint(admin_bp, url_prefix="/admin")
+    api_v1_bp.register_blueprint(staff_bp, url_prefix="/staff")
+    api_v1_bp.register_blueprint(incidents_bp, url_prefix="/incidents")
+    api_v1_bp.register_blueprint(reports_bp, url_prefix="/reports")
+    api_v1_bp.register_blueprint(admin_reports_bp, url_prefix="/admin/reports")
+    api_v1_bp.register_blueprint(jobs_bp)
+    api_v1_bp.register_blueprint(policy_bp, url_prefix="/policy")
+    api_v1_bp.register_blueprint(admin_health_bp, url_prefix="/admin")
+    api_v1_bp.register_blueprint(admin_audit_bp, url_prefix="/admin")
 
-from backend.webapp.api_v1.admin import admin_bp
 
-api_v1_bp.register_blueprint(admin_bp, url_prefix="/admin")
-
-from backend.webapp.api_v1.staff import staff_bp
-
-api_v1_bp.register_blueprint(staff_bp, url_prefix="/staff")
-
-from backend.webapp.api_v1.incidents import incidents_bp
-
-api_v1_bp.register_blueprint(incidents_bp, url_prefix="/incidents")
-
-from backend.webapp.api_v1.reports import reports_bp
-
-api_v1_bp.register_blueprint(reports_bp, url_prefix="/reports")
-
-from backend.webapp.api_v1.admin_reports import admin_reports_bp
-
-api_v1_bp.register_blueprint(admin_reports_bp, url_prefix="/admin/reports")
-
-from backend.webapp.api_v1.jobs import jobs_bp
-
-api_v1_bp.register_blueprint(jobs_bp)
-
-from backend.webapp.api_v1.policy import policy_bp
-
-api_v1_bp.register_blueprint(policy_bp, url_prefix="/policy")
-
-from backend.webapp.api_v1.admin_health import admin_health_bp
-
-api_v1_bp.register_blueprint(admin_health_bp, url_prefix="/admin")
-
-from backend.webapp.api_v1.admin_audit import admin_audit_bp
-
-api_v1_bp.register_blueprint(admin_audit_bp, url_prefix="/admin")
+_register_blueprints()
 
 
 @api_v1_bp.get("/me", endpoint="me")
@@ -198,26 +184,38 @@ def me():
     actor = current_actor()
     try:
         db_session = current_request_session()
-        account = db_session.scalar(select(Account).where(Account.id == actor.account_id))
-        staff = db_session.scalar(select(StaffMember).where(StaffMember.id == actor.staff_member_id))
+        account = db_session.scalar(
+            select(Account).where(Account.id == actor.account_id)
+        )
+        staff = db_session.scalar(
+            select(StaffMember).where(StaffMember.id == actor.staff_member_id)
+        )
         if account is None or staff is None:
-            raise ApiError("authentication_required", "Authentication is required.", status=401)
-        return success({
-            "account_id": str(actor.account_id),
-            "staff_id": str(actor.staff_member_id),
-            "session_id": str(actor.session_id),
-            "employee_number": staff.employee_number,
-            "display_name": " ".join(
-                part for part in (staff.rank, staff.first_name, staff.last_name) if part
-            ),
-            "rank": staff.rank,
-            "shift": staff.shift,
-            "role": account.role,
-            "status": account.status,
-            "must_change_pin": account.must_change_pin,
-        })
+            raise ApiError(
+                "authentication_required", "Authentication is required.", status=401
+            )
+        return success(
+            {
+                "account_id": str(actor.account_id),
+                "staff_id": str(actor.staff_member_id),
+                "session_id": str(actor.session_id),
+                "employee_number": staff.employee_number,
+                "display_name": " ".join(
+                    part
+                    for part in (staff.rank, staff.first_name, staff.last_name)
+                    if part
+                ),
+                "rank": staff.rank,
+                "shift": staff.shift,
+                "role": account.role,
+                "status": account.status,
+                "must_change_pin": account.must_change_pin,
+            }
+        )
     except (DatabaseUnavailable, SQLAlchemyError):
         raise ApiError(
-            "dependency_unavailable", "Authentication is temporarily unavailable.",
-            status=503, retryable=True,
+            "dependency_unavailable",
+            "Authentication is temporarily unavailable.",
+            status=503,
+            retryable=True,
         ) from None

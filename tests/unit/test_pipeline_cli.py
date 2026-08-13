@@ -1,4 +1,5 @@
 """Credential-free contracts for the live report-pipeline harness."""
+
 from datetime import datetime, timezone
 import importlib.util
 from pathlib import Path
@@ -8,7 +9,8 @@ from backend.pipeline.config import FAST_MODEL, MODEL_LOCATION, PRO_MODEL
 
 _ROOT = Path(__file__).resolve().parents[2]
 _SPEC = importlib.util.spec_from_file_location(
-    "pipeline_harness", _ROOT / "tests" / "test_pipeline.py")
+    "pipeline_harness", _ROOT / "tests" / "test_pipeline.py"
+)
 pipeline = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(pipeline)
 
@@ -22,7 +24,8 @@ def test_output_paths_are_rooted_under_the_requested_directory(tmp_path):
 
 def test_parser_converts_output_directory_to_a_path(tmp_path):
     args = pipeline.build_parser().parse_args(
-        ["--demo", "all", "--output-dir", str(tmp_path)])
+        ["--demo", "all", "--output-dir", str(tmp_path)]
+    )
 
     assert args.demo == "all"
     assert args.output_dir == tmp_path
@@ -53,8 +56,9 @@ def test_demo_batch_returns_failure_when_any_scenario_fails(tmp_path):
 
 
 def test_oc_demo_gap_resolution_retains_initial_gap_and_separate_answers():
-    scenario = next(s for s in pipeline.load_demo_scenarios()
-                    if s["id"] == "use_of_force_oc")
+    scenario = next(
+        s for s in pipeline.load_demo_scenarios() if s["id"] == "use_of_force_oc"
+    )
     slots = {
         "force_type": "Chemical agent (OC/MK-3)",
         "chemical_agent": None,
@@ -62,7 +66,8 @@ def test_oc_demo_gap_resolution_retains_initial_gap_and_separate_answers():
     }
 
     resolved, initial, final, answers = pipeline.resolve_demo_gaps(
-        "use_of_force", slots, scenario)
+        "use_of_force", slots, scenario
+    )
 
     assert any(g["slot"] == "chemical_agent" for g in initial["gaps"])
     assert not any(g["slot"] == "chemical_agent" for g in final["gaps"])

@@ -1,4 +1,5 @@
 """System prompts for report generation — version-controlled."""
+
 import json
 import logging
 from pathlib import Path
@@ -8,6 +9,7 @@ logger = logging.getLogger(__name__)
 TEMPLATES_DIR = Path(__file__).parent.parent.parent / "templates"
 
 # ── Charge Catalog ─────────────────────────────────────────────
+
 
 def load_charges() -> dict:
     """Load disciplinary charges from parsed JSON."""
@@ -29,9 +31,7 @@ def build_classifier_prompt() -> tuple[str, dict]:
     # Build compact charge reference for the prompt
     charge_lines = []
     for code, info in sorted(charges.items()):
-        charge_lines.append(
-            f"  {code}: {info['description'][:120]}"
-        )
+        charge_lines.append(f"  {code}: {info['description'][:120]}")
     charge_ref = "\n".join(charge_lines[:60])  # Cap at 60 to fit context
 
     prompt = f"""You are an incident classifier for the Benny Magness Unit (BMU), Arkansas Department of Correction.
@@ -197,6 +197,10 @@ def format_charge_lines(charge_codes: list[str]) -> str:
     lines = []
     for code in charge_codes:
         desc = charges.get(code, {})
-        desc = desc.get("description", "See inmate disciplinary manual") if isinstance(desc, dict) else str(desc)
+        desc = (
+            desc.get("description", "See inmate disciplinary manual")
+            if isinstance(desc, dict)
+            else str(desc)
+        )
         lines.append(f"- Rule {code}: {desc}")
     return "\n".join(lines) if lines else "No charges."

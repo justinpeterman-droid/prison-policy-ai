@@ -4,8 +4,16 @@ from uuid import uuid4
 
 import pytest
 
-from backend.identity.accounts import InitialAdminBootstrapRefused, bootstrap_first_admin, create_account
-from backend.identity.audit import AuditEventInput, validate_actor_attribution, validate_details
+from backend.identity.accounts import (
+    InitialAdminBootstrapRefused,
+    bootstrap_first_admin,
+    create_account,
+)
+from backend.identity.audit import (
+    AuditEventInput,
+    validate_actor_attribution,
+    validate_details,
+)
 
 
 class RecordingSession:
@@ -45,8 +53,16 @@ def test_create_account_returns_plaintext_once_and_persists_only_hash():
     now = datetime(2026, 8, 12, 15, 0, tzinfo=UTC)
     actor_account_id, actor_staff_member_id = uuid4(), uuid4()
 
-    result = create_account(session, staff, "user", now, audit, "request-create-1",
-                            actor_account_id, actor_staff_member_id)
+    result = create_account(
+        session,
+        staff,
+        "user",
+        now,
+        audit,
+        "request-create-1",
+        actor_account_id,
+        actor_staff_member_id,
+    )
     account = session.added[0]
     assert result.temporary_pin not in account.pin_hash
     assert not hasattr(account, "temporary_pin")
@@ -57,8 +73,16 @@ def test_create_account_returns_plaintext_once_and_persists_only_hash():
 
 
 def _event(action, actor_account_id=None, actor_staff_member_id=None):
-    return AuditEventInput(actor_account_id, actor_staff_member_id, action, "success",
-                           "request-test", "account", None, {})
+    return AuditEventInput(
+        actor_account_id,
+        actor_staff_member_id,
+        action,
+        "success",
+        "request-test",
+        "account",
+        None,
+        {},
+    )
 
 
 def test_audit_actor_attribution_rules():
@@ -70,16 +94,21 @@ def test_audit_actor_attribution_rules():
     with pytest.raises(ValueError, match="actor attribution"):
         validate_actor_attribution(_event("admin.account_created", uuid4(), None))
     with pytest.raises(ValueError, match="actor attribution"):
-        validate_actor_attribution(_event("system.initial_admin_bootstrapped", uuid4(), uuid4()))
+        validate_actor_attribution(
+            _event("system.initial_admin_bootstrapped", uuid4(), uuid4())
+        )
 
 
 def test_bootstrap_audit_requires_both_safe_detail_fields():
     with pytest.raises(ValueError, match="audit details are invalid"):
         validate_details("system.initial_admin_bootstrapped", {})
-    assert validate_details("system.initial_admin_bootstrapped", {
-        "operation_id": "00000000-0000-4000-8000-000000000001",
-        "approval_reference_sha256": "a" * 64,
-    })
+    assert validate_details(
+        "system.initial_admin_bootstrapped",
+        {
+            "operation_id": "00000000-0000-4000-8000-000000000001",
+            "approval_reference_sha256": "a" * 64,
+        },
+    )
 
 
 def test_duplicate_account_is_refused_before_temporary_pin_generation(monkeypatch):
@@ -87,11 +116,21 @@ def test_duplicate_account_is_refused_before_temporary_pin_generation(monkeypatc
     staff = SimpleNamespace(id=uuid4(), employee_number="EMP-9001", is_active=True)
     session.scalar_results = [staff, object()]
     calls = []
-    monkeypatch.setattr("backend.identity.accounts.generate_temporary_pin",
-                        lambda _employee_number: calls.append(True) or "Z9Y8X7W6")
+    monkeypatch.setattr(
+        "backend.identity.accounts.generate_temporary_pin",
+        lambda _employee_number: calls.append(True) or "Z9Y8X7W6",
+    )
     with pytest.raises(ValueError, match="already has an account"):
-        create_account(session, staff, "user", datetime.now(UTC), RecordingAuditWriter(),
-                       "request-create-2", uuid4(), uuid4())
+        create_account(
+            session,
+            staff,
+            "user",
+            datetime.now(UTC),
+            RecordingAuditWriter(),
+            "request-create-2",
+            uuid4(),
+            uuid4(),
+        )
     assert calls == []
 
 

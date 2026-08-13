@@ -4,14 +4,17 @@ No AI, no GCP — this fills the real DOCX template and reads the result back, s
 it also guards the template itself: if the two {{box_*}} placeholders are ever
 lost from 005_template_v3.docx, these fail.
 """
+
 import re
 import zipfile
-from pathlib import Path
 
 import pytest
 
 from backend.reports.filler import (
-    TICK, TEMPLATE_PATH, designation_boxes, fill_template,
+    TICK,
+    TEMPLATE_PATH,
+    designation_boxes,
+    fill_template,
 )
 
 
@@ -21,8 +24,8 @@ def _boxes(docx_path) -> dict:
         doc = z.read("word/document.xml").decode()
     out = {}
     for label in ("005", "409"):
-        seg = doc[doc.find(f">{label}</w:t>"):][:2500]
-        after_label_cell = seg[seg.find("</w:tc>"):]
+        seg = doc[doc.find(f">{label}</w:t>") :][:2500]
+        after_label_cell = seg[seg.find("</w:tc>") :]
         m = re.search(r"<w:t[^>]*>([^<]*)</w:t>", after_label_cell)
         out[label] = m.group(1) if m else None
     return out
@@ -42,8 +45,13 @@ def filled(tmp_path):
 
 class TestDesignationBoxes:
     def test_every_incident_ticks_the_005_box(self):
-        for category in ("inmate_fight", "contraband", "prea",
-                         "medical_emergency", "other_rule_violation"):
+        for category in (
+            "inmate_fight",
+            "contraband",
+            "prea",
+            "medical_emergency",
+            "other_rule_violation",
+        ):
             assert designation_boxes(category)["box_005"] == TICK
 
     def test_use_of_force_ticks_both(self):

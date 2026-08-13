@@ -6,6 +6,7 @@ labels). No AI, no GCP — but importing the module pulls google.genai, so these
 run in CI where requirements are installed, and are skipped gracefully if the
 Vertex SDK isn't importable locally.
 """
+
 import datetime
 
 import pytest
@@ -28,14 +29,17 @@ pytestmark = pytest.mark.skipif(
 
 
 class TestTo12h:
-    @pytest.mark.parametrize("raw,expected", [
-        ("2200", "10:00 pm"),
-        ("0930", "9:30 am"),
-        ("13:00", "1:00 pm"),
-        ("22:00", "10:00 pm"),
-        ("10:00 PM", "10:00 pm"),
-        ("approximately 10:42pm", "10:42 pm"),
-    ])
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("2200", "10:00 pm"),
+            ("0930", "9:30 am"),
+            ("13:00", "1:00 pm"),
+            ("22:00", "10:00 pm"),
+            ("10:00 PM", "10:00 pm"),
+            ("approximately 10:42pm", "10:42 pm"),
+        ],
+    )
     def test_normalizes_to_12_hour(self, raw, expected):
         assert reports._to_12h(raw) == expected
 
@@ -47,11 +51,14 @@ class TestTo12h:
 
 
 class TestValidateAndCleanTime:
-    @pytest.mark.parametrize("raw,expected", [
-        ("2200", ("10:00 pm", True)),
-        ("1422", ("2:22 pm", True)),
-        ("7:22AAm", ("7:22 am", True)),   # double-suffix typo, recovered
-    ])
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("2200", ("10:00 pm", True)),
+            ("1422", ("2:22 pm", True)),
+            ("7:22AAm", ("7:22 am", True)),  # double-suffix typo, recovered
+        ],
+    )
     def test_recoverable_inputs_are_cleaned(self, raw, expected):
         assert reports._validate_and_clean_time(raw) == expected
 
@@ -89,11 +96,14 @@ class TestNameAndRankParsing:
     def test_parse_empty(self):
         assert reports._parse_name("") == ("", "", "")
 
-    @pytest.mark.parametrize("full,expected", [
-        ("Sgt. Dana Halvorsen", "Sgt."),
-        ("Sergeant Dana", "Sgt."),   # spelled-out rank abbreviated
-        ("Corporal Okafor", "Cpl."),
-    ])
+    @pytest.mark.parametrize(
+        "full,expected",
+        [
+            ("Sgt. Dana Halvorsen", "Sgt."),
+            ("Sergeant Dana", "Sgt."),  # spelled-out rank abbreviated
+            ("Corporal Okafor", "Cpl."),
+        ],
+    )
     def test_parse_rank(self, full, expected):
         assert reports._parse_rank(full) == expected
 
@@ -102,22 +112,28 @@ class TestNameAndRankParsing:
 
 
 class TestFormatShift:
-    @pytest.mark.parametrize("raw,expected", [
-        ("A", "A Shift"),
-        ("b", "B Shift"),
-        ("Day Shift", "Day Shift"),  # already spelled out — left alone
-        ("", ""),
-    ])
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("A", "A Shift"),
+            ("b", "B Shift"),
+            ("Day Shift", "Day Shift"),  # already spelled out — left alone
+            ("", ""),
+        ],
+    )
     def test_format_shift(self, raw, expected):
         assert reports._format_shift(raw) == expected
 
 
 class TestTitlecase:
-    @pytest.mark.parametrize("raw,expected", [
-        ("john", "John"),
-        ("mary jane", "Mary Jane"),
-        ("", ""),
-    ])
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("john", "John"),
+            ("mary jane", "Mary Jane"),
+            ("", ""),
+        ],
+    )
     def test_titlecase(self, raw, expected):
         assert reports._titlecase(raw) == expected
 

@@ -21,6 +21,7 @@ Export row identifiers are derived (`uuid5`) from the idempotency record and
 the revision, so a replay re-derives the identifiers it already wrote instead
 of inserting a second row or handing back a different manifest.
 """
+
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -61,19 +62,43 @@ MANIFEST_SCHEMA_VERSION = 1
 EXPORT_TEMP_PREFIX = "prison-policy-export-"
 BULK_ARCHIVE_NAME = "report-export.zip"
 
-_EXPORT_NAMESPACE = uuid5(NAMESPACE_URL, "https://prison-policy.invalid/exports/document")
+_EXPORT_NAMESPACE = uuid5(
+    NAMESPACE_URL, "https://prison-policy.invalid/exports/document"
+)
 _BULK_NAMESPACE = uuid5(NAMESPACE_URL, "https://prison-policy.invalid/exports/bulk")
 
 #: Placeholder names the 005 template understands. Anything else a client put
 #: in `editable_fields` is ignored rather than smuggled into the document.
-FILLER_FIELDS = frozenset({
-    "unit_division", "officer_last", "officer_first", "employee_number", "rank",
-    "shift_assignment", "date", "time", "location", "inmates_involved",
-    "employees_involved", "inmates_present", "employees_present", "others_present",
-    "inmate_injuries", "inmate_treatment", "officer_injuries", "officer_treatment",
-    "recommendation", "officer_signature", "date_filed", "supervisor_name",
-    "reporting_employee_signature", "supervisor_signature", "box_005", "box_409",
-})
+FILLER_FIELDS = frozenset(
+    {
+        "unit_division",
+        "officer_last",
+        "officer_first",
+        "employee_number",
+        "rank",
+        "shift_assignment",
+        "date",
+        "time",
+        "location",
+        "inmates_involved",
+        "employees_involved",
+        "inmates_present",
+        "employees_present",
+        "others_present",
+        "inmate_injuries",
+        "inmate_treatment",
+        "officer_injuries",
+        "officer_treatment",
+        "recommendation",
+        "officer_signature",
+        "date_filed",
+        "supervisor_name",
+        "reporting_employee_signature",
+        "supervisor_signature",
+        "box_005",
+        "box_409",
+    }
+)
 
 #: Compact failure codes for the bounded idempotency response reference.
 _FAILURE_CODES = {"n": "not_found", "g": "generation_failed"}
@@ -138,6 +163,7 @@ class BulkExportResult:
 
 # --- Template identity ------------------------------------------------------
 
+
 def template_version() -> str:
     """A stable, short identity for the 005 template that produced a document."""
     global _template_version
@@ -151,6 +177,7 @@ def template_version() -> str:
 
 
 # --- Deterministic document generation --------------------------------------
+
 
 def _revision_time(revision: ReportRevision) -> datetime:
     created = revision.created_at
@@ -167,7 +194,9 @@ def revision_metadata(report: Report, revision: ReportRevision) -> dict[str, str
     make two exports of one immutable revision differ. Every volatile value is
     therefore derived here from the revision's own timestamp.
     """
-    snapshot = deepcopy(revision.snapshot) if isinstance(revision.snapshot, dict) else {}
+    snapshot = (
+        deepcopy(revision.snapshot) if isinstance(revision.snapshot, dict) else {}
+    )
     editable = snapshot.get("editable_fields")
     metadata: dict[str, str] = {}
     if isinstance(editable, dict):
@@ -212,8 +241,14 @@ def bulk_export_id(idempotency_record_id: UUID) -> UUID:
 
 
 def export_report_docx(
-    session: Session, *, actor, report: Report, revision: ReportRevision,
-    request_id: str, idempotency_record_id: UUID, persist: bool = True,
+    session: Session,
+    *,
+    actor,
+    report: Report,
+    revision: ReportRevision,
+    request_id: str,
+    idempotency_record_id: UUID,
+    persist: bool = True,
 ) -> ExportedDocument:
     """Generate one deterministic DOCX and record its metadata exactly once."""
     data = build_revision_docx(report, revision)
@@ -222,30 +257,46 @@ def export_report_docx(
     name = download_name(report.id, revision.revision_number)
     version = template_version()
     if persist:
-        session.add(Export(
-            id=export_id,
-            report_id=report.id,
-            report_revision_id=revision.id,
-            exported_by_account_id=actor.account_id,
-            template_version=version,
-            output_sha256=digest,
-            size_bytes=len(data),
-            mime_type=EXPORT_MIME_TYPE,
-            download_name=name,
-            request_id=request_id,
-        ))
+        session.add(
+            Export(
+                id=export_id,
+                report_id=report.id,
+                report_revision_id=revision.id,
+                exported_by_account_id=actor.account_id,
+                template_version=version,
+                output_sha256=digest,
+                size_bytes=len(data),
+                mime_type=EXPORT_MIME_TYPE,
+                download_name=name,
+                request_id=request_id,
+            )
+        )
         session.flush()
     return ExportedDocument(
-        report_id=report.id, revision_id=revision.id,
-        revision_number=revision.revision_number, export_id=export_id,
-        data=data, sha256=digest, download_name=name, template_version=version,
+        report_id=report.id,
+        revision_id=revision.id,
+        revision_number=revision.revision_number,
+        export_id=export_id,
+        data=data,
+        sha256=digest,
+        download_name=name,
+        template_version=version,
     )
 
 
 def perform_single_export(
-    session: Session, *, actor, report: Report, revision: ReportRevision,
-    request_id: str, idempotency_key: str, idempotency_action: str,
-    audit_action: str, audit_writer, client_version: str, now: datetime,
+    session: Session,
+    *,
+    actor,
+    report: Report,
+    revision: ReportRevision,
+    request_id: str,
+    idempotency_key: str,
+    idempotency_action: str,
+    audit_action: str,
+    audit_writer,
+    client_version: str,
+    now: datetime,
 ) -> ExportedDocument:
     """Claim ID-06, generate, record metadata, and audit in one transaction.
 
@@ -254,48 +305,69 @@ def perform_single_export(
     second audit event.
     """
     claim = claim_idempotency(
-        session, actor, key=idempotency_key, action=idempotency_action,
-        request_sha256=request_digest({
-            "action": idempotency_action,
-            "report_id": str(report.id),
-            "revision_number": revision.revision_number,
-        }),
+        session,
+        actor,
+        key=idempotency_key,
+        action=idempotency_action,
+        request_sha256=request_digest(
+            {
+                "action": idempotency_action,
+                "report_id": str(report.id),
+                "revision_number": revision.revision_number,
+            }
+        ),
         now=now,
     )
     document = export_report_docx(
-        session, actor=actor, report=report, revision=revision,
-        request_id=request_id, idempotency_record_id=claim.record_id,
+        session,
+        actor=actor,
+        report=report,
+        revision=revision,
+        request_id=request_id,
+        idempotency_record_id=claim.record_id,
         persist=not claim.replayed,
     )
     if not claim.replayed:
-        audit_writer.append(session, AuditEventInput(
-            actor_account_id=actor.account_id,
-            actor_staff_member_id=actor.staff_member_id,
-            action=audit_action,
-            result="success",
-            request_id=request_id,
-            target_type="report",
-            target_id=report.id,
-            details={
-                "report_id": str(report.id),
-                "export_id": str(document.export_id),
-                "export_format": "docx",
-            },
-            client_version=client_version,
-        ))
+        audit_writer.append(
+            session,
+            AuditEventInput(
+                actor_account_id=actor.account_id,
+                actor_staff_member_id=actor.staff_member_id,
+                action=audit_action,
+                result="success",
+                request_id=request_id,
+                target_type="report",
+                target_id=report.id,
+                details={
+                    "report_id": str(report.id),
+                    "export_id": str(document.export_id),
+                    "export_format": "docx",
+                },
+                client_version=client_version,
+            ),
+        )
         complete_idempotency(
-            session, claim, response_status=200,
-            response_reference=document.reference(), now=now,
+            session,
+            claim,
+            response_status=200,
+            response_reference=document.reference(),
+            now=now,
         )
     return document
 
 
 # --- Bulk archive -----------------------------------------------------------
 
+
 def _manifest_document(
-    documents: list[ExportedDocument], failures: list[ExportFailure], *,
-    actor_account_id: UUID, reason: str, filter_names: list[str],
-    selection_mode: str, recorded_at: datetime,
+    documents: list[ExportedDocument],
+    failures: list[ExportFailure],
+    *,
+    actor_account_id: UUID,
+    reason: str,
+    filter_names: list[str],
+    selection_mode: str,
+    recorded_at: datetime,
 ) -> dict[str, object]:
     return {
         "actor_account_id": str(actor_account_id),
@@ -308,8 +380,9 @@ def _manifest_document(
             for item in failures
         ],
         "filter_names": filter_names,
-        "idempotency_recorded_at": recorded_at.astimezone(UTC).isoformat().replace(
-            "+00:00", "Z"),
+        "idempotency_recorded_at": recorded_at.astimezone(UTC)
+        .isoformat()
+        .replace("+00:00", "Z"),
         "reason": reason,
         "reports": [
             {
@@ -342,10 +415,18 @@ def _zip_bytes(entries: list[tuple[str, bytes]]) -> bytes:
 
 
 def export_reports_zip(
-    session: Session, *, actor, selections: list[tuple[Report, ReportRevision]],
-    known_failures: tuple[ExportFailure, ...] = (), request_id: str,
-    idempotency_record_id: UUID, reason: str, filter_names: list[str],
-    selection_mode: str, recorded_at: datetime, persist: bool = True,
+    session: Session,
+    *,
+    actor,
+    selections: list[tuple[Report, ReportRevision]],
+    known_failures: tuple[ExportFailure, ...] = (),
+    request_id: str,
+    idempotency_record_id: UUID,
+    reason: str,
+    filter_names: list[str],
+    selection_mode: str,
+    recorded_at: datetime,
+    persist: bool = True,
 ) -> BulkExportResult:
     """Generate the bounded archive for an already-resolved selection.
 
@@ -357,36 +438,56 @@ def export_reports_zip(
     failures = list(known_failures)
     for report, revision in selections:
         try:
-            documents.append(export_report_docx(
-                session, actor=actor, report=report, revision=revision,
-                request_id=request_id, idempotency_record_id=idempotency_record_id,
-                persist=persist,
-            ))
+            documents.append(
+                export_report_docx(
+                    session,
+                    actor=actor,
+                    report=report,
+                    revision=revision,
+                    request_id=request_id,
+                    idempotency_record_id=idempotency_record_id,
+                    persist=persist,
+                )
+            )
         except Exception:  # noqa: BLE001 - one document must not fail the archive
-            failures.append(ExportFailure(
-                report_id=report.id, revision_number=revision.revision_number,
-                reason_code="generation_failed",
-            ))
+            failures.append(
+                ExportFailure(
+                    report_id=report.id,
+                    revision_number=revision.revision_number,
+                    reason_code="generation_failed",
+                )
+            )
     failures.sort(key=lambda item: str(item.report_id))
     manifest = _manifest_document(
-        documents, failures, actor_account_id=actor.account_id, reason=reason,
-        filter_names=filter_names, selection_mode=selection_mode,
+        documents,
+        failures,
+        actor_account_id=actor.account_id,
+        reason=reason,
+        filter_names=filter_names,
+        selection_mode=selection_mode,
         recorded_at=recorded_at,
     )
     entries = [(document.download_name, document.data) for document in documents]
-    entries.append((
-        MANIFEST_NAME,
-        json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8"),
-    ))
+    entries.append(
+        (
+            MANIFEST_NAME,
+            json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8"),
+        )
+    )
     data = _zip_bytes(sorted(entries, key=lambda item: item[0]))
     return BulkExportResult(
-        export_id=bulk_export_id(idempotency_record_id), data=data,
-        sha256=hashlib.sha256(data).digest(), download_name=BULK_ARCHIVE_NAME,
-        template_version=template_version(), documents=documents, failures=failures,
+        export_id=bulk_export_id(idempotency_record_id),
+        data=data,
+        sha256=hashlib.sha256(data).digest(),
+        download_name=BULK_ARCHIVE_NAME,
+        template_version=template_version(),
+        documents=documents,
+        failures=failures,
     )
 
 
 # --- Bounded idempotency reference ------------------------------------------
+
 
 def bulk_reference(result: BulkExportResult) -> dict[str, object]:
     """Encode the resolved selection compactly enough for ID-06 storage.
@@ -408,8 +509,14 @@ def bulk_reference(result: BulkExportResult) -> dict[str, object]:
 
 
 def stream_export(
-    *, data: bytes, mime_type: str, name: str, sha256: bytes, export_id: UUID,
-    template_version_value: str, revision_number: int | None = None,
+    *,
+    data: bytes,
+    mime_type: str,
+    name: str,
+    sha256: bytes,
+    export_id: UUID,
+    template_version_value: str,
+    revision_number: int | None = None,
 ):
     """Write the document to an owned temporary directory and stream it back.
 
@@ -435,7 +542,8 @@ def stream_export(
         # passthrough iterable unwrapped, so the response's close callbacks --
         # the ones that delete this workspace -- would never run.
         response = current_app.response_class(
-            wrap_file(request.environ, handle), mimetype=mime_type,
+            wrap_file(request.environ, handle),
+            mimetype=mime_type,
         )
     except BaseException:
         _cleanup()
@@ -469,7 +577,11 @@ def decode_bulk_reference(
         if not item:
             continue
         report_id, letter, number = UUID(hex=item[:32]), item[32], item[33:]
-        failures.append((
-            report_id, int(number) or None, _FAILURE_CODES[letter],
-        ))
+        failures.append(
+            (
+                report_id,
+                int(number) or None,
+                _FAILURE_CODES[letter],
+            )
+        )
     return revision_ids, tuple(failures)

@@ -1,4 +1,5 @@
 """Preimplementation deployment safety contracts."""
+
 from pathlib import Path
 
 

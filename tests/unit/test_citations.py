@@ -1,6 +1,11 @@
 """Unit tests for policy-chat citation post-processing (pure, no GCP)."""
+
 from backend.pipeline.citations import (
-    cited_indices, renumber, build_grounded, infer_citations, support_score,
+    cited_indices,
+    renumber,
+    build_grounded,
+    infer_citations,
+    support_score,
 )
 
 
@@ -46,7 +51,9 @@ class TestBuildGrounded:
         assert citations[1]["source"] == "Policy 1"
 
     def test_ungrounded_when_no_citations(self):
-        answer, citations, grounded = build_grounded("A plausible but uncited answer.", _ctx(3))
+        answer, citations, grounded = build_grounded(
+            "A plausible but uncited answer.", _ctx(3)
+        )
         assert grounded is False
         assert citations == []
         assert answer == "A plausible but uncited answer."
@@ -62,17 +69,27 @@ class TestSupportScore:
     """RC-4: pure lexical containment used for inferred grounding."""
 
     def test_full_containment(self):
-        assert support_score(
-            "Use of force must be reported.",
-            "Policy: any use of force must be reported within 24 hours.") == 1.0
+        assert (
+            support_score(
+                "Use of force must be reported.",
+                "Policy: any use of force must be reported within 24 hours.",
+            )
+            == 1.0
+        )
 
     def test_no_overlap(self):
-        assert support_score("Inmate visitation hours.",
-                             "Chemical agents storage requirements.") == 0.0
+        assert (
+            support_score(
+                "Inmate visitation hours.", "Chemical agents storage requirements."
+            )
+            == 0.0
+        )
 
     def test_partial_overlap(self):
-        score = support_score("Restraints require supervisor approval.",
-                              "Restraints require documentation.")
+        score = support_score(
+            "Restraints require supervisor approval.",
+            "Restraints require documentation.",
+        )
         assert 0.0 < score < 1.0
 
     def test_stopwords_and_short_words_ignored(self):
@@ -89,15 +106,23 @@ class TestInferCitations:
     answer the passages don't support."""
 
     PASSAGES = [
-        {"source": "AD 14-15", "text": "Any use of force must be reported to the "
-                                       "shift supervisor within 24 hours of the incident."},
-        {"source": "Post Order 7", "text": "Officers shall conduct a formal count "
-                                           "at the beginning of every shift."},
+        {
+            "source": "AD 14-15",
+            "text": "Any use of force must be reported to the "
+            "shift supervisor within 24 hours of the incident.",
+        },
+        {
+            "source": "Post Order 7",
+            "text": "Officers shall conduct a formal count "
+            "at the beginning of every shift.",
+        },
     ]
 
     def test_recovers_citations_when_markers_missing(self):
-        answer = ("Any use of force must be reported to the shift supervisor "
-                  "within 24 hours of the incident.")
+        answer = (
+            "Any use of force must be reported to the shift supervisor "
+            "within 24 hours of the incident."
+        )
         citations, grounded = infer_citations(answer, self.PASSAGES)
         assert grounded is True
         assert [c["source"] for c in citations] == ["AD 14-15"]
@@ -105,26 +130,32 @@ class TestInferCitations:
     def test_does_not_ground_an_invented_answer(self):
         # The safety-critical case: content absent from every passage must NOT
         # be presented as document-backed.
-        answer = ("Inmates are entitled to four hours of recreation and may "
-                  "keep personal electronics in their cell.")
+        answer = (
+            "Inmates are entitled to four hours of recreation and may "
+            "keep personal electronics in their cell."
+        )
         citations, grounded = infer_citations(answer, self.PASSAGES)
         assert grounded is False
         assert citations == []
 
     def test_mixed_answer_below_ratio_is_not_grounded(self):
         # One supported sentence out of four is not enough.
-        answer = ("Any use of force must be reported to the shift supervisor "
-                  "within 24 hours of the incident. "
-                  "Inmates receive unlimited commissary credit. "
-                  "Personal vehicles may be parked inside the secure perimeter. "
-                  "Staff may accept gifts from inmate families.")
+        answer = (
+            "Any use of force must be reported to the shift supervisor "
+            "within 24 hours of the incident. "
+            "Inmates receive unlimited commissary credit. "
+            "Personal vehicles may be parked inside the secure perimeter. "
+            "Staff may accept gifts from inmate families."
+        )
         _, grounded = infer_citations(answer, self.PASSAGES)
         assert grounded is False
 
     def test_numbers_citations_in_first_use_order(self):
-        answer = ("Officers shall conduct a formal count at the beginning of "
-                  "every shift. Any use of force must be reported to the shift "
-                  "supervisor within 24 hours of the incident.")
+        answer = (
+            "Officers shall conduct a formal count at the beginning of "
+            "every shift. Any use of force must be reported to the shift "
+            "supervisor within 24 hours of the incident."
+        )
         citations, grounded = infer_citations(answer, self.PASSAGES)
         assert grounded is True
         assert [c["n"] for c in citations] == [1, 2]
@@ -141,15 +172,19 @@ class TestInferCitations:
 
 class TestBuildGroundedInference:
     def test_infer_off_by_default_preserves_old_behavior(self):
-        raw = ("Any use of force must be reported to the shift supervisor "
-               "within 24 hours of the incident.")
+        raw = (
+            "Any use of force must be reported to the shift supervisor "
+            "within 24 hours of the incident."
+        )
         ctx = [{"source": "AD 14-15", "text": raw}]
         _, citations, grounded = build_grounded(raw, ctx)
         assert grounded is False and citations == []
 
     def test_infer_recovers_grounding(self):
-        raw = ("Any use of force must be reported to the shift supervisor "
-               "within 24 hours of the incident.")
+        raw = (
+            "Any use of force must be reported to the shift supervisor "
+            "within 24 hours of the incident."
+        )
         ctx = [{"source": "AD 14-15", "text": raw}]
         answer, citations, grounded = build_grounded(raw, ctx, infer=True)
         assert grounded is True
@@ -169,5 +204,6 @@ class TestBuildGroundedInference:
         _, citations, grounded = build_grounded(
             "Officers may release inmates at their own discretion.",
             [{"source": "A", "text": "Formal count occurs each shift."}],
-            infer=True)
+            infer=True,
+        )
         assert grounded is False and citations == []

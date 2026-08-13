@@ -16,7 +16,7 @@ import yaml
 
 from backend.identity.audit import AuditEventInput
 from backend.persistence.models import AuditEvent, IdempotencyRecord, ReportAccess
-from backend.persistence.models.jobs import AiJob, Export, TaskOutbox
+from backend.persistence.models.jobs import AiJob, TaskOutbox
 from backend.jobs.service import SubmitJobCommand, submit_job
 
 
@@ -58,8 +58,13 @@ def _post(client, incident_id, job_type, headers, revision=1, **extra):
 
 
 def test_same_key_returns_same_job_and_one_atomic_outbox_and_audit(
-    db_session, db_session_factory, api_client, owner_bearer_headers,
-    fictional_incident, fictional_report, fictional_staff_and_accounts,
+    db_session,
+    db_session_factory,
+    api_client,
+    owner_bearer_headers,
+    fictional_incident,
+    fictional_report,
+    fictional_staff_and_accounts,
 ):
     db_session.commit()
     headers = _headers(owner_bearer_headers, "job-fictional-0001")
@@ -89,20 +94,34 @@ def test_same_key_returns_same_job_and_one_atomic_outbox_and_audit(
         assert job.result_reference == {}
         assert verification.scalar(select(func.count()).select_from(AiJob)) == 1
         assert verification.scalar(select(func.count()).select_from(TaskOutbox)) == 1
-        assert verification.scalar(select(func.count()).select_from(IdempotencyRecord).where(
-            IdempotencyRecord.actor_account_id == fictional_staff_and_accounts.user.id,
-            IdempotencyRecord.action == "ai.job.submit",
-            IdempotencyRecord.status == "completed",
-        )) == 1
-        record = verification.scalar(select(IdempotencyRecord).where(
-            IdempotencyRecord.actor_account_id == fictional_staff_and_accounts.user.id,
-            IdempotencyRecord.action == "ai.job.submit",
-        ))
+        assert (
+            verification.scalar(
+                select(func.count())
+                .select_from(IdempotencyRecord)
+                .where(
+                    IdempotencyRecord.actor_account_id
+                    == fictional_staff_and_accounts.user.id,
+                    IdempotencyRecord.action == "ai.job.submit",
+                    IdempotencyRecord.status == "completed",
+                )
+            )
+            == 1
+        )
+        record = verification.scalar(
+            select(IdempotencyRecord).where(
+                IdempotencyRecord.actor_account_id
+                == fictional_staff_and_accounts.user.id,
+                IdempotencyRecord.action == "ai.job.submit",
+            )
+        )
         assert record.response_status == 202
         assert record.response_reference == {"job_id": str(job_id)}
-        audit = verification.scalar(select(AuditEvent).where(
-            AuditEvent.action == "ai.job_submitted", AuditEvent.target_id == job_id,
-        ))
+        audit = verification.scalar(
+            select(AuditEvent).where(
+                AuditEvent.action == "ai.job_submitted",
+                AuditEvent.target_id == job_id,
+            )
+        )
         assert audit.details == {
             "job_id": str(job_id),
             "job_type": "classify",
@@ -111,13 +130,19 @@ def test_same_key_returns_same_job_and_one_atomic_outbox_and_audit(
 
 
 def test_same_key_changed_payload_or_job_type_conflicts_without_second_job(
-    db_session, db_session_factory, api_client, owner_bearer_headers,
-    fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    api_client,
+    owner_bearer_headers,
+    fictional_incident,
+    fictional_report,
 ):
     db_session.commit()
     headers = _headers(owner_bearer_headers, "job-fictional-0002")
     first = _post(api_client, fictional_incident.id, "extract", headers)
-    changed_revision = _post(api_client, fictional_incident.id, "extract", headers, revision=2)
+    changed_revision = _post(
+        api_client, fictional_incident.id, "extract", headers, revision=2
+    )
     changed_type = _post(api_client, fictional_incident.id, "generate", headers)
 
     assert first.status_code == 202
@@ -130,7 +155,11 @@ def test_same_key_changed_payload_or_job_type_conflicts_without_second_job(
 
 
 def test_expired_shared_idempotency_key_creates_a_distinct_job_and_outbox(
-    db_session, db_session_factory, user_actor, fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    user_actor,
+    fictional_incident,
+    fictional_report,
 ):
     incident_id = fictional_incident.id
     account_id = user_actor.account_id
@@ -151,11 +180,13 @@ def test_expired_shared_idempotency_key_creates_a_distinct_job_and_outbox(
         first_id = first.id
 
     with db_session_factory.begin() as expire_session:
-        record = expire_session.scalar(select(IdempotencyRecord).where(
-            IdempotencyRecord.actor_account_id == account_id,
-            IdempotencyRecord.action == "ai.job.submit",
-            IdempotencyRecord.idempotency_key == "job-fictional-expired-key",
-        ))
+        record = expire_session.scalar(
+            select(IdempotencyRecord).where(
+                IdempotencyRecord.actor_account_id == account_id,
+                IdempotencyRecord.action == "ai.job.submit",
+                IdempotencyRecord.idempotency_key == "job-fictional-expired-key",
+            )
+        )
         record.expires_at = first_now + timedelta(hours=24)
 
     try:
@@ -183,26 +214,36 @@ def test_expired_shared_idempotency_key_creates_a_distinct_job_and_outbox(
         assert [job.id for job in jobs] == [first_id, second_id]
         assert [job.job_type for job in jobs] == ["classify", "extract"]
         assert verification.scalar(select(func.count()).select_from(TaskOutbox)) == 2
-        record = verification.scalar(select(IdempotencyRecord).where(
-            IdempotencyRecord.actor_account_id == account_id,
-            IdempotencyRecord.action == "ai.job.submit",
-            IdempotencyRecord.idempotency_key == "job-fictional-expired-key",
-        ))
+        record = verification.scalar(
+            select(IdempotencyRecord).where(
+                IdempotencyRecord.actor_account_id == account_id,
+                IdempotencyRecord.action == "ai.job.submit",
+                IdempotencyRecord.idempotency_key == "job-fictional-expired-key",
+            )
+        )
         assert record.response_reference == {"job_id": str(second_id)}
 
 
 @pytest.mark.parametrize("job_type", JOB_TYPES)
 def test_all_job_submission_routes_are_closed_and_start_queued(
-    db_session, api_client, owner_bearer_headers, fictional_incident,
-    fictional_report, job_type,
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    fictional_incident,
+    fictional_report,
+    job_type,
 ):
     db_session.commit()
     response = _post(
-        api_client, fictional_incident.id, job_type,
+        api_client,
+        fictional_incident.id,
+        job_type,
         _headers(owner_bearer_headers, f"job-fictional-route-{job_type}"),
     )
     extra = _post(
-        api_client, fictional_incident.id, job_type,
+        api_client,
+        fictional_incident.id,
+        job_type,
         _headers(owner_bearer_headers, f"job-fictional-extra-{job_type}"),
         unexpected="not accepted",
     )
@@ -216,17 +257,27 @@ def test_all_job_submission_routes_are_closed_and_start_queued(
 
 
 def test_authorization_and_stale_base_fail_without_durable_fragments(
-    db_session, db_session_factory, api_client, unrelated_bearer_headers,
-    owner_bearer_headers, fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    api_client,
+    unrelated_bearer_headers,
+    owner_bearer_headers,
+    fictional_incident,
+    fictional_report,
 ):
     db_session.commit()
     denied = _post(
-        api_client, fictional_incident.id, "classify",
+        api_client,
+        fictional_incident.id,
+        "classify",
         _headers(unrelated_bearer_headers, "job-fictional-denied"),
     )
     stale = _post(
-        api_client, fictional_incident.id, "classify",
-        _headers(owner_bearer_headers, "job-fictional-stale"), revision=2,
+        api_client,
+        fictional_incident.id,
+        "classify",
+        _headers(owner_bearer_headers, "job-fictional-stale"),
+        revision=2,
     )
 
     assert denied.status_code == 404
@@ -236,15 +287,31 @@ def test_authorization_and_stale_base_fail_without_durable_fragments(
     with db_session_factory() as verification:
         assert verification.scalar(select(func.count()).select_from(AiJob)) == 0
         assert verification.scalar(select(func.count()).select_from(TaskOutbox)) == 0
-        assert verification.scalar(select(func.count()).select_from(IdempotencyRecord).where(
-            IdempotencyRecord.action == "ai.job.submit")) == 0
-        assert verification.scalar(select(func.count()).select_from(AuditEvent).where(
-            AuditEvent.action == "ai.job_submitted")) == 0
+        assert (
+            verification.scalar(
+                select(func.count())
+                .select_from(IdempotencyRecord)
+                .where(IdempotencyRecord.action == "ai.job.submit")
+            )
+            == 0
+        )
+        assert (
+            verification.scalar(
+                select(func.count())
+                .select_from(AuditEvent)
+                .where(AuditEvent.action == "ai.job_submitted")
+            )
+            == 0
+        )
 
 
 def test_unrelated_admin_cannot_submit_an_ordinary_incident_job(
-    db_session, db_session_factory, api_client, admin_bearer_headers,
-    fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    api_client,
+    admin_bearer_headers,
+    fictional_incident,
+    fictional_report,
 ):
     db_session.commit()
     with db_session_factory() as before:
@@ -275,8 +342,13 @@ def test_unrelated_admin_cannot_submit_an_ordinary_incident_job(
 
 
 def test_access_revoked_before_live_relationship_lock_leaves_no_job_fragment(
-    db_session, db_session_factory, api_client, owner_bearer_headers,
-    fictional_incident, fictional_report, monkeypatch,
+    db_session,
+    db_session_factory,
+    api_client,
+    owner_bearer_headers,
+    fictional_incident,
+    fictional_report,
+    monkeypatch,
 ):
     import backend.webapp.api_v1.jobs as jobs_api
 
@@ -284,10 +356,14 @@ def test_access_revoked_before_live_relationship_lock_leaves_no_job_fragment(
     owner_staff_id = fictional_report.reporting_staff_member_id
     db_session.commit()
     holder = db_session_factory()
-    relationship = holder.scalar(select(ReportAccess).where(
-        ReportAccess.report_id == report_id,
-        ReportAccess.staff_member_id == owner_staff_id,
-    ).with_for_update())
+    relationship = holder.scalar(
+        select(ReportAccess)
+        .where(
+            ReportAccess.report_id == report_id,
+            ReportAccess.staff_member_id == owner_staff_id,
+        )
+        .with_for_update()
+    )
 
     submission_pid = Queue()
     original = jobs_api.submit_job
@@ -313,19 +389,24 @@ def test_access_revoked_before_live_relationship_lock_leaves_no_job_fragment(
             pid = submission_pid.get(timeout=5)
             with db_session_factory() as observer:
                 for _ in range(200):
-                    wait_type = observer.scalar(text(
-                        "SELECT wait_event_type FROM pg_stat_activity WHERE pid = :pid"
-                    ), {"pid": pid})
+                    wait_type = observer.scalar(
+                        text(
+                            "SELECT wait_event_type FROM pg_stat_activity WHERE pid = :pid"
+                        ),
+                        {"pid": pid},
+                    )
                     observer.rollback()
                     if wait_type == "Lock":
                         break
                     if future.done():
                         raise AssertionError(
-                            "submission did not lock and revalidate live incident access")
+                            "submission did not lock and revalidate live incident access"
+                        )
                     time.sleep(0.01)
                 else:
                     raise AssertionError(
-                        "submission did not wait for the live relationship lock")
+                        "submission did not wait for the live relationship lock"
+                    )
             relationship.revoked_at = datetime(2026, 8, 12, 15, 2, tzinfo=UTC)
             holder.commit()
             response = future.result(timeout=10)
@@ -338,10 +419,22 @@ def test_access_revoked_before_live_relationship_lock_leaves_no_job_fragment(
     with db_session_factory() as verification:
         assert verification.scalar(select(func.count()).select_from(AiJob)) == 0
         assert verification.scalar(select(func.count()).select_from(TaskOutbox)) == 0
-        assert verification.scalar(select(func.count()).select_from(IdempotencyRecord).where(
-            IdempotencyRecord.action == "ai.job.submit")) == 0
-        assert verification.scalar(select(func.count()).select_from(AuditEvent).where(
-            AuditEvent.action == "ai.job_submitted")) == 0
+        assert (
+            verification.scalar(
+                select(func.count())
+                .select_from(IdempotencyRecord)
+                .where(IdempotencyRecord.action == "ai.job.submit")
+            )
+            == 0
+        )
+        assert (
+            verification.scalar(
+                select(func.count())
+                .select_from(AuditEvent)
+                .where(AuditEvent.action == "ai.job_submitted")
+            )
+            == 0
+        )
 
 
 class _FailingAuditWriter:
@@ -350,7 +443,11 @@ class _FailingAuditWriter:
 
 
 def test_audit_failure_rolls_back_job_outbox_idempotency_and_audit_together(
-    db_session, db_session_factory, user_actor, fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    user_actor,
+    fictional_incident,
+    fictional_report,
 ):
     db_session.commit()
     work = db_session_factory()
@@ -374,34 +471,60 @@ def test_audit_failure_rolls_back_job_outbox_idempotency_and_audit_together(
     with db_session_factory() as verification:
         assert verification.scalar(select(func.count()).select_from(AiJob)) == 0
         assert verification.scalar(select(func.count()).select_from(TaskOutbox)) == 0
-        assert verification.scalar(select(func.count()).select_from(IdempotencyRecord).where(
-            IdempotencyRecord.action == "ai.job.submit")) == 0
-        assert verification.scalar(select(func.count()).select_from(AuditEvent).where(
-            AuditEvent.action == "ai.job_submitted")) == 0
+        assert (
+            verification.scalar(
+                select(func.count())
+                .select_from(IdempotencyRecord)
+                .where(IdempotencyRecord.action == "ai.job.submit")
+            )
+            == 0
+        )
+        assert (
+            verification.scalar(
+                select(func.count())
+                .select_from(AuditEvent)
+                .where(AuditEvent.action == "ai.job_submitted")
+            )
+            == 0
+        )
 
 
 def test_job_status_requires_requester_plus_current_access_or_admin(
-    db_session, db_session_factory, api_client, owner_bearer_headers,
-    preparer_bearer_headers, unrelated_bearer_headers, admin_bearer_headers,
-    fictional_incident, fictional_report,
+    db_session,
+    db_session_factory,
+    api_client,
+    owner_bearer_headers,
+    preparer_bearer_headers,
+    unrelated_bearer_headers,
+    admin_bearer_headers,
+    fictional_incident,
+    fictional_report,
 ):
     db_session.commit()
     submitted = _post(
-        api_client, fictional_incident.id, "disciplinary",
+        api_client,
+        fictional_incident.id,
+        "disciplinary",
         _headers(owner_bearer_headers, "job-fictional-read-auth"),
     )
     job_id = submitted.json["data"]["id"]
 
     requester = api_client.get(
-        f"/api/v1/jobs/{job_id}", headers=_read_headers(owner_bearer_headers, "job_owner"))
+        f"/api/v1/jobs/{job_id}",
+        headers=_read_headers(owner_bearer_headers, "job_owner"),
+    )
     other_authorized_user = api_client.get(
         f"/api/v1/jobs/{job_id}",
-        headers=_read_headers(preparer_bearer_headers, "job_preparer"))
+        headers=_read_headers(preparer_bearer_headers, "job_preparer"),
+    )
     unrelated = api_client.get(
         f"/api/v1/jobs/{job_id}",
-        headers=_read_headers(unrelated_bearer_headers, "job_unrelated"))
+        headers=_read_headers(unrelated_bearer_headers, "job_unrelated"),
+    )
     admin = api_client.get(
-        f"/api/v1/jobs/{job_id}", headers=_read_headers(admin_bearer_headers, "job_admin"))
+        f"/api/v1/jobs/{job_id}",
+        headers=_read_headers(admin_bearer_headers, "job_admin"),
+    )
 
     assert requester.status_code == admin.status_code == 200
     assert requester.json["data"]["id"] == admin.json["data"]["id"] == job_id
@@ -409,18 +532,24 @@ def test_job_status_requires_requester_plus_current_access_or_admin(
 
     with db_session_factory.begin() as revoke:
         from backend.persistence.models import ReportAccess
-        relationship = revoke.scalar(select(ReportAccess).where(
-            ReportAccess.report_id == fictional_report.id,
-            ReportAccess.staff_member_id == fictional_report.reporting_staff_member_id,
-        ))
+
+        relationship = revoke.scalar(
+            select(ReportAccess).where(
+                ReportAccess.report_id == fictional_report.id,
+                ReportAccess.staff_member_id
+                == fictional_report.reporting_staff_member_id,
+            )
+        )
         relationship.revoked_at = datetime(2026, 8, 12, 15, 10, tzinfo=UTC)
 
     revoked_requester = api_client.get(
         f"/api/v1/jobs/{job_id}",
-        headers=_read_headers(owner_bearer_headers, "job_owner_revoked"))
+        headers=_read_headers(owner_bearer_headers, "job_owner_revoked"),
+    )
     admin_after_revoke = api_client.get(
         f"/api/v1/jobs/{job_id}",
-        headers=_read_headers(admin_bearer_headers, "job_admin_after_revoke"))
+        headers=_read_headers(admin_bearer_headers, "job_admin_after_revoke"),
+    )
     assert revoked_requester.status_code == 404
     assert admin_after_revoke.status_code == 200
 
@@ -429,19 +558,25 @@ def test_jobs_migration_has_bounded_tables_constraints_and_lookup_indexes(db_eng
     inspector = inspect(db_engine)
     assert {"ai_jobs", "task_outbox", "exports"} <= set(inspector.get_table_names())
     unique_names = {
-        item["name"] for table in ("ai_jobs", "task_outbox")
+        item["name"]
+        for table in ("ai_jobs", "task_outbox")
         for item in inspector.get_unique_constraints(table)
     }
     assert "uq_task_outbox_ai_job_id" in unique_names
     assert "uq_ai_jobs_actor_idempotency_key" not in unique_names
     indexes = {
-        item["name"] for table in ("ai_jobs", "task_outbox", "exports")
+        item["name"]
+        for table in ("ai_jobs", "task_outbox", "exports")
         for item in inspector.get_indexes(table)
     }
     assert {
-        "ix_ai_jobs_queue", "ix_ai_jobs_requested_actor", "ix_ai_jobs_incident",
-        "ix_task_outbox_available", "ix_exports_report_revision",
-        "ix_exports_actor_created", "ix_ai_jobs_claim",
+        "ix_ai_jobs_queue",
+        "ix_ai_jobs_requested_actor",
+        "ix_ai_jobs_incident",
+        "ix_task_outbox_available",
+        "ix_exports_report_revision",
+        "ix_exports_actor_created",
+        "ix_ai_jobs_claim",
     } <= indexes
     assert {"lease_expires_at", "claim_token"} <= {
         column["name"] for column in inspector.get_columns("ai_jobs")
@@ -490,18 +625,28 @@ def test_openapi_declares_closed_job_routes_headers_stages_and_safe_conflicts():
     result_reference = schemas["JobResultReference"]
     assert result_reference["additionalProperties"] is False
     assert set(result_reference["properties"]) == {
-        "incident_revision_number", "reports",
+        "incident_revision_number",
+        "reports",
     }
     assert schemas["JobResultReportReference"]["additionalProperties"] is False
     assert schemas["JobResultReportReference"]["required"] == [
-        "report_id", "revision_number",
+        "report_id",
+        "revision_number",
     ]
     assert set(schemas["JobStage"]["enum"]) == {
-        "queued", "classifying", "extracting", "validating", "generating",
-        "disciplinary", "completed", "failed",
+        "queued",
+        "classifying",
+        "extracting",
+        "validating",
+        "generating",
+        "disciplinary",
+        "completed",
+        "failed",
     }
     for job_type in JOB_TYPES:
-        operation = document["paths"][f"/api/v1/incidents/{{incident_id}}/jobs/{job_type}"]["post"]
+        operation = document["paths"][
+            f"/api/v1/incidents/{{incident_id}}/jobs/{job_type}"
+        ]["post"]
         refs = {parameter.get("$ref") for parameter in operation["parameters"]}
         assert {
             "#/components/parameters/IncidentId",
@@ -509,12 +654,18 @@ def test_openapi_declares_closed_job_routes_headers_stages_and_safe_conflicts():
             "#/components/parameters/RequiredXRequestId",
             "#/components/parameters/IdempotencyKey",
         } <= refs
-        assert {"202", "400", "401", "403", "404", "409", "422", "503"} <= set(operation["responses"])
+        assert {"202", "400", "401", "403", "404", "409", "422", "503"} <= set(
+            operation["responses"]
+        )
         response_ref = operation["responses"]["409"]["$ref"].rsplit("/", 1)[-1]
-        examples = document["components"]["responses"][response_ref]["content"]["application/json"]["examples"]
+        examples = document["components"]["responses"][response_ref]["content"][
+            "application/json"
+        ]["examples"]
         codes = {item["value"]["error"]["code"] for item in examples.values()}
         assert {
-            "revision_conflict", "idempotency_conflict", "request_in_progress",
+            "revision_conflict",
+            "idempotency_conflict",
+            "request_in_progress",
             "client_upgrade_required",
         } <= codes
     assert document["security"] == [{"AccessBearer": []}]

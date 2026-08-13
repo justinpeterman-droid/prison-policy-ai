@@ -3,6 +3,7 @@
 Pure config assembly — no GCP, no network. These guard the resource path that,
 when wrong, 404s every policy search and takes the whole chat down.
 """
+
 import importlib
 
 import pytest

@@ -1,5 +1,7 @@
 """OCR the ADC Inmate Disciplinary Manual using Vertex AI Gemini Vision."""
-import os, json, pymupdf, base64, sys
+
+import json
+import pymupdf
 from pathlib import Path
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part
@@ -9,7 +11,9 @@ vertexai.init(
     location="us-central1",
 )
 
-doc_path = str(Path(__file__).parent.parent / "pdfs" / "ADC_Inmate_Disciplinary_Manual.pdf")
+doc_path = str(
+    Path(__file__).parent.parent / "pdfs" / "ADC_Inmate_Disciplinary_Manual.pdf"
+)
 doc = pymupdf.open(doc_path)
 total = len(doc)
 print(f"Processing {total} pages...")
@@ -34,7 +38,7 @@ for i in range(total):
     )
     text = response.text.strip()
     if "NO_VIOLATIONS" not in text and text:
-        print(f"\n--- Page {i+1} ---")
+        print(f"\n--- Page {i + 1} ---")
         print(text[:400])
 
     for line in text.split("\n"):
