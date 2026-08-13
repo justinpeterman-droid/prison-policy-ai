@@ -93,6 +93,16 @@ def test_iam_members_reference_managed_identities_and_custom_role():
     assert 'member    = google_service_account.identities[each.value.account].member' in identities
 
 
+def test_worker_alone_has_bounded_metric_emission():
+    identities = read("identities.tf")
+    outputs = read("outputs.tf")
+    assert re.search(r'worker-metric-writer\s*=\s*\{ account = "worker", role = "roles/monitoring\.metricWriter" \}', identities)
+    assert identities.count('roles/monitoring.metricWriter') == 1
+    assert 'metric_writer_binding_count' in outputs
+    assert 'metric_writer_relations' in outputs
+    assert 'google_project_iam_member.least_privilege' in outputs
+
+
 def test_workflow_claims_follow_top_level_and_reusable_boundaries():
     test_main = (TEST_ROOT / "main.tf").read_text(encoding="utf-8")
     production_main = (PRODUCTION_ROOT / "main.tf").read_text(encoding="utf-8")
