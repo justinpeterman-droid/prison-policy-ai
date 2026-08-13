@@ -16,5 +16,33 @@ main:
               offload: true
               sqlExportOptions: {schemaOnly: false}
         result: operation
+    - initialize_poll:
+        assign:
+          - operation_name: $${operation.name}
+          - attempt: 0
+          - terminal: false
+    - poll:
+        call: googleapis.sqladmin.v1.operations.get
+        args:
+          project: ${project_id}
+          operation: $${operation_name}
+        result: operation_status
+    - decide:
+        switch:
+          - condition: $${operation_status.status == "DONE"}
+            next: done
+          - condition: $${attempt >= 20}
+            next: timed_out
+    - wait:
+        call: sys.sleep
+        args:
+          seconds: 15
+        next: increment
+    - increment:
+        assign:
+          - attempt: $${attempt + 1}
+        next: poll
     - done:
-        return: {operation_id: $${operation.name}, object_uri: $${"gs://${bucket_name}/" + object}, status: submitted}
+        return: {operation_id: $${operation_name}, object_uri: $${"gs://${bucket_name}/" + object}, status: $${operation_status.status}}
+    - timed_out:
+        return: {operation_id: $${operation_name}, object_uri: $${"gs://${bucket_name}/" + object}, status: timeout}

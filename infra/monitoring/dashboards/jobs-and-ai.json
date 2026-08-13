@@ -5,7 +5,9 @@
       {"width": 6, "height": 4, "widget": {"title": "Cloud Tasks queue depth", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"cloudtasks.googleapis.com/queue/tasks\""}}}}},
       {"xPos": 6, "width": 6, "height": 4, "widget": {"title": "queue_health job stages and latency buckets", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"logging.googleapis.com/user/access_queue_health\""}}}}},
       {"yPos": 4, "width": 6, "height": 4, "widget": {"title": "ai_provider_repeat_risk_total", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"custom.googleapis.com/ai_provider_repeat_risk_total\""}}}}},
-      {"xPos": 6, "yPos": 4, "width": 6, "height": 4, "widget": {"title": "dependency_health policy search and exports", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"logging.googleapis.com/user/access_dependency_health\""}}}}}
+      {"xPos": 6, "yPos": 4, "width": 6, "height": 4, "widget": {"title": "dependency_health policy search and exports", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"logging.googleapis.com/user/access_dependency_health\""}}}}},
+      {"yPos": 8, "width": 6, "height": 4, "widget": {"title": "Cloud Tasks oldest age", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"cloudtasks.googleapis.com/queue/oldest_task_age\""}}}}},
+      {"xPos": 6, "yPos": 8, "width": 6, "height": 4, "widget": {"title": "Cloud Billing spend", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"billing.googleapis.com/billing/account/cost\""}}}}}
     ]
   }
 }

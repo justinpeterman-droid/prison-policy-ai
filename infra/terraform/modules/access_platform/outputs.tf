@@ -146,11 +146,16 @@ output "terraform_test_contract" {
       access_release_scoped        = length(google_storage_bucket_iam_member.release_access_release_write) == (var.enable_access_release_identity ? 1 : 0) && alltrue([for binding in google_storage_bucket_iam_member.release_access_release_write : binding.role == "roles/storage.objectCreator" && binding.member == google_service_account.identities["access_release"].member && binding.condition[0].expression == "resource.name.startsWith(\"projects/_/buckets/${google_storage_bucket.private["release"].name}/objects/releases/\")"])
     }
     observability = {
-      dashboard_count           = length(google_monitoring_dashboard.access)
-      alert_policy_count        = 10 + length(google_monitoring_alert_policy.required)
-      logical_export_schedule   = google_cloud_scheduler_job.logical_export_nightly.schedule
-      logical_backup_is_creator = google_storage_bucket_iam_member.logical_backup_creator.role == "roles/storage.objectCreator"
-      budget_thresholds         = sort(concat([for threshold in google_billing_budget.access.threshold_rules : threshold.threshold_percent], [for threshold in google_billing_budget.access.all_updates_rule : 1.0]))
+      dashboard_count              = length(google_monitoring_dashboard.access)
+      alert_policy_count           = 10 + length(google_monitoring_alert_policy.required)
+      logical_export_schedule      = google_cloud_scheduler_job.logical_export_nightly.schedule
+      logical_backup_is_creator    = google_storage_bucket_iam_member.logical_backup_creator.role == "roles/storage.objectCreator"
+      budget_thresholds            = sort(concat([for threshold in google_billing_budget.access.threshold_rules : threshold.threshold_percent], [for threshold in google_billing_budget.access.all_updates_rule : 1.0]))
+      backup_export_permissions    = toset(google_project_iam_custom_role.logical_backup_exporter.permissions)
+      backup_instance_condition    = google_project_iam_member.logical_backup_exporter.condition[0].expression == "resource.name == \"projects/${var.project_id}/instances/${google_sql_database_instance.postgres.name}\""
+      scheduler_workflow_condition = google_project_iam_member.logical_backup_invoker.condition[0].expression == "resource.name == \"projects/${var.project_id}/locations/${var.region}/workflows/${google_workflows_workflow.logical_export.name}\""
+      pitr_enabled                 = google_sql_database_instance.postgres.settings[0].backup_configuration[0].point_in_time_recovery_enabled
+      backup_bucket_private        = google_storage_bucket.private["logical_backup"].public_access_prevention == "enforced" && google_storage_bucket.private["logical_backup"].versioning[0].enabled
     }
     bootstrap_environment     = var.wif_trust["admin-bootstrap"].github_environment
     workflow_claim_categories = { for name, trust in var.wif_trust : name => sort(tolist(trust.workflow_claims)) }

@@ -1,6 +1,15 @@
 resource "google_billing_budget" "access" {
   billing_account = var.billing_account_id
   display_name    = "Access ${var.environment} ${var.observability_owner_role} budget"
+  # The budget remains isolated to this environment's approved project and
+  # displays the owner role without embedding a person or contact target.
+  budget_filter {
+    projects = ["projects/${var.project_id}"]
+    labels = {
+      environment = var.environment
+      owner_role  = var.observability_owner_role
+    }
+  }
   amount {
     specified_amount {
       currency_code = "USD"
@@ -26,4 +35,6 @@ resource "google_billing_budget" "access" {
     schema_version                 = "1.0"
     disable_default_iam_recipients = true
   }
+
+  depends_on = [terraform_data.services_ready]
 }

@@ -5,7 +5,9 @@
       {"width": 6, "height": 4, "widget": {"title": "Cloud SQL CPU", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"cloudsql.googleapis.com/database/cpu/utilization\""}}}}},
       {"xPos": 6, "width": 6, "height": 4, "widget": {"title": "Cloud SQL storage", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"cloudsql.googleapis.com/database/disk/utilization\""}}}}},
       {"yPos": 4, "width": 6, "height": 4, "widget": {"title": "Cloud SQL connections", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"cloudsql.googleapis.com/database/postgresql/num_backends\""}}}}},
-      {"xPos": 6, "yPos": 4, "width": 6, "height": 4, "widget": {"title": "backup_restore_health", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"logging.googleapis.com/user/access_backup_restore_health\""}}}}}
+      {"xPos": 6, "yPos": 4, "width": 6, "height": 4, "widget": {"title": "backup_restore_health and PITR", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"logging.googleapis.com/user/access_backup_restore_health\""}}}}},
+      {"yPos": 8, "width": 6, "height": 4, "widget": {"title": "Cloud SQL memory and availability", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"cloudsql.googleapis.com/database/memory/utilization\""}}}}},
+      {"xPos": 6, "yPos": 8, "width": 6, "height": 4, "widget": {"title": "Migration revision", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"logging.googleapis.com/user/access_dependency_health\""}}}}}
     ]
   }
 }
