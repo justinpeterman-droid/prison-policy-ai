@@ -105,7 +105,7 @@ resource "google_monitoring_alert_policy" "api_availability_documented" {
   conditions {
     display_name = "threshold"
     condition_threshold {
-      filter          = "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\""
+      filter          = "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND resource.type=\"uptime_url\" AND metric.label.\"check_id\"=\"${google_monitoring_uptime_check_config.api_health.uptime_check_id}\""
       comparison      = "COMPARISON_LT"
       threshold_value = 1
       duration        = "300s"
@@ -261,6 +261,7 @@ resource "google_monitoring_alert_policy" "queue_age_documented" {
   }
 }
 resource "google_monitoring_alert_policy" "logical_export_documented" {
+  count                 = local.logical_export_scheduler_enabled ? 1 : 0
   project               = var.project_id
   display_name          = "Access logical export documentation"
   combiner              = "OR"
@@ -274,7 +275,7 @@ resource "google_monitoring_alert_policy" "logical_export_documented" {
   conditions {
     display_name = "threshold"
     condition_threshold {
-      filter          = "metric.type=\"workflows.googleapis.com/finished_execution_count\" AND metric.label.\"status\"=\"FAILED\""
+      filter          = "metric.type=\"workflows.googleapis.com/finished_execution_count\" AND metric.label.\"status\"=\"FAILED\" AND resource.type=\"workflows.googleapis.com/Workflow\" AND resource.label.\"workflow_id\"=\"${google_workflows_workflow.logical_export[0].name}\" AND resource.label.\"location\"=\"${var.region}\""
       comparison      = "COMPARISON_GT"
       threshold_value = 0
       duration        = "60s"

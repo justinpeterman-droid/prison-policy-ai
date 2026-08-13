@@ -87,6 +87,9 @@ def test_backup_boundary_is_exact_and_workflow_is_bounded():
     assert '"workflows.googleapis.com"' in services
     assert '"billingbudgets.googleapis.com"' in services
     assert "databases: [${database_name}]" in workflow
+    assert "enable_logical_export_scheduler" in backup
+    assert "logical_export_polling_authorization_record" in backup
+    assert "local.logical_export_scheduler_enabled ? 1 : 0" in backup
 
 
 def test_all_alerts_have_real_unhealthy_sources_and_never_autoclose():
@@ -120,5 +123,18 @@ def test_platform_metric_contracts_use_supported_types_only():
     assert "cloudtasks.googleapis.com/queue/tasks" not in observability
     assert "workflows.googleapis.com/finished_execution_count" in observability
     assert 'metric.label.\\"status\\"=\\"FAILED\\"' in observability
+    assert 'resource.type=\\"workflows.googleapis.com/Workflow\\"' in observability
+    assert 'resource.label.\\"workflow_id\\"=\\"${google_workflows_workflow.logical_export[0].name}\\"' in observability
+    assert 'resource.label.\\"location\\"=\\"${var.region}\\"' in observability
     assert "google_monitoring_uptime_check_config" in observability
+    assert 'resource.type=\\"uptime_url\\"' in observability
+    assert 'metric.label.\\"check_id\\"=\\"${google_monitoring_uptime_check_config.api_health.uptime_check_id}\\"' in observability
     assert observability.count("depends_on            = [terraform_data.services_ready]") >= 10
+
+
+def test_billing_spend_is_an_external_bigquery_gate_not_an_invalid_monitoring_metric():
+    jobs_dashboard = (DASHBOARDS / "jobs-and-ai.json").read_text(encoding="utf-8")
+    assert "billing.googleapis.com/billing/account/cost" not in jobs_dashboard
+    assert "Cloud Billing spend source gate" in jobs_dashboard
+    assert "BigQuery" in jobs_dashboard
+    assert "EXT-04" in jobs_dashboard

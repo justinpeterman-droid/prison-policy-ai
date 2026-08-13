@@ -188,7 +188,7 @@ run "private_platform_contract" {
   }
 
   assert {
-    condition     = module.access_platform.terraform_test_contract.observability.pitr_enabled && module.access_platform.terraform_test_contract.observability.backup_bucket_private && module.access_platform.terraform_test_contract.observability.backup_export_permissions == toset(["cloudsql.instances.export", "cloudsql.instances.get"]) && module.access_platform.terraform_test_contract.observability.backup_instance_condition && module.access_platform.terraform_test_contract.observability.scheduler_workflow_condition
+    condition     = module.access_platform.terraform_test_contract.observability.pitr_enabled && module.access_platform.terraform_test_contract.observability.backup_bucket_private && module.access_platform.terraform_test_contract.observability.backup_export_permissions == toset(["cloudsql.instances.export", "cloudsql.instances.get"]) && module.access_platform.terraform_test_contract.observability.backup_instance_condition && module.access_platform.terraform_test_contract.observability.scheduler_workflow_condition && !module.access_platform.terraform_test_contract.observability.logical_export_scheduler_enabled && module.access_platform.terraform_test_contract.observability.logical_export_schedule == null
     error_message = "OP-05 backup identity must be export-only on the exact instance and invoke only the exact workflow."
   }
 
@@ -198,13 +198,13 @@ run "private_platform_contract" {
   }
 
   assert {
-    condition     = module.access_platform.terraform_test_contract.observability.alert_policy_count == 17
-    error_message = "OP-05 must retain the full alert family."
+    condition     = module.access_platform.terraform_test_contract.observability.alert_policy_count == 16
+    error_message = "OP-05 must retain all always-on alerts while the export workflow is externally gated."
   }
 
   assert {
-    condition     = module.access_platform.terraform_test_contract.observability.logical_export_schedule == "0 2 * * *" && module.access_platform.terraform_test_contract.observability.logical_backup_is_creator
-    error_message = "OP-05 must retain its nightly unique export and creator-only backup bucket permission."
+    condition     = module.access_platform.terraform_test_contract.observability.logical_backup_is_creator
+    error_message = "OP-05 must retain its creator-only logical backup bucket permission while scheduling is externally gated."
   }
 
   assert {

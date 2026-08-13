@@ -57,7 +57,16 @@ resource "google_project_iam_member" "logical_backup_exporter" {
   depends_on = [terraform_data.services_ready]
 }
 
+locals {
+  # This stays closed until an operator explicitly supplies both an activation
+  # decision and a reference to the external, resource-scoped polling approval.
+  # Terraform never compensates for missing approval with project-wide
+  # Cloud SQL operation-status permission.
+  logical_export_scheduler_enabled = var.enable_logical_export_scheduler && length(trimspace(var.logical_export_polling_authorization_record)) > 0
+}
+
 resource "google_workflows_workflow" "logical_export" {
+  count           = local.logical_export_scheduler_enabled ? 1 : 0
   project         = var.project_id
   region          = var.region
   name            = "access-${var.environment}-logical-export"
@@ -73,6 +82,7 @@ resource "google_workflows_workflow" "logical_export" {
 # The scheduler uses the backup identity only to start this exact workflow.
 # It receives no project-wide Workflows role or unrelated invoker authority.
 resource "google_project_iam_member" "logical_backup_invoker" {
+  count   = local.logical_export_scheduler_enabled ? 1 : 0
   project = var.project_id
   role    = "roles/workflows.invoker"
   member  = google_service_account.logical_backup.member
@@ -80,13 +90,14 @@ resource "google_project_iam_member" "logical_backup_invoker" {
   condition {
     title       = "AccessLogicalBackupExactWorkflow"
     description = "Permit invocation only of this environment's logical-export workflow."
-    expression  = "resource.name == \"projects/${var.project_id}/locations/${var.region}/workflows/${google_workflows_workflow.logical_export.name}\""
+    expression  = "resource.name == \"projects/${var.project_id}/locations/${var.region}/workflows/${google_workflows_workflow.logical_export[0].name}\""
   }
 
   depends_on = [google_workflows_workflow.logical_export]
 }
 
 resource "google_cloud_scheduler_job" "logical_export_nightly" {
+  count     = local.logical_export_scheduler_enabled ? 1 : 0
   project   = var.project_id
   region    = var.region
   name      = "access-${var.environment}-logical-export-nightly"
@@ -94,7 +105,7 @@ resource "google_cloud_scheduler_job" "logical_export_nightly" {
   time_zone = "Etc/UTC"
   http_target {
     http_method = "POST"
-    uri         = "https://workflowexecutions.googleapis.com/v1/${google_workflows_workflow.logical_export.id}/executions"
+    uri         = "https://workflowexecutions.googleapis.com/v1/${google_workflows_workflow.logical_export[0].id}/executions"
     oauth_token {
       service_account_email = google_service_account.logical_backup.email
       scope                 = "https://www.googleapis.com/auth/cloud-platform"

@@ -84,6 +84,15 @@ variable "api_max_concurrency" { type = number }
 variable "worker_min_instances" { type = number }
 variable "worker_max_instances" { type = number }
 variable "worker_max_concurrency" { type = number }
+variable "enable_logical_export_scheduler" {
+  type    = bool
+  default = false
+}
+variable "logical_export_polling_authorization_record" {
+  type      = string
+  default   = ""
+  sensitive = false
+}
 variable "notification_channel_ids" { type = set(string) }
 variable "billing_account_id" { type = string }
 variable "monthly_budget_amount" { type = number }
