@@ -343,6 +343,11 @@ run "private_platform_contract" {
   }
 
   assert {
+    condition     = module.access_platform.terraform_test_contract.database.postgres_18
+    error_message = "Cloud SQL must use the resource-derived POSTGRES_18 database version."
+  }
+
+  assert {
     condition     = module.access_platform.terraform_test_contract.serverless.api_public_invoker_count == 1 && module.access_platform.terraform_test_contract.serverless.non_api_public_invoker_count == 0 && module.access_platform.terraform_test_contract.serverless.worker_task_invoker_count == 1 && module.access_platform.terraform_test_contract.serverless.queue_enqueuer_count == 1
     error_message = "Only API may expose public invocation; worker invocation and queue enqueue remain identity-scoped."
   }

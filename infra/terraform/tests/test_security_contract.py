@@ -55,6 +55,19 @@ def database_flag_value(source: str, name: str) -> str:
     return match.group(1)
 
 
+def test_pinned_checkov_contract_has_no_unresolved_hardening_categories():
+    contract = (MODULE.parent.parent / "tests" / "access_platform.tftest.hcl").read_text(
+        encoding="utf-8"
+    )
+    for token in (
+        "storage_log_bucket_name",
+        "artifact_registry_kms_key_name",
+        "enable_flow_logs",
+        "POSTGRES_18",
+    ):
+        assert token in contract
+
+
 def test_production_requires_external_log_and_kms_inputs():
     production = (PRODUCTION_ROOT / "variables.tf").read_text(encoding="utf-8")
 
