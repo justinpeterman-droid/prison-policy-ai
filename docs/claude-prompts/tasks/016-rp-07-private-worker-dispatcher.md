@@ -60,7 +60,7 @@ Consume-only: RP services/models, retry code, plans/specs, Terraform plan, tests
 - Dispatcher reads only committed available outbox rows, deterministic task name from project/region/queue/job UUID, exact JSON `{"job_id":"UUID"}`, OIDC task-invoker service-account email, audience equal worker origin. AlreadyExists counts success; retry safe transient errors only; persist bounded codes, never provider/body/auth details.
 - Worker is private by Cloud Run IAM. App additionally requires Cloud Tasks metadata and exact route/body UUID match as defense-in-depth, not IAM replacement. Do not implement shared secret auth or trust arbitrary headers.
 - Worker claims one job, runs existing injected classifier/extractor/generator adapters, updates stable stages, validates, applies via revision service, safe audit/result. Deterministic validation/auth failure records terminal category then returns 2xx to stop retry; transient failure follows documented retry.
-- Redelivery applies at most one durable result. On recovered provider-repeat risk, emit exactly one real Cloud Monitoring counter point of type `custom.googleapis.com/ai_provider_repeat_risk_total`, with `job_type` as its sole metric label. The Monitoring adapter must use dependency injection in offline tests, create its Google client lazily, and emit no identity, job/request ID, or report content; crash after provider acceptance before DB commit can repeat billing, so never claim external exactly-once.
+- Redelivery applies at most one durable result. On recovered provider-repeat risk, emit exactly one real Cloud Monitoring counter point of type `custom.googleapis.com/ai_provider_repeat_risk_total`, with `job_type` as its sole metric label restricted to `classify`, `extract`, `generate`, or `disciplinary`. The Monitoring adapter must use dependency injection in offline tests, create its Google client lazily, and emit no identity, job/request ID, or report content; crash after provider acceptance before DB commit can repeat billing, so never claim external exactly-once.
 - Docker retains API default and contains required Alembic/migrations/root assets. Deployment supplies exact worker command `gunicorn --bind :$PORT --workers 1 --threads 4 --timeout 900 "backend.worker.app:create_worker_app()"`.
 - Unit/integration use `FakeTasksClient` and fake report engine; no ADC/network.
 
@@ -80,7 +80,7 @@ Consume-only: RP services/models, retry code, plans/specs, Terraform plan, tests
 6. Run focused regression:
 
    ```powershell
-   python -m pytest tests/unit/test_task_dispatcher.py tests/unit/test_worker_routes.py tests/integration/test_worker_pipeline.py tests/unit/test_retry.py -v
+   python -m pytest tests/unit/test_task_dispatcher.py tests/unit/test_worker_routes.py tests/unit/test_worker_metrics.py tests/integration/test_worker_pipeline.py tests/unit/test_retry.py -v
    ```
 
    Expected: PASS without Google credentials; fake Tasks and fake report engine each receive one call.

@@ -5,6 +5,7 @@ import time
 
 _METRIC_NAME = "ai_provider_repeat_risk_total"
 _METRIC_TYPE = f"custom.googleapis.com/{_METRIC_NAME}"
+_JOB_TYPES = frozenset({"classify", "extract", "generate", "disciplinary"})
 
 
 class GoogleCloudMonitoringMetricSink:
@@ -30,7 +31,11 @@ class GoogleCloudMonitoringMetricSink:
         """Create exactly one unit-valued custom counter time series."""
         if name != _METRIC_NAME:
             raise ValueError("worker metric name is not approved")
-        if set(labels) != {"job_type"} or not isinstance(labels["job_type"], str):
+        if (
+            set(labels) != {"job_type"}
+            or not isinstance(labels["job_type"], str)
+            or labels["job_type"] not in _JOB_TYPES
+        ):
             raise ValueError("worker metric labels are not approved")
         if not self._project_id:
             raise RuntimeError("GCP_PROJECT_ID is required for worker metrics")

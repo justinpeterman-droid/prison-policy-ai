@@ -1,5 +1,7 @@
 """Offline contract tests for the RP-07 provider-repeat-risk metric."""
 
+import pytest
+
 from backend.worker.metrics import GoogleCloudMonitoringMetricSink
 
 
@@ -36,3 +38,21 @@ def test_google_monitoring_sink_writes_exact_repeat_risk_metric_with_bounded_lab
         "interval": {"end_time": {"seconds": 1_786_665_600}},
         "value": {"int64_value": 1},
     }]
+
+
+@pytest.mark.parametrize("labels", [
+    {},
+    {"job_type": None},
+    {"job_type": "employee-0042-private"},
+    {"job_type": "generate", "employee_id": "0042"},
+])
+def test_google_monitoring_sink_rejects_unbounded_or_sensitive_labels(labels):
+    client = FakeMonitoringClient()
+    sink = GoogleCloudMonitoringMetricSink(
+        project_id="fictional-project", client=client,
+    )
+
+    with pytest.raises(ValueError, match="labels are not approved"):
+        sink.increment("ai_provider_repeat_risk_total", labels=labels)
+
+    assert client.requests == []
