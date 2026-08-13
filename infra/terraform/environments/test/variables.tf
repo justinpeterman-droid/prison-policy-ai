@@ -89,3 +89,34 @@ variable "labels" {
   type        = map(string)
   default     = {}
 }
+
+# These declarations let the shared mocked native test pass production's
+# required external inputs without embedding them in production/main.tf.
+variable "image_digest" { type = string }
+variable "source_commit" { type = string }
+variable "release_version" { type = string }
+variable "api_version" { type = string }
+variable "latest_client_version" { type = string }
+variable "minimum_client_version" { type = string }
+variable "minimum_server_version" { type = string }
+variable "release_notes" { type = string }
+variable "managed_hostname" { type = string }
+variable "dns_zone_name" { type = string }
+variable "image_repository_id" { type = string }
+variable "queue_max_attempts" { type = number }
+variable "gcp_model_location" { type = string }
+variable "agent_builder_location" { type = string }
+variable "agent_builder_collection" { type = string }
+variable "agent_builder_engine_id" { type = string }
+variable "agent_builder_serving_config" { type = string }
+variable "fast_model" { type = string }
+variable "pro_model" { type = string }
+variable "legacy_report_mode" { type = string }
+variable "review_object_prefix" { type = string }
+variable "log_level" { type = string }
+variable "api_min_instances" { type = number }
+variable "api_max_instances" { type = number }
+variable "api_max_concurrency" { type = number }
+variable "worker_min_instances" { type = number }
+variable "worker_max_instances" { type = number }
+variable "worker_max_concurrency" { type = number }

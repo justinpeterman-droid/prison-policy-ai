@@ -100,3 +100,51 @@ output "secret_resource_ids" {
     initial_admin_pin       = google_secret_manager_secret.initial_admin_pin.id
   }
 }
+
+output "api_service_name" {
+  value = google_cloud_run_v2_service.api.name
+}
+
+output "worker_service_name" {
+  value = google_cloud_run_v2_service.worker.name
+}
+
+output "api_revision_uri" {
+  value = google_cloud_run_v2_service.api.uri
+}
+
+output "worker_uri" {
+  value = google_cloud_run_v2_service.worker.uri
+}
+
+output "queue_name" {
+  value = google_cloud_tasks_queue.worker.name
+}
+
+output "managed_hostname" {
+  value = var.managed_hostname
+}
+
+output "load_balancer_ip" {
+  value = google_compute_global_address.api.address
+}
+
+output "release_bucket_name" {
+  value = google_storage_bucket.private["release"].name
+}
+
+output "configuration_bucket_name" {
+  value = google_storage_bucket.private["configuration"].name
+}
+
+output "logical_backup_bucket_name" {
+  value = google_storage_bucket.private["logical_backup"].name
+}
+
+output "roster_bucket_name" {
+  value = google_storage_bucket.private["roster"].name
+}
+
+output "review_bucket_name" {
+  value = google_storage_bucket.private["review"].name
+}

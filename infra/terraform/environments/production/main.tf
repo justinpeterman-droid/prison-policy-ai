@@ -55,5 +55,33 @@ module "access_platform" {
   github_ref_pattern             = var.github_ref_pattern
   enable_access_release_identity = true
   wif_trust                      = local.wif_trust
-  labels                         = var.labels
+  labels                         = merge(var.labels, { system = "access" })
+  image_digest                   = var.image_digest
+  source_commit                  = var.source_commit
+  release_version                = var.release_version
+  api_version                    = var.api_version
+  latest_client_version          = var.latest_client_version
+  minimum_client_version         = var.minimum_client_version
+  minimum_server_version         = var.minimum_server_version
+  release_notes                  = var.release_notes
+  managed_hostname               = var.managed_hostname
+  dns_zone_name                  = var.dns_zone_name
+  image_repository_id            = var.image_repository_id
+  queue_max_attempts             = var.queue_max_attempts
+  gcp_model_location             = var.gcp_model_location
+  agent_builder_location         = var.agent_builder_location
+  agent_builder_collection       = var.agent_builder_collection
+  agent_builder_engine_id        = var.agent_builder_engine_id
+  agent_builder_serving_config   = var.agent_builder_serving_config
+  fast_model                     = var.fast_model
+  pro_model                      = var.pro_model
+  legacy_report_mode             = var.legacy_report_mode
+  review_object_prefix           = var.review_object_prefix
+  log_level                      = var.log_level
+  api_min_instances              = var.api_min_instances
+  api_max_instances              = var.api_max_instances
+  api_max_concurrency            = var.api_max_concurrency
+  worker_min_instances           = var.worker_min_instances
+  worker_max_instances           = var.worker_max_instances
+  worker_max_concurrency         = var.worker_max_concurrency
 }
