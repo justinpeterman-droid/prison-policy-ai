@@ -235,8 +235,8 @@ run "private_platform_contract" {
   }
 
   assert {
-    condition     = module.access_platform.terraform_test_contract.serverless.same_digest && module.access_platform.terraform_test_contract.serverless.api_internal_lb_ingress && module.access_platform.terraform_test_contract.serverless.worker_internal_ingress && alltrue(values(module.access_platform.terraform_test_contract.serverless.service_label_relations))
-    error_message = "API and worker must use one digest, their exact ingress boundaries, and sanitized shared labels."
+    condition     = module.access_platform.terraform_test_contract.serverless.same_digest && module.access_platform.terraform_test_contract.serverless.api_internal_lb_ingress && module.access_platform.terraform_test_contract.serverless.worker_internal_ingress && alltrue(values(module.access_platform.terraform_test_contract.serverless.service_label_relations)) && alltrue(values(module.access_platform.terraform_test_contract.serverless.health_probe_relations))
+    error_message = "API and worker must use one digest, bounded private health probes, exact ingress boundaries, and sanitized shared labels."
   }
 
   assert {

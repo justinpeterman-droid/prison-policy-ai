@@ -34,6 +34,26 @@ resource "google_cloud_run_v2_service" "api" {
       resources {
         limits = { cpu = "1", memory = "1Gi" }
       }
+      startup_probe {
+        http_get {
+          path = "/health"
+          port = 8080
+        }
+        initial_delay_seconds = 0
+        timeout_seconds       = 5
+        period_seconds        = 10
+        failure_threshold     = 18
+      }
+      liveness_probe {
+        http_get {
+          path = "/health"
+          port = 8080
+        }
+        initial_delay_seconds = 0
+        timeout_seconds       = 5
+        period_seconds        = 10
+        failure_threshold     = 18
+      }
       env {
         name  = "ACCESS_API_ENABLED"
         value = "true"
@@ -246,6 +266,24 @@ resource "google_cloud_run_v2_service" "worker" {
       command = ["gunicorn"]
       args    = ["--bind", ":8080", "--workers", "1", "--threads", "4", "--timeout", "900", "backend.worker.app:create_worker_app()"]
       resources { limits = { cpu = "1", memory = "1Gi" } }
+      startup_probe {
+        tcp_socket {
+          port = 8080
+        }
+        initial_delay_seconds = 0
+        timeout_seconds       = 5
+        period_seconds        = 10
+        failure_threshold     = 18
+      }
+      liveness_probe {
+        tcp_socket {
+          port = 8080
+        }
+        initial_delay_seconds = 0
+        timeout_seconds       = 5
+        period_seconds        = 10
+        failure_threshold     = 18
+      }
       env {
         name  = "GCP_PROJECT_ID"
         value = var.project_id

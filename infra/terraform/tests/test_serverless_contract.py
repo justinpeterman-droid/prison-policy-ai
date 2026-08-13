@@ -18,6 +18,27 @@ def test_cloud_run_ingress_and_digest_are_locked():
     assert 'condition     = can(regex("@sha256:[0-9a-f]{64}$", var.image_digest))' in read("variables.tf")
 
 
+def test_api_and_worker_define_bounded_private_health_probes():
+    serverless = read("serverless.tf")
+    services = re.findall(
+        r'resource "google_cloud_run_v2_service" "(api|worker)" \{(.*?)(?=\nresource "google_cloud_run_v2_service"|\Z)',
+        serverless,
+        flags=re.DOTALL,
+    )
+    assert {name for name, _ in services} == {"api", "worker"}
+    for name, service in services:
+        assert len(re.findall(r"\bstartup_probe\s*\{", service)) == 1
+        assert len(re.findall(r"\bliveness_probe\s*\{", service)) == 1
+        assert 'initial_delay_seconds = 0' in service
+        assert 'timeout_seconds       = 5' in service
+        assert 'period_seconds        = 10' in service
+        assert 'failure_threshold     = 18' in service
+        if name == "api":
+            assert len(re.findall(r'http_get\s*\{\s*path\s*=\s*"/health"\s*port\s*=\s*8080\s*\}', service)) == 2
+        else:
+            assert len(re.findall(r'tcp_socket\s*\{\s*port\s*=\s*8080\s*\}', service)) == 2
+
+
 def test_worker_has_no_public_invoker():
     terraform = "\n".join(path.read_text(encoding="utf-8") for path in MODULE.glob("*.tf"))
     bindings = re.findall(
