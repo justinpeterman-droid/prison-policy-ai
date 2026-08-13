@@ -11,7 +11,7 @@
 # For more information on Codacy Analysis CLI in general, see
 # https://github.com/codacy/codacy-analysis-cli.
 
-name: Codacy Security Scan
+name: Codacy Supplemental Security Scan (non-authoritative)
 
 on:
   push:
@@ -36,7 +36,7 @@ jobs:
     steps:
       # Checkout the repository to the GitHub Actions runner
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       # Execute Codacy Analysis CLI and generate a SARIF output with the security issues identified during the analysis
       - name: Run Codacy Analysis CLI
@@ -54,7 +54,6 @@ jobs:
         # behind — the upload step below gates on this step's *outcome*, not
         # on the file merely existing, so it doesn't trade one failure for
         # another ("Invalid SARIF. JSON syntax error").
-        continue-on-error: true
         env:
           # The CLI's SARIF formatter re-reads each file with a finding to quote
           # the offending line, using the JVM default charset. The runner has no
@@ -89,6 +88,6 @@ jobs:
       # disk that would fail SARIF upload validation if we tried it anyway.
       - name: Upload SARIF results file
         if: steps.codacy_scan.outcome == 'success'
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@e306b2ed11bcb6d30c3a02149c11f0e6aaed69a3
         with:
           sarif_file: results.sarif

@@ -1,0 +1,38 @@
+name: Container Security
+on: [push, pull_request, workflow_dispatch]
+permissions: {contents: read, attestations: write, id-token: write}
+jobs:
+  container-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: docker build --tag prison-policy-ai:ci .
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
+        with: {cosign-release: v3.1.3}
+      - run: >-
+          cosign verify
+          --certificate-identity https://github.com/chainguard-images/images/.github/workflows/release.yaml@refs/heads/main
+          --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          cgr.dev/chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d
+  sbom:
+    needs: container-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610
+        with: {image: prison-policy-ai:ci, format: spdx-json, output-file: sbom.spdx.json, syft-version: 1.51.0, upload-artifact: 'false'}
+      - run: python scripts/ci/validate_sbom.py --image prison-policy-ai:ci --output sbom.spdx.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: {name: sbom, path: sbom.spdx.json}
+  container-vulnerability:
+    needs: container-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2
+        with: {image: prison-policy-ai:ci, grype-version: 0.117.0, severity-cutoff: high, only-fixed: 'true', fail-build: 'true', output-format: sarif, output-file: grype.sarif}
+  pages-scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: python scripts/ci/build_pages_dist.py && python scripts/ci/check_sensitive_output.py --paths pages-dist
