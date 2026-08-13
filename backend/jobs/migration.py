@@ -3,16 +3,38 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import time
 from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKeyConstraint,
+    PrimaryKeyConstraint,
+    UniqueConstraint,
+    create_engine,
+    inspect,
+)
+
+from backend.persistence.base import Base
+import backend.persistence.models  # noqa: F401 - registers all mapped tables
 
 
 _ROOT = Path(__file__).resolve().parents[2]
+
+_SEARCH_INDEXES = {
+    "incidents": {
+        "ix_incidents_extracted_facts_gin",
+        "ix_incidents_incident_date",
+        "ix_incidents_facility",
+        "ix_incidents_location",
+        "ix_incidents_shift",
+    },
+    "reports": {"ix_reports_created_at", "ix_reports_updated_at"},
+}
 
 
 def _config() -> Config:
@@ -33,6 +55,99 @@ def upgrade() -> str:
     return head
 
 
+def _constraint_contract(table) -> dict[str, object]:
+    primary_key: tuple[str, ...] = ()
+    unique: set[tuple[str, ...]] = set()
+    foreign_keys: set[tuple[str, str, tuple[str, ...]]] = set()
+    checks: dict[str, tuple[str, ...]] = {}
+    for constraint in table.constraints:
+        columns = tuple(sorted(column.name for column in constraint.columns))
+        if isinstance(constraint, PrimaryKeyConstraint):
+            primary_key = columns
+        elif isinstance(constraint, UniqueConstraint):
+            unique.add(columns)
+        elif isinstance(constraint, ForeignKeyConstraint):
+            elements = list(constraint.elements)
+            foreign_keys.add((
+                columns,
+                elements[0].column.table.name,
+                tuple(sorted(element.column.name for element in elements)),
+            ))
+        elif isinstance(constraint, CheckConstraint):
+            checks[str(constraint.name)] = _check_signature(str(constraint.sqltext))
+    return {
+        "primary_key": primary_key,
+        "unique": unique,
+        "foreign_keys": foreign_keys,
+        "checks": checks,
+    }
+
+
+_CHECK_CAST = re.compile(
+    r"::(?:character varying|timestamp with time zone|double precision|"
+    r"bigint|boolean|bytea|integer|jsonb|numeric|text|uuid)(?:\[\])?"
+)
+
+
+def _check_signature(sql: str) -> tuple[str, ...]:
+    normalized = _CHECK_CAST.sub("", sql.lower())
+    normalized = re.sub(r"=\s*any\s*\(\s*array\s*\[", " in (", normalized)
+    normalized = normalized.replace("]", ")")
+    return tuple(re.findall(
+        r"'(?:''|[^'])*'|!~\*|~\*|!~|->>|->|>=|<=|<>|!=|\?\||\?&|"
+        r"@>|<@|~|=|>|<|-|\?|"
+        r"[a-z_][a-z0-9_]*|\d+",
+        normalized,
+    ))
+
+
+def _schema_matches(inspector) -> bool:
+    actual_tables = set(inspector.get_table_names())
+    if set(Base.metadata.tables) | {"alembic_version"} != actual_tables:
+        return False
+    for table_name, table in Base.metadata.tables.items():
+        expected_columns = set(table.columns.keys())
+        actual_columns = {column["name"] for column in inspector.get_columns(table_name)}
+        if expected_columns != actual_columns:
+            return False
+
+        expected_indexes = {index.name for index in table.indexes if index.name}
+        expected_indexes |= _SEARCH_INDEXES.get(table_name, set())
+        actual_indexes = {index["name"] for index in inspector.get_indexes(table_name)}
+        if not expected_indexes <= actual_indexes:
+            return False
+
+        expected = _constraint_contract(table)
+        actual_primary_key = tuple(sorted(
+            inspector.get_pk_constraint(table_name).get("constrained_columns") or ()
+        ))
+        if expected["primary_key"] != actual_primary_key:
+            return False
+        actual_unique_columns = {
+            tuple(sorted(item.get("column_names") or ()))
+            for item in inspector.get_unique_constraints(table_name)
+        }
+        if not expected["unique"] <= actual_unique_columns:
+            return False
+        actual_foreign_keys = {
+            (
+                tuple(sorted(item.get("constrained_columns") or ())),
+                item.get("referred_table"),
+                tuple(sorted(item.get("referred_columns") or ())),
+            )
+            for item in inspector.get_foreign_keys(table_name)
+        }
+        if not expected["foreign_keys"] <= actual_foreign_keys:
+            return False
+        actual_checks = [
+            _check_signature(item.get("sqltext") or "")
+            for item in inspector.get_check_constraints(table_name)
+        ]
+        if any(signature not in actual_checks for signature in expected["checks"].values()):
+            return False
+    return True
+
+
 def verify() -> dict[str, str]:
     """Return only safe migration/database compatibility state."""
     head = _single_head()
@@ -44,10 +159,14 @@ def verify() -> dict[str, str]:
     try:
         with engine.connect() as connection:
             revision = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
-            tables = inspect(connection).get_table_names()
+            schema_ok = _schema_matches(inspect(connection))
     finally:
         engine.dispose()
-    return {"status": "ok" if revision == head and "accounts" in tables else "mismatch", "revision": revision, "head": head}
+    return {
+        "status": "ok" if revision == head and schema_ok else "mismatch",
+        "revision": revision,
+        "head": head,
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -58,10 +177,15 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     started = time.monotonic()
     try:
-        result = upgrade() if args.operation == "upgrade" else verify()
-        revision = result if isinstance(result, str) else result["revision"]
-        print(json.dumps({"status": "ok", "revision": revision, "duration": f"{time.monotonic()-started:.3f}"}, sort_keys=True))
-        return 0
+        if args.operation == "upgrade":
+            revision = upgrade()
+            status = "ok"
+        else:
+            result = verify()
+            revision = result["revision"]
+            status = result["status"]
+        print(json.dumps({"status": status, "revision": revision, "duration": f"{time.monotonic()-started:.3f}"}, sort_keys=True))
+        return 0 if status == "ok" else 1
     except Exception:
         print(json.dumps({"status": "failed", "revision": "unknown", "duration": f"{time.monotonic()-started:.3f}"}, sort_keys=True))
         return 1
