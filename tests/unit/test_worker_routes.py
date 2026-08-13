@@ -21,17 +21,16 @@ class FakeProcessor:
 
 
 def _client(processor):
-    app = create_worker_app(processor=processor)
+    app = create_worker_app(
+        processor=processor, queue_name="fictional-report-jobs",
+    )
     app.config["TESTING"] = True
     return app.test_client()
 
 
 def _headers(job_id=JOB_ID, *, retry_count="0"):
     return {
-        "X-CloudTasks-TaskName": (
-            "projects/fictional-project/locations/us-central1/queues/"
-            f"fictional-report-jobs/tasks/ai-job-{job_id}"
-        ),
+        "X-CloudTasks-TaskName": f"ai-job-{job_id}",
         "X-CloudTasks-QueueName": "fictional-report-jobs",
         "X-CloudTasks-TaskRetryCount": retry_count,
     }
@@ -79,10 +78,28 @@ def test_worker_requires_task_name_to_bind_same_job_uuid():
     assert processor.calls == []
 
 
-def test_worker_requires_queue_metadata_to_match_task_resource():
+def test_worker_requires_queue_metadata_to_match_configured_queue():
     processor = FakeProcessor()
     headers = _headers()
     headers["X-CloudTasks-QueueName"] = "different-fictional-queue"
+
+    response = _client(processor).post(
+        f"/internal/jobs/{JOB_ID}/run", headers=headers,
+        json={"job_id": str(JOB_ID)},
+    )
+
+    assert response.status_code == 400
+    assert response.json == {"error": "task_request_invalid"}
+    assert processor.calls == []
+
+
+def test_worker_rejects_full_task_resource_in_delivery_header():
+    processor = FakeProcessor()
+    headers = _headers()
+    headers["X-CloudTasks-TaskName"] = (
+        "projects/fictional-project/locations/us-central1/queues/"
+        f"fictional-report-jobs/tasks/ai-job-{JOB_ID}"
+    )
 
     response = _client(processor).post(
         f"/internal/jobs/{JOB_ID}/run", headers=headers,
