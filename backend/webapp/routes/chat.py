@@ -3,6 +3,11 @@ import logging
 import uuid
 from flask import Blueprint, render_template, request, jsonify
 from backend.pipeline.query import answer_question
+from backend.webapp.api_v1.policy import (
+    MAX_HISTORY_FIELD_CHARS,
+    MAX_HISTORY_ITEMS,
+    clean_policy_history,
+)
 from backend.webapp.errors import classify_error as _classify_error, ERROR_MESSAGES as _ERROR_MESSAGES
 
 logger = logging.getLogger(__name__)
@@ -14,29 +19,14 @@ def chat_page():
     return render_template("chat.html")
 
 
-# Bounds on client-supplied history. The browser is not trusted to be honest
-# about size, and history goes straight into a prompt we pay per token for.
-MAX_HISTORY_ITEMS = 6
-MAX_HISTORY_FIELD_CHARS = 2000
+# Bounds on client-supplied history live with the shared cleaner in the v1
+# policy module (RP-08). The browser and the Access client must bound history
+# identically — two copies of these numbers is two things to drift.
+_clean_history = clean_policy_history
 
-
-def _clean_history(raw) -> list[dict]:
-    """Coerce client-supplied history into bounded {question, answer} dicts.
-
-    Anything malformed is dropped rather than rejected — a bad history should
-    cost the officer conversational context, not their answer.
-    """
-    if not isinstance(raw, list):
-        return []
-    out = []
-    for item in raw[-MAX_HISTORY_ITEMS:]:
-        if not isinstance(item, dict):
-            continue
-        question = str(item.get("question") or "")[:MAX_HISTORY_FIELD_CHARS]
-        answer = str(item.get("answer") or "")[:MAX_HISTORY_FIELD_CHARS]
-        if question.strip():
-            out.append({"question": question, "answer": answer})
-    return out
+__all__ = [
+    "chat_bp", "MAX_HISTORY_ITEMS", "MAX_HISTORY_FIELD_CHARS", "_clean_history",
+]
 
 
 @chat_bp.route("/api/chat", methods=["POST"])

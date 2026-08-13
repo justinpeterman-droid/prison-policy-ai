@@ -5,7 +5,7 @@ import re
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
-from flask import Blueprint, render_template, request, jsonify, send_file
+from flask import Blueprint, current_app, render_template, request, jsonify, send_file
 from backend.reports.classifier import classify_incident
 from backend.reports.generator import (
     has_charges, generate_all_reports, generate_disciplinary_only,
@@ -19,9 +19,40 @@ from backend.reports.gap_answers import build_incident_number, merge_gap_answers
 from backend.reports import service as report_service
 from backend.reports.roster import FileStaffProvider
 from backend.webapp.errors import classify_error, ERROR_MESSAGES
+from backend.pipeline.config import legacy_report_mode
 
 logger = logging.getLogger(__name__)
 reports_bp = Blueprint("reports", __name__)
+
+_RESTRICTED_LEGACY_ACTIONS = frozenset({
+    "/api/reports/classify",
+    "/api/reports/extract",
+    "/api/reports/generate",
+    "/api/reports/disciplinary",
+    "/api/reports/download",
+})
+
+
+@reports_bp.before_request
+def legacy_report_control():
+    """Keep legacy reports explicitly transient or safely unavailable.
+
+    The centralized `/api/v1` API is the only durable report history. The
+    browser pilot is deliberately limited to its existing in-memory workflow;
+    restricted mode prevents fresh legacy AI/document actions during rollout.
+    """
+    if request.path not in _RESTRICTED_LEGACY_ACTIONS:
+        return None
+    # RP-10 governs the Access-enabled Cloud Run deployment.  Preserve the
+    # separate standalone browser-only legacy application and its regression
+    # contract when the identity API is not enabled at all.
+    if not current_app.config["IDENTITY_SETTINGS"].enabled:
+        return None
+    if legacy_report_mode() == "restricted":
+        return jsonify({
+            "error": "Legacy report actions are temporarily unavailable. Use the Access workspace.",
+        }), 503
+    return None
 
 _LOCATION_MAP_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "location_map.json"
 

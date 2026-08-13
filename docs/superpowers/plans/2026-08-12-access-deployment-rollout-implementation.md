@@ -169,7 +169,7 @@ REQUIRED = {
         "Secret Manager namespace",
     },
     "github-environment-policy.md": {
-        "test | deploy-test.yml, terraform-plan.yml, terraform-apply.yml, bootstrap-first-admin.yml | terraform-plan, terraform-apply, deploy, rollback, admin-bootstrap | 1 | refs/heads/main | CLOSED",
+        "test | deploy-test.yml, rollback-test.yml, terraform-plan.yml, terraform-apply.yml, bootstrap-first-admin.yml | terraform-plan, terraform-apply, deploy, rollback, admin-bootstrap | 1 | refs/heads/main | CLOSED",
         "production-plan | terraform-plan.yml | terraform-plan | 2 | refs/heads/main | CLOSED",
         "production-apply | terraform-apply.yml | terraform-apply | 2 | refs/heads/main | CLOSED",
         "production-deploy | deploy-production.yml, bootstrap-first-admin.yml | deploy, admin-bootstrap | 2 | refs/heads/main | CLOSED",
@@ -291,7 +291,7 @@ Create the remaining four documents. Use role names rather than personal names i
 ```markdown
 | Environment | Permitted workflows | WIF identities | Minimum reviewers | Allowed ref | Repository state |
 |---|---|---|---:|---|---|
-| test | deploy-test.yml, terraform-plan.yml, terraform-apply.yml, bootstrap-first-admin.yml | terraform-plan, terraform-apply, deploy, rollback, admin-bootstrap | 1 | refs/heads/main | CLOSED |
+| test | deploy-test.yml, rollback-test.yml, terraform-plan.yml, terraform-apply.yml, bootstrap-first-admin.yml | terraform-plan, terraform-apply, deploy, rollback, admin-bootstrap | 1 | refs/heads/main | CLOSED |
 | production-plan | terraform-plan.yml | terraform-plan | 2 | refs/heads/main | CLOSED |
 | production-apply | terraform-apply.yml | terraform-apply | 2 | refs/heads/main | CLOSED |
 | production-deploy | deploy-production.yml, bootstrap-first-admin.yml | deploy, admin-bootstrap | 2 | refs/heads/main | CLOSED |
@@ -510,6 +510,7 @@ git commit -m "infra: establish isolated terraform state roots"
 - Consumes: OP-02 provider/environment roots; OP-01 EXT-05 and EXT-16 evidence; externally approved `project_id`, `source_repository`, WIF issuer inputs, Cloud SQL tier, and secret custodians.
 - Produces: module inputs `environment`, `project_id`, `region`, `network_name`, `database_instance_name`, `database_name`, `sql_tier`, `github_repository`, `github_ref_pattern`, `enable_access_release_identity`, and `wif_trust`. `wif_trust` is a map keyed exactly by `terraform-plan`, `terraform-apply`, `deploy`, `rollback`, `admin-bootstrap`, and `access-release`; each value contains `github_environment`, `workflow_refs`, and `ref_pattern` and must agree with `docs/operations/github-environment-policy.md`.
 - Produces runtime identity outputs `api_service_account_email`, `worker_service_account_email`, `task_invoker_service_account_email`, `migration_service_account_email`, and `bootstrap_service_account_email`; workflow identity outputs `terraform_plan_service_account_email`, `terraform_apply_service_account_email`, `deploy_service_account_email`, `rollback_service_account_email`, `admin_bootstrap_service_account_email`, and nullable `access_release_service_account_email`; and WIF outputs `terraform_plan_wif_provider_name`, `terraform_apply_wif_provider_name`, `deploy_wif_provider_name`, `rollback_wif_provider_name`, `admin_bootstrap_wif_provider_name`, and nullable `access_release_wif_provider_name`, in addition to `network_id`, `private_subnet_id`, `database_instance_connection_name`, `database_private_ip`, `database_name`, and `secret_resource_ids`.
+- Google physical IDs use a short, provider-valid mapping without changing those stable outputs: environment IDs are `test` and `prod` (for `production`); role IDs are `api`, `worker`, `task-invoker`, `migration`, `bootstrap`, `tf-plan`, `tf-apply`, `deploy`, `rollback`, `admin-bootstrap`, and `release`. Service-account IDs are exactly `access-${environment_id}-${role_id}`. One WIF pool per environment is exactly `access-${environment_id}-wif`, with distinct provider IDs using the same role IDs. This preserves strict separate identities/providers while honoring Google's 30-character service-account and 32-character pool limits.
 - Produces Secret Manager containers named `access-database-url`, `identity-hash-pepper`, `cursor-signing-key`, `client-update-grant-key`, `legacy-access-code`, `legacy-admin-code`, `github-feedback-token`, `flask-session-secret`, and `initial-admin-pin`; no `google_secret_manager_secret_version` resource is permitted.
 - Produces the bootstrap-runtime IAM boundary: Cloud SQL Client, accessor on `access-database-url`, and `roles/secretmanager.secretVersionAdder` on `initial-admin-pin`, with no secret-version access. OP-04 adds only the exact private `admin-bootstrap-requests/` configuration-bucket object-read binding; OP-06 adds only exact invocation of `access-{environment}-bootstrap-admin` to the `admin-bootstrap` workflow identity. The API alone receives accessor on `client-update-grant-key`.
 - Produces no GitHub environment, GitHub reviewer/branch policy, database password, connection string, WIF credential, service-account key, or secret value.
@@ -562,20 +563,11 @@ def test_terraform_never_manages_secret_values_or_keys():
 
 def test_runtime_identities_are_single_purpose():
     identities = read("identities.tf")
-    for account_id in [
-        "api",
-        "worker",
-        "task-invoker",
-        "migration",
-        "bootstrap",
-        "terraform-plan",
-        "terraform-apply",
-        "deploy",
-        "rollback",
-        "admin-bootstrap",
-        "access-release",
-    ]:
-        assert f'account_id   = "access-${{var.environment}}-{account_id}"' in identities
+    assert 'environment_id = var.environment == "production" ? "prod" : "test"' in identities
+    for role_id in ["api", "worker", "task-invoker", "migration", "bootstrap", "tf-plan", "tf-apply", "deploy", "rollback", "admin-bootstrap", "release"]:
+        assert f'"{role_id}"' in identities
+    assert 'account_id   = "access-${local.environment_id}-${each.value}"' in identities
+    assert 'workload_identity_pool_id = "access-${local.environment_id}-wif"' in identities
 
 
 def test_workflow_identities_have_distinct_wif_and_secret_boundaries():
@@ -682,14 +674,16 @@ Create ten service accounts in test and eleven in production. Both environments 
 
 Implement these workflow boundaries exactly:
 
-- `terraform-plan`: `roles/viewer` and `roles/iam.securityReviewer` on its environment project, `roles/secretmanager.viewer` for secret metadata without `secretmanager.versions.access`, and `roles/storage.objectViewer` on that environment's Terraform state bucket. It has no write permission.
-- `terraform-apply`: only the reviewed resource-admin roles required by `infra/terraform/modules/access_platform/**`, `roles/storage.objectAdmin` on that environment's state prefix, and service-account impersonation only for Terraform-managed bindings. It cannot access secret payloads, build/push artifacts, invoke migration jobs, deploy revisions, or sign releases.
+- `terraform-plan`: `roles/viewer` and `roles/iam.securityReviewer` on its environment project, `roles/secretmanager.viewer` for secret metadata without `secretmanager.versions.access`, and `roles/storage.objectViewer` conditioned to that environment's OP-02 Terraform state prefix. It has no write permission.
+- `terraform-apply`: only the reviewed resource-admin roles required by `infra/terraform/modules/access_platform/**`, `roles/storage.objectAdmin` conditioned to that environment's OP-02 state prefix, and service-account impersonation only for Terraform-managed bindings. It cannot access secret payloads, build/push artifacts, invoke migration jobs, deploy revisions, or sign releases.
 - `deploy`: `roles/artifactregistry.writer` on the environment repository, Cloud Run revision/job deployment permissions, and `roles/iam.serviceAccountUser` only on API, worker, and migration identities. It can invoke the reviewed migration/verification jobs but cannot read application secrets or Terraform state.
 - `rollback`: a custom `accessRollbackTraffic` role containing only `run.services.get`, `run.services.update`, `run.operations.get`, `run.revisions.get`, and `run.revisions.list`, scoped to the API and worker services. It has no Artifact Registry, build, job-invocation, secret, database, or Terraform-state permission.
 - `access-release`: production only, with object-create/read permission on immutable versioned paths in the release bucket and the agency-managed signing service's submit-and-read-result role. It cannot overwrite/delete prior releases, read signing keys, access application secrets/state/database, or administer Cloud Run.
 - `admin-bootstrap`: WIF-only workflow identity. OP-06 binds it as invoker only on `access-{environment}-bootstrap-admin`; it cannot invoke API/worker/migration/roster jobs, connect to SQL, access buckets or secrets, build/push, deploy, apply Terraform, or administer Cloud Run.
 
-Create a distinct service-account IAM binding and WIF provider for each workflow identity. Every provider condition includes the exact GitHub repository, `refs/heads/main`, the matching `job_workflow_ref`, and the exact environment claim from the OP-01 policy. `terraform-plan.yml` is allowed in `test` and `production-plan`; `terraform-apply.yml` in `test` and `production-apply`; test deploy and rollback-verification jobs in `deploy-test.yml` use their distinct identities under `test`; `deploy-production.yml` uses `deploy` in `production-deploy`; `rollback-production.yml` uses `rollback` in `production-rollback`; `bootstrap-first-admin.yml` uses `admin-bootstrap` under `test` in test and under `production-deploy` in production; and `access-release.yml` uses `access-release` in `access-release`. No provider accepts a fork pull request, an unprotected environment, or another workflow. Do not issue or download a service-account key.
+Create a distinct service-account IAM binding and WIF provider for each workflow identity. Every provider condition includes the exact GitHub repository, `refs/heads/main`, an exact workflow-path claim, and the exact environment claim from the OP-01 policy. A credentialed job defined directly in a top-level workflow must bind `assertion.workflow_ref`; use `assertion.job_workflow_ref` only for a credentialed job executing inside an explicitly approved reusable workflow. A provider must never require `job_workflow_ref` for a top-level workflow, because GitHub does not issue that claim there. `terraform-plan.yml` is allowed in `test` and `production-plan`; `terraform-apply.yml` in `test` and `production-apply`; `deploy-test.yml` uses `deploy` under `test`; `rollback-test.yml` uses `rollback` under `test`; `deploy-production.yml` uses `deploy` in `production-deploy`; `rollback-production.yml` uses `rollback` in `production-rollback`; `bootstrap-first-admin.yml` uses `admin-bootstrap` under `test` in test and under `production-deploy` in production; and `access-release.yml` uses `access-release` in `access-release`. Each binding is unique by identity, workflow-path claim, and environment. No provider accepts a fork pull request, an unprotected environment, or another workflow. Do not issue or download a service-account key.
+
+OP-03 creates the identities, WIF trust, exact state-prefix bindings, and secret-specific runtime bindings only. It must not invent project-wide Artifact Registry, Cloud Run, Cloud Storage, Vertex AI, Discovery Engine, or signing-service grants before their resources or approved external interfaces exist. OP-04 binds the already-created deploy, rollback, and access-release accounts at its actual Artifact Registry, Cloud Run, and release-bucket resources. Discovery Engine/Vertex AI data-store and agency-managed signing-service bindings remain explicit external resource-interface gates; they must be added only at their approved resource scope, never as a guessed project-wide role.
 
 - [ ] **Step 7: Create secret containers and per-secret IAM**
 
@@ -711,10 +705,16 @@ Run:
 terraform fmt -check -recursive infra/terraform
 terraform -chdir=infra/terraform/environments/test init -backend=false
 terraform -chdir=infra/terraform/environments/test validate
-terraform -chdir=infra/terraform/environments/test test -test-directory=../../tests
+New-Item -ItemType Directory -Force infra/terraform/environments/test/tests | Out-Null
+Copy-Item infra/terraform/tests/access_platform.tftest.hcl infra/terraform/environments/test/tests/access_platform.tftest.hcl -Force
+terraform -chdir=infra/terraform/environments/test test -test-directory=tests
+Remove-Item -LiteralPath infra/terraform/environments/test/tests -Recurse -Force
 terraform -chdir=infra/terraform/environments/production init -backend=false
 terraform -chdir=infra/terraform/environments/production validate
-terraform -chdir=infra/terraform/environments/production test -test-directory=../../tests
+New-Item -ItemType Directory -Force infra/terraform/environments/production/tests | Out-Null
+Copy-Item infra/terraform/tests/access_platform.tftest.hcl infra/terraform/environments/production/tests/access_platform.tftest.hcl -Force
+terraform -chdir=infra/terraform/environments/production test -test-directory=tests
+Remove-Item -LiteralPath infra/terraform/environments/production/tests -Recurse -Force
 python -m pytest infra/terraform/tests/test_layout.py infra/terraform/tests/test_security_contract.py -q
 git diff --check
 ```
@@ -744,6 +744,8 @@ git commit -m "infra: define private sql and least privilege identities"
 - Modify: `infra/terraform/modules/access_platform/outputs.tf`
 - Modify: `infra/terraform/environments/test/main.tf`
 - Modify: `infra/terraform/environments/production/main.tf`
+- Modify: `infra/terraform/environments/test/variables.tf`
+- Modify: `infra/terraform/environments/production/variables.tf`
 - Modify: `infra/terraform/tests/access_platform.tftest.hcl`
 - Create: `infra/terraform/tests/test_serverless_contract.py`
 - Create: `docs/runbooks/edge-and-service-verification.md`
@@ -751,6 +753,7 @@ git commit -m "infra: define private sql and least privilege identities"
 **Interfaces:**
 
 - Consumes: OP-03 network, identities, database connection name, and secret resource IDs; backend entry points `backend.webapp.app:create_app()` and `backend.worker.app:create_worker_app()`; worker task endpoint produced by RP-07; immutable `image_digest` in Artifact Registry.
+- Binds the pre-created OP-03 workflow accounts only after the concrete resources exist: deploy to the environment Artifact Registry repository, API/worker/migration Cloud Run services/jobs and their three runtime service accounts; rollback to only API/worker Cloud Run services through the custom traffic role; and production access-release to immutable release-bucket paths. It must not grant project-wide substitutes. Discovery Engine/Vertex AI data-store and agency-managed signing-service permissions remain external resource-interface gates until an approved resource-scoped binding contract exists.
 - Consumes exact runtime configuration names: `ACCESS_API_ENABLED`, `GCP_PROJECT_ID`, `GCP_LOCATION`, `GCP_MODEL_LOCATION`, `AGENT_BUILDER_LOCATION`, `AGENT_BUILDER_COLLECTION`, `AGENT_BUILDER_ENGINE_ID`, `AGENT_BUILDER_SERVING_CONFIG`, `FAST_MODEL`, `PRO_MODEL`, `DATABASE_URL`, `IDENTITY_HASH_PEPPER`, `CURSOR_SIGNING_KEY`, `CLIENT_UPDATE_GRANT_KEY`, `CLOUD_TASKS_PROJECT`, `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_QUEUE`, `AI_WORKER_URL`, `CLOUD_TASKS_OIDC_SERVICE_ACCOUNT`, `SOURCE_COMMIT`, `RELEASE_VERSION`, `API_VERSION`, `LATEST_CLIENT_VERSION`, `MINIMUM_CLIENT_VERSION`, `MINIMUM_SERVER_VERSION`, `RELEASE_NOTES`, `PUBLIC_BASE_URL`, `LEGACY_REPORT_MODE`, `ACCESS_RELEASE_BUCKET`, `ROSTER_BUCKET`, `REVIEW_BUCKET`, `REVIEW_OBJECT_PREFIX`, `ADMIN_BOOTSTRAP_REQUEST_BUCKET`, `ADMIN_BOOTSTRAP_REQUEST_PREFIX`, `ACCESS_CODE`, `ADMIN_CODE`, `GITHUB_TOKEN`, and `LOG_LEVEL`.
 - Produces: `api_service_name`, `worker_service_name`, `api_revision_uri`, `worker_uri`, `queue_name`, `managed_hostname`, `load_balancer_ip`, `release_bucket_name`, `configuration_bucket_name`, `logical_backup_bucket_name`, `roster_bucket_name`, and `review_bucket_name`.
 - Produces API ingress `INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER`; worker ingress `INGRESS_TRAFFIC_INTERNAL_ONLY`; only the task-invoker identity receives worker invocation permission.
@@ -1484,6 +1487,7 @@ git commit -m "ci: enforce backend container and pages release gates"
 - Create: `.github/workflows/terraform-plan.yml`
 - Create: `.github/workflows/terraform-apply.yml`
 - Create: `.github/workflows/deploy-test.yml`
+- Create: `.github/workflows/rollback-test.yml`
 - Create: `.github/workflows/deploy-production.yml`
 - Create: `.github/workflows/rollback-production.yml`
 - Create: `.github/workflows/bootstrap-first-admin.yml`
@@ -1601,6 +1605,7 @@ def test_version_registry_is_the_only_projection_source():
     combined = "\n".join(workflow(name) for name in (
         "terraform-plan.yml",
         "deploy-test.yml",
+        "rollback-test.yml",
         "deploy-production.yml",
     ))
     assert "release/version.json" in combined
@@ -1676,6 +1681,8 @@ Grant the plan job only `contents: read`, `actions: read`, `id-token: write`, an
 - [ ] **Step 5: Implement build-once test deployment**
 
 `deploy-test.yml` runs only after OP-07 required checks. Job `build_candidate` authenticates with test deploy WIF, builds/pushes the commit once, resolves `image_digest`, verifies SBOM/provenance, validates `release/version.json`, and exposes only digest, source commit, registry hash, and the immutable projection object as job outputs. Job `plan_test` calls `terraform-plan.yml` with those exact authoritative values. Job `apply_test` calls `terraform-apply.yml` with all six plan provenance outputs, original plan inputs, and approval reference under `test`. Only after apply succeeds do later jobs invoke test migration/verification, deploy worker/API with the same digest/projection, run fictional end-to-end/contract/load/failure tests, and emit the GitHub-attested release descriptor. The workflow never accesses production or real data.
+
+`rollback-test.yml` is the separate manual test-only rollback-verification workflow under the existing `test` environment. It authenticates only as the test `rollback` identity, verifies a reviewed prior test API/worker revision, and changes only the selected test traffic/revision. It does not build, apply Terraform, invoke jobs, access secrets, or access production. Its distinct top-level workflow path is required so no token from `deploy-test.yml` can impersonate the rollback identity.
 
 - [ ] **Step 6: Implement explicitly approved production sequencing**
 

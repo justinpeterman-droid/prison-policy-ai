@@ -54,6 +54,9 @@ def require_compatible_write(view: F) -> F:
                 and version < Version(minimum)
             )
         ):
+            from backend.webapp.api_v1.admin_health import emit_client_upgrade_required
+            parsed = "missing" if version is None else "_".join(map(str, version.release[:3]))
+            emit_client_upgrade_required(parsed)
             raise ApiError(
                 "client_upgrade_required",
                 "A supported Access client version is required for this change.",

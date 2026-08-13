@@ -38,14 +38,41 @@ dependency or external approval.
   commits `a1ae719` and `577480d`; final independent review READY,
   1,214 unit/contract tests and two PostgreSQL runs of 106 tests passed;
   fresh focused PostgreSQL verification passed 44 tests.
-- [x] 014 RP-05 — Admin report API. `LOCAL 3954b92`; PR #78 open (draft) against
-  `integration/access-cloud-run-rp02`; focused suite 44 passed, full regression
-  1,349 passed/1 skipped; independent review pending.
-- [ ] 015 RP-06 — AI jobs/outbox.
-- [ ] 016 RP-07 — Private worker/dispatcher.
-- [ ] 017 RP-08 — Policy Expert API.
-- [ ] 018 RP-09 — Word exports.
-- [ ] 019 RP-10 — Reporting operations and legacy controls.
+- [x] 014 RP-05 — Admin report API. `LOCAL`
+  commits `3954b92` and `e361eba`; PR #78 merged into
+  `integration/access-cloud-run-rp02`; final independent re-review READY,
+  fresh focused PostgreSQL verification passed 53 tests.
+- [x] 015 RP-06 — AI jobs/outbox. `LOCAL`
+  commits `1ae8bca` and `4e682a7`; final independent re-review READY,
+  fresh focused PostgreSQL verification passed 40 tests, and full PostgreSQL
+  integration passed 170 tests with one existing opt-in skip.
+- [x] 016 RP-07 — Private worker/dispatcher. `LOCAL`
+  commits `98ef263` and `9c43b1b`; final independent re-review READY,
+  fresh focused PostgreSQL verification passed 54 tests, and full PostgreSQL
+  integration passed 189 tests with one existing opt-in skip.
+- [x] 017 RP-08 — Policy Expert API. `REVIEWED` implementation `8b409d8`,
+  integrated by merge `a129c54`; independent re-review READY. The authorized
+  narrow shared-query reconciliation removes raw question logging and applies
+  one 90-second deadline to credential, search, gate, and model calls. Focused
+  policy/browser tests passed 156; credential-free focused run passed 20 with
+  30 expected PostgreSQL skips; full unit/contract passed 1,285 and PostgreSQL
+  integration passed 189 with one existing opt-in skip (one time-sensitive
+  Admin fixture retry passed in isolation).
+- [x] 018 RP-09 — Word exports. `REVIEWED` rebased implementation `00fbd78`,
+  integrated by merge `7f6e243`; independent re-review READY. The rebase
+  preserves RP-08 hardening, sorts every ZIP member (including manifest), and
+  suppresses the internal selection query's search audit so the bulk route
+  writes only its route-specific audit. Required export/filler tests passed 75;
+  full unit/contract passed 1,295 and PostgreSQL integration passed 244 with
+  one existing opt-in skip.
+- [x] 019 RP-10 — Reporting operations and legacy controls. `REVIEWED`
+  implementation `646a998`, integrated by merge `2390f14`; independent
+  re-review READY. Adds the exact nine-field client policy, elevated safe
+  overview/audit/health routes, fixed-column replayable audit CSV export,
+  allowlisted operational telemetry, and explicit legacy pilot/restricted
+  controls with a visible transient-history warning. Focused RP-10 tests
+  passed 14; unit/contract passed 1,266 with 30 expected skips; related
+  PostgreSQL integration passed 39.
 
 ## Google Cloud and delivery infrastructure
 
@@ -88,11 +115,26 @@ dependency or external approval.
 - [x] OP-02 + ID-07 + ID-08 + RP-01 + repaired RP-02 integrated in order.
 - [x] Disposable localhost-only PostgreSQL 17 test database created with
   fictional credentials and no production data.
-- [ ] PostgreSQL report migration/revision suite passes twice consecutively.
-- [ ] Corrected integration branch pushed and merged to GitHub main.
-- [ ] Full backend unit, contract, PostgreSQL integration, and migration
-  lifecycle suites pass from integrated main.
-- [ ] Backend tasks 012-019 complete and reviewed.
+- [x] **PostgreSQL 17 is a hard floor for the test bed, not a preference.**
+  RP-06's hardened `ai_jobs` CHECK constraint uses the jsonpath `.string()`
+  method, which PostgreSQL 16 does not have, so on PG16 every migration — and
+  therefore the whole PostgreSQL integration suite — fails on the integration
+  branch itself, independent of any feature branch. A PG16 test bed reports a
+  false failure, not a real one. Verify with `SHOW server_version` before
+  trusting a red integration run.
+- [x] PostgreSQL report migration/revision suite passes twice consecutively.
+  Verified on a fresh PostgreSQL 17.10 instance (port 5433, disposable
+  `app`/`access_test` fictional local credentials): full alembic
+  upgrade -> downgrade -> upgrade lifecycle clean, then unit (1,273 passed),
+  contract (23 passed), integration (253 passed / 1 existing opt-in skip),
+  and security (1 passed) suites run twice consecutively with identical
+  results both times.
+- [x] Corrected integration branch pushed and merged to GitHub main.
+- [x] Full backend unit, contract, PostgreSQL integration, and migration
+  lifecycle suites pass from integrated main. Same verification as above,
+  run from `integration/access-cloud-run-rp02` immediately prior to the
+  merge into `main`.
+- [x] Backend tasks 012-019 complete and reviewed.
 - [ ] Infrastructure tasks 021-026 complete and reviewed.
 - [ ] Access tasks 027-035 complete on the approved Windows/Access matrix.
 - [ ] Admin tasks 036-040 complete on the approved Windows/Access matrix.
@@ -119,7 +161,7 @@ dependency or external approval.
 ## Release gates
 
 - [ ] Gate A — Architecture, contracts, classification, prerequisites approved.
-- [ ] Gate B — Backend and PostgreSQL acceptance complete.
+- [x] Gate B — Backend and PostgreSQL acceptance complete.
 - [ ] Gate C — Test cloud infrastructure/security/backup/delivery accepted.
 - [ ] Gate D — Signed Access clients pass Windows/accessibility/security/support.
 - [ ] Gate E — Pilot, DR, rollback, training, and rollout approvals complete.

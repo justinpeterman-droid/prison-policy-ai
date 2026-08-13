@@ -47,6 +47,8 @@ Create only:
 - `infra/terraform/modules/access_platform/outputs.tf`
 - `infra/terraform/environments/test/main.tf`
 - `infra/terraform/environments/production/main.tf`
+- `infra/terraform/environments/test/variables.tf`
+- `infra/terraform/environments/production/variables.tf`
 - `infra/terraform/tests/access_platform.tftest.hcl`
 - `infra/terraform/tests/test_security_contract.py`
 - `docs/runbooks/secret-population-and-rotation.md`
@@ -55,17 +57,18 @@ Do not modify or delete any other path. OP-02 files are consume-only except the 
 
 ## Locked interfaces
 
-- Module inputs: `environment`, `project_id`, `region`, `network_name`, `database_instance_name`, `database_name`, `sql_tier`, `github_repository`, `github_ref_pattern`, `enable_access_release_identity`, and `wif_trust`.
-- `wif_trust` is keyed exactly by `terraform-plan`, `terraform-apply`, `deploy`, `rollback`, `admin-bootstrap`, and `access-release`; each value contains `github_environment`, `workflow_refs`, and `ref_pattern` and agrees exactly with the external OP-01 policy.
+- Module inputs: `environment`, `project_id`, `region`, `network_name`, `database_instance_name`, `database_name`, `sql_tier`, `state_bucket_name`, `github_repository`, `github_ref_pattern`, `enable_access_release_identity`, and `wif_trust`.
+- `wif_trust` is keyed exactly by `terraform-plan`, `terraform-apply`, `deploy`, `rollback`, `admin-bootstrap`, and `access-release`; each value contains `github_environment`, `workflow_refs`, `workflow_claim`, and `ref_pattern` and agrees exactly with the external OP-01 policy. `workflow_claim` is exactly `workflow_ref` for a top-level workflow and exactly `job_workflow_ref` only for an explicitly approved reusable workflow; never require `job_workflow_ref` from a top-level workflow.
 - Runtime outputs: `api_service_account_email`, `worker_service_account_email`, `task_invoker_service_account_email`, `migration_service_account_email`, `bootstrap_service_account_email`.
 - Workflow outputs: `terraform_plan_service_account_email`, `terraform_apply_service_account_email`, `deploy_service_account_email`, `rollback_service_account_email`, `admin_bootstrap_service_account_email`, nullable `access_release_service_account_email`; WIF outputs exactly `terraform_plan_wif_provider_name`, `terraform_apply_wif_provider_name`, `deploy_wif_provider_name`, `rollback_wif_provider_name`, `admin_bootstrap_wif_provider_name`, and nullable `access_release_wif_provider_name`.
 - Other outputs: `network_id`, `private_subnet_id`, `database_instance_connection_name`, `database_private_ip`, `database_name`, and `secret_resource_ids`.
+- Google physical IDs are constrained independently from the stable output interface: use environment IDs `test` and `prod` (for `production`), and role IDs `api`, `worker`, `task-invoker`, `migration`, `bootstrap`, `tf-plan`, `tf-apply`, `deploy`, `rollback`, `admin-bootstrap`, and `release`. Service-account IDs are exactly `access-${environment_id}-${role_id}`; the single per-environment WIF pool is exactly `access-${environment_id}-wif` and provider IDs use the same role IDs. Keep the output names and all IAM/WIF role boundaries above unchanged. This is required because Google limits service-account IDs to 30 characters and workload identity pool IDs to 32.
 - Enable exactly the Google APIs enumerated in OP-03 Step 3 with `disable_on_destroy = false` and expose a dependency token.
 - Custom VPC, `us-central1` subnet, Private Google Access, reserved private-service range, and Service Networking connection; no public DB/firewall path.
 - Cloud SQL is exactly `POSTGRES_17`; private IP, `ssl_mode = "ENCRYPTED_ONLY"`, PITR, 14 retained backups, seven transaction-log days, automatic storage growth; production is regional HA and deletion-protected.
 - Create the database but no password-bearing SQL user.
 - Create ten accounts in test and eleven in production: runtime `api`, `worker`, `task-invoker`, `migration`, `bootstrap`; workflow `terraform-plan`, `terraform-apply`, `deploy`, `rollback`, `admin-bootstrap`; plus production-only `access-release`.
-- Apply every exact least-privilege boundary in OP-03 Step 6. `terraform-plan` is read-only; `terraform-apply`, `deploy`, `rollback`, `admin-bootstrap`, and `access-release` remain distinct; no workflow identity reads application secret payloads.
+- Apply every OP-03 resource-independent least-privilege boundary: `terraform-plan` is read-only and sees only its OP-02 state prefix; `terraform-apply` receives only its state-prefix write role and reviewed Terraform-management roles; `deploy`, `rollback`, `admin-bootstrap`, and `access-release` remain distinct; no workflow identity reads application secret payloads. Do not invent broad roles before the target resource exists: OP-04 owns the concrete deploy/rollback/release resource bindings, while Vertex/Discovery Engine and managed-signing bindings remain approved external resource-interface gates.
 - Bootstrap runtime has only Cloud SQL Client, accessor on `access-database-url`, and `roles/secretmanager.secretVersionAdder` on `initial-admin-pin`; it has no secret-version access. OP-04 later binds this exact identity to read private configuration-bucket objects under `admin-bootstrap-requests/` only. OP-06 later binds the workflow identity to invoke only `access-{environment}-bootstrap-admin`.
 - `admin-bootstrap` WIF binds only `.github/workflows/bootstrap-first-admin.yml`, exact repository and `refs/heads/main`, environment `test` in test and `production-deploy` in production. It has no SQL, secret, bucket, build, deploy, Terraform, or other-job permission. No fork/unprotected workflow and no long-lived key.
 - Secret containers are exactly `access-database-url`, `identity-hash-pepper`, `cursor-signing-key`, `client-update-grant-key`, `legacy-access-code`, `legacy-admin-code`, `github-feedback-token`, `flask-session-secret`, and `initial-admin-pin`. Never create `google_secret_manager_secret_version`.
@@ -89,10 +92,16 @@ Expected red: missing `infra/terraform/modules/access_platform/sql.tf`. An unrel
 terraform fmt -check -recursive infra/terraform
 terraform -chdir=infra/terraform/environments/test init -backend=false
 terraform -chdir=infra/terraform/environments/test validate
-terraform -chdir=infra/terraform/environments/test test -test-directory=../../tests
+New-Item -ItemType Directory -Force infra/terraform/environments/test/tests | Out-Null
+Copy-Item infra/terraform/tests/access_platform.tftest.hcl infra/terraform/environments/test/tests/access_platform.tftest.hcl -Force
+terraform -chdir=infra/terraform/environments/test test -test-directory=tests
+Remove-Item -LiteralPath infra/terraform/environments/test/tests -Recurse -Force
 terraform -chdir=infra/terraform/environments/production init -backend=false
 terraform -chdir=infra/terraform/environments/production validate
-terraform -chdir=infra/terraform/environments/production test -test-directory=../../tests
+New-Item -ItemType Directory -Force infra/terraform/environments/production/tests | Out-Null
+Copy-Item infra/terraform/tests/access_platform.tftest.hcl infra/terraform/environments/production/tests/access_platform.tftest.hcl -Force
+terraform -chdir=infra/terraform/environments/production test -test-directory=tests
+Remove-Item -LiteralPath infra/terraform/environments/production/tests -Recurse -Force
 python -m pytest infra/terraform/tests/test_layout.py infra/terraform/tests/test_security_contract.py -q
 git diff --check
 ```

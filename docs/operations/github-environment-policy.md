@@ -4,7 +4,7 @@ GitHub administrators configure these environments outside Terraform and reposit
 
 | Environment | Permitted workflows | WIF identities | Minimum reviewers | Allowed ref | Repository state |
 |---|---|---|---:|---|---|
-| test | deploy-test.yml, terraform-plan.yml, terraform-apply.yml, bootstrap-first-admin.yml | terraform-plan, terraform-apply, deploy, rollback, admin-bootstrap | 1 | refs/heads/main | CLOSED |
+| test | deploy-test.yml, rollback-test.yml, terraform-plan.yml, terraform-apply.yml, bootstrap-first-admin.yml | terraform-plan, terraform-apply, deploy, rollback, admin-bootstrap | 1 | refs/heads/main | CLOSED |
 | production-plan | terraform-plan.yml | terraform-plan | 2 | refs/heads/main | CLOSED |
 | production-apply | terraform-apply.yml | terraform-apply | 2 | refs/heads/main | CLOSED |
 | production-deploy | deploy-production.yml, bootstrap-first-admin.yml | deploy, admin-bootstrap | 2 | refs/heads/main | CLOSED |

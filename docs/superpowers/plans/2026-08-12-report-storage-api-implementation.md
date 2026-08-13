@@ -647,7 +647,18 @@ git commit -m "feat: add private report job worker"
 
 ### Task RP-08: Policy Expert `/api/v1` contract
 
+**Security reconciliation (2026-08-12):** RP-08's original six-file list
+treated `backend/pipeline/query.py` as consume-only, but its existing Discovery
+Engine log emitted question text and its independent credential, search, and
+model timeouts could leave a timed-out API request consuming provider work.
+RP-08 is therefore explicitly authorized to make the narrow shared-query
+changes needed to (1) log only safe query metadata and (2) propagate one
+deadline to credential refresh, Discovery Engine, gate, and answer generation.
+This does not authorize retrieval, prompt, index, provider, or browser-behavior
+changes.
+
 **Files:**
+- Modify: `backend/pipeline/query.py`
 - Modify: `backend/webapp/routes/chat.py`
 - Create: `backend/webapp/api_v1/policy.py`
 - Modify: `backend/webapp/api_v1/__init__.py`

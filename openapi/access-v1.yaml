@@ -12,6 +12,9 @@ tags:
   - name: Staff
   - name: Incidents
   - name: Reports
+  - name: Admin Reports
+  - name: AI Jobs
+  - name: Policy Expert
 security:
   - AccessBearer: []
 paths:
@@ -192,6 +195,117 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/RevisionOrIdempotencyConflict" }
         "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/jobs/classify:
+    post:
+      operationId: submitClassificationJob
+      tags: [AI Jobs]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/RequiredXRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitJobRequest" }
+      responses:
+        "202": { $ref: "#/components/responses/JobAccepted" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/JobSubmissionConflict" }
+        "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/jobs/extract:
+    post:
+      operationId: submitExtractionJob
+      tags: [AI Jobs]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/RequiredXRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitJobRequest" }
+      responses:
+        "202": { $ref: "#/components/responses/JobAccepted" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/JobSubmissionConflict" }
+        "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/jobs/generate:
+    post:
+      operationId: submitGenerationJob
+      tags: [AI Jobs]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/RequiredXRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitJobRequest" }
+      responses:
+        "202": { $ref: "#/components/responses/JobAccepted" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/JobSubmissionConflict" }
+        "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/incidents/{incident_id}/jobs/disciplinary:
+    post:
+      operationId: submitDisciplinaryJob
+      tags: [AI Jobs]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/RequiredXRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitJobRequest" }
+      responses:
+        "202": { $ref: "#/components/responses/JobAccepted" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/JobSubmissionConflict" }
+        "422": { $ref: "#/components/responses/BlockingInformationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/jobs/{job_id}:
+    get:
+      operationId: getAiJob
+      tags: [AI Jobs]
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+        - $ref: "#/components/parameters/XClientVersion"
+        - $ref: "#/components/parameters/RequiredXRequestId"
+      responses:
+        "200":
+          description: Requester-and-current-access or Admin job status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/v1/reports:
     get:
@@ -445,6 +559,45 @@ paths:
         "401": { $ref: "#/components/responses/AuthenticationRequired" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/RevisionOrIdempotencyConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/reports/{report_id}/export-docx:
+    post:
+      operationId: exportEmployeeReportDocx
+      tags: [Reports]
+      description: >-
+        Generate the official 005 Word document for one explicit, immutable
+        revision. `revision` is required and positive: the server never infers
+        "latest", never accepts a revision in a request body, and never
+        silently coerces a malformed value. Bytes are deterministic, so the
+        same revision replayed under the same `Idempotency-Key` reproduces the
+        same document, the same `Digest`, and the same `X-Export-ID` without
+        creating a second export record. Only metadata is persisted
+        (identifiers, SHA-256, byte length, MIME type, download name, template
+        version); the document itself is streamed and its temporary file is
+        removed when the response closes.
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/ExportRevision" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200":
+          description: Deterministic Word document for the named immutable revision
+          headers:
+            Content-Disposition: { $ref: "#/components/headers/ContentDisposition" }
+            Digest: { $ref: "#/components/headers/Digest" }
+            X-Export-ID: { $ref: "#/components/headers/XExportId" }
+            X-Report-Revision: { $ref: "#/components/headers/XReportRevision" }
+            X-Template-Version: { $ref: "#/components/headers/XTemplateVersion" }
+            X-Request-ID: { $ref: "#/components/headers/XRequestId" }
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/v1/auth/login:
     post:
@@ -901,6 +1054,461 @@ paths:
         "409": { $ref: "#/components/responses/IdempotencyConflict" }
         "429": { $ref: "#/components/responses/RateLimited" }
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports:
+    get:
+      operationId: searchAdminReports
+      tags: [Admin Reports]
+      description: >-
+        Bounded structured search over report/incident columns only, never
+        narrative or field-notes text. A regular User receives a concealed
+        404. Writes exactly one `admin.report_search` audit event naming the
+        filters used (never their values) and the result count.
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/PageLimit" }
+        - { $ref: "#/components/parameters/PageCursor" }
+        - name: sort
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, enum: [updated_at_desc, updated_at_asc, created_at_desc, created_at_asc], default: updated_at_desc }
+        - name: report_id
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Uuid" }
+        - name: incident_id
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Uuid" }
+        - name: reporting_staff_id
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Uuid" }
+        - name: preparer_staff_id
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Uuid" }
+        - name: incident_date_from
+          in: query
+          required: false
+          schema: { type: string, format: date, minLength: 1 }
+        - name: incident_date_to
+          in: query
+          required: false
+          schema: { type: string, format: date, minLength: 1 }
+        - name: created_at_from
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/UtcTimestamp" }
+        - name: created_at_to
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/UtcTimestamp" }
+        - name: inmate_first_name
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: inmate_middle_name
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: inmate_last_name
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: inmate_adc_number
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: category
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: facility
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: location
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: shift
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [in_progress, completed, archived] }
+        - name: last_editor_staff_id
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Uuid" }
+        - name: modified_at_from
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/UtcTimestamp" }
+        - name: modified_at_to
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/UtcTimestamp" }
+      responses:
+        "200":
+          description: Bounded, structured-column Admin report search results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminReportSearchSuccessEnvelope" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/{report_id}:
+    get:
+      operationId: getAdminReport
+      tags: [Admin Reports]
+      description: Opening another employee's report writes a `report.viewed_by_admin` audit event.
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+      responses:
+        "200": { description: Authorized Admin report detail, content: { application/json: { schema: { $ref: "#/components/schemas/ReportSuccessEnvelope" } } } }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+    patch:
+      operationId: editAdminReport
+      tags: [Admin Reports]
+      description: >-
+        Calls the shared `save_report()` service with `reason="admin_edit"`.
+        No step-up is required, but the edit is attributed to the
+        administrator and claims/completes its Idempotency-Key in the same
+        transaction as the revision and audit write.
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminReportEditRequest" }
+      responses:
+        "200": { description: Admin-attributed report revision appended, content: { application/json: { schema: { $ref: "#/components/schemas/ReportSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Safe report mutation conflict; no report content is returned
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ReportRevisionConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportIdempotencyConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportRequestInProgressEnvelope"
+                  - $ref: "#/components/schemas/ClientUpgradeRequiredEnvelope"
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/{report_id}/revisions:
+    get:
+      operationId: listAdminReportRevisions
+      tags: [Admin Reports]
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/PageLimit" }
+        - { $ref: "#/components/parameters/PageCursor" }
+      responses:
+        "200": { description: Authorized immutable revision summaries with full attribution, content: { application/json: { schema: { $ref: "#/components/schemas/AdminReportRevisionListSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/{report_id}/revisions/{revision_number}:
+    get:
+      operationId: getAdminReportRevision
+      tags: [Admin Reports]
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/RevisionNumber" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+      responses:
+        "200": { description: Authorized immutable revision with content, content: { application/json: { schema: { $ref: "#/components/schemas/AdminReportRevisionSuccessEnvelope" } } } }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/{report_id}/restore:
+    post:
+      operationId: restoreAdminReportRevision
+      tags: [Admin Reports]
+      description: >-
+        Exactly `{"revision_number": 7}`. Requires the purpose-scoped,
+        single-use `X-Admin-Step-Up` token for `report_restore`. Calls the
+        shared `restore_report()` service to create a new `restored`
+        revision referencing the immutable source; no revision is ever
+        overwritten, deleted, or renumbered.
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportRestoreRequest" }
+            example: { revision_number: 7 }
+      responses:
+        "200": { description: Historical snapshot copied into a new current revision, content: { application/json: { schema: { $ref: "#/components/schemas/ReportSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Safe report mutation conflict; no report content is returned
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ReportRevisionConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportIdempotencyConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportRequestInProgressEnvelope"
+                  - $ref: "#/components/schemas/ClientUpgradeRequiredEnvelope"
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/{report_id}/transfer:
+    post:
+      operationId: transferAdminReportOwnership
+      tags: [Admin Reports]
+      description: >-
+        Requires the purpose-scoped, single-use `X-Admin-Step-Up` token for
+        `report_transfer`. Verifies both targets are active staff, locks the
+        affected rows, replaces owner/preparer access transactionally, and
+        appends an `ownership_change` revision plus a
+        `report.ownership_transferred` audit event.
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminReportTransferRequest" }
+      responses:
+        "200": { description: Ownership transferred and one ownership revision appended, content: { application/json: { schema: { $ref: "#/components/schemas/ReportSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Safe report mutation conflict; no report content is returned
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ReportRevisionConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportIdempotencyConflictEnvelope"
+                  - $ref: "#/components/schemas/ReportRequestInProgressEnvelope"
+                  - $ref: "#/components/schemas/ClientUpgradeRequiredEnvelope"
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/{report_id}/export-docx:
+    post:
+      operationId: exportAdminReportDocx
+      tags: [Admin Reports]
+      description: >-
+        The same deterministic bytes as the employee export, for any report,
+        under a *distinct* `report.exported_by_admin` audit action. Requires
+        Admin role and active elevation; a regular User receives a concealed
+        404. `revision` is required and positive and is never inferred or read
+        from a body.
+      parameters:
+        - { $ref: "#/components/parameters/ReportId" }
+        - { $ref: "#/components/parameters/ExportRevision" }
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200":
+          description: Deterministic Word document for the named immutable revision
+          headers:
+            Content-Disposition: { $ref: "#/components/headers/ContentDisposition" }
+            Digest: { $ref: "#/components/headers/Digest" }
+            X-Export-ID: { $ref: "#/components/headers/XExportId" }
+            X-Report-Revision: { $ref: "#/components/headers/XReportRevision" }
+            X-Template-Version: { $ref: "#/components/headers/XTemplateVersion" }
+            X-Request-ID: { $ref: "#/components/headers/XRequestId" }
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/reports/bulk-export:
+    post:
+      operationId: bulkExportAdminReports
+      tags: [Admin Reports]
+      description: >-
+        Export up to 100 report revisions as one deterministic ZIP containing
+        each authorized document plus a sorted-key `manifest.json`. Requires
+        Admin role, active elevation, a purpose-scoped single-use
+        `bulk_export` step-up token, an `Idempotency-Key`, and a reason.
+        Exactly one closed selection branch is accepted and
+        `revision_selection` has the single release-1 value
+        `current_at_request` -- no client-supplied limit and no floating
+        "latest". The selection is resolved and persisted inside one
+        repeatable-read transaction *before* any document is generated: zero
+        matches is `404 not_found`, more than 100 is `409
+        bulk_export_limit_exceeded` with no partial archive produced. The
+        manifest carries report/revision/export identifiers, hashes, the actor
+        id, the persisted idempotency timestamp, explicit failures, the reason,
+        and normalized filter *names* -- never filter values. A failure after
+        the selection is bounded stays explicit in the manifest and is never
+        recorded as exported.
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminBulkExportRequest" }
+            examples:
+              report_ids:
+                value:
+                  selection:
+                    mode: report_ids
+                    report_ids: [00000000-0000-4000-8000-000000000041]
+                  revision_selection: current_at_request
+                  reason: Fictional records request fixture.
+              filters:
+                value:
+                  selection:
+                    mode: filters
+                    filters: { status: completed }
+                  revision_selection: current_at_request
+                  reason: Fictional records request fixture.
+      responses:
+        "200":
+          description: Bounded ZIP archive of exported revisions plus its manifest
+          headers:
+            Content-Disposition: { $ref: "#/components/headers/ContentDisposition" }
+            Digest: { $ref: "#/components/headers/Digest" }
+            X-Export-ID: { $ref: "#/components/headers/XExportId" }
+            X-Template-Version: { $ref: "#/components/headers/XTemplateVersion" }
+            X-Request-ID: { $ref: "#/components/headers/XRequestId" }
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/BulkExportConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/overview:
+    get:
+      operationId: getAdminOverview
+      tags: [Operations]
+      summary: Get bounded operational counters
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+      responses:
+        "200":
+          description: Elevated Admin overview with safe counts and build metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverviewSuccessEnvelope"
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/health:
+    get:
+      operationId: getAdminHealth
+      tags: [Operations]
+      summary: Get safe operational health
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+      responses:
+        "200":
+          description: Elevated Admin health with no infrastructure detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminHealthSuccessEnvelope" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/audit-events:
+    get:
+      operationId: listAdminAuditEvents
+      tags: [Operations]
+      summary: List immutable safe audit events
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { name: occurred_at_from, in: query, schema: { type: string, format: date-time } }
+        - { name: occurred_at_to, in: query, schema: { type: string, format: date-time } }
+        - { name: actor_account_id, in: query, schema: { $ref: "#/components/schemas/Uuid" } }
+        - { name: actor_staff_member_id, in: query, schema: { $ref: "#/components/schemas/Uuid" } }
+        - { name: action_family, in: query, schema: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' } }
+        - { name: target_type, in: query, schema: { type: string, maxLength: 64 } }
+        - { name: target_id, in: query, schema: { $ref: "#/components/schemas/Uuid" } }
+        - { name: result, in: query, schema: { type: string, enum: [success, denied, failed] } }
+        - { name: limit, in: query, schema: { type: integer, default: 50, minimum: 1, maximum: 100 } }
+        - { name: cursor, in: query, schema: { type: string, minLength: 16, maxLength: 512 } }
+      responses:
+        "200": { description: Safe immutable audit page, content: { application/json: { schema: { $ref: "#/components/schemas/AuditEventListSuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AdminElevationRequired" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/admin/audit-events/export:
+    post:
+      operationId: exportAdminAuditEvents
+      tags: [Operations]
+      summary: Export up to 10,000 safe audit rows as one-time CSV
+      parameters:
+        - { $ref: "#/components/parameters/XClientVersion" }
+        - { $ref: "#/components/parameters/XRequestId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { $ref: "#/components/parameters/XAdminStepUp" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AuditExportRequest" }
+      responses:
+        "200":
+          description: Fixed-column UTF-8 CSV with no detail JSON or identity hashes
+          headers:
+            Content-Disposition: { $ref: "#/components/headers/ContentDisposition" }
+            Digest: { $ref: "#/components/headers/Digest" }
+            X-Export-ID: { $ref: "#/components/headers/XExportId" }
+            X-Audit-Row-Count: { schema: { type: integer, minimum: 0, maximum: 10000 } }
+          content: { text/csv: { schema: { type: string, format: binary } } }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/StepUpRequired" }
+        "409": { $ref: "#/components/responses/AuditExportConflict" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
   /api/browser-handoffs/redeem:
     post:
       operationId: redeemReviewLabHandoff
@@ -923,6 +1531,67 @@ paths:
         "401": { $ref: "#/components/responses/HandoffInvalid" }
         "429": { $ref: "#/components/responses/RateLimited" }
         "503": { $ref: "#/components/responses/DependencyUnavailable" }
+  /api/v1/policy/questions:
+    post:
+      operationId: askPolicyQuestion
+      tags: [Policy Expert]
+      summary: Ask the cited Policy Expert one bounded question
+      description: >-
+        Answers one policy question synchronously, with citations, inside a
+        90-second server budget. The question, the answer and every citation
+        passage are deliberately never stored: only an idempotency request
+        digest, a document count and a latency figure survive the request.
+        The complete gate, retrieval and model sequence shares the 90-second
+        deadline; a timed-out request does not continue provider work. Because no
+        response is retained, a duplicate Idempotency-Key is refused rather
+        than replayed, and it never buys a second provider call.
+      parameters:
+        - $ref: "#/components/parameters/XClientVersion"
+        - name: X-Request-ID
+          in: header
+          required: true
+          description: Caller-generated correlation identifier for this billable request.
+          schema: { $ref: "#/components/schemas/RequestId" }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PolicyQuestionRequest" }
+            examples:
+              followUp:
+                value:
+                  question: "What does the fictional policy require after a use of force?"
+                  history:
+                    - question: "What is the fictional restraint rule?"
+                      answer: "The fictional rule requires supervisor notification."
+      responses:
+        "200":
+          description: Cited answer, assembled from retrieved policy passages
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PolicyAnswerSuccessEnvelope" }
+              examples:
+                cited:
+                  value:
+                    data:
+                      answer: "The fictional policy requires a supervisor notification [1]."
+                      citations:
+                        - n: 1
+                          source: "Fictional Policy AD-00-00"
+                          text: "Fictional passage describing the notification duty."
+                      sources: ["Fictional Policy AD-00-00"]
+                      retrieved_sources: ["Fictional Policy AD-00-00"]
+                    request_id: req_20260812_policy_question
+                    server_time: "2026-08-12T15:09:00Z"
+                    api_version: v1
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/PinChangeRequired" }
+        "409": { $ref: "#/components/responses/PolicyQuestionConflict" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/DependencyUnavailable" }
+        "504": { $ref: "#/components/responses/DependencyTimeout" }
 components:
   securitySchemes:
     AccessBearer:
@@ -941,6 +1610,12 @@ components:
       name: X-Request-ID
       in: header
       required: false
+      schema:
+        $ref: "#/components/schemas/RequestId"
+    RequiredXRequestId:
+      name: X-Request-ID
+      in: header
+      required: true
       schema:
         $ref: "#/components/schemas/RequestId"
     IdempotencyKey:
@@ -994,6 +1669,11 @@ components:
       in: path
       required: true
       schema: { $ref: "#/components/schemas/Uuid" }
+    JobId:
+      name: job_id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Uuid" }
     ReportId:
       name: report_id
       in: path
@@ -1028,11 +1708,46 @@ components:
       in: path
       required: true
       schema: { $ref: "#/components/schemas/Uuid" }
+    ExportRevision:
+      name: revision
+      in: query
+      required: true
+      description: >-
+        The exact immutable revision to export. Positive integer; never
+        inferred, never defaulted to the current revision, never read from a
+        request body.
+      schema: { type: integer, minimum: 1, example: 2 }
   headers:
     XRequestId:
       description: Validated request correlation identifier.
       schema:
         $ref: "#/components/schemas/RequestId"
+    ContentDisposition:
+      description: Attachment disposition whose filename is built from identifiers only.
+      schema:
+        type: string
+        example: attachment; filename="report-00000000-0000-4000-8000-000000000041-revision-2.docx"
+    Digest:
+      description: RFC 3230 digest of the exported bytes, base64 SHA-256.
+      schema:
+        type: string
+        pattern: '^sha-256=[A-Za-z0-9+/]{43}=$'
+    XExportId:
+      description: Identifier of the persisted export metadata record.
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    XReportRevision:
+      description: The exact immutable revision number the document was built from.
+      schema:
+        type: integer
+        minimum: 1
+        example: 2
+    XTemplateVersion:
+      description: Stable identity of the 005 template that produced the document.
+      schema:
+        type: string
+        maxLength: 64
+        example: 005_template_v3:0123456789abcdef
   responses:
     ValidationFailed:
       description: Closed request validation failed
@@ -1086,6 +1801,29 @@ components:
                 $ref: "#/components/schemas/ErrorEnvelope"
     AuthenticationRequired:
       description: A valid live bearer session is required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    PolicyQuestionConflict:
+      description: >-
+        Code is request_in_progress while the first answer is being produced,
+        idempotent_response_unavailable once it settles, idempotency_conflict
+        for a changed payload under the same key, or client_upgrade_required
+        for an unsupported write-capable client. Policy answers are never stored,
+        so a completed duplicate cannot replay an answer or buy a second call.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    DependencyTimeout:
+      description: The Policy Expert exceeded the 90-second server budget; code is dependency_timeout
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    InternalError:
+      description: Unexpected server error; code is internal_error
       content:
         application/json:
           schema:
@@ -1147,6 +1885,84 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    JobAccepted:
+      description: Durable queued job and transactional outbox intent created
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/JobSuccessEnvelope" }
+    JobSubmissionConflict:
+      description: Revision or shared-idempotency submission conflict
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: "#/components/schemas/JobRevisionConflictEnvelope"
+              - $ref: "#/components/schemas/JobIdempotencyConflictEnvelope"
+              - $ref: "#/components/schemas/JobRequestInProgressEnvelope"
+              - $ref: "#/components/schemas/JobClientUpgradeRequiredEnvelope"
+          examples:
+            stale_revision:
+              value:
+                error:
+                  code: revision_conflict
+                  message: The fictional incident changed; reload before submitting the job.
+                  retryable: false
+                  details: { current_revision_number: 2 }
+                request_id: request_job_conflict_0001
+                server_time: "2026-08-12T15:10:01Z"
+                api_version: v1
+            changed_payload:
+              value:
+                error:
+                  code: idempotency_conflict
+                  message: The fictional key was used for another request.
+                  retryable: false
+                request_id: request_job_conflict_0002
+                server_time: "2026-08-12T15:10:02Z"
+                api_version: v1
+            still_running:
+              value:
+                error:
+                  code: request_in_progress
+                  message: The fictional job submission is still in progress.
+                  retryable: true
+                request_id: request_job_conflict_0003
+                server_time: "2026-08-12T15:10:03Z"
+                api_version: v1
+            client_upgrade:
+              value:
+                error:
+                  code: client_upgrade_required
+                  message: Update Access before submitting another fictional job.
+                  retryable: false
+                request_id: request_job_conflict_0004
+                server_time: "2026-08-12T15:10:04Z"
+                api_version: v1
+    BulkExportConflict:
+      description: >-
+        Bulk export conflict; code is bulk_export_limit_exceeded when the
+        resolved selection exceeds 100 documents (no archive is generated), or
+        idempotency_conflict / request_in_progress for a reused key
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+          examples:
+            bulk_export_limit_exceeded:
+              value: { error: { code: bulk_export_limit_exceeded, message: A bulk export is limited to 100 documents., retryable: false }, request_id: req_20260812_bulk_export_limit, server_time: "2026-08-12T15:11:01Z", api_version: v1 }
+            idempotency_conflict:
+              value: { error: { code: idempotency_conflict, message: The idempotency key was used for another fictional request., retryable: false }, request_id: req_20260812_bulk_export_conflict, server_time: "2026-08-12T15:11:01Z", api_version: v1 }
+    AuditExportConflict:
+      description: >-
+        Audit export conflict. `audit_export_limit_exceeded` means the filtered
+        immutable result set exceeded 10,000 rows; no CSV was generated.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+          examples:
+            audit_export_limit_exceeded:
+              value: { error: { code: audit_export_limit_exceeded, message: Narrow the fictional audit filters before exporting., retryable: false }, request_id: request_audit_limit_0001, server_time: '2026-08-12T18:30:00Z', api_version: v1 }
+            idempotency_conflict:
+              value: { error: { code: idempotency_conflict, message: The fictional export request conflicts with an existing request., retryable: false }, request_id: request_audit_conflict_0001, server_time: '2026-08-12T18:30:00Z', api_version: v1 }
     HandoffInvalid:
       description: The one-time handoff is invalid, expired, or already redeemed
       content:
@@ -1160,11 +1976,272 @@ components:
     UtcTimestamp:
       type: string
       format: date-time
+      minLength: 1
       example: '2026-08-12T18:30:00Z'
     Uuid:
       type: string
       format: uuid
+      minLength: 1
       example: 00000000-0000-4000-8000-000000000001
+    BuildMetadata:
+      type: object
+      additionalProperties: false
+      required: [source_commit, cloud_run_revision, alembic_revision]
+      properties:
+        source_commit: { type: string, maxLength: 64, example: development }
+        cloud_run_revision: { type: string, maxLength: 128, example: development }
+        alembic_revision: { type: string, maxLength: 64, example: '20260812_0005' }
+    AdminOverviewData:
+      type: object
+      additionalProperties: false
+      required: [reports, queued_jobs, pending_outbox, recent_audit_events, build]
+      properties:
+        reports: { type: integer, minimum: 0, maximum: 1000000000 }
+        queued_jobs: { type: integer, minimum: 0, maximum: 1000000000 }
+        pending_outbox: { type: integer, minimum: 0, maximum: 1000000000 }
+        recent_audit_events: { type: integer, minimum: 0, maximum: 1000000000 }
+        build: { $ref: "#/components/schemas/BuildMetadata" }
+    AdminOverviewSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, request_id, server_time, api_version]
+      properties:
+        data: { $ref: "#/components/schemas/AdminOverviewData" }
+        request_id: { $ref: "#/components/schemas/RequestId" }
+        server_time: { $ref: "#/components/schemas/UtcTimestamp" }
+        api_version: { type: string, const: v1 }
+    HealthComponent:
+      type: object
+      additionalProperties: false
+      required: [component, status]
+      properties:
+        component: { type: string, enum: [database, queue, backup_restore] }
+        status: { type: string, enum: [Operational, Degraded, Unavailable] }
+    AdminHealthData:
+      type: object
+      additionalProperties: false
+      required: [status, components, build]
+      properties:
+        status: { type: string, enum: [Operational, Degraded, Unavailable] }
+        components:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: { $ref: "#/components/schemas/HealthComponent" }
+        build: { $ref: "#/components/schemas/BuildMetadata" }
+    AdminHealthSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, request_id, server_time, api_version]
+      properties:
+        data: { $ref: "#/components/schemas/AdminHealthData" }
+        request_id: { $ref: "#/components/schemas/RequestId" }
+        server_time: { $ref: "#/components/schemas/UtcTimestamp" }
+        api_version: { type: string, const: v1 }
+    AuditEventDetails:
+      type: object
+      additionalProperties: false
+      properties:
+        persistent: { type: boolean }
+        reason: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
+        lock_minutes: { type: integer, minimum: 0, maximum: 1000000000 }
+        session_count: { type: integer, minimum: 0, maximum: 1000000000 }
+        purpose: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
+        target_staff_id: { $ref: "#/components/schemas/Uuid" }
+        target_account_id: { $ref: "#/components/schemas/Uuid" }
+        role: { type: string, enum: [user, admin] }
+        old_role: { type: string, enum: [user, admin] }
+        new_role: { type: string, enum: [user, admin] }
+        handoff_id: { $ref: "#/components/schemas/Uuid" }
+        browser_session_id: { $ref: "#/components/schemas/Uuid" }
+        operation_id: { $ref: "#/components/schemas/Uuid" }
+        approval_reference_sha256: { type: string, pattern: '^[0-9a-f]{64}$' }
+        incident_id: { $ref: "#/components/schemas/Uuid" }
+        report_id: { $ref: "#/components/schemas/Uuid" }
+        export_id: { $ref: "#/components/schemas/Uuid" }
+        job_id: { $ref: "#/components/schemas/Uuid" }
+        revision_number: { type: integer, minimum: 0, maximum: 1000000000 }
+        source_revision_number: { type: integer, minimum: 0, maximum: 1000000000 }
+        result_count: { type: integer, minimum: 0, maximum: 1000000000 }
+        report_count: { type: integer, minimum: 0, maximum: 1000000000 }
+        event_count: { type: integer, minimum: 0, maximum: 1000000000 }
+        latency_ms: { type: integer, minimum: 0, maximum: 1000000000 }
+        document_count: { type: integer, minimum: 0, maximum: 1000000000 }
+        changed_fields: { type: array, maxItems: 100, items: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' } }
+        filters: { type: array, maxItems: 100, items: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' } }
+        report_type: { type: string, enum: [first_person, supervisor_summary, cover_letter, disciplinary, investigation, form_005] }
+        export_format: { type: string, const: docx }
+        job_type: { type: string, enum: [classify, extract, generate, disciplinary] }
+        result_code: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
+        question_sha256: { type: string, pattern: '^[0-9a-f]{64}$' }
+        old_status: { type: string, enum: [in_progress, completed, archived] }
+        new_status: { type: string, enum: [in_progress, completed, archived] }
+        old_owner_staff_id: { $ref: "#/components/schemas/Uuid" }
+        new_owner_staff_id: { $ref: "#/components/schemas/Uuid" }
+    AuditEventData:
+      type: object
+      additionalProperties: false
+      required: [event_id, occurred_at, actor_account_id, actor_staff_member_id, action, target_type, target_id, result, details]
+      properties:
+        event_id: { $ref: "#/components/schemas/Uuid" }
+        occurred_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        actor_account_id: { oneOf: [{ $ref: "#/components/schemas/Uuid" }, { type: 'null' }] }
+        actor_staff_member_id: { oneOf: [{ $ref: "#/components/schemas/Uuid" }, { type: 'null' }] }
+        action: { type: string, maxLength: 120 }
+        target_type: { type: string, maxLength: 64 }
+        target_id: { oneOf: [{ $ref: "#/components/schemas/Uuid" }, { type: 'null' }] }
+        result: { type: string, enum: [success, denied, failed] }
+        details: { $ref: "#/components/schemas/AuditEventDetails" }
+    AuditEventListData:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, maxItems: 100, items: { $ref: "#/components/schemas/AuditEventData" } }
+        next_cursor: { oneOf: [{ type: string, minLength: 16, maxLength: 512 }, { type: 'null' }] }
+    AuditEventListSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, request_id, server_time, api_version]
+      properties:
+        data: { $ref: "#/components/schemas/AuditEventListData" }
+        request_id: { $ref: "#/components/schemas/RequestId" }
+        server_time: { $ref: "#/components/schemas/UtcTimestamp" }
+        api_version: { type: string, const: v1 }
+    AuditExportRequest:
+      type: object
+      additionalProperties: false
+      required: [filters, format, reason]
+      properties:
+        filters:
+          type: object
+          additionalProperties: false
+          properties:
+            occurred_at_from: { type: string, format: date-time }
+            occurred_at_to: { type: string, format: date-time }
+            actor_account_id: { $ref: "#/components/schemas/Uuid" }
+            actor_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+            action_family: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
+            target_type: { type: string, maxLength: 64 }
+            target_id: { $ref: "#/components/schemas/Uuid" }
+            result: { type: string, enum: [success, denied, failed] }
+        format: { type: string, const: csv }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    SubmitJobRequest:
+      type: object
+      additionalProperties: false
+      required: [base_revision_number]
+      properties:
+        base_revision_number:
+          type: integer
+          minimum: 1
+          example: 1
+    JobState:
+      type: string
+      enum: [queued, running, succeeded, failed, cancelled]
+    JobStage:
+      type: string
+      enum:
+        - queued
+        - classifying
+        - extracting
+        - validating
+        - generating
+        - disciplinary
+        - completed
+        - failed
+    JobResultReportReference:
+      type: object
+      additionalProperties: false
+      required: [report_id, revision_number]
+      properties:
+        report_id: { $ref: "#/components/schemas/Uuid" }
+        revision_number: { type: integer, minimum: 1 }
+    JobResultReference:
+      type: object
+      additionalProperties: false
+      properties:
+        incident_revision_number: { type: integer, minimum: 1 }
+        reports:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/JobResultReportReference" }
+    Job:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - incident_id
+        - job_type
+        - state
+        - stage
+        - created_at
+        - started_at
+        - completed_at
+        - error_code
+        - result_reference
+      properties:
+        id: { $ref: "#/components/schemas/Uuid" }
+        incident_id: { $ref: "#/components/schemas/Uuid" }
+        job_type:
+          type: string
+          enum: [classify, extract, generate, disciplinary]
+        state: { $ref: "#/components/schemas/JobState" }
+        stage: { $ref: "#/components/schemas/JobStage" }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        started_at:
+          oneOf:
+            - $ref: "#/components/schemas/UtcTimestamp"
+            - type: "null"
+        completed_at:
+          oneOf:
+            - $ref: "#/components/schemas/UtcTimestamp"
+            - type: "null"
+        error_code:
+          type: [string, "null"]
+          pattern: '^[a-z][a-z0-9_]{0,63}$'
+        result_reference: { $ref: "#/components/schemas/JobResultReference" }
+    JobSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, request_id, server_time, api_version]
+      properties:
+        data: { $ref: "#/components/schemas/Job" }
+        request_id: { $ref: "#/components/schemas/RequestId" }
+        server_time: { $ref: "#/components/schemas/UtcTimestamp" }
+        api_version: { type: string, const: v1 }
+    JobRevisionConflictEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ErrorEnvelope"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties: { code: { const: revision_conflict } }
+    JobIdempotencyConflictEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ErrorEnvelope"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties: { code: { const: idempotency_conflict } }
+    JobRequestInProgressEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ErrorEnvelope"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties: { code: { const: request_in_progress } }
+    JobClientUpgradeRequiredEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ErrorEnvelope"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties: { code: { const: client_upgrade_required } }
     Cursor:
       type: string
       minLength: 40
@@ -2063,6 +3140,56 @@ components:
         request_id: { $ref: "#/components/schemas/RequestId" }
         server_time: { $ref: "#/components/schemas/UtcTimestamp" }
         api_version: { type: string, const: v1 }
+    PolicyQuestionTurn:
+      type: object
+      additionalProperties: false
+      required: [question]
+      properties:
+        question: { type: string, minLength: 1, maxLength: 2000 }
+        answer: { type: string, maxLength: 2000 }
+    PolicyQuestionRequest:
+      type: object
+      additionalProperties: false
+      required: [question]
+      properties:
+        question: { type: string, minLength: 1, maxLength: 4000 }
+        history:
+          type: array
+          items: { $ref: "#/components/schemas/PolicyQuestionTurn" }
+      description: >-
+        Closed question envelope. The server keeps at most the six most recent
+        valid turns and drops older or malformed turns rather than rejecting an
+        otherwise valid question. The client never supplies a
+        model, prompt, temperature or any identity field; the actor is taken
+        from the bearer session alone.
+    PolicyCitation:
+      type: object
+      additionalProperties: false
+      required: [n, source, text]
+      properties:
+        n: { type: integer, minimum: 1 }
+        source: { type: string, maxLength: 300 }
+        text: { type: string, maxLength: 8000 }
+    PolicyAnswerData:
+      type: object
+      additionalProperties: false
+      required: [answer, citations, sources]
+      properties:
+        answer: { type: string }
+        citations:
+          type: array
+          items: { $ref: "#/components/schemas/PolicyCitation" }
+        sources:
+          type: array
+          items: { type: string, maxLength: 300 }
+        retrieved_sources:
+          type: array
+          items: { type: string, maxLength: 300 }
+      description: >-
+        The answer is delivered once and never persisted, so it carries no
+        stored-response handle, cache flag or actor identity.
+    PolicyAnswerSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/PolicyAnswerData" } } }]
     ReportSuccessEnvelope:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/ReportData" } } }]
     ReportListSuccessEnvelope:
@@ -2073,6 +3200,226 @@ components:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/ReportRevisionData" } } }]
     ReportRecoverySuccessEnvelope:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/ReportRecoveryData" } } }]
+    AdminReportEditRequest:
+      type: object
+      additionalProperties: false
+      required: [content, base_revision_number]
+      properties:
+        content: { $ref: "#/components/schemas/ReportContent" }
+        base_revision_number: { type: integer, minimum: 1 }
+      example:
+        content:
+          schema_version: 1
+          narrative: Fictional administrator-authored correction.
+          editable_fields: {}
+          validation: {}
+          warnings: []
+        base_revision_number: 1
+    AdminReportTransferRequest:
+      type: object
+      additionalProperties: false
+      required: [new_owner_staff_id, reason]
+      properties:
+        new_owner_staff_id: { $ref: "#/components/schemas/Uuid" }
+        new_preparer_staff_id:
+          oneOf:
+            - { $ref: "#/components/schemas/Uuid" }
+            - { type: "null" }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+      example:
+        new_owner_staff_id: 00000000-0000-4000-8000-000000000023
+        reason: Fictional reassignment for shift coverage.
+    AdminReportFilterSet:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: >-
+        The RP-05 closed structured filter set, reused verbatim by bulk
+        export. Structured columns only; never narrative or field-notes text.
+      properties:
+        report_id: { $ref: "#/components/schemas/Uuid" }
+        incident_id: { $ref: "#/components/schemas/Uuid" }
+        reporting_staff_id: { $ref: "#/components/schemas/Uuid" }
+        preparer_staff_id: { $ref: "#/components/schemas/Uuid" }
+        incident_date_from: { type: string, format: date, minLength: 1 }
+        incident_date_to: { type: string, format: date, minLength: 1 }
+        created_at_from: { $ref: "#/components/schemas/UtcTimestamp" }
+        created_at_to: { $ref: "#/components/schemas/UtcTimestamp" }
+        inmate_first_name: { type: string, minLength: 1, maxLength: 200 }
+        inmate_middle_name: { type: string, minLength: 1, maxLength: 200 }
+        inmate_last_name: { type: string, minLength: 1, maxLength: 200 }
+        inmate_adc_number: { type: string, minLength: 1, maxLength: 200 }
+        category: { type: string, minLength: 1, maxLength: 200 }
+        facility: { type: string, minLength: 1, maxLength: 200 }
+        location: { type: string, minLength: 1, maxLength: 200 }
+        shift: { type: string, minLength: 1, maxLength: 200 }
+        status: { type: string, enum: [in_progress, completed, archived] }
+        last_editor_staff_id: { $ref: "#/components/schemas/Uuid" }
+        modified_at_from: { $ref: "#/components/schemas/UtcTimestamp" }
+        modified_at_to: { $ref: "#/components/schemas/UtcTimestamp" }
+      example: { status: completed }
+    AdminBulkExportSelectionByIds:
+      type: object
+      additionalProperties: false
+      required: [mode, report_ids]
+      properties:
+        mode: { type: string, const: report_ids }
+        report_ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/Uuid" }
+      example:
+        mode: report_ids
+        report_ids: [00000000-0000-4000-8000-000000000041]
+    AdminBulkExportSelectionByFilters:
+      type: object
+      additionalProperties: false
+      required: [mode, filters]
+      properties:
+        mode: { type: string, const: filters }
+        filters: { $ref: "#/components/schemas/AdminReportFilterSet" }
+      example:
+        mode: filters
+        filters: { status: completed }
+    AdminBulkExportRequest:
+      type: object
+      additionalProperties: false
+      required: [selection, revision_selection, reason]
+      properties:
+        selection:
+          oneOf:
+            - { $ref: "#/components/schemas/AdminBulkExportSelectionByIds" }
+            - { $ref: "#/components/schemas/AdminBulkExportSelectionByFilters" }
+        revision_selection:
+          type: string
+          const: current_at_request
+          description: >-
+            The sole release-1 value. A floating "latest" is rejected, as is
+            any client-supplied document limit.
+        reason: { type: string, minLength: 1, maxLength: 500 }
+      example:
+        selection:
+          mode: filters
+          filters: { status: completed }
+        revision_selection: current_at_request
+        reason: Fictional records request fixture.
+    AdminReportSearchItem:
+      type: object
+      additionalProperties: false
+      required:
+        - report_id
+        - incident_id
+        - report_type
+        - status
+        - category
+        - facility
+        - location
+        - shift
+        - incident_date
+        - reporting_staff_member_id
+        - prepared_by_staff_member_id
+        - last_editor_staff_member_id
+        - inmate_adc_numbers
+        - current_revision_number
+        - created_at
+        - updated_at
+      properties:
+        report_id: { $ref: "#/components/schemas/Uuid" }
+        incident_id: { $ref: "#/components/schemas/Uuid" }
+        report_type: { type: string, enum: [first_person, supervisor_summary, cover_letter, disciplinary, investigation, form_005] }
+        status: { type: string, enum: [in_progress, completed, archived] }
+        category: { type: [string, "null"], maxLength: 120 }
+        facility: { type: [string, "null"], maxLength: 120 }
+        location: { type: [string, "null"], maxLength: 200 }
+        shift: { type: [string, "null"], maxLength: 32 }
+        incident_date: { type: [string, "null"], format: date }
+        reporting_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        prepared_by_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        last_editor_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        inmate_adc_numbers:
+          type: array
+          maxItems: 100
+          items: { type: string, maxLength: 64 }
+        current_revision_number: { type: integer, minimum: 1 }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        updated_at: { $ref: "#/components/schemas/UtcTimestamp" }
+    AdminReportSearchData:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/AdminReportSearchItem" }
+        next_cursor: { $ref: "#/components/schemas/PageCursorValue" }
+    AdminReportSearchSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/AdminReportSearchData" } } }]
+    AdminReportRevisionSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - revision_id
+        - revision_number
+        - reason
+        - source_revision_number
+        - editor_account_id
+        - editor_staff_member_id
+        - editor_display_name
+        - editor_rank
+        - content_hash
+        - client_version
+        - created_at
+        - is_current
+      properties: &AdminReportRevisionSummaryProperties
+        revision_id: { $ref: "#/components/schemas/Uuid" }
+        revision_number: { type: integer, minimum: 1 }
+        reason: { type: string, enum: [autosave, manual_save, ai_result, restored, status_change, ownership_change, recovery, admin_edit] }
+        source_revision_number: { type: [integer, "null"], minimum: 0 }
+        editor_account_id: { $ref: "#/components/schemas/Uuid" }
+        editor_staff_member_id: { $ref: "#/components/schemas/Uuid" }
+        editor_display_name: { type: [string, "null"], maxLength: 200 }
+        editor_rank: { type: [string, "null"], maxLength: 64 }
+        content_hash: { type: string, pattern: '^[0-9a-f]{64}$' }
+        client_version: { type: string, maxLength: 64 }
+        created_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        is_current: { type: boolean }
+    AdminReportRevisionData:
+      type: object
+      additionalProperties: false
+      required:
+        - revision_id
+        - revision_number
+        - reason
+        - source_revision_number
+        - editor_account_id
+        - editor_staff_member_id
+        - editor_display_name
+        - editor_rank
+        - content_hash
+        - client_version
+        - created_at
+        - is_current
+        - content
+      properties:
+        <<: *AdminReportRevisionSummaryProperties
+        content: { $ref: "#/components/schemas/ReportContent" }
+    AdminReportRevisionListData:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/AdminReportRevisionSummary" }
+        next_cursor: { $ref: "#/components/schemas/PageCursorValue" }
+    AdminReportRevisionListSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/AdminReportRevisionListData" } } }]
+    AdminReportRevisionSuccessEnvelope:
+      allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/AdminReportRevisionData" } } }]
     StaffSuccessEnvelope:
       allOf: [{ $ref: "#/components/schemas/GenericSuccessEnvelope" }, { type: object, properties: { data: { $ref: "#/components/schemas/StaffData" } } }]
     StaffPageSuccessEnvelope:
