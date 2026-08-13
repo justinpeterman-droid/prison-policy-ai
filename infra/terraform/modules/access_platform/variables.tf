@@ -72,6 +72,18 @@ variable "wif_trust" {
 variable "labels" {
   type    = map(string)
   default = {}
+
+  validation {
+    condition = alltrue([
+      for key, value in var.labels :
+      can(regex("^[a-z][a-z0-9_-]{0,62}$", key)) &&
+      can(regex("^[a-z0-9_-]{0,63}$", value)) &&
+      !contains(toset(["source", "release", "image_digest"]), key) &&
+      !can(regex("(?i)(secret|token|password|passwd|credential|authorization|bearer|api[_-]?key|private[_-]?key|access[_-]?code|admin[_-]?code|pin)", key)) &&
+      !can(regex("(?i)(secret|token|password|passwd|credential|authorization|bearer|api[_-]?key|private[_-]?key|access[_-]?code|admin[_-]?code|pin)", value))
+    ])
+    error_message = "labels must use provider-safe non-sensitive key/value syntax and cannot override source, release, or image_digest stamps."
+  }
 }
 
 variable "image_digest" {

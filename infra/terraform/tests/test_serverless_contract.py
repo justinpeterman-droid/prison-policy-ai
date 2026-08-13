@@ -39,6 +39,18 @@ def test_api_and_worker_define_bounded_private_health_probes():
             assert len(re.findall(r'tcp_socket\s*\{\s*port\s*=\s*8080\s*\}', service)) == 2
 
 
+def test_caller_labels_are_provider_safe_non_sensitive_and_cannot_override_stamps():
+    variables = read("variables.tf")
+    labels = re.search(r'variable "labels" \{(.*?)\n\}', variables, flags=re.DOTALL)
+    assert labels
+    contract = labels.group(1)
+    assert 'regex("^[a-z][a-z0-9_-]{0,62}$", key)' in contract
+    assert 'regex("^[a-z0-9_-]{0,63}$", value)' in contract
+    assert 'toset(["source", "release", "image_digest"])' in contract
+    for sensitive_term in ("secret", "token", "password", "credential", "api[_-]?key", "bearer"):
+        assert sensitive_term in contract
+
+
 def test_worker_has_no_public_invoker():
     terraform = "\n".join(path.read_text(encoding="utf-8") for path in MODULE.glob("*.tf"))
     bindings = re.findall(
