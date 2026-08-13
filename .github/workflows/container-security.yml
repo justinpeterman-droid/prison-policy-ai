@@ -21,7 +21,9 @@ jobs:
       - run: docker build --tag prison-policy-ai:ci .
       - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610
         with: {image: prison-policy-ai:ci, format: spdx-json, output-file: sbom.spdx.json, syft-version: 1.51.0, upload-artifact: 'false'}
-      - run: python scripts/ci/validate_sbom.py --image prison-policy-ai:ci --output sbom.spdx.json --provenance sbom.provenance.json --write-provenance
+      - run: docker pull cgr.dev/chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d
+      - run: python scripts/ci/validate_sbom.py --image prison-policy-ai:ci --runtime-image cgr.dev/chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d --output sbom.spdx.json --provenance sbom.provenance.json --generate-provenance
+      - run: python scripts/ci/validate_sbom.py --image prison-policy-ai:ci --runtime-image cgr.dev/chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d --output sbom.spdx.json --provenance sbom.provenance.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with: {name: sbom, path: "sbom.spdx.json\nsbom.provenance.json"}
   container-vulnerability:

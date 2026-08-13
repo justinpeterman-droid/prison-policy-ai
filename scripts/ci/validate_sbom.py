@@ -17,7 +17,8 @@ def main() -> int:
     parser.add_argument("--image", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--provenance", required=True)
-    parser.add_argument("--write-provenance", action="store_true")
+    parser.add_argument("--runtime-image", required=True)
+    parser.add_argument("--generate-provenance", action="store_true")
     args = parser.parse_args()
     if not Path(args.output).is_file():
         print("SBOM output is absent", file=sys.stderr)
@@ -25,16 +26,27 @@ def main() -> int:
     output = Path(args.output)
     data = json.loads(output.read_text(encoding="utf-8"))
     rendered = json.dumps(data)
-    image_id = subprocess.check_output(
-        ["docker", "image", "inspect", args.image, "--format", "{{.Id}}"], text=True
-    ).strip()
+
+    def inspect(image: str) -> dict[str, object]:
+        return json.loads(subprocess.check_output(["docker", "image", "inspect", image], text=True))[0]
+
+    image = inspect(args.image)
+    runtime = inspect(args.runtime_image)
+    image_id = str(image["Id"])
+    runtime_id = str(runtime["Id"])
+    image_layers = image["RootFS"]["Layers"]
+    runtime_layers = runtime["RootFS"]["Layers"]
     provenance_path = Path(args.provenance)
-    if args.write_provenance:
+    if args.generate_provenance:
         provenance_path.write_text(
             json.dumps(
                 {
                     "image": args.image,
                     "image_id": image_id,
+                    "runtime_image": args.runtime_image,
+                    "runtime_id": runtime_id,
+                    "image_layers": image_layers,
+                    "runtime_layers": runtime_layers,
                     "runtime_digest": DIGEST,
                     "sbom_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
                     "tool": "syft-spdx",
@@ -43,11 +55,16 @@ def main() -> int:
             ),
             encoding="utf-8",
         )
+        return 0
     provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
     if (
         data.get("spdxVersion", "").startswith("SPDX-") is False
         or not data.get("packages")
         or provenance.get("image_id") != image_id
+        or provenance.get("runtime_id") != runtime_id
+        or provenance.get("image_layers") != image_layers
+        or provenance.get("runtime_layers") != runtime_layers
+        or image_layers[: len(runtime_layers)] != runtime_layers
         or provenance.get("runtime_digest") != DIGEST
         or provenance.get("sbom_sha256") != hashlib.sha256(output.read_bytes()).hexdigest()
     ):

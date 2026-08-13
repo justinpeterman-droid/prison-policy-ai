@@ -50,7 +50,7 @@ def test_container_security_uses_fixed_provenance_checked_tooling():
 
 def test_sensitive_output_rejects_real_secret_beside_fictional_marker(tmp_path):
     candidate = tmp_path / "output.txt"
-    candidate.write_text("fixture-id\nprivate_key=real-secret\n", encoding="utf-8")
+    candidate.write_text("fixture-id\nprivate_key=real-secret https://example.invalid\n", encoding="utf-8")
     result = subprocess.run(
         [sys.executable, str(ROOT / "scripts/ci/check_sensitive_output.py"), "--paths", str(candidate)],
         capture_output=True,

@@ -20,7 +20,7 @@ FORBIDDEN = (
     "employee_id",
     "inmate_id",
 )
-FIXTURE_VALUE = re.compile(r"(?:fixture-|fake-)[a-z0-9_-]+|https?://[^\s]+\.invalid", re.I)
+FIXTURE_VALUE = re.compile(r"^\s*(?:fixture-|fake-)[a-z0-9_-]+\s*$", re.I)
 
 
 def paths(args: argparse.Namespace) -> list[Path]:
@@ -51,7 +51,7 @@ def main() -> int:
                 lowered = line.lower()
                 if any(
                     re.search(rf"\b{re.escape(term)}\b\s*[:=]", lowered) for term in FORBIDDEN
-                ) and not FIXTURE_VALUE.search(line):
+                ) and not FIXTURE_VALUE.search(line.split("=", 1)[-1].split(":", 1)[-1].strip()):
                     bad.append(str(path))
                     break
     if bad:
