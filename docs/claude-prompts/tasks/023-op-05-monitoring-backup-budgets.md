@@ -54,6 +54,7 @@ Modify only:
 
 - `infra/terraform/modules/access_platform/variables.tf`
 - `infra/terraform/modules/access_platform/outputs.tf`
+- `infra/terraform/modules/access_platform/project_services.tf`
 - `infra/terraform/environments/test/main.tf`
 - `infra/terraform/environments/production/main.tf`
 - `infra/terraform/environments/test/variables.tf`
