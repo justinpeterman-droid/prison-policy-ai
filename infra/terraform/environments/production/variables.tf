@@ -40,6 +40,16 @@ variable "source_repository" {
   }
 }
 
+variable "state_bucket_name" {
+  description = "Existing production Terraform state bucket. Supplied at plan time and never committed."
+  type        = string
+
+  validation {
+    condition     = length(trimspace(var.state_bucket_name)) > 0
+    error_message = "state_bucket_name must be supplied at plan time."
+  }
+}
+
 variable "labels" {
   description = "Labels applied to resources created by this root."
   type        = map(string)
