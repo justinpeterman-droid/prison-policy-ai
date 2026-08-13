@@ -3,6 +3,7 @@ resource "google_artifact_registry_repository" "backend" {
   location      = var.region
   repository_id = var.image_repository_id
   format        = "DOCKER"
+  kms_key_name  = var.artifact_registry_kms_key_name
   depends_on    = [google_project_service.required]
 }
 
