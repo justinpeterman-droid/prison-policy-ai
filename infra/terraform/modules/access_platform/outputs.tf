@@ -81,6 +81,14 @@ output "terraform_test_contract" {
       exact_relations = {
         for key, binding in google_project_iam_member.least_privilege : key => binding.member == google_service_account.identities[local.project_iam_bindings[key].account].member && binding.role == local.project_iam_bindings[key].role
       }
+      metric_writer_binding_count = length([
+        for binding in values(google_project_iam_member.least_privilege) : binding
+        if binding.role == "roles/monitoring.metricWriter"
+      ])
+      metric_writer_relations = {
+        for key, binding in google_project_iam_member.least_privilege : key => binding.member == google_service_account.identities["worker"].member && key == "worker-metric-writer"
+        if binding.role == "roles/monitoring.metricWriter"
+      }
       op04_infrastructure_relation = google_project_iam_member.terraform_apply_op04_infrastructure.role == google_project_iam_custom_role.terraform_apply_op04_infrastructure.name && google_project_iam_member.terraform_apply_op04_infrastructure.member == google_service_account.identities["terraform_apply"].member
       custom_role = {
         id_category = google_project_iam_custom_role.terraform_apply_secret_containers.role_id == "accessSecretContainerAdmin"

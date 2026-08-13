@@ -55,6 +55,7 @@ locals {
     api-sql-client                          = { account = "api", role = "roles/cloudsql.client" }
     api-task-enqueuer                       = { account = "api", role = "roles/cloudtasks.enqueuer" }
     worker-sql-client                       = { account = "worker", role = "roles/cloudsql.client" }
+    worker-metric-writer                    = { account = "worker", role = "roles/monitoring.metricWriter" }
     migration-sql-client                    = { account = "migration", role = "roles/cloudsql.client" }
     bootstrap-sql-client                    = { account = "bootstrap", role = "roles/cloudsql.client" }
     terraform-plan-viewer                   = { account = "terraform_plan", role = "roles/viewer" }
