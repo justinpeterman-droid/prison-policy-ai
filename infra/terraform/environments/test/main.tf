@@ -41,6 +41,11 @@ module "access_platform" {
   worker_min_instances           = 0
   worker_max_instances           = 10
   worker_max_concurrency         = 4
+  notification_channel_ids       = []
+  billing_account_id             = "fixture-billing-account"
+  monthly_budget_amount          = 1
+  budget_pubsub_topic            = "projects/${var.project_id}/topics/access-test-budget-alerts"
+  observability_owner_role       = "platform-operations"
 
   wif_trust = {
     terraform-plan = {

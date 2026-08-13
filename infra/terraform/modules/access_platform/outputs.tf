@@ -1,3 +1,4 @@
+output "logical_backup_service_account_email" { value = google_service_account.logical_backup.email }
 output "api_service_account_email" { value = google_service_account.identities["api"].email }
 output "worker_service_account_email" { value = google_service_account.identities["worker"].email }
 output "task_invoker_service_account_email" { value = google_service_account.identities["task_invoker"].email }
@@ -49,9 +50,9 @@ output "terraform_test_contract" {
       deletion_boundary = google_sql_database_instance.postgres.deletion_protection == (var.environment == "production")
     }
     service_accounts = {
-      count                     = length(google_service_account.identities)
-      distinct_account_id_count = length(toset([for account in values(google_service_account.identities) : account.account_id]))
-      id_lengths                = [for account in values(google_service_account.identities) : length(account.account_id)]
+      count                     = length(google_service_account.identities) + 1
+      distinct_account_id_count = length(toset(concat([for account in values(google_service_account.identities) : account.account_id], [google_service_account.logical_backup.account_id])))
+      id_lengths                = concat([for account in values(google_service_account.identities) : length(account.account_id)], [length(google_service_account.logical_backup.account_id)])
     }
     wif = {
       provider_count                  = length(google_iam_workload_identity_pool_provider.workflow)
@@ -143,6 +144,13 @@ output "terraform_test_contract" {
       deploy_scoped_relations      = { artifact = google_artifact_registry_repository_iam_member.deploy_writer.repository == google_artifact_registry_repository.backend.name && google_artifact_registry_repository_iam_member.deploy_writer.role == "roles/artifactregistry.writer", services = length(google_cloud_run_v2_service_iam_member.deploy_services) == 2 && alltrue([for binding in values(google_cloud_run_v2_service_iam_member.deploy_services) : binding.role == google_project_iam_custom_role.deploy_revision.name && binding.member == google_service_account.identities["deploy"].member]) }
       rollback_scoped_relations    = { services = length(google_cloud_run_v2_service_iam_member.rollback_services) == 2 && alltrue([for binding in values(google_cloud_run_v2_service_iam_member.rollback_services) : binding.role == google_project_iam_custom_role.rollback_traffic.name && binding.member == google_service_account.identities["rollback"].member]), permissions = toset(google_project_iam_custom_role.rollback_traffic.permissions) == toset(["run.services.get", "run.services.update", "run.operations.get", "run.revisions.get", "run.revisions.list"]) }
       access_release_scoped        = length(google_storage_bucket_iam_member.release_access_release_write) == (var.enable_access_release_identity ? 1 : 0) && alltrue([for binding in google_storage_bucket_iam_member.release_access_release_write : binding.role == "roles/storage.objectCreator" && binding.member == google_service_account.identities["access_release"].member && binding.condition[0].expression == "resource.name.startsWith(\"projects/_/buckets/${google_storage_bucket.private["release"].name}/objects/releases/\")"])
+    }
+    observability = {
+      dashboard_count           = length(google_monitoring_dashboard.access)
+      alert_policy_count        = 10 + length(google_monitoring_alert_policy.required)
+      logical_export_schedule   = google_cloud_scheduler_job.logical_export_nightly.schedule
+      logical_backup_is_creator = google_storage_bucket_iam_member.logical_backup_creator.role == "roles/storage.objectCreator"
+      budget_thresholds         = sort(concat([for threshold in google_billing_budget.access.threshold_rules : threshold.threshold_percent], [for threshold in google_billing_budget.access.all_updates_rule : 1.0]))
     }
     bootstrap_environment     = var.wif_trust["admin-bootstrap"].github_environment
     workflow_claim_categories = { for name, trust in var.wif_trust : name => sort(tolist(trust.workflow_claims)) }

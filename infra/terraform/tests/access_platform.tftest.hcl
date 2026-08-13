@@ -150,6 +150,11 @@ run "private_platform_contract" {
     worker_min_instances         = 0
     worker_max_instances         = 10
     worker_max_concurrency       = 4
+    notification_channel_ids     = []
+    billing_account_id           = "fixture-billing-account"
+    monthly_budget_amount        = 1
+    budget_pubsub_topic          = "projects/slut-access-production-fixture/topics/access-budget-alerts"
+    observability_owner_role     = "platform-operations"
   }
 
   assert {
@@ -169,8 +174,8 @@ run "private_platform_contract" {
   assert {
     condition = module.access_platform.terraform_test_contract.service_accounts.count == (
       module.access_platform.database_name == "access_production" ? 11 : 10
-    ) && module.access_platform.terraform_test_contract.service_accounts.distinct_account_id_count == module.access_platform.terraform_test_contract.service_accounts.count && alltrue([for id_length in module.access_platform.terraform_test_contract.service_accounts.id_lengths : id_length <= 30])
-    error_message = "Test and production must have exactly ten and eleven distinct provider-valid service accounts."
+    ) + 1 && module.access_platform.terraform_test_contract.service_accounts.distinct_account_id_count == module.access_platform.terraform_test_contract.service_accounts.count && alltrue([for id_length in module.access_platform.terraform_test_contract.service_accounts.id_lengths : id_length <= 30])
+    error_message = "Test and production must include the dedicated provider-valid logical-backup identity."
   }
 
   assert {
@@ -178,6 +183,26 @@ run "private_platform_contract" {
       module.access_platform.database_name == "access_production" ? 6 : 5
     ) && module.access_platform.terraform_test_contract.wif.distinct_provider_id_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.impersonation_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && module.access_platform.terraform_test_contract.wif.provider_specific_binding_count == module.access_platform.terraform_test_contract.wif.provider_count && alltrue(values(module.access_platform.terraform_test_contract.wif.principal_set_relations)) && module.access_platform.terraform_test_contract.wif.pool_id_length <= 32 && alltrue([for id_length in module.access_platform.terraform_test_contract.wif.provider_id_lengths : id_length <= 32]) && module.access_platform.terraform_test_contract.wif.direct_claim_condition_count == module.access_platform.terraform_test_contract.wif.provider_count
     error_message = "Test and production must expose distinct provider-valid WIF identities with one provider-specific binding each."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.observability.dashboard_count == 4
+    error_message = "OP-05 must retain exactly four dashboards."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.observability.alert_policy_count >= 18
+    error_message = "OP-05 must retain the full alert family."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.observability.logical_export_schedule == "0 2 * * *" && module.access_platform.terraform_test_contract.observability.logical_backup_is_creator
+    error_message = "OP-05 must retain its nightly unique export and creator-only backup bucket permission."
+  }
+
+  assert {
+    condition     = toset(module.access_platform.terraform_test_contract.observability.budget_thresholds) == toset(["0.5", "0.8", "0.9", "1", "1.2"])
+    error_message = "OP-05 must retain its exact budget thresholds."
   }
 
   assert {

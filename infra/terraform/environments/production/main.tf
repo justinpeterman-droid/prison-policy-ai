@@ -41,6 +41,11 @@ module "access_platform" {
   worker_min_instances           = var.worker_min_instances
   worker_max_instances           = var.worker_max_instances
   worker_max_concurrency         = var.worker_max_concurrency
+  notification_channel_ids       = var.notification_channel_ids
+  billing_account_id             = var.billing_account_id
+  monthly_budget_amount          = var.monthly_budget_amount
+  budget_pubsub_topic            = var.budget_pubsub_topic
+  observability_owner_role       = var.observability_owner_role
 
   wif_trust = {
     terraform-plan = {

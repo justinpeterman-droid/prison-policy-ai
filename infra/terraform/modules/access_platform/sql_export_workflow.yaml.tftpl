@@ -1,0 +1,20 @@
+main:
+  steps:
+    - timestamp:
+        assign:
+          - stamp: $${time.format(sys.now(), "%Y%m%dT%H%M%SZ")}
+          - object: $${"logical-exports/" + stamp + ".sql.gz"}
+    - export:
+        call: googleapis.sqladmin.v1.instances.export
+        args:
+          project: ${project_id}
+          instance: ${instance_name}
+          body:
+            exportContext:
+              fileType: SQL
+              uri: $${"gs://${bucket_name}/" + object}
+              offload: true
+              sqlExportOptions: {schemaOnly: false}
+        result: operation
+    - done:
+        return: {operation_id: $${operation.name}, object_uri: $${"gs://${bucket_name}/" + object}, status: submitted}

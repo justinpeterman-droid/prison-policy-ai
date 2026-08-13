@@ -1,0 +1,3 @@
+# Backup, restore, and disaster recovery
+
+Human operators only: verify automated backups and PITR, restore into an isolated nonproduction instance, restore a logical export, verify Alembic revision, and record safe counts/checksums. Verify account/session revocation and representative report/revision reads without copying records into this document. Calculate achieved RPO (target <=5 minutes) and RTO (target <=4 hours), record evidence in the restore template, obtain cleanup authorization, and escalate corrective actions. Perform this exercise quarterly. Do not run restore, export, SQL, or cleanup commands from automation.

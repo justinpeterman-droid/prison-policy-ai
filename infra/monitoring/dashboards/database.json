@@ -1,0 +1,11 @@
+{
+  "displayName": "Access Database",
+  "mosaicLayout": {
+    "tiles": [
+      {"width": 6, "height": 4, "widget": {"title": "Cloud SQL CPU", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"cloudsql.googleapis.com/database/cpu/utilization\""}}}}},
+      {"xPos": 6, "width": 6, "height": 4, "widget": {"title": "Cloud SQL storage", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"cloudsql.googleapis.com/database/disk/utilization\""}}}}},
+      {"yPos": 4, "width": 6, "height": 4, "widget": {"title": "Cloud SQL connections", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"cloudsql.googleapis.com/database/postgresql/num_backends\""}}}}},
+      {"xPos": 6, "yPos": 4, "width": 6, "height": 4, "widget": {"title": "backup_restore_health", "scorecard": {"timeSeriesQuery": {"timeSeriesFilter": {"filter": "metric.type=\"logging.googleapis.com/user/access_backup_restore_health\""}}}}}
+    ]
+  }
+}
