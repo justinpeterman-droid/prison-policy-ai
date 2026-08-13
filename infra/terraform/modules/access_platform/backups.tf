@@ -25,7 +25,9 @@ resource "google_storage_bucket_iam_member" "logical_backup_creator" {
 resource "google_storage_bucket_iam_member" "sql_export_writer" {
   bucket = google_storage_bucket.private["logical_backup"].name
   role   = "roles/storage.objectCreator"
-  member = "serviceAccount:${var.sql_export_service_account_email}"
+  # Bind only the identity returned by this exact managed SQL instance. An
+  # operator-supplied address could name an unrelated principal.
+  member = "serviceAccount:${google_sql_database_instance.postgres.service_account_email_address}"
 
   condition {
     title       = "AccessLogicalExportsOnly"
@@ -58,11 +60,10 @@ resource "google_project_iam_member" "logical_backup_exporter" {
 }
 
 locals {
-  # This stays closed until an operator explicitly supplies both an activation
-  # decision and a reference to the external, resource-scoped polling approval.
-  # Terraform never compensates for missing approval with project-wide
-  # Cloud SQL operation-status permission.
-  logical_export_scheduler_enabled = var.enable_logical_export_scheduler && length(trimspace(var.logical_export_polling_authorization_record)) > 0
+  # CLOSED BY DESIGN. Cloud SQL operation status cannot currently be limited
+  # to this instance with a provider-verified IAM condition. Do not replace
+  # this literal with an operator-controlled text or boolean setting.
+  logical_export_scheduler_enabled = false
 }
 
 resource "google_workflows_workflow" "logical_export" {

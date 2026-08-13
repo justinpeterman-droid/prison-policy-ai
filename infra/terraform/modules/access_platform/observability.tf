@@ -5,10 +5,10 @@ locals {
   # the locked application producer contract or platform-native metrics.
   required_alerts = {
     auth_lockouts           = { filter = "metric.type=\"logging.googleapis.com/user/access_request_event\" AND metric.label.\"error_code\"=\"account_locked\"", comparison = "COMPARISON_GT", threshold = 3, duration = "300s" }
-    sql_connections         = { filter = "metric.type=\"cloudsql.googleapis.com/database/postgresql/num_backends\"", comparison = "COMPARISON_GT", threshold = 80, duration = "300s" }
+    sql_connections         = { filter = "metric.type=\"cloudsql.googleapis.com/database/postgresql/num_backends\" AND resource.type=\"cloudsql_database\" AND resource.label.\"database_id\"=\"${var.project_id}:${google_sql_database_instance.postgres.name}\"", comparison = "COMPARISON_GT", threshold = 80, duration = "300s" }
     sql_backup              = { filter = "metric.type=\"logging.googleapis.com/user/access_backup_restore_health\" AND metric.label.\"result\"=\"unavailable\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
     ai_provider_repeat_risk = { filter = "metric.type=\"custom.googleapis.com/ai_provider_repeat_risk_total\"", comparison = "COMPARISON_GT", threshold = 0, duration = "60s" }
-    ai_job_latency          = { filter = "metric.type=\"logging.googleapis.com/user/access_queue_health\" AND metric.label.\"latency_bucket\"=\"2000ms_or_more\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
+    ai_job_failure          = { filter = "metric.type=\"logging.googleapis.com/user/access_queue_health\" AND metric.label.\"result\"=\"failed\" AND metric.label.\"stage\"=\"failed\" AND metric.label.\"job_type\"=~\"^(classify|extract|generate|disciplinary)$\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
     policy_search           = { filter = "metric.type=\"logging.googleapis.com/user/access_dependency_health\" AND metric.label.\"dependency\"=\"policy_search\" AND metric.label.\"result\"=\"unavailable\"", comparison = "COMPARISON_GT", threshold = 0, duration = "300s" }
     sensitive_log_scanner   = { filter = "metric.type=\"${var.sensitive_log_scanner_metric_type}\"", comparison = "COMPARISON_GT", threshold = 0, duration = "60s" }
   }
@@ -57,12 +57,12 @@ locals {
   # There is intentionally no invented `event_type` key.
   safe_event_filters = {
     request_event           = <<-EOT
-      jsonPayload.request_id:* AND jsonPayload.action:* AND jsonPayload.result:* AND jsonPayload.latency_bucket:* AND jsonPayload.http_status_class:* AND jsonPayload.client_version:* AND jsonPayload.dependency:*
+      resource.type="cloud_run_revision" AND resource.labels.service_name="${google_cloud_run_v2_service.api.name}" AND resource.labels.location="${var.region}" AND jsonPayload.request_id:* AND jsonPayload.action:* AND jsonPayload.result:* AND jsonPayload.latency_bucket:* AND jsonPayload.http_status_class:* AND jsonPayload.client_version:* AND jsonPayload.dependency:*
     EOT
-    dependency_health       = "jsonPayload.signal=\"dependency_health\""
-    queue_health            = "jsonPayload.signal=\"queue_health\""
-    backup_restore_health   = "jsonPayload.signal=\"backup_restore_health\""
-    client_upgrade_required = "jsonPayload.signal=\"client_upgrade_required\""
+    dependency_health       = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${google_cloud_run_v2_service.api.name}\" AND resource.labels.location=\"${var.region}\" AND jsonPayload.signal=\"dependency_health\""
+    queue_health            = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${google_cloud_run_v2_service.api.name}\" AND resource.labels.location=\"${var.region}\" AND jsonPayload.signal=\"queue_health\""
+    backup_restore_health   = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${google_cloud_run_v2_service.api.name}\" AND resource.labels.location=\"${var.region}\" AND jsonPayload.signal=\"backup_restore_health\""
+    client_upgrade_required = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${google_cloud_run_v2_service.api.name}\" AND resource.labels.location=\"${var.region}\" AND jsonPayload.signal=\"client_upgrade_required\""
   }
 }
 
@@ -127,7 +127,7 @@ resource "google_monitoring_alert_policy" "api_latency_documented" {
   conditions {
     display_name = "threshold"
     condition_threshold {
-      filter          = "metric.type=\"run.googleapis.com/request_latencies\""
+      filter          = "metric.type=\"run.googleapis.com/request_latencies\" AND resource.type=\"cloud_run_revision\" AND resource.label.\"service_name\"=\"${google_cloud_run_v2_service.api.name}\" AND resource.label.\"location\"=\"${var.region}\""
       comparison      = "COMPARISON_GT"
       threshold_value = 1000
       duration        = "300s"
@@ -190,7 +190,7 @@ resource "google_monitoring_alert_policy" "sql_saturation_documented" {
   conditions {
     display_name = "threshold"
     condition_threshold {
-      filter          = "metric.type=\"cloudsql.googleapis.com/database/cpu/utilization\""
+      filter          = "metric.type=\"cloudsql.googleapis.com/database/cpu/utilization\" AND resource.type=\"cloudsql_database\" AND resource.label.\"database_id\"=\"${var.project_id}:${google_sql_database_instance.postgres.name}\""
       comparison      = "COMPARISON_GT"
       threshold_value = 0.85
       duration        = "300s"
@@ -211,7 +211,7 @@ resource "google_monitoring_alert_policy" "sql_storage_documented" {
   conditions {
     display_name = "threshold"
     condition_threshold {
-      filter          = "metric.type=\"cloudsql.googleapis.com/database/disk/utilization\""
+      filter          = "metric.type=\"cloudsql.googleapis.com/database/disk/utilization\" AND resource.type=\"cloudsql_database\" AND resource.label.\"database_id\"=\"${var.project_id}:${google_sql_database_instance.postgres.name}\""
       comparison      = "COMPARISON_GT"
       threshold_value = 0.8
       duration        = "300s"
@@ -232,7 +232,7 @@ resource "google_monitoring_alert_policy" "queue_depth_documented" {
   conditions {
     display_name = "threshold"
     condition_threshold {
-      filter          = "metric.type=\"cloudtasks.googleapis.com/queue/depth\""
+      filter          = "metric.type=\"cloudtasks.googleapis.com/queue/depth\" AND resource.type=\"cloudtasks.googleapis.com/Queue\" AND resource.label.\"queue_id\"=\"${google_cloud_tasks_queue.worker.name}\" AND resource.label.\"location\"=\"${var.region}\""
       comparison      = "COMPARISON_GT"
       threshold_value = 1000
       duration        = "300s"
@@ -253,7 +253,7 @@ resource "google_monitoring_alert_policy" "queue_age_documented" {
   conditions {
     display_name = "threshold"
     condition_threshold {
-      filter          = "metric.type=\"logging.googleapis.com/user/access_queue_health\" AND metric.label.\"result\"=\"degraded\""
+      filter          = "metric.type=\"logging.googleapis.com/user/access_queue_health\" AND metric.label.\"result\"=\"failed\" AND metric.label.\"stage\"=\"failed\" AND metric.label.\"job_type\"=~\"^(classify|extract|generate|disciplinary)$\""
       comparison      = "COMPARISON_GT"
       threshold_value = 0
       duration        = "60s"
@@ -306,10 +306,17 @@ resource "google_monitoring_alert_policy" "client_upgrade_documented" {
 # Application producers are request_event, ai_provider_repeat_risk_total,
 # dependency_health, queue_health, backup_restore_health, and client_upgrade_required.
 resource "google_monitoring_dashboard" "access" {
-  for_each       = toset(local.dashboard_files)
-  project        = var.project_id
-  dashboard_json = file("${path.module}/../../../monitoring/dashboards/${each.value}.json")
-  depends_on     = [terraform_data.services_ready]
+  for_each = toset(local.dashboard_files)
+  project  = var.project_id
+  dashboard_json = templatefile("${path.module}/../../../monitoring/dashboards/${each.value}.json", {
+    project_id          = var.project_id
+    region              = var.region
+    api_service_name    = google_cloud_run_v2_service.api.name
+    worker_service_name = google_cloud_run_v2_service.worker.name
+    sql_instance_name   = google_sql_database_instance.postgres.name
+    queue_name          = google_cloud_tasks_queue.worker.name
+  })
+  depends_on = [terraform_data.services_ready]
 }
 
 resource "google_logging_metric" "safe_events" {

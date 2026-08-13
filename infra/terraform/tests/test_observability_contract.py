@@ -87,9 +87,17 @@ def test_backup_boundary_is_exact_and_workflow_is_bounded():
     assert '"workflows.googleapis.com"' in services
     assert '"billingbudgets.googleapis.com"' in services
     assert "databases: [${database_name}]" in workflow
-    assert "enable_logical_export_scheduler" in backup
-    assert "logical_export_polling_authorization_record" in backup
+    assert "logical_export_scheduler_enabled = false" in backup
+    assert "enable_logical_export_scheduler" not in backup
+    assert "logical_export_polling_authorization_record" not in backup
     assert "local.logical_export_scheduler_enabled ? 1 : 0" in backup
+    assert "service_account_email_address" in backup
+    assert "var.sql_export_service_account_email" not in backup
+    # No arbitrary configuration value can create a scheduler which fails on
+    # an unscoped operations.get call.
+    assert backup.count("count           = local.logical_export_scheduler_enabled ? 1 : 0") == 1
+    assert backup.count("count   = local.logical_export_scheduler_enabled ? 1 : 0") == 1
+    assert backup.count("count     = local.logical_export_scheduler_enabled ? 1 : 0") == 1
 
 
 def test_all_alerts_have_real_unhealthy_sources_and_never_autoclose():
@@ -130,6 +138,35 @@ def test_platform_metric_contracts_use_supported_types_only():
     assert 'resource.type=\\"uptime_url\\"' in observability
     assert 'metric.label.\\"check_id\\"=\\"${google_monitoring_uptime_check_config.api_health.uptime_check_id}\\"' in observability
     assert observability.count("depends_on            = [terraform_data.services_ready]") >= 10
+
+
+def test_native_platform_alerts_scope_each_resource_exactly():
+    observability = (MODULE / "observability.tf").read_text(encoding="utf-8")
+    for resource_type in ('resource.type=\\"cloud_run_revision\\"', 'resource.type=\\"cloudsql_database\\"', 'resource.type=\\"cloudtasks.googleapis.com/Queue\\"'):
+        assert resource_type in observability
+    assert 'google_cloud_run_v2_service.api.name' in observability
+    assert 'google_sql_database_instance.postgres.name' in observability
+    assert 'google_cloud_tasks_queue.worker.name' in observability
+    assert 'metric.label.\\"result\\"=\\"failed\\"' in observability
+    assert 'metric.label.\\"stage\\"=\\"failed\\"' in observability
+    assert 'metric.label.\\"job_type\\"=~\\"^(classify|extract|generate|disciplinary)$\\"' in observability
+    assert 'metric.label.\\"result\\"=\\"degraded\\"' not in observability
+
+
+def test_dashboards_are_templated_to_exact_resources_and_do_not_invent_sources():
+    api = (DASHBOARDS / "api.json").read_text(encoding="utf-8")
+    database = (DASHBOARDS / "database.json").read_text(encoding="utf-8")
+    jobs = (DASHBOARDS / "jobs-and-ai.json").read_text(encoding="utf-8")
+    assert '${api_service_name}' in api and '${region}' in api
+    assert '${project_id}:${sql_instance_name}' in database
+    assert '${queue_name}' in jobs and '${region}' in jobs
+    assert 'metric.label.\\"result\\"=\\"failed\\"' in jobs
+    assert 'metric.label.\\"stage\\"=\\"failed\\"' in jobs
+    assert 'metric.label.\\"job_type\\"=~\\"^(classify|extract|generate|disciplinary)$\\"' in jobs
+    assert "Cloud SQL memory and availability" not in database
+    assert "Migration revision" not in database
+    assert "Backup and PITR evidence gate" in database
+    assert "Migration evidence gate" in database
 
 
 def test_billing_spend_is_an_external_bigquery_gate_not_an_invalid_monitoring_metric():

@@ -16,23 +16,6 @@ variable "github_repository" { type = string }
 variable "github_ref_pattern" { type = string }
 variable "enable_access_release_identity" { type = bool }
 
-variable "enable_logical_export_scheduler" {
-  description = "External activation gate for the logical-export workflow and scheduler. It defaults closed and must remain false until the operation-polling authorization is recorded outside Git."
-  type        = bool
-  default     = false
-}
-
-variable "logical_export_polling_authorization_record" {
-  description = "Non-sensitive reference to the externally approved, resource-scoped Cloud SQL operation-polling authorization. No record contents belong in Git."
-  type        = string
-  default     = ""
-
-  validation {
-    condition     = !var.enable_logical_export_scheduler || length(trimspace(var.logical_export_polling_authorization_record)) > 0
-    error_message = "logical_export_polling_authorization_record is required before enable_logical_export_scheduler can be true."
-  }
-}
-
 variable "state_bucket_name" {
   description = "Existing, environment-isolated bucket used for Terraform state. OP-03 grants only prefix-scoped access."
   type        = string
@@ -137,14 +120,6 @@ variable "observability_owner_role" {
   validation {
     condition     = length(trimspace(var.observability_owner_role)) > 0 && !can(regex("(?i)(@|https?://|token|secret|pin)", var.observability_owner_role))
     error_message = "observability_owner_role must be a non-sensitive owner role, not contact or credential data."
-  }
-}
-variable "sql_export_service_account_email" {
-  description = "Externally confirmed Cloud SQL instance service-account email used by offloaded exports."
-  type        = string
-  validation {
-    condition     = can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.gserviceaccount\\.com$", var.sql_export_service_account_email))
-    error_message = "sql_export_service_account_email must be the exact externally confirmed Cloud SQL service-account email."
   }
 }
 variable "sensitive_log_scanner_metric_type" {

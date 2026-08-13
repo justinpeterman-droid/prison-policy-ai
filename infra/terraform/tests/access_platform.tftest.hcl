@@ -155,7 +155,6 @@ run "private_platform_contract" {
     monthly_budget_amount             = 1
     budget_pubsub_topic               = "projects/slut-access-production-fixture/topics/access-budget-alerts"
     observability_owner_role          = "platform-operations"
-    sql_export_service_account_email  = "fixture-cloudsql-export@slut-access-production-fixture.iam.gserviceaccount.com"
     sensitive_log_scanner_metric_type = "custom.googleapis.com/access_sensitive_log_scanner_failure"
   }
 
