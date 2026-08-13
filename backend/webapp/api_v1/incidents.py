@@ -1,6 +1,6 @@
 """Authorized incident workspace and immutable revision routes."""
 
-from datetime import UTC
+from datetime import UTC, date, time
 import json
 from uuid import UUID
 
@@ -104,6 +104,12 @@ def _timestamp(value) -> str | None:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
+def _date_or_time(value: object) -> str | object:
+    if isinstance(value, (date, time)):
+        return value.isoformat()
+    return value
+
+
 def _view_data(view: IncidentView) -> dict[str, object]:
     row = view.incident
     content = view.content or {
@@ -128,16 +134,8 @@ def _view_data(view: IncidentView) -> dict[str, object]:
         "current_revision_number": view.revision_number or row.current_revision_number,
         "reporting_staff_ids": [str(value) for value in view.reporting_staff_ids],
         "field_notes": content.get("field_notes", ""),
-        "incident_date": (
-            incident_date.isoformat()
-            if hasattr(incident_date, "isoformat")
-            else incident_date
-        ),
-        "incident_time": (
-            incident_time.isoformat()
-            if hasattr(incident_time, "isoformat")
-            else incident_time
-        ),
+        "incident_date": _date_or_time(incident_date),
+        "incident_time": _date_or_time(incident_time),
         "facility": content.get("facility"),
         "shift": content.get("shift"),
         "location": content.get("location"),

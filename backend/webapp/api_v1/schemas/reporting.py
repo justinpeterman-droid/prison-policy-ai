@@ -22,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from backend.webapp.api_v1.client_policy import FIELD_NOTES_MAX_CHARACTERS
 
 
-CONTENT_SCHEMA_VERSION: Final[int] = 1
+CONTENT_SCHEMA_VERSION: Final[Literal[1]] = 1
 MAX_NARRATIVE_CHARACTERS: Final[int] = 30_000
 MAX_SHORT_TEXT: Final[int] = 200
 MAX_CODE_TEXT: Final[int] = 64

@@ -418,6 +418,8 @@ def reset_account_pin(
     staff = session.scalar(
         select(StaffMember).where(StaffMember.id == account.staff_member_id)
     )
+    if staff is None:
+        raise LookupError("account not found")
     temporary_pin = generate_temporary_pin(staff.employee_number)
     account.pin_hash = hash_pin(temporary_pin)
     account.must_change_pin = True

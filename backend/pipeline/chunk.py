@@ -59,9 +59,9 @@ def chunk_all(
         print(f"  {f.name}: {len(chunks)} chunks")
 
     out_path = out_dir / "all_chunks.jsonl"
-    with open(out_path, "w", encoding="utf-8") as f:
+    with open(out_path, "w", encoding="utf-8") as output:
         for c in all_chunks:
-            f.write(json.dumps(c) + "\n")
+            output.write(json.dumps(c) + "\n")
 
     print(f"\nTotal: {len(all_chunks)} chunks → {out_path}")
     return out_path

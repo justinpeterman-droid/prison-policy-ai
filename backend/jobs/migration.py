@@ -7,6 +7,7 @@ import json
 import re
 import time
 from pathlib import Path
+from typing import TypedDict
 
 from alembic import command
 from alembic.config import Config
@@ -38,6 +39,13 @@ _SEARCH_INDEXES = {
 }
 
 
+class ConstraintContract(TypedDict):
+    primary_key: tuple[str, ...]
+    unique: set[tuple[str, ...]]
+    foreign_keys: set[tuple[tuple[str, ...], str, tuple[str, ...]]]
+    checks: dict[str, tuple[str, ...]]
+
+
 def _config() -> Config:
     return Config(str(_ROOT / "alembic.ini"))
 
@@ -56,13 +64,15 @@ def upgrade() -> str:
     return head
 
 
-def _constraint_contract(table) -> dict[str, object]:
+def _constraint_contract(table) -> ConstraintContract:
     primary_key: tuple[str, ...] = ()
     unique: set[tuple[str, ...]] = set()
-    foreign_keys: set[tuple[str, str, tuple[str, ...]]] = set()
+    foreign_keys: set[tuple[tuple[str, ...], str, tuple[str, ...]]] = set()
     checks: dict[str, tuple[str, ...]] = {}
     for constraint in table.constraints:
-        columns = tuple(sorted(column.name for column in constraint.columns))
+        columns: tuple[str, ...] = tuple(
+            sorted(str(column.name) for column in constraint.columns)
+        )
         if isinstance(constraint, PrimaryKeyConstraint):
             primary_key = columns
         elif isinstance(constraint, UniqueConstraint):
@@ -72,8 +82,8 @@ def _constraint_contract(table) -> dict[str, object]:
             foreign_keys.add(
                 (
                     columns,
-                    elements[0].column.table.name,
-                    tuple(sorted(element.column.name for element in elements)),
+                    str(elements[0].column.table.name),
+                    tuple(sorted(str(element.column.name) for element in elements)),
                 )
             )
         elif isinstance(constraint, CheckConstraint):
@@ -88,12 +98,22 @@ def _constraint_contract(table) -> dict[str, object]:
 
 _CHECK_CAST = re.compile(
     r"::(?:character varying|timestamp with time zone|double precision|"
-    r"bigint|boolean|bytea|integer|jsonb|numeric|text|uuid)(?:\[\])?"
+    r"bigint|boolean|bytea|integer|jsonb|jsonpath|numeric|text|uuid)(?:\[\])?"
 )
+
+
+def _normalize_jsonpath_literal(match: re.Match[str]) -> str:
+    literal = match.group(0)
+    if not literal.startswith("'$"):
+        return literal
+    normalized = re.sub(r'(?<=[.@])"([a-z_][a-z0-9_]*)"', r"\1", literal)
+    normalized = re.sub(r"\s+", "", normalized)
+    return re.sub(r"!\(exists\(([^()]*)\)\)", r"!exists(\1)", normalized)
 
 
 def _check_signature(sql: str) -> tuple[str, ...]:
     normalized = _CHECK_CAST.sub("", sql.lower())
+    normalized = re.sub(r"'(?:''|[^'])*'", _normalize_jsonpath_literal, normalized)
     normalized = re.sub(r"=\s*any\s*\(\s*array\s*\[", " in (", normalized)
     normalized = normalized.replace("]", ")")
     return tuple(
@@ -118,7 +138,7 @@ def _schema_matches(inspector) -> bool:
         if expected_columns != actual_columns:
             return False
 
-        expected_indexes = {index.name for index in table.indexes if index.name}
+        expected_indexes = {str(index.name) for index in table.indexes if index.name}
         expected_indexes |= _SEARCH_INDEXES.get(table_name, set())
         actual_indexes = {index["name"] for index in inspector.get_indexes(table_name)}
         if not expected_indexes <= actual_indexes:
@@ -132,17 +152,23 @@ def _schema_matches(inspector) -> bool:
         )
         if expected["primary_key"] != actual_primary_key:
             return False
-        actual_unique_columns = {
-            tuple(sorted(item.get("column_names") or ()))
+        actual_unique_columns: set[tuple[str, ...]] = {
+            tuple(sorted(str(name) for name in (item.get("column_names") or ())))
             for item in inspector.get_unique_constraints(table_name)
         }
         if not expected["unique"] <= actual_unique_columns:
             return False
-        actual_foreign_keys = {
+        actual_foreign_keys: set[tuple[tuple[str, ...], str, tuple[str, ...]]] = {
             (
-                tuple(sorted(item.get("constrained_columns") or ())),
-                item.get("referred_table"),
-                tuple(sorted(item.get("referred_columns") or ())),
+                tuple(
+                    sorted(
+                        str(name) for name in (item.get("constrained_columns") or ())
+                    )
+                ),
+                str(item.get("referred_table") or ""),
+                tuple(
+                    sorted(str(name) for name in (item.get("referred_columns") or ()))
+                ),
             )
             for item in inspector.get_foreign_keys(table_name)
         }

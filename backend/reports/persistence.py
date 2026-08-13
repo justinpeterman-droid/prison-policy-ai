@@ -883,6 +883,12 @@ def _report_revision_view(
     )
 
 
+def _require_report(report: Report | None) -> Report:
+    if report is None:
+        raise ReportNotFound("Report not found.")
+    return report
+
+
 def get_report(session: Session, actor: Actor, report_id: UUID) -> ReportView:
     """Load a report only through its live owner/preparer relationship."""
     report = session.scalar(_authorized_report_statement(actor, report_id))
@@ -1055,9 +1061,7 @@ def get_report_admin(session: Session, report_id: UUID) -> ReportView:
     Admin authorization (role plus active elevation) is enforced by the
     route-level guard before this is ever called.
     """
-    report = session.get(Report, report_id)
-    if report is None:
-        raise ReportNotFound("Report not found.")
+    report = _require_report(session.get(Report, report_id))
     revision = session.scalar(
         select(ReportRevision).where(
             ReportRevision.report_id == report.id,
@@ -1492,7 +1496,7 @@ def save_report_admin_record(
         )
     except RevisionTargetMissing as error:
         raise ReportNotFound(str(error)) from None
-    report = session.get(Report, report_id)
+    report = _require_report(session.get(Report, report_id))
     view = _report_revision_view(session, report, revision)
     complete_idempotency(
         session,
@@ -1543,7 +1547,7 @@ def restore_report_admin_record(
         )
     except RevisionTargetMissing as error:
         raise ReportRevisionNotFound(str(error)) from None
-    report = session.get(Report, report_id)
+    report = _require_report(session.get(Report, report_id))
     view = _report_revision_view(session, report, revision)
     complete_idempotency(
         session,
@@ -1604,7 +1608,7 @@ def transfer_report_ownership_record(
         )
     except RevisionTargetMissing as error:
         raise ReportNotFound(str(error)) from None
-    report = session.get(Report, report_id)
+    report = _require_report(session.get(Report, report_id))
     view = _report_revision_view(session, report, revision)
     complete_idempotency(
         session,
@@ -1656,7 +1660,7 @@ def save_report_record(
         client_version=client_version,
         audit_writer=audit_writer,
     )
-    report = session.get(Report, report_id)
+    report = _require_report(session.get(Report, report_id))
     view = _report_revision_view(session, report, revision)
     complete_idempotency(
         session,
@@ -1711,7 +1715,7 @@ def save_report_status_record(
         client_version=client_version,
         audit_writer=audit_writer,
     )
-    report = session.get(Report, report_id)
+    report = _require_report(session.get(Report, report_id))
     view = _report_revision_view(session, report, revision)
     complete_idempotency(
         session,
@@ -1763,7 +1767,7 @@ def restore_report_record(
         )
     except RevisionTargetMissing as error:
         raise ReportRevisionNotFound(str(error)) from None
-    report = session.get(Report, report_id)
+    report = _require_report(session.get(Report, report_id))
     view = _report_revision_view(session, report, revision)
     complete_idempotency(
         session,

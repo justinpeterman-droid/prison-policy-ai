@@ -2,7 +2,13 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
-from backend.identity.accounts import unlock_account, unlock_admin_account
+import pytest
+
+from backend.identity.accounts import (
+    reset_account_pin,
+    unlock_account,
+    unlock_admin_account,
+)
 from backend.webapp.api_v1.admin import _rehydrate_replay
 
 
@@ -103,3 +109,24 @@ def test_minimal_idempotency_reference_rehydrates_safe_account_shape():
         "created_at",
         "updated_at",
     }
+
+
+def test_pin_reset_conceals_account_with_missing_staff_as_not_found():
+    account = SimpleNamespace(id=uuid4(), staff_member_id=uuid4())
+
+    class Session:
+        def __init__(self):
+            self.results = [account, None]
+
+        def scalar(self, _statement):
+            return self.results.pop(0)
+
+    with pytest.raises(LookupError, match="account not found"):
+        reset_account_pin(
+            Session(),
+            actor=SimpleNamespace(account_id=uuid4(), staff_member_id=uuid4()),
+            target_account_id=account.id,
+            now=datetime.now(UTC),
+            audit_writer=SimpleNamespace(append=lambda *_args: None),
+            request_id="request-reset-missing-staff-1",
+        )

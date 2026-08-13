@@ -24,17 +24,19 @@ ADMIN_ONLY_EXACT = {"/roster", "/review-lab"}
 ADMIN_ONLY_PREFIXES = ("/api/roster", "/api/review-lab")
 
 
-def _matches(value: str, code: str) -> bool:
+def _matches(value: str | None, code: str | None) -> bool:
     """Case-insensitive comparison against a configured code."""
-    return bool(code) and (value or "").strip().lower() == code.strip().lower()
+    if not code:
+        return False
+    return (value or "").strip().lower() == code.strip().lower()
 
 
-def _code_ok(value: str) -> bool:
+def _code_ok(value: str | None) -> bool:
     """Whether a code opens the site at all. Either tier does."""
     return _matches(value, ACCESS_CODE) or _matches(value, ADMIN_CODE)
 
 
-def _is_admin(value: str) -> bool:
+def _is_admin(value: str | None) -> bool:
     """Whether a code opens the admin tier (the roster)."""
     return _matches(value, ADMIN_CODE)
 

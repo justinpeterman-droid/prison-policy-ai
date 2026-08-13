@@ -432,6 +432,8 @@ class JobProcessor:
         raw_ids = (
             metadata.get("reporting_staff_ids") if isinstance(metadata, dict) else []
         )
+        if not isinstance(raw_ids, list):
+            raw_ids = []
         try:
             selected = {UUID(str(value)) for value in raw_ids}
         except (TypeError, ValueError):

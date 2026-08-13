@@ -40,14 +40,14 @@ def consume_limit(
     maximum = LIMITS[dimension] if limit is None else limit
     digest = subject_hash(dimension, value, pepper)
     cutoff = now - timedelta(seconds=WINDOW_SECONDS)
-    statement = insert(AuthRateLimit).values(
+    insert_statement = insert(AuthRateLimit).values(
         dimension=dimension,
         subject_hash=digest,
         window_started_at=now,
         hit_count=1,
         updated_at=now,
     )
-    statement = statement.on_conflict_do_update(
+    statement = insert_statement.on_conflict_do_update(
         constraint="uq_auth_rate_limit_dimension_subject",
         set_={
             "window_started_at": case(

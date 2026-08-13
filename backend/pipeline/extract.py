@@ -7,8 +7,9 @@ from pathlib import Path
 def extract_pdf(pdf_path: Path) -> str:
     """Extract all text from a single PDF, preserving page breaks."""
     doc = pymupdf.open(str(pdf_path))
-    pages = []
-    for i, page in enumerate(doc):
+    pages: list[str] = []
+    for i in range(doc.page_count):
+        page = doc.load_page(i)
         text = page.get_text("text")
         if text.strip():
             pages.append(f"[PAGE {i + 1}]\n{text.strip()}")

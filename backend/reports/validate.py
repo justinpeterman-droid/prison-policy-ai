@@ -267,15 +267,14 @@ def _resolve_auto_content(
     for item in list(category.get("auto_content", [])) + list(universal):
         if not _condition_met(item.get("condition", "always"), slots):
             continue
-        text = re.sub(
-            r"\{(\w+)\}",
-            lambda m: str(
-                slots.get(m.group(1))
-                if slots.get(m.group(1)) not in (None, UNKNOWN)
-                else f"[NEEDED: {m.group(1).replace('_', ' ')}]"
-            ),
-            item["template"],
-        )
+        def replace_slot(match: re.Match[str]) -> str:
+            name = match.group(1)
+            value = slots.get(name)
+            if value in (None, UNKNOWN):
+                return f"[NEEDED: {name.replace('_', ' ')}]"
+            return str(value)
+
+        text = re.sub(r"\{(\w+)\}", replace_slot, item["template"])
         resolved.append(
             {"id": item["id"], "insert_into": item["insert_into"], "text": text}
         )

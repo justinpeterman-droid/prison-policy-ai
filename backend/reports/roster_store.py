@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 # yet, and as the whole story when no bucket is configured.
 SEED_PATH = Path(__file__).parent.parent.parent / "templates" / "staff_roster.json"
 
-EMPTY = {"shifts": {}, "staff": []}
+EMPTY: dict[str, dict | list] = {"shifts": {}, "staff": []}
 
 # GCS sentinel: `if_generation_match=0` means "only if the object is absent",
 # which is exactly the create-once case.
@@ -160,10 +160,8 @@ def _write_local(payload: str) -> None:
             staged.flush()
             os.fsync(staged.fileno())
         os.replace(temp_path, SEED_PATH)
-        temp_path = None
     finally:
-        if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
+        temp_path.unlink(missing_ok=True)
 
 
 def _write(data: dict, generation: int | None) -> None:

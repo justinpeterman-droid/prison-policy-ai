@@ -11,7 +11,7 @@ import re
 from uuid import UUID
 
 from flask import Blueprint, current_app, g, request
-from sqlalchemy import Select, and_, select, tuple_
+from sqlalchemy import Select, and_, literal, select, tuple_
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.persistence.database import DatabaseUnavailable
@@ -259,7 +259,8 @@ def _selection_statement(
                 status=409,
             ) from None
         statement = statement.where(
-            tuple_(AuditEvent.occurred_at, AuditEvent.id) <= tuple_(occurred, event_id)
+            tuple_(AuditEvent.occurred_at, AuditEvent.id)
+            <= tuple_(literal(occurred), literal(event_id))
         )
     return statement
 

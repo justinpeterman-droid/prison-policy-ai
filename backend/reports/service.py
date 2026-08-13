@@ -314,7 +314,7 @@ def extract_incident_notes(
         cleaned, valid = _validate_and_clean_time(slots["time"])
         slots["time"] = cleaned if valid else _to_12h(slots["time"])
 
-    roster_gaps = []
+    roster_gaps: list[dict] = []
     persons = slots.get("persons", [])
     if persons:
         persons, roster_gaps = resolve_staff_from_persons(
@@ -467,8 +467,8 @@ def _prepare_generation(data: dict, staff_provider: StaffProvider) -> dict:
         for person in slots.get("persons", [])
         if person.get("role") == "security_staff"
     ]:
+        slots = bind_reporter(slots, reporters[0])
         reporter = reporters[0]
-        slots = bind_reporter(slots, reporter)
 
     if reporter and reporter.get("shift"):
         slots["shift_assignment"] = _format_shift(reporter["shift"])

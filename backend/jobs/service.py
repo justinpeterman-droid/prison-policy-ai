@@ -336,7 +336,12 @@ def _validate_result_targets(
         if incident_revision_id is None:
             raise InvalidJobResultReference("job result reference is invalid")
 
-    for item in reference.get("reports", []):
+    reports = reference.get("reports", [])
+    if not isinstance(reports, list):
+        raise InvalidJobResultReference("job result reference is invalid")
+    for item in reports:
+        if not isinstance(item, dict):
+            raise InvalidJobResultReference("job result reference is invalid")
         report_id = UUID(str(item["report_id"]))
         revision_number = int(item["revision_number"])
         report_revision_id = session.scalar(

@@ -53,7 +53,7 @@ class ReviewStore:
         try:
             from google.api_core.exceptions import PreconditionFailed
         except ImportError:  # pragma: no cover - dependency is deployed
-            PreconditionFailed = ()
+            return "precondition" in str(exc).lower()
         return isinstance(exc, PreconditionFailed) or "precondition" in str(exc).lower()
 
     @staticmethod
