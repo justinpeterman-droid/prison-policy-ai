@@ -6,6 +6,7 @@ import pytest
 
 from backend.identity.idempotency import request_digest
 from backend.jobs.service import SubmitJobCommand
+from backend.persistence.models.jobs import AiJob
 
 
 INCIDENT_ID = UUID("00000000-0000-4000-8000-000000000611")
@@ -49,3 +50,15 @@ def test_submit_command_rejects_unknown_job_type_and_invalid_base_revision():
     for value in (0, -1, True, "1"):
         with pytest.raises(ValueError, match="base revision"):
             command.canonical_payload(base_revision_number=value)
+
+
+@pytest.mark.parametrize("unsafe_reference", [
+    {"content": "Fictional report content."},
+    {"provider": {"prompt": "Fictional prompt."}},
+    {"reports": [{"report_id": str(REPORT_ID), "revision_number": 1, "raw": {}}]},
+])
+def test_ai_job_mapping_rejects_non_contract_result_references(unsafe_reference):
+    job = AiJob()
+
+    with pytest.raises(ValueError, match="result reference"):
+        job.result_reference = unsafe_reference

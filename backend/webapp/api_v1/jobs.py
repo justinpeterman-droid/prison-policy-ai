@@ -13,6 +13,10 @@ from backend.jobs.service import (
     get_job,
     submit_job,
 )
+from backend.persistence.models.jobs import (
+    InvalidJobResultReference,
+    normalize_job_result_reference,
+)
 from backend.persistence.database import DatabaseUnavailable
 from backend.reports.persistence import IncidentNotFound
 from backend.reports.revisions import RevisionConflict
@@ -47,7 +51,7 @@ def _job_data(job) -> dict[str, object]:
         "started_at": _timestamp(job.started_at),
         "completed_at": _timestamp(job.completed_at),
         "error_code": job.error_code,
-        "result_reference": dict(job.result_reference or {}),
+        "result_reference": normalize_job_result_reference(job.result_reference or {}),
     }
 
 
@@ -176,7 +180,9 @@ def status(job_id: UUID):
         )))
     except JobNotFound:
         raise ApiError("not_found", "Job not found.", status=404) from None
-    except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
+    except (
+        DatabaseUnavailable, InvalidJobResultReference, SQLAlchemyError, RuntimeError,
+    ):
         raise ApiError(
             "dependency_unavailable", "Job storage is temporarily unavailable.",
             status=503, retryable=True,

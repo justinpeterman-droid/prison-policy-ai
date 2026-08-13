@@ -7,11 +7,11 @@ these records contain only bounded control metadata and safe result references.
 """
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from backend.identity.audit import AuditEventInput, AuditWriter, PostgresAuditWriter
@@ -22,13 +22,21 @@ from backend.identity.idempotency import (
 )
 from backend.jobs.outbox import enqueue_job
 from backend.persistence.models.identity import Account
-from backend.persistence.models.jobs import AiJob
-from backend.persistence.models.reporting import Incident, Report, ReportAccess
+from backend.persistence.models.jobs import (
+    AiJob,
+    InvalidJobResultReference,
+    normalize_job_result_reference,
+)
+from backend.persistence.models.reporting import (
+    Incident,
+    IncidentRevision,
+    Report,
+    ReportAccess,
+    ReportRevision,
+)
 from backend.reports.persistence import (
     IncidentNotFound,
-    ReportNotFound,
     get_incident,
-    get_report,
 )
 from backend.reports.revisions import RevisionConflict
 from backend.webapp.api_v1.middleware import Actor
@@ -43,10 +51,17 @@ CLAIM_STAGES = {
     "disciplinary": "disciplinary",
 }
 TERMINAL_STATES = frozenset({"succeeded", "failed", "cancelled"})
+JOB_LEASE_DURATION = timedelta(minutes=20)
 
 
 class JobNotFound(LookupError):
     """The job is missing or concealed by current authorization."""
+
+
+class StaleJobClaim(ValueError):
+    """The worker no longer owns the durable execution lease."""
+
+    code = "job_claim_expired"
 
 
 @dataclass(frozen=True)
@@ -102,8 +117,7 @@ def _authorize_incident(session: Session, actor: Actor, incident_id: UUID) -> In
         raise IncidentNotFound("Incident not found.")
     view = get_incident(session, actor, incident_id)
     if (
-        actor.role != "admin"
-        and actor.staff_member_id != incident.created_by_staff_member_id
+        actor.staff_member_id != incident.created_by_staff_member_id
         and actor.staff_member_id not in view.reporting_staff_ids
     ):
         # Report access is revocable, so lock and revalidate the live row in
@@ -129,14 +143,21 @@ def _authorize_bound_report(
 ) -> None:
     if command.report_id is None:
         return
-    if actor.role == "admin":
-        report = session.get(Report, command.report_id)
-    else:
-        try:
-            report = get_report(session, actor, command.report_id).report
-        except ReportNotFound:
-            raise IncidentNotFound("Incident not found.") from None
+    report = session.scalar(
+        select(Report).where(Report.id == command.report_id).with_for_update()
+    )
     if report is None or report.incident_id != command.incident_id:
+        raise IncidentNotFound("Incident not found.")
+    live_access = session.scalar(
+        select(ReportAccess)
+        .where(
+            ReportAccess.report_id == command.report_id,
+            ReportAccess.staff_member_id == actor.staff_member_id,
+            ReportAccess.revoked_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if live_access is None:
         raise IncidentNotFound("Incident not found.")
 
 
@@ -259,22 +280,64 @@ def get_job(session: Session, actor: Actor, job_id: UUID) -> AiJob:
 def claim_job(
     session: Session, job_id: UUID, *, now: datetime | None = None,
 ) -> AiJob | None:
-    """Claim one queued job without waiting behind another delivery."""
+    """Claim queued work or safely reclaim a worker whose lease expired."""
+    fixed = now or datetime.now(UTC)
     job = session.scalar(
         select(AiJob)
-        .where(AiJob.id == job_id, AiJob.state == "queued")
+        .where(
+            AiJob.id == job_id,
+            or_(
+                AiJob.state == "queued",
+                and_(
+                    AiJob.state == "running",
+                    or_(
+                        AiJob.lease_expires_at.is_(None),
+                        AiJob.lease_expires_at <= fixed,
+                    ),
+                ),
+            ),
+        )
         .with_for_update(skip_locked=True)
     )
     if job is None:
         return None
-    fixed = now or datetime.now(UTC)
     job.state = "running"
     job.stage = CLAIM_STAGES[job.job_type]
     job.attempts += 1
     if job.started_at is None:
         job.started_at = fixed
+    job.claim_token = uuid4()
+    job.lease_expires_at = fixed + JOB_LEASE_DURATION
     session.flush()
     return job
+
+
+def _validate_result_targets(
+    session: Session, job: AiJob, reference: dict[str, object],
+) -> None:
+    incident_revision_number = reference.get("incident_revision_number")
+    if incident_revision_number is not None:
+        incident_revision_id = session.scalar(select(IncidentRevision.id).where(
+            IncidentRevision.incident_id == job.incident_id,
+            IncidentRevision.revision_number == incident_revision_number,
+        ))
+        if incident_revision_id is None:
+            raise InvalidJobResultReference("job result reference is invalid")
+
+    for item in reference.get("reports", []):
+        report_id = UUID(str(item["report_id"]))
+        revision_number = int(item["revision_number"])
+        report_revision_id = session.scalar(
+            select(ReportRevision.id)
+            .join(Report, Report.id == ReportRevision.report_id)
+            .where(
+                ReportRevision.report_id == report_id,
+                ReportRevision.revision_number == revision_number,
+                Report.incident_id == job.incident_id,
+            )
+        )
+        if report_revision_id is None:
+            raise InvalidJobResultReference("job result reference is invalid")
 
 
 def apply_job_result(
@@ -282,6 +345,8 @@ def apply_job_result(
     job_id: UUID,
     expected_incident_revision: int,
     *,
+    claim_token: UUID | None = None,
+    result_reference: object | None = None,
     now: datetime | None = None,
     request_id: str | None = None,
     client_version: str = "0.0.0-worker",
@@ -294,6 +359,10 @@ def apply_job_result(
         or expected_incident_revision < 1
     ):
         raise ValueError("expected incident revision must be a positive integer")
+    safe_reference = normalize_job_result_reference(
+        {} if result_reference is None else result_reference,
+    )
+    fixed = now or datetime.now(UTC)
     job = session.scalar(
         select(AiJob).where(AiJob.id == job_id).with_for_update()
     )
@@ -303,12 +372,18 @@ def apply_job_result(
         return
     if job.state != "running":
         raise ValueError("job must be claimed before applying a result")
+    if (
+        not isinstance(claim_token, UUID)
+        or job.claim_token != claim_token
+        or job.lease_expires_at is None
+        or job.lease_expires_at <= fixed
+    ):
+        raise StaleJobClaim("job claim is no longer current")
     incident = session.scalar(
         select(Incident).where(Incident.id == job.incident_id).with_for_update()
     )
     if incident is None:
         raise JobNotFound("Job not found.")
-    fixed = now or datetime.now(UTC)
     account = session.get(Account, job.requested_by_account_id)
     if account is None:
         raise RuntimeError("job requester attribution is unavailable")
@@ -323,6 +398,8 @@ def apply_job_result(
         job.stage = "failed"
         job.error_code = "job_result_conflict"
         job.completed_at = fixed
+        job.claim_token = None
+        job.lease_expires_at = None
         _append_audit(
             session,
             writer,
@@ -341,10 +418,14 @@ def apply_job_result(
         session.flush()
         return
 
+    _validate_result_targets(session, job, safe_reference)
     job.state = "succeeded"
     job.stage = "completed"
     job.error_code = None
+    job.result_reference = safe_reference
     job.completed_at = fixed
+    job.claim_token = None
+    job.lease_expires_at = None
     latency_ms = max(0, min(int((fixed - job.created_at).total_seconds() * 1000), 1_000_000_000))
     _append_audit(
         session,
