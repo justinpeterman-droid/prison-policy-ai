@@ -49,6 +49,7 @@ Modify only:
 
 - `infra/terraform/modules/access_platform/variables.tf`
 - `infra/terraform/modules/access_platform/outputs.tf`
+- `infra/terraform/modules/access_platform/identities.tf`
 - `infra/terraform/environments/test/main.tf`
 - `infra/terraform/environments/production/main.tf`
 - `infra/terraform/environments/test/variables.tf`
@@ -61,6 +62,7 @@ No deletion is authorized. All other upstream files are consume-only.
 
 - Consume the OP-03 network, identities, DB connection name, and secret resource IDs plus one Artifact Registry `image_digest` ending in `@sha256:` and exactly 64 lowercase hex characters.
 - After its concrete resources exist, bind the already-created OP-03 workflow accounts at resource scope only: deploy to this environment's Artifact Registry repository, API/worker/migration Cloud Run services/jobs and their runtime service accounts; rollback through its custom traffic role to only API/worker services; and production access-release to immutable release-bucket paths. Never replace these with project-wide roles. Vertex AI/Discovery Engine data-store and managed-signing-service permissions remain external resource-interface gates until their approved resource IDs and IAM interfaces are supplied.
+- Extend the OP-03 Terraform-apply management identity only with the exact reviewed roles necessary to create/manage this task's declared Artifact Registry, Cloud Run, Cloud Tasks, Storage, DNS, certificate, load-balancer, and Cloud Armor resources. Keep application-secret payload access, build/push, migration invocation, revision deployment, signing, and unrelated project administration prohibited. Bind deploy only to revision/job deployment actions on the reviewed API/worker/migration resources and their runtime service accounts; do not grant Cloud Run service administration. The rollback custom role must include exactly `run.services.get`, `run.services.update`, `run.operations.get`, `run.revisions.get`, and `run.revisions.list`, scoped only to API and worker services.
 - API and worker use the identical `var.image_digest`; never a tag or source deployment.
 - API entry point is Gunicorn `backend.webapp.app:create_app()` with ingress exactly `INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER`. Grant `roles/run.invoker` to `allUsers` only on that API service, because Cloud Run still enforces invoker IAM after the external HTTPS load balancer. The internal-and-cloud-load-balancing ingress setting is the mandatory direct-`run.app` bypass control; never grant `allUsers` on worker or any other service/job.
 - Worker entry point is Gunicorn `backend.worker.app:create_worker_app()` with ingress exactly `INGRESS_TRAFFIC_INTERNAL_ONLY`.
