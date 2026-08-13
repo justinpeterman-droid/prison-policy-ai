@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from backend.webapp import app as app_mod
 from backend.webapp.api_v1.pagination import InvalidCursor, decode_cursor, encode_cursor
+from backend.identity.sessions import SessionReauthenticationRequired
 
 
 def configured_client(monkeypatch):
@@ -78,6 +79,12 @@ def test_unexpected_api_error_uses_safe_json_envelope(monkeypatch):
 def test_request_events_are_closed_and_exclude_sensitive_markers(
     monkeypatch, caplog
 ):
+    middleware = importlib.import_module("backend.webapp.api_v1.middleware")
+
+    def reject_unknown_bearer(*_args, **_kwargs):
+        raise SessionReauthenticationRequired
+
+    monkeypatch.setattr(middleware, "resolve_access_session", reject_unknown_bearer)
     client = configured_client(monkeypatch)
     marker = "fictional-sensitive-marker"
     caplog.set_level(logging.INFO, logger="backend.webapp.api_v1")

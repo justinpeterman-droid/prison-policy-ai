@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
 from tests.integration.identity_fixtures import (
@@ -12,11 +12,35 @@ from tests.integration.identity_fixtures import (
     issue_fictional_tokens,
     seed_fictional_account,
 )
+from tests.support.reporting import (
+    FictionalStaff,
+    make_incident,
+    make_report,
+    seed_fictional_staff_and_accounts,
+)
+from backend.webapp.api_v1.middleware import Actor
 
 from datetime import UTC, datetime
 
 
 ROOT = Path(__file__).resolve().parents[2]
+DATABASE_FIXTURES = frozenset({"db_engine", "db_session_factory", "db_session"})
+
+
+def _truncate_application_tables(engine):
+    with engine.begin() as connection:
+        table_names = [
+            table_name
+            for table_name in inspect(connection).get_table_names()
+            if table_name != "alembic_version"
+        ]
+        if not table_names:
+            return
+        quote = connection.dialect.identifier_preparer.quote
+        tables = ", ".join(quote(table_name) for table_name in table_names)
+        connection.execute(text(
+            f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"
+        ))
 
 
 @pytest.fixture(scope="session")
@@ -50,6 +74,18 @@ def db_session_factory(db_engine):
     return sessionmaker(bind=db_engine, expire_on_commit=False)
 
 
+@pytest.fixture(autouse=True)
+def isolate_postgres_test(request):
+    if DATABASE_FIXTURES.isdisjoint(request.fixturenames):
+        yield
+        return
+
+    engine = request.getfixturevalue("db_engine")
+    _truncate_application_tables(engine)
+    yield
+    _truncate_application_tables(engine)
+
+
 @pytest.fixture
 def db_session(db_session_factory):
     session = db_session_factory()
@@ -61,10 +97,17 @@ def db_session(db_session_factory):
 
 
 @pytest.fixture
-def api_client():
-    from backend.webapp.app import create_app
+def api_client(monkeypatch):
+    import backend.webapp.app as app_module
 
-    app = create_app()
+    monkeypatch.setenv("ACCESS_API_ENABLED", "true")
+    monkeypatch.setenv("IDENTITY_HASH_PEPPER", "p" * 32)
+    monkeypatch.setenv("CURSOR_SIGNING_KEY", "c" * 32)
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://integration.example.invalid")
+    monkeypatch.setattr(
+        app_module, "ACCESS_CODE", "fictional-local-integration-access-code",
+    )
+    app = app_module.create_app()
     app.config.update(TESTING=True)
     return app.test_client()
 
@@ -114,3 +157,103 @@ def user_bearer_headers(fictional_user_tokens):
 @pytest.fixture
 def admin_bearer_headers(fictional_admin_tokens):
     return bearer_headers(fictional_admin_tokens)
+
+
+@pytest.fixture
+def fictional_staff_and_accounts(db_session, identity_fixed_now):
+    return seed_fictional_staff_and_accounts(db_session, identity_fixed_now)
+
+
+@pytest.fixture
+def fictional_staff(fictional_staff_and_accounts):
+    return FictionalStaff(
+        fictional_staff_and_accounts.user.staff_member,
+        fictional_staff_and_accounts.preparer.staff_member,
+    )
+
+
+@pytest.fixture
+def fictional_incident(db_session, fictional_staff_and_accounts, identity_fixed_now):
+    return make_incident(
+        db_session, fictional_staff_and_accounts.preparer, identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def fictional_report(
+    db_session, fictional_incident, fictional_staff_and_accounts, identity_fixed_now,
+):
+    return make_report(
+        db_session, incident=fictional_incident,
+        owner=fictional_staff_and_accounts.user,
+        preparer=fictional_staff_and_accounts.preparer,
+        now=identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def shared_report(fictional_report):
+    return fictional_report
+
+
+@pytest.fixture
+def incident_id(fictional_incident):
+    return fictional_incident.id
+
+
+@pytest.fixture
+def report_id(fictional_report):
+    return fictional_report.id
+
+
+@pytest.fixture
+def user_actor(fictional_staff_and_accounts, fictional_owner_tokens):
+    account = fictional_staff_and_accounts.user
+    return Actor(
+        account.id, account.staff_member_id, fictional_owner_tokens.session_id,
+        "user", account.auth_version, account.must_change_pin,
+    )
+
+
+@pytest.fixture
+def fictional_owner_tokens(db_session, fictional_staff_and_accounts, identity_fixed_now):
+    return issue_fictional_tokens(
+        db_session, account=fictional_staff_and_accounts.user,
+        device_id="device-fictional-owner-0001", now=identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def fictional_preparer_tokens(db_session, fictional_staff_and_accounts, identity_fixed_now):
+    return issue_fictional_tokens(
+        db_session, account=fictional_staff_and_accounts.preparer,
+        device_id="device-fictional-preparer-0001", now=identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def fictional_unrelated_tokens(db_session, fictional_staff_and_accounts, identity_fixed_now):
+    return issue_fictional_tokens(
+        db_session, account=fictional_staff_and_accounts.unrelated,
+        device_id="device-fictional-unrelated-0001", now=identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def owner_bearer_headers(fictional_owner_tokens):
+    return bearer_headers(fictional_owner_tokens)
+
+
+@pytest.fixture
+def preparer_bearer_headers(fictional_preparer_tokens):
+    return bearer_headers(fictional_preparer_tokens)
+
+
+@pytest.fixture
+def unrelated_bearer_headers(fictional_unrelated_tokens):
+    return bearer_headers(fictional_unrelated_tokens)
+
+
+@pytest.fixture
+def old_client_bearer_headers(fictional_owner_tokens):
+    return bearer_headers(fictional_owner_tokens, client_version="0.1.0")

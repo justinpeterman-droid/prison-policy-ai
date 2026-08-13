@@ -49,6 +49,31 @@ def prepare_api_request():
         "api_v1.auth_api.change_pin": "auth_change_pin",
         "api_v1.auth_api.sessions": "auth_sessions",
         "api_v1.auth_api.delete_session": "auth_revoke_session",
+        "api_v1.auth_api.admin_step_up": "auth_admin_step_up",
+        "api_v1.admin_api.staff_list": "admin_staff_list",
+        "api_v1.admin_api.staff_create": "admin_staff_create",
+        "api_v1.admin_api.staff_update": "admin_staff_update",
+        "api_v1.admin_api.account_list": "admin_account_list",
+        "api_v1.admin_api.account_create": "admin_account_create",
+        "api_v1.admin_api.account_update": "admin_account_update",
+        "api_v1.admin_api.account_reset_pin": "admin_account_reset_pin",
+        "api_v1.admin_api.account_unlock": "admin_account_unlock",
+        "api_v1.admin_api.account_sessions": "admin_account_sessions",
+        "api_v1.admin_api.account_revoke_sessions": "admin_account_revoke_sessions",
+        "api_v1.staff_api.staff_list": "staff_list",
+        "api_v1.incidents_api.create": "incident_create",
+        "api_v1.incidents_api.get": "incident_read",
+        "api_v1.incidents_api.save": "incident_save",
+        "api_v1.incidents_api.revision_list": "incident_revision_list",
+        "api_v1.incidents_api.revision_detail": "incident_revision_read",
+        "api_v1.incidents_api.restore": "incident_restore",
+        "api_v1.reports_api.list": "report_list",
+        "api_v1.reports_api.get": "report_read",
+        "api_v1.reports_api.save": "report_save",
+        "api_v1.reports_api.revision_list": "report_revision_list",
+        "api_v1.reports_api.revision_detail": "report_revision_read",
+        "api_v1.reports_api.restore": "report_restore",
+        "api_v1.reports_api.recovery": "report_recovery",
     }.get(request.endpoint or "", "unknown")
     if request.endpoint != "api_v1.client_policy":
         if getattr(g, "client_version", None) is None:
@@ -113,6 +138,22 @@ def client_policy():
 from backend.webapp.api_v1.auth import auth_bp
 
 api_v1_bp.register_blueprint(auth_bp, url_prefix="/auth")
+
+from backend.webapp.api_v1.admin import admin_bp
+
+api_v1_bp.register_blueprint(admin_bp, url_prefix="/admin")
+
+from backend.webapp.api_v1.staff import staff_bp
+
+api_v1_bp.register_blueprint(staff_bp, url_prefix="/staff")
+
+from backend.webapp.api_v1.incidents import incidents_bp
+
+api_v1_bp.register_blueprint(incidents_bp, url_prefix="/incidents")
+
+from backend.webapp.api_v1.reports import reports_bp
+
+api_v1_bp.register_blueprint(reports_bp, url_prefix="/reports")
 
 
 @api_v1_bp.get("/me", endpoint="me")
