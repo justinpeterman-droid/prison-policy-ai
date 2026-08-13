@@ -585,10 +585,14 @@ git commit -m "feat: add durable idempotent ai jobs"
 - Create: `backend/worker/__init__.py`
 - Create: `backend/worker/app.py`
 - Create: `backend/worker/routes.py`
+- Create: `backend/worker/metrics.py`
 - Create: `scripts/dispatch_outbox.py`
 - Modify: `Dockerfile`
+- Modify: `requirements.txt`
+- Modify: `backend/requirements.txt`
 - Create: `tests/unit/test_task_dispatcher.py`
 - Create: `tests/unit/test_worker_routes.py`
+- Create: `tests/unit/test_worker_metrics.py`
 - Create: `tests/integration/test_worker_pipeline.py`
 
 **Interfaces:**
@@ -626,7 +630,7 @@ Cloud Run IAM is the worker authentication boundary; the application additionall
 
 - [ ] **Step 5: Document the narrow provider-crash limitation in code and metrics**
 
-The dispatcher/job idempotency prevents duplicate submissions and durable result application. A worker process crash after Google accepts a request but before the result commits can repeat a provider call; increment `ai_provider_repeat_risk_total` on recovery attempts and never claim exactly-once external billing.
+The dispatcher/job idempotency prevents duplicate submissions and durable result application. A worker process crash after Google accepts a request but before the result commits can repeat a provider call; on a recovered provider-repeat risk, emit exactly one Cloud Monitoring custom counter point of type `custom.googleapis.com/ai_provider_repeat_risk_total`, with the sole metric label `job_type`; never include identity, job/request IDs, or content and never claim exactly-once external billing. The metric adapter uses dependency injection in offline tests and creates the Google client lazily only in deployed worker execution.
 
 - [ ] **Step 6: Update Docker image entry points and run tests**
 

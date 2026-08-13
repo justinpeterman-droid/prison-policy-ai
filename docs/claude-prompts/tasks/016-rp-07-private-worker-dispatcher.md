@@ -42,10 +42,14 @@ Require clean tracked/index state; only untouched existing `.superpowers/` is to
 - Create: `backend/worker/__init__.py`
 - Create: `backend/worker/app.py`
 - Create: `backend/worker/routes.py`
+- Create: `backend/worker/metrics.py`
 - Create: `scripts/dispatch_outbox.py`
 - Modify: `Dockerfile`
+- Modify: `requirements.txt`
+- Modify: `backend/requirements.txt`
 - Create: `tests/unit/test_task_dispatcher.py`
 - Create: `tests/unit/test_worker_routes.py`
+- Create: `tests/unit/test_worker_metrics.py`
 - Create: `tests/integration/test_worker_pipeline.py`
 
 Consume-only: RP services/models, retry code, plans/specs, Terraform plan, tests not above. No infra/workflow/OpenAPI/public API/engine prompt/README edits.
@@ -56,7 +60,7 @@ Consume-only: RP services/models, retry code, plans/specs, Terraform plan, tests
 - Dispatcher reads only committed available outbox rows, deterministic task name from project/region/queue/job UUID, exact JSON `{"job_id":"UUID"}`, OIDC task-invoker service-account email, audience equal worker origin. AlreadyExists counts success; retry safe transient errors only; persist bounded codes, never provider/body/auth details.
 - Worker is private by Cloud Run IAM. App additionally requires Cloud Tasks metadata and exact route/body UUID match as defense-in-depth, not IAM replacement. Do not implement shared secret auth or trust arbitrary headers.
 - Worker claims one job, runs existing injected classifier/extractor/generator adapters, updates stable stages, validates, applies via revision service, safe audit/result. Deterministic validation/auth failure records terminal category then returns 2xx to stop retry; transient failure follows documented retry.
-- Redelivery applies at most one durable result. Document metric `ai_provider_repeat_risk_total`: crash after provider acceptance before DB commit can repeat billing; never claim external exactly-once.
+- Redelivery applies at most one durable result. On recovered provider-repeat risk, emit exactly one real Cloud Monitoring counter point of type `custom.googleapis.com/ai_provider_repeat_risk_total`, with `job_type` as its sole metric label. The Monitoring adapter must use dependency injection in offline tests, create its Google client lazily, and emit no identity, job/request ID, or report content; crash after provider acceptance before DB commit can repeat billing, so never claim external exactly-once.
 - Docker retains API default and contains required Alembic/migrations/root assets. Deployment supplies exact worker command `gunicorn --bind :$PORT --workers 1 --threads 4 --timeout 900 "backend.worker.app:create_worker_app()"`.
 - Unit/integration use `FakeTasksClient` and fake report engine; no ADC/network.
 
@@ -83,7 +87,7 @@ Consume-only: RP services/models, retry code, plans/specs, Terraform plan, tests
 7. Run allowlist/whitespace:
 
    ```powershell
-   $allowed=@('backend/jobs/dispatcher.py','backend/worker/__init__.py','backend/worker/app.py','backend/worker/routes.py','scripts/dispatch_outbox.py','Dockerfile','tests/unit/test_task_dispatcher.py','tests/unit/test_worker_routes.py','tests/integration/test_worker_pipeline.py')
+   $allowed=@('backend/jobs/dispatcher.py','backend/worker/__init__.py','backend/worker/app.py','backend/worker/routes.py','backend/worker/metrics.py','scripts/dispatch_outbox.py','Dockerfile','requirements.txt','backend/requirements.txt','tests/unit/test_task_dispatcher.py','tests/unit/test_worker_routes.py','tests/unit/test_worker_metrics.py','tests/integration/test_worker_pipeline.py','docs/superpowers/plans/2026-08-12-report-storage-api-implementation.md','docs/claude-prompts/tasks/016-rp-07-private-worker-dispatcher.md')
    $changed=@((git diff --name-only),(git diff --cached --name-only),(git ls-files --others --exclude-standard))|Sort-Object -Unique
    $unexpected=$changed|Where-Object{$_ -notin $allowed -and $_ -notlike '.superpowers/*'}
    if($unexpected){$unexpected;throw 'Changed-file allowlist violation.'}

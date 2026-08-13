@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 import logging
+import os
 import re
 from typing import Protocol
 from uuid import UUID
@@ -33,6 +34,7 @@ from backend.reports import service as report_service
 from backend.reports.revisions import RevisionConflict, save_incident, save_report
 from backend.reports.roster import SqlStaffProvider
 from backend.webapp.api_v1.middleware import Actor
+from backend.worker.metrics import GoogleCloudMonitoringMetricSink
 from backend.webapp.api_v1.schemas.reporting import (
     IncidentSnapshotV1,
     ReportContentV1,
@@ -296,7 +298,9 @@ class JobProcessor:
     ):
         self._session_factory = session_factory or session_scope
         self._engine = report_engine or RouteNeutralReportEngine()
-        self._metric_sink = metric_sink
+        self._metric_sink = metric_sink or GoogleCloudMonitoringMetricSink(
+            project_id=os.environ.get("GCP_PROJECT_ID", ""),
+        )
         self._now = now or (lambda: datetime.now(UTC))
 
     def _scope(self):
@@ -418,18 +422,17 @@ class JobProcessor:
 
     def _emit_repeat_risk(self, job_type: str) -> None:
         labels = {"job_type": job_type}
-        if self._metric_sink is not None:
+        try:
             self._metric_sink.increment(
                 "ai_provider_repeat_risk_total", labels=labels,
             )
-            return
-        logger.info(
-            "ai_provider_repeat_risk_total",
-            extra={
-                "event_name": "ai_provider_repeat_risk_total",
-                "job_type": job_type,
-            },
-        )
+        except Exception:
+            # A telemetry outage must not repeat the provider call or alter the
+            # already-durable recovery decision. Do not expose raw exceptions.
+            logger.error(
+                "ai_provider_repeat_risk_metric_emit_failed",
+                extra={"event_name": "ai_provider_repeat_risk_metric_emit_failed"},
+            )
 
     def _mark_terminal(self, job_id: UUID, claim_token: UUID, code: str) -> None:
         fixed = self._now()
