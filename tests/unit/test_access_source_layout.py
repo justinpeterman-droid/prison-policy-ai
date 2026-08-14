@@ -94,6 +94,15 @@ def test_reports_and_queries_have_no_access_objects():
     assert list((CLIENT / "src" / "queries").glob("*.sql")) == []
 
 
+def test_release_autoexec_never_calls_test_only_vba():
+    macro = (CLIENT / "src" / "macros" / "AutoExec.txt").read_text("utf-8")
+    project = json.loads((CLIENT / "src" / "project.json").read_text("utf-8"))
+
+    assert "Test_Bootstrap" not in macro
+    assert 'Action ="RunCode"' not in macro
+    assert project["startup_form"] == "frmShell"
+
+
 def test_manifested_forms_exclude_access_volatile_export_metadata():
     manifest = json.loads((CLIENT / "src" / "manifest.json").read_text("utf-8"))
     forms = [item for item in manifest["objects"] if item["type"] == "form"]
