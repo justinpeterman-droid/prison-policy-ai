@@ -108,7 +108,8 @@ def test_actions_are_full_sha_pinned():
 def test_backend_quality_has_supported_python_and_postgres():
     text = (WORKFLOWS / "backend-quality.yml").read_text(encoding="utf-8")
     assert '"3.12"' in text and '"3.14"' in text
-    assert "hashicorp/setup-terraform@" in text and 'terraform-version: "1.15.8"' in text
+    assert "hashicorp/setup-terraform@" in text and 'terraform_version: "1.15.8"' in text
+    assert "terraform-version:" not in text
     assert "postgres:17@sha256:" in text
     assert "checkov@sha256:e5e308e713725e73f517e4cb85b39d467f1e047204c174fb15eb444c27ffb745" in text
     assert "--framework" not in text and "--skip-check" not in text and "--baseline" not in text
