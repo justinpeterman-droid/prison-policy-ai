@@ -81,16 +81,17 @@ dependency or external approval.
 - [x] 022 OP-04 — Serverless edge and storage. `MERGED` and independently reviewed at `0ce9d8d`.
 - [x] 023 OP-05 — Monitoring, backup, and budgets. `MERGED` and independently reviewed at `f5e8f24`.
 - [x] 024 OP-06 — Migration, roster, and first-Admin jobs. Reviewed and integrated at `00119a9`; local Docker and dedicated PostgreSQL lifecycle gates remain external.
-- [ ] 025 OP-07 — Quality and supply-chain gates. `LOCAL` in release candidate
-  `8069dc1`, with signed Anchore release-asset verification corrected in
-  `33cb8d2` (not unsigned OCI-image verification), and reviewed redaction
-  narrowing in `ecce737`. Focused release gates passed 21; locked Ruff/mypy,
-  workflow-pin, Pages redaction, and the exact unfiltered pinned Checkov scan
-  are green. A real local Docker build passed (nonroot plus health check), as
-  did digest-pinned runtime pull, SPDX generation, generated/read-only SBOM
-  binding validation, SBOM/SARIF redaction, and the fixed-High/Critical Grype
-  scan. Do not mark complete until real `cosign verify-blob` reaches Rekor;
-  the public Rekor endpoint currently fails locally with `SEC_E_LOGON_DENIED`.
+- [x] 025 OP-07 — Quality and supply-chain gates. `LOCAL` in the pushed release
+  candidate. The signed Anchore release-asset flow was corrected in `33cb8d2`
+  (not unsigned OCI-image verification), and redaction narrowing was reviewed
+  in `ecce737`. GitHub-hosted run `31760769637` at code commit `096796f` passed
+  locked Ruff/mypy, unit, PostgreSQL integration, OpenAPI, redaction, Pages,
+  and exact unfiltered pinned Checkov gates; its paired Container Security run
+  `31760769639` passed the real `cosign verify-blob`/Rekor verification before
+  Syft and Grype execution, plus SPDX binding and fixed-High/Critical scanning.
+  The workstation's `SEC_E_LOGON_DENIED` against public Rekor remains a local
+  network limitation, not an unverified release gate. The candidate is not
+  merged.
 - [ ] 026 OP-08 — Controlled delivery workflows.
 
 ## Microsoft Access employee client
