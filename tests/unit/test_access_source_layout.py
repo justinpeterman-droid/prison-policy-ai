@@ -115,9 +115,7 @@ def test_manifested_forms_exclude_access_volatile_export_metadata():
 
 def test_accde_build_waits_for_accesses_native_save_as_workflow():
     builder = (CLIENT / "build" / "AccessBuild.Common.psm1").read_text("utf-8")
-    build_accde = builder.split("function Build-AccessAccde", 1)[1].split(
-        "function Test-AccessSourceRoundTrip", 1
-    )[0]
+    build_accde = builder.split("function Build-AccessAccde", 1)[1].split("function Test-AccessSourceRoundTrip", 1)[0]
     readme = (CLIENT / "README.md").read_text("utf-8")
 
     assert "$app.Visible = $true" in build_accde
