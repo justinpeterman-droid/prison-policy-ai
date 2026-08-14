@@ -48,13 +48,30 @@ def test_access_has_no_local_application_tables():
 
 def test_vba_json_231_is_pinned_by_bytes_and_hash():
     vendor = CLIENT / "vendor" / "json"
-    for name, expected in EXPECTED_VENDOR.items():
+    json_vendor = {name: EXPECTED_VENDOR[name] for name in ("JsonConverter.bas", "LICENSE.txt")}
+    for name, expected in json_vendor.items():
         path = vendor / name
         assert path.stat().st_size == expected[0]
         assert sha256(path) == expected[1]
     version = (vendor / "VERSION.txt").read_text("utf-8")
     assert "v2.3.1" in version
     assert "1e49ba826b979d1851029dc965ecb6a3ead2a32c" in version
+
+
+def test_access_json_import_adapter_preserves_pinned_vendor_bytes_without_reference():
+    manifest = json.loads((CLIENT / "src" / "manifest.json").read_text("utf-8"))
+    entries = {item["name"]: item for item in manifest["objects"]}
+    assert "Dictionary" not in entries
+
+    builder = (CLIENT / "build" / "AccessBuild.Common.psm1").read_text("utf-8")
+    assert "ConvertTo-AccessJsonImportSource" in builder
+    assert "As Dictionary" in builder
+    assert "As Object" in builder
+    assert 'CreateObject("Scripting.Dictionary")' in builder
+    assert "Vendor JsonConverter source did not match the expected v2.3.1 import shape." in builder
+
+    project = json.loads((CLIENT / "src" / "project.json").read_text("utf-8"))
+    assert "Microsoft Scripting Runtime" in project["forbidden_references"]
 
 
 def test_pinned_vendor_files_disable_checkout_line_ending_conversion():
@@ -85,3 +102,20 @@ def test_manifested_forms_exclude_access_volatile_export_metadata():
         assert "Checksum =" not in text
         assert "NameMap = Begin" not in text
         assert text.count("    NoSaveCTIWhenDisabled =1") == 1
+
+
+def test_accde_build_waits_for_accesses_native_save_as_workflow():
+    builder = (CLIENT / "build" / "AccessBuild.Common.psm1").read_text("utf-8")
+    build_accde = builder.split("function Build-AccessAccde", 1)[1].split(
+        "function Test-AccessSourceRoundTrip", 1
+    )[0]
+    readme = (CLIENT / "README.md").read_text("utf-8")
+
+    assert "$app.Visible = $true" in build_accde
+    assert "$app.RunCommand(7)" not in build_accde
+    assert "SysCmd" not in build_accde
+    assert "File > Save As > Make ACCDE" in build_accde
+    assert "InteractiveTimeoutSeconds" in build_accde
+    assert "ACCDE was not produced at $Output." in build_accde
+    assert "native **File → Save As → Make ACCDE** workflow" in readme
+    assert "exact `-Output` path" in readme

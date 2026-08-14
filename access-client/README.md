@@ -39,6 +39,10 @@ powershell.exe -NoProfile -File access-client/build/BuildAccde.ps1 `
     -Database access-client/SLUT-Client.accdb -Output $env:TEMP\SLUT-Client-x64.accde `
     -Platform x64 -ClientVersion 0.1.0
 
+# The command opens Access for the native **File → Save As → Make ACCDE** workflow.
+# Save to the exact -Output path printed by the script; cancelling or choosing another
+# path fails the subsequent artifact check after five minutes.
+
 # Run the in-database VBA test entry point
 powershell.exe -NoProfile -File access-client/build/InvokeAccessUnitTests.ps1 `
     -Database access-client/SLUT-Client.accdb -Platform x64
@@ -67,7 +71,12 @@ python -m pytest tests/access/test_reconstruction.py -q -m access_com
 - **Test-only objects** (`TestAssert`, `TestRunner`) are imported only with
   `-Configuration Test`.
 
-## Vendor dependency
+## Vendor dependencies
+
+The importer creates a transient, exact two-line late-bound Access adaptation of
+VBA-JSON at build time. The hash-pinned vendor source remains untouched; this avoids
+the compile-time **Microsoft Scripting Runtime** reference while preserving the
+production reference invariant.
 
 VBA-JSON v2.3.1, pinned to commit `1e49ba826b979d1851029dc965ecb6a3ead2a32c`:
 
@@ -104,8 +113,11 @@ security control.
 3. **`RunCommand(126)` after every module import.** `VBComponents.Import` only
    stages modules in memory; without an explicit compile-and-save they are lost
    silently on close.
-4. **`SysCmd 603` is invoked late-bound.** The Access primary interop assembly
-   types the first argument as `AcSysCmdAction`, which has no `603` member.
+4. **ACCDE creation uses the native Access File → Save As → Make ACCDE workflow.**
+   Access refuses conversion when it is invoked from a macro or VBA/automation.
+   The build compiles, opens the database visibly, waits for an approved operator
+   to select the exact `-Output` path, then verifies the artifact. No UI automation
+   is used.
 5. **`-Check` is a `[string]` parameter.** `powershell.exe -File` passes every
    argument as a string, so the Python COM bridge's `-Check True` cannot bind to a
    switch or a bool.
@@ -114,16 +126,13 @@ security control.
 
 ## Known open items
 
-- **ACCDE creation is unproven on this Access build.** `SysCmd 603` returns
-  without error and produces no file on Access 16.0 build 20228 x64. There is no
-  supported COM alternative — `acCmdMakeMDEFile` only opens a dialog. Per the
-  plan, this stops that matrix row rather than being worked around.
-- **`tests/access/test_reconstruction.py` cannot pass from an untrusted path.**
-  It rebuilds into pytest's `tmp_path`, which is not a Trusted Location, so
-  Access opens the rebuilt database in disabled mode and `CurrentDb()` returns
-  nothing. Resolving this needs a Trusted Location decision or a change to the
-  test's rebuild target — both require review, and neither should be done by
-  weakening Trust Center policy.
+- **ACCDE creation requires one controlled interactive matrix pass.** The build
+  opens Access's native dialog and then verifies the exact output path and a
+  read-only reopen. Record the Access version/channel/bitness and artifact hash;
+  do not use UI automation, signing, or a Trust Center change.
+- **Reconstruction uses a trusted, ignored child of the existing project Trusted
+  Location.** It does not use pytest's untrusted temporary directory and does not
+  change Trust Center policy.
 - **`pytest.mark.access_com` is unregistered**, producing
   `PytestUnknownMarkWarning`. Registering it means editing `pytest.ini`, which is
   outside the AC-01 file allowlist.

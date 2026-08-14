@@ -119,6 +119,31 @@ function ConvertTo-CanonicalText {
     [IO.File]::WriteAllText($Path, $canonical, (New-Object Text.UTF8Encoding($false)))
     return $canonical
 }
+
+function ConvertTo-AccessJsonImportSource {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$SourceFile)
+    # VBA-JSON v2.3.1 declares a compile-time Dictionary type. Access reserves
+    # that class name, so importing it directly requires the forbidden Scripting
+    # Runtime reference. Transform exactly those two lines into late-bound Object
+    # use for the transient import copy; never mutate the hash-pinned vendor file.
+    $source = [IO.File]::ReadAllText($SourceFile)
+    $typedDeclaration = 'Private Function json_ParseObject(json_String As String, ByRef json_Index As Long) As Dictionary'
+    $objectDeclaration = 'Private Function json_ParseObject(json_String As String, ByRef json_Index As Long) As Object'
+    $typedConstruction = 'Set json_ParseObject = New Dictionary'
+    $lateBoundConstruction = 'Set json_ParseObject = CreateObject("Scripting.Dictionary")'
+    if (
+        ([regex]::Matches($source, [regex]::Escape($typedDeclaration))).Count -ne 1 -or
+        ([regex]::Matches($source, [regex]::Escape($typedConstruction))).Count -ne 1
+    ) {
+        throw 'Vendor JsonConverter source did not match the expected v2.3.1 import shape.'
+    }
+    $adapted = $source.Replace($typedDeclaration, $objectDeclaration).Replace($typedConstruction, $lateBoundConstruction)
+    $temporary = Join-Path ([IO.Path]::GetTempPath()) ("JsonConverter.Access.$([guid]::NewGuid().ToString('N')).bas")
+    [IO.File]::WriteAllText($temporary, $adapted, (New-Object Text.UTF8Encoding($false)))
+    return $temporary
+}
+
 function Get-Sha256 {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Path)
@@ -313,7 +338,19 @@ function Import-AccessSource {
             if ($isTestOnly -and $Configuration -ne 'Test') { continue }
             $sourceFile = (Resolve-Path -LiteralPath (Join-Path $Source $object.path)).Path
             if ($object.type -eq 'module') {
-                $component = $app.VBE.ActiveVBProject.VBComponents.Import($sourceFile)
+                $temporaryImportFile = $null
+                try {
+                    $isVendor = ($object.PSObject.Properties.Name -contains 'vendor') -and $object.vendor
+                    if ($isVendor -and $object.name -eq 'JsonConverter') {
+                        $temporaryImportFile = ConvertTo-AccessJsonImportSource -SourceFile $sourceFile
+                        $sourceFile = $temporaryImportFile
+                    }
+                    $component = $app.VBE.ActiveVBProject.VBComponents.Import($sourceFile)
+                } finally {
+                    if ($temporaryImportFile) {
+                        Remove-Item -LiteralPath $temporaryImportFile -Force -ErrorAction SilentlyContinue
+                    }
+                }
                 # VBE imports a component into the project but leaves it unsaved.
                 # Save it under its imported name before compilation/close so Access
                 # cannot raise a headless "Save As" modal during shutdown.
@@ -338,7 +375,8 @@ function Build-AccessAccde {
         [Parameter(Mandatory)][string]$Database,
         [Parameter(Mandatory)][string]$Output,
         [Parameter(Mandatory)][ValidateSet('x86', 'x64')][string]$Platform,
-        [Parameter(Mandatory)][string]$ClientVersion
+        [Parameter(Mandatory)][string]$ClientVersion,
+        [ValidateRange(1, 1800)][int]$InteractiveTimeoutSeconds = 300
     )
     if (Test-Path -LiteralPath $Output) {
         Remove-Item -LiteralPath $Output -Force
@@ -350,18 +388,17 @@ function Build-AccessAccde {
         $app.OpenCurrentDatabase($resolved)
         # Compile and persist every module before the ACCDE operation.
         $app.RunCommand(126) | Out-Null   # acCmdCompileAndSaveAllModules
-        $app.CloseCurrentDatabase()
-        # 603 = make ACCDE/MDE. The Access primary interop assembly types SysCmd's
-        # first argument as AcSysCmdAction, which has no 603 member, so this must be
-        # invoked late-bound through IDispatch on a separate instance.
-        $lateType = [Type]::GetTypeFromProgID('Access.Application')
-        $late = [Activator]::CreateInstance($lateType)
-        try {
-            [void]$lateType.InvokeMember('SysCmd', [Reflection.BindingFlags]::InvokeMethod, $null, $late, @(603, $resolved, $Output))
-        } finally {
-            try { [void]$lateType.InvokeMember('Quit', [Reflection.BindingFlags]::InvokeMethod, $null, $late, @(2)) } catch { }
-            try { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($late) } catch { }
-            [GC]::Collect(); [GC]::WaitForPendingFinalizers()
+        # Access explicitly refuses Make ACCDE when it is invoked from a macro or
+        # VBA/automation. Keep this as a controlled native UI action: the operator
+        # chooses File > Save As > Make ACCDE and saves at the exact requested path.
+        $app.Visible = $true
+        Write-Host "In Access choose File > Save As > Make ACCDE and save exactly to: $Output"
+        $deadline = [DateTime]::UtcNow.AddSeconds($InteractiveTimeoutSeconds)
+        while (-not (Test-Path -LiteralPath $Output) -and [DateTime]::UtcNow -lt $deadline) {
+            Start-Sleep -Seconds 1
+        }
+        if (-not (Test-Path -LiteralPath $Output)) {
+            throw "Timed out waiting for the native Make ACCDE workflow to create $Output."
         }
     } finally {
         Close-AccessApplication -Application $app
