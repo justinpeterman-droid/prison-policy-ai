@@ -113,7 +113,8 @@ dependency or external approval.
   import dependency while preserving the vendor pin.
   A trusted, ignored project-output reconstruction now passes import, bounded
   waits for only its own Access processes (never terminating one), self-contained
-  export, and exact manifest equality. Form canonicalization removes only Access
+  export, and logical manifest equality with rewritten in-root dependency paths.
+  Form canonicalization removes only Access
   export metadata proven to be volatile on import: `Checksum`, `NameMap`, and a
   repeated adjacent `NoSaveCTIWhenDisabled` property. The test copies the master
   before export, so it does not mutate the tracked `.accdb`; `access_com` is
