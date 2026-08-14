@@ -49,10 +49,7 @@ def _fresh_rebuild_paths() -> tuple[Path, Path]:
 
 
 def _logical_objects(manifest: dict) -> list[dict]:
-    return [
-        {key: value for key, value in item.items() if key != "path"}
-        for item in manifest["objects"]
-    ]
+    return [{key: value for key, value in item.items() if key != "path"} for item in manifest["objects"]]
 
 
 @pytest.mark.access_com
