@@ -11,8 +11,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 FORBIDDEN = (
-    "password", "private_key", "authorization", "bearer", "service_account",
-    "access_code", "admin_code", "temporary_pin", "employee_id", "inmate_id",
+    "password",
+    "private_key",
+    "authorization",
+    "bearer",
+    "service_account",
+    "access_code",
+    "admin_code",
+    "temporary_pin",
+    "employee_id",
+    "inmate_id",
 )
 BINARY_SUFFIXES = {".accdb", ".png", ".jpg", ".jpeg", ".webp", ".docx", ".pdf", ".mp4", ".woff", ".woff2"}
 STRUCTURED_SUFFIXES = {".json", ".sarif", ".spdx"}
@@ -20,10 +28,12 @@ FIXTURE_VALUE = re.compile(r"(?:fixture-|fake-|fictional-)[a-z0-9_-]+|local-(?:u
 ASSIGNMENT = re.compile(
     rf"\b(?:{'|'.join(map(re.escape, FORBIDDEN))})\b\s*[:=]\s*(?:"
     r"(os\.getenv\(\s*(?:'[^']*'|\"[^\"]*\")(?:\s*,\s*(?:'[^']*'|\"[^\"]*\"))?\s*\))"
-    r"|['\"]([^'\"]+)['\"]|([^\s,;}\]]+))", re.I,
+    r"|['\"]([^'\"]+)['\"]|([^\s,;}\]]+))",
+    re.I,
 )
 GETENV_VALUE = re.compile(
-    r"^os\.getenv\(\s*(?:'[^']*'|\"[^\"]*\")(?:\s*,\s*(?:'(?P<single>[^']*)'|\"(?P<double>[^\"]*)\"))?\s*\)$", re.I,
+    r"^os\.getenv\(\s*(?:'[^']*'|\"[^\"]*\")(?:\s*,\s*(?:'(?P<single>[^']*)'|\"(?P<double>[^\"]*)\"))?\s*\)$",
+    re.I,
 )
 
 
@@ -85,8 +95,7 @@ def scan(path: Path, *, strict_structured: bool) -> bool:
     for line in text.splitlines():
         values = (next(part for part in match.groups() if part is not None) for match in ASSIGNMENT.finditer(line))
         if any(
-            not is_explicitly_nonsecret(value)
-            and (strict_structured or not value.strip().startswith(("{", "[")))
+            not is_explicitly_nonsecret(value) and (strict_structured or not value.strip().startswith(("{", "[")))
             for value in values
         ):
             return False

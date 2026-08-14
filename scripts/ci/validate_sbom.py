@@ -15,7 +15,10 @@ REDACTED_STRUCTURE = {"env", "environment", "content", "contents", "filecontent"
 
 def contains_redacted_structure(value: object) -> bool:
     if isinstance(value, dict):
-        return any(key.lower().replace("_", "") in REDACTED_STRUCTURE or contains_redacted_structure(child) for key, child in value.items())
+        return any(
+            key.lower().replace("_", "") in REDACTED_STRUCTURE or contains_redacted_structure(child)
+            for key, child in value.items()
+        )
     if isinstance(value, list):
         return any(contains_redacted_structure(child) for child in value)
     return False
@@ -23,8 +26,7 @@ def contains_redacted_structure(value: object) -> bool:
 
 def has_image_identity(data: dict[str, object], image_id: str, image: str) -> bool:
     return any(
-        isinstance(item, dict)
-        and item.get("comment") == f"op07-image-config={image_id}; image-reference={image}"
+        isinstance(item, dict) and item.get("comment") == f"op07-image-config={image_id}; image-reference={image}"
         for item in data.get("annotations", [])
     )
 
