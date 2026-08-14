@@ -86,8 +86,11 @@ dependency or external approval.
   `33cb8d2` (not unsigned OCI-image verification), and reviewed redaction
   narrowing in `ecce737`. Focused release gates passed 21; locked Ruff/mypy,
   workflow-pin, Pages redaction, and the exact unfiltered pinned Checkov scan
-  are green. Do not mark complete until real `cosign verify-blob` reaches Rekor
-  and the container/SBOM runtime gates execute in an available Docker environment.
+  are green. A real local Docker build passed (nonroot plus health check), as
+  did digest-pinned runtime pull, SPDX generation, generated/read-only SBOM
+  binding validation, SBOM/SARIF redaction, and the fixed-High/Critical Grype
+  scan. Do not mark complete until real `cosign verify-blob` reaches Rekor;
+  the public Rekor endpoint currently fails locally with `SEC_E_LOGON_DENIED`.
 - [ ] 026 OP-08 — Controlled delivery workflows.
 
 ## Microsoft Access employee client
