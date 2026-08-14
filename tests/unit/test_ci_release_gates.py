@@ -5,12 +5,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
 VALIDATE_SBOM = ROOT / "scripts/ci/validate_sbom.py"
 WORKFLOWS = ROOT / ".github" / "workflows"
 REQUIRED = {
-    "backend-quality-3.12",
-    "backend-quality-3.14",
+    "backend-quality-312",
+    "backend-quality-314",
     "postgres-integration-17",
     "openapi-contract",
     "security-redaction",
@@ -89,6 +91,11 @@ def test_required_checks_are_named_and_fail_closed():
     text = "\n".join(p.read_text(encoding="utf-8") for p in WORKFLOWS.glob("*.yml"))
     assert REQUIRED <= set(re.findall(r"^  ([a-z0-9.-]+):\s*$", text, re.MULTILINE))
     assert "continue-on-error: true" not in text
+
+
+def test_github_actions_job_ids_use_only_supported_characters():
+    workflow = yaml.safe_load((WORKFLOWS / "backend-quality.yml").read_text(encoding="utf-8"))
+    assert all(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", job_id) for job_id in workflow["jobs"])
 
 
 def test_actions_are_full_sha_pinned():
