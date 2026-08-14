@@ -81,38 +81,42 @@ dependency or external approval.
 - [x] 022 OP-04 — Serverless edge and storage. `MERGED` and independently reviewed at `0ce9d8d`.
 - [x] 023 OP-05 — Monitoring, backup, and budgets. `MERGED` and independently reviewed at `f5e8f24`.
 - [x] 024 OP-06 — Migration, roster, and first-Admin jobs. Reviewed and integrated at `00119a9`; local Docker and dedicated PostgreSQL lifecycle gates remain external.
-- [ ] 025 OP-07 — Quality and supply-chain gates. `IN PROGRESS`: approved
-  upstream Terraform hardening is verified. The exact unfiltered pinned
-  Checkov scan reports 176 passed, 0 failed, and 0 skipped; resume OP-07's
-  final supply-chain workflow correction and independent review. Do not mark
-  this task complete until its own final review is clean.
+- [ ] 025 OP-07 — Quality and supply-chain gates. `LOCAL` in release candidate
+  `8069dc1`, with signed Anchore release-asset verification corrected in
+  `33cb8d2` (not unsigned OCI-image verification), and reviewed redaction
+  narrowing in `ecce737`. Focused release gates passed 21; locked Ruff/mypy,
+  workflow-pin, Pages redaction, and the exact unfiltered pinned Checkov scan
+  are green. Do not mark complete until real `cosign verify-blob` reaches Rekor
+  and the container/SBOM runtime gates execute in an available Docker environment.
 - [ ] 026 OP-08 — Controlled delivery workflows.
 
 ## Microsoft Access employee client
 
-- [x] 027 AC-01 - Source/build harness. `LOCAL` at `4bd45d8` on
-  `claude/ac-01-source-build`, branched from reviewed main `a333271`.
-  AWAITING INDEPENDENT REVIEW - not yet merged into this integration branch.
+- [x] 027 AC-01 - Source/build harness. `LOCAL` in release candidate
+  `a49793e`, with complete importable export dependencies in `6e1bb06` and
+  checkout-stable pinned vendor bytes in `e18e1f8`. Independent review is
+  complete; the candidate has not been pushed or merged.
   Steps 1-7 and 9-10 complete. The editable master `SLUT-Client.accdb` holds
   frmShell, frmLogin, frmErrorDialog, macro AutoExec, and modules JsonConverter,
   TestAssert, TestRunner, all exported to text sources.
   Evidence on Access 16.0 build 20228 x64 with matching x64 PowerShell:
-  `tests/unit/test_access_source_layout.py` 4 passed; `ValidateAccessBuild.ps1`
+  a fresh Windows `core.autocrlf=true` clone passed all 5 source-layout tests;
+  `ValidateAccessBuild.ps1`
   OK for x64 (bitness match, zero application tables, vendor hashes, no forbidden
   references, VBA compiles); full credential-free regression 1,247 passed /
   30 skipped; `git diff --check` clean; the commit contains exactly the 28
   allowlisted paths and no others. VBA-JSON v2.3.1 pinned at `1e49ba82`, verified
-  by byte length and SHA-256; `Export-AccessSource` skips vendor objects so an
-  Access re-export cannot overwrite the pin.
+  by byte length and SHA-256; `Export-AccessSource` writes every required
+  import dependency while preserving the vendor pin.
   TASK COMPLETION DOES NOT MEAN MERGED. Two external gates remain open:
   (a) ACCDE creation is UNPROVEN on this Access build - `SysCmd 603` returns
   without error and produces no file, and no supported COM alternative exists
   (`acCmdMakeMDEFile` only opens a dialog), so this matrix row is stopped per plan;
-  (b) `tests/access/test_reconstruction.py` cannot pass while it rebuilds into
-  pytest `tmp_path` - that path is not a Trusted Location, so Access opens the
-  rebuilt database in disabled mode and `CurrentDb()` is unavailable. Resolving it
-  needs a Trusted Location decision or a reviewed change to the rebuild target,
-  NOT a Trust Center relaxation.
+  (b) fresh import/re-export is blocked by this Access build's COM lifecycle:
+  `Quit(1)` leaves the importer process alive, and the next Access instance
+  cannot expose `CurrentDb().TableDefs` until that process eventually exits.
+  Resolving it needs a supported Access automation/build environment, NOT a
+  Trust Center relaxation.
   Also open: `pytest.mark.access_com` is unregistered; registering it means editing
   `pytest.ini`, which is outside the AC-01 file allowlist.
   AC-02 is BLOCKED until this task is independently reviewed and merged, per its
