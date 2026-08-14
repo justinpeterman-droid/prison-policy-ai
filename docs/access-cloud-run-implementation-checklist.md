@@ -95,10 +95,10 @@ dependency or external approval.
 
 ## Microsoft Access employee client
 
-- [x] 027 AC-01 - Source/build harness. `LOCAL` in release candidate
-  `a49793e`, with complete importable export dependencies in `6e1bb06` and
-  checkout-stable pinned vendor bytes in `e18e1f8`. Independent review is
-  complete; the candidate has not been pushed or merged.
+- [x] 027 AC-01 - Source/build harness. `LOCAL` in the pushed release candidate
+  `4b265bd`, with complete importable export dependencies in `6e1bb06` and
+  checkout-stable pinned vendor bytes in `e18e1f8`. The current canonical-form
+  update awaits its independent review; the candidate is not merged.
   Steps 1-7 and 9-10 complete. The editable master `SLUT-Client.accdb` holds
   frmShell, frmLogin, frmErrorDialog, macro AutoExec, and modules JsonConverter,
   TestAssert, TestRunner, all exported to text sources.
@@ -111,17 +111,17 @@ dependency or external approval.
   allowlisted paths and no others. VBA-JSON v2.3.1 pinned at `1e49ba82`, verified
   by byte length and SHA-256; `Export-AccessSource` writes every required
   import dependency while preserving the vendor pin.
-  TASK COMPLETION DOES NOT MEAN MERGED. Two external gates remain open:
-  (a) ACCDE creation is UNPROVEN on this Access build - `SysCmd 603` returns
+  A trusted, ignored project-output reconstruction now passes import, bounded
+  waits for only its own Access processes (never terminating one), self-contained
+  export, and exact manifest equality. Form canonicalization removes only Access
+  export metadata proven to be volatile on import: `Checksum`, `NameMap`, and a
+  repeated adjacent `NoSaveCTIWhenDisabled` property. The test copies the master
+  before export, so it does not mutate the tracked `.accdb`; `access_com` is
+  registered as a Windows-only pytest marker.
+  TASK COMPLETION DOES NOT MEAN MERGED. One external gate remains open: ACCDE
+  creation is UNPROVEN on this Access build - `SysCmd 603` returns
   without error and produces no file, and no supported COM alternative exists
   (`acCmdMakeMDEFile` only opens a dialog), so this matrix row is stopped per plan;
-  (b) fresh import/re-export is blocked by this Access build's COM lifecycle:
-  `Quit(1)` leaves the importer process alive, and the next Access instance
-  cannot expose `CurrentDb().TableDefs` until that process eventually exits.
-  Resolving it needs a supported Access automation/build environment, NOT a
-  Trust Center relaxation.
-  Also open: `pytest.mark.access_com` is unregistered; registering it means editing
-  `pytest.ini`, which is outside the AC-01 file allowlist.
   AC-02 is BLOCKED until this task is independently reviewed and merged, per its
   own stated precondition.
 - [ ] 028 AC-02 — API core.

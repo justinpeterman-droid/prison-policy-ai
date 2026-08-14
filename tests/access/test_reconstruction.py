@@ -48,6 +48,13 @@ def _fresh_rebuild_paths() -> tuple[Path, Path]:
     return root / "SLUT-Client.rebuilt.accdb", root / "exported"
 
 
+def _logical_objects(manifest: dict) -> list[dict]:
+    return [
+        {key: value for key, value in item.items() if key != "path"}
+        for item in manifest["objects"]
+    ]
+
+
 @pytest.mark.access_com
 def test_import_reexport_is_canonical():
     rebuilt, exported = _fresh_rebuild_paths()
@@ -69,7 +76,7 @@ def test_import_reexport_is_canonical():
     _wait_for_owned_access_processes(_access_process_ids() - before_export)
     expected = json.loads((CLIENT / "src" / "manifest.json").read_text("utf-8"))
     actual = json.loads((exported / "manifest.json").read_text("utf-8"))
-    assert actual["objects"] == expected["objects"]
+    assert _logical_objects(actual) == _logical_objects(expected)
 
 
 @pytest.mark.access_com
@@ -88,9 +95,19 @@ def test_export_contains_every_import_dependency():
     )
 
     manifest = json.loads((exported / "manifest.json").read_text("utf-8"))
+    assert all(".." not in Path(item["path"]).parts for item in manifest["objects"])
     required = [
         exported / "project.json",
         exported / "tables" / "schema.json",
         *[exported / item["path"] for item in manifest["objects"]],
     ]
     assert all(path.is_file() for path in required)
+    reimported = root / "SLUT-Client.reimported.accdb"
+    before_import = _access_process_ids()
+    invoke_access_script(
+        CLIENT / "build" / "ImportAccessSource.ps1",
+        Source=exported,
+        Database=reimported,
+        Configuration="Test",
+    )
+    _wait_for_owned_access_processes(_access_process_ids() - before_import)

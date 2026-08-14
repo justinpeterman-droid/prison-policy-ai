@@ -215,7 +215,20 @@ function Export-AccessSource {
         Assert-NoUnmanagedObjects -Application $app -Manifest $manifest
         $ordered = @($manifest.objects | Sort-Object -Property @{Expression = 'type' }, @{Expression = 'name' })
         foreach ($object in $ordered) {
-            $target = Join-Path $Output $object.path
+            $sourceObjectPath = [string]$object.path
+            # The checked-in source root legitimately reaches pinned dependencies
+            # through ../vendor and ../tests. An export is a new source root, so
+            # materialize those files beneath it and rewrite only its manifest.
+            $exportObjectPath = $sourceObjectPath -replace '^(\.\.[\\/])+', ''
+            if (
+                [string]::IsNullOrWhiteSpace($exportObjectPath) -or
+                [IO.Path]::IsPathRooted($exportObjectPath) -or
+                $exportObjectPath -match '(^|[\\/])\.\.([\\/]|$)'
+            ) {
+                throw "Export object path must remain inside the output root: $sourceObjectPath."
+            }
+            $object.path = $exportObjectPath
+            $target = Join-Path $Output $exportObjectPath
             $dir = Split-Path -Parent $target
             if (-not (Test-Path -LiteralPath $dir)) {
                 New-Item -ItemType Directory -Force -Path $dir | Out-Null
@@ -225,7 +238,7 @@ function Export-AccessSource {
                 # Vendor bytes are immutable and hash-pinned. Never re-export them
                 # through Access, but copy the pinned source bytes into the exported
                 # layout so `Import-AccessSource` can consume that layout directly.
-                $pinned = (Resolve-Path -LiteralPath (Join-Path $SourceRoot $object.path)).Path
+                $pinned = (Resolve-Path -LiteralPath (Join-Path $SourceRoot $sourceObjectPath)).Path
                 Copy-Item -LiteralPath $pinned -Destination $target -Force
                 $object | Add-Member -NotePropertyName 'sha256' -NotePropertyValue (Get-Sha256 -Path $target) -Force
                 continue
