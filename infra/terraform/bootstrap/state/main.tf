@@ -20,6 +20,11 @@ resource "google_storage_bucket" "terraform_state" {
     enabled = true
   }
 
+  logging {
+    log_bucket        = var.storage_log_bucket_name
+    log_object_prefix = "terraform-state/${var.environment}/"
+  }
+
   # 30-day minimum retention on the live object generation.
   retention_policy {
     retention_period = 2592000

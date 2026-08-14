@@ -12,14 +12,231 @@ def read(name: str) -> str:
     return (MODULE / name).read_text(encoding="utf-8")
 
 
-def test_sql_is_postgres_17_private_and_protected():
+def variable_block(source: str, name: str) -> str:
+    match = re.search(rf'variable\s+"{re.escape(name)}"\s*\{{', source)
+    assert match, f"missing variable {name}"
+
+    depth = 0
+    for index in range(match.end() - 1, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[match.start(): index + 1]
+    raise AssertionError(f"unterminated variable {name}")
+
+
+def resource_block(source: str, resource_type: str, name: str) -> str:
+    match = re.search(
+        rf'resource\s+"{re.escape(resource_type)}"\s+"{re.escape(name)}"\s*\{{',
+        source,
+    )
+    assert match, f"missing resource {resource_type}.{name}"
+
+    depth = 0
+    for index in range(match.end() - 1, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[match.start(): index + 1]
+    raise AssertionError(f"unterminated resource {resource_type}.{name}")
+
+
+def database_flag_value(source: str, name: str) -> str:
+    match = re.search(
+        rf'database_flags\s*\{{\s*name\s*=\s*"{re.escape(name)}"\s*value\s*=\s*"([^"]+)"\s*\}}',
+        source,
+        re.DOTALL,
+    )
+    assert match, f"missing database flag {name}"
+    return match.group(1)
+
+
+def test_pinned_checkov_contract_has_no_unresolved_hardening_categories():
+    contract = (MODULE.parent.parent / "tests" / "access_platform.tftest.hcl").read_text(
+        encoding="utf-8"
+    )
+    for token in (
+        "storage_log_bucket_name",
+        "artifact_registry_kms_key_name",
+        "enable_flow_logs",
+        "POSTGRES_18",
+    ):
+        assert token in contract
+
+
+def test_production_requires_external_log_and_kms_inputs():
+    production = (PRODUCTION_ROOT / "variables.tf").read_text(encoding="utf-8")
+
+    for name in ("storage_log_bucket_name", "artifact_registry_kms_key_name"):
+        block = variable_block(production, name)
+        assert "default" not in block
+        assert re.search(r"nullable\s*=\s*false", block)
+
+
+def test_managed_buckets_forward_access_logs_to_external_destination():
+    storage = read("storage.tf")
+    bootstrap = (ROOT / "infra" / "terraform" / "bootstrap" / "state" / "main.tf").read_text(encoding="utf-8")
+
+    assert re.search(r"logging\s*\{\s*log_bucket\s*=\s*var\.storage_log_bucket_name", storage, re.DOTALL)
+    assert 'log_object_prefix = "access/${var.environment}/"' in storage
+    assert re.search(r"logging\s*\{\s*log_bucket\s*=\s*var\.storage_log_bucket_name", bootstrap, re.DOTALL)
+    assert 'log_object_prefix = "terraform-state/${var.environment}/"' in bootstrap
+
+
+def test_test_root_uses_fictional_log_and_kms_values():
+    test_variables = (TEST_ROOT / "variables.tf").read_text(encoding="utf-8")
+    test_main = (TEST_ROOT / "main.tf").read_text(encoding="utf-8")
+
+    for name in ("storage_log_bucket_name", "artifact_registry_kms_key_name"):
+        assert f'variable "{name}"' in test_variables
+        assert "fixture" in variable_block(test_variables, name)
+        assert re.search(rf"{name}\s*=\s*var\.{name}", test_main)
+
+
+def test_sql_is_postgres_18_private_and_protected():
     sql = read("sql.tf")
-    assert re.search(r'database_version\s*=\s*"POSTGRES_17"', sql)
+    assert re.search(r'database_version\s*=\s*"POSTGRES_18"', sql)
     assert re.search(r"ipv4_enabled\s*=\s*false", sql)
     assert re.search(r'availability_type\s*=\s*var\.environment == "production" \? "REGIONAL" : "ZONAL"', sql)
     assert re.search(r'deletion_protection\s*=\s*var\.environment == "production"', sql)
     assert re.search(r"point_in_time_recovery_enabled\s*=\s*true", sql)
     assert re.search(r"disk_autoresize\s*=\s*true", sql)
+
+
+def test_security_hardening_replaces_basic_and_sa_admin_project_roles():
+    identities = read("identities.tf")
+    assert 'role = "roles/viewer"' not in identities
+    assert 'role = "roles/iam.serviceAccountAdmin"' not in identities
+    assert 'resource "google_project_iam_custom_role" "terraform_plan_readonly"' in identities
+    assert 'role = google_project_iam_custom_role.terraform_plan_readonly.name' in identities
+    assert 'resource "google_project_iam_custom_role" "terraform_apply_service_accounts"' in identities
+    assert 'role = google_project_iam_custom_role.terraform_apply_service_accounts.name' in identities
+
+
+def test_plan_custom_role_excludes_unmanaged_or_duplicate_read_categories():
+    role = resource_block(
+        read("identities.tf"),
+        "google_project_iam_custom_role",
+        "terraform_plan_readonly",
+    )
+    for permission in (
+        "cloudscheduler.jobs.getIamPolicy",
+        "compute.addresses.get",
+        "compute.addresses.list",
+        "compute.backendServices.getIamPolicy",
+        "compute.forwardingRules.get",
+        "compute.forwardingRules.list",
+        "compute.networks.getEffectiveFirewalls",
+        "compute.securityPolicies.getIamPolicy",
+        "vpcaccess.connectors.get",
+        "vpcaccess.connectors.list",
+        "workflows.workflows.getIamPolicy",
+    ):
+        assert f'"{permission}"' not in role
+
+    for permission in (
+        "compute.regionNetworkEndpointGroups.get",
+        "compute.regionNetworkEndpointGroups.list",
+        "servicenetworking.services.get",
+    ):
+        assert f'"{permission}"' in role
+
+    assert '"compute.networkEndpointGroups.get"' not in role
+    assert '"compute.networkEndpointGroups.list"' not in role
+
+
+def test_wif_subject_is_exact_for_each_approved_repository_environment_identity():
+    identities = read("identities.tf")
+    expected = (
+        'assertion.sub == \\"repo:justinpeterman-droid/prison-policy-ai:environment:'
+        '${var.wif_trust[each.key].github_environment}\\"'
+    )
+    assert expected in identities
+    assert 'assertion.repository == \\"${var.github_repository}\\"' in identities
+    assert 'assertion.ref == \\"${var.wif_trust[each.key].ref_pattern}\\"' in identities
+    assert 'assertion.environment == \\"${var.wif_trust[each.key].github_environment}\\"' in identities
+
+
+def test_wif_rejects_configured_repository_that_differs_from_approved_subject():
+    provider = resource_block(
+        read("identities.tf"),
+        "google_iam_workload_identity_pool_provider",
+        "workflow",
+    )
+    assert re.search(
+        r"precondition\s*\{\s*condition\s*=\s*var\.github_repository\s*==\s*"
+        r'"justinpeterman-droid/prison-policy-ai"',
+        provider,
+        re.DOTALL,
+    )
+
+
+def test_vpc_has_flow_logs_and_an_explicit_default_deny_ingress_firewall():
+    network = read("network.tf")
+    subnetwork = resource_block(network, "google_compute_subnetwork", "private")
+    assert re.search(r"log_config\s*\{", subnetwork)
+    assert 'aggregation_interval = "INTERVAL_5_SEC"' in subnetwork
+    assert re.search(r"flow_sampling\s*=\s*0\.5", subnetwork)
+    assert 'metadata             = "INCLUDE_ALL_METADATA"' in subnetwork
+
+    firewall = resource_block(network, "google_compute_firewall", "default_deny_ingress")
+    assert re.search(r'direction\s*=\s*"INGRESS"', firewall)
+    assert re.search(r'priority\s*=\s*65534', firewall)
+    assert re.search(r'deny\s*\{\s*protocol\s*=\s*"all"', firewall, re.DOTALL)
+    assert re.search(r'source_ranges\s*=\s*\["0\.0\.0\.0/0"\]', firewall)
+    assert re.search(r"network\s*=\s*google_compute_network\.access\.name", firewall)
+
+
+def test_cloud_armor_denies_log4j_canary_before_existing_throttle_and_allow_rules():
+    edge = read("edge.tf")
+    policy = resource_block(edge, "google_compute_security_policy", "edge")
+    assert "evaluatePreconfiguredWaf('cve-canary')" in policy
+    assert re.search(
+        r'action\s*=\s*"deny\(403\)".*?priority\s*=\s*100.*?preview\s*=\s*false',
+        policy,
+        re.DOTALL,
+    )
+    assert re.search(r'action\s*=\s*"throttle"\s*priority\s*=\s*1000', policy)
+    assert re.search(r'action\s*=\s*"allow"\s*priority\s*=\s*2147483647', policy)
+
+
+def test_artifact_registry_uses_required_external_kms_key():
+    repository = resource_block(
+        read("serverless.tf"),
+        "google_artifact_registry_repository",
+        "backend",
+    )
+    assert re.search(
+        r"kms_key_name\s*=\s*var\.artifact_registry_kms_key_name",
+        repository,
+    )
+
+
+def test_postgres_18_requires_client_certificates_and_audited_logging_flags():
+    sql = read("sql.tf")
+    instance = resource_block(sql, "google_sql_database_instance", "postgres")
+    assert 'database_version    = "POSTGRES_18"' in instance
+    assert 'ssl_mode        = "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"' in instance
+
+    expected_flags = {
+        "cloudsql.enable_pgaudit": "on",
+        "log_checkpoints": "on",
+        "log_connections": "on",
+        "log_disconnections": "on",
+        "log_duration": "on",
+        "log_hostname": "on",
+        "log_lock_waits": "on",
+        "log_min_duration_statement": "-1",
+        "log_min_error_statement": "error",
+        "log_min_messages": "warning",
+        "log_statement": "ddl",
+        "pgaudit.log": "ddl,role,write",
+    }
+    assert {name: database_flag_value(instance, name) for name in expected_flags} == expected_flags
 
 
 def test_terraform_never_manages_secret_values_or_keys():
@@ -56,7 +273,7 @@ def test_workflow_identities_have_distinct_wif_and_secret_boundaries():
     ))
     for identity in ("terraform_plan", "terraform_apply", "deploy", "rollback", "admin_bootstrap", "access_release"):
         assert f'google_service_account.identities["{identity}"].member' not in secret_bindings
-    assert re.search(r'role\s*=\s*"roles/viewer"', identities)
+    assert 'role = google_project_iam_custom_role.terraform_plan_readonly.name' in identities
     assert 'roles/artifactregistry.writer' not in identities
     assert 'roles/run.admin' not in identities
     assert 'rollback_traffic' not in identities

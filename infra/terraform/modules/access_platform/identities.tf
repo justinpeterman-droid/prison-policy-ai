@@ -58,14 +58,14 @@ locals {
     worker-metric-writer                    = { account = "worker", role = "roles/monitoring.metricWriter" }
     migration-sql-client                    = { account = "migration", role = "roles/cloudsql.client" }
     bootstrap-sql-client                    = { account = "bootstrap", role = "roles/cloudsql.client" }
-    terraform-plan-viewer                   = { account = "terraform_plan", role = "roles/viewer" }
+    terraform-plan-viewer                   = { account = "terraform_plan", role = google_project_iam_custom_role.terraform_plan_readonly.name }
     terraform-plan-security-reviewer        = { account = "terraform_plan", role = "roles/iam.securityReviewer" }
     terraform-plan-secret-metadata          = { account = "terraform_plan", role = "roles/secretmanager.viewer" }
     terraform-apply-network-admin           = { account = "terraform_apply", role = "roles/compute.networkAdmin" }
     terraform-apply-service-networking      = { account = "terraform_apply", role = "roles/servicenetworking.networksAdmin" }
     terraform-apply-sql-admin               = { account = "terraform_apply", role = "roles/cloudsql.admin" }
     terraform-apply-secret-container-admin  = { account = "terraform_apply", role = google_project_iam_custom_role.terraform_apply_secret_containers.name }
-    terraform-apply-service-account-admin   = { account = "terraform_apply", role = "roles/iam.serviceAccountAdmin" }
+    terraform-apply-service-account-admin   = { account = "terraform_apply", role = google_project_iam_custom_role.terraform_apply_service_accounts.name }
     terraform-apply-workload-identity-admin = { account = "terraform_apply", role = "roles/iam.workloadIdentityPoolAdmin" }
     terraform-apply-project-iam-admin       = { account = "terraform_apply", role = "roles/resourcemanager.projectIamAdmin" }
   }
@@ -151,6 +151,104 @@ resource "google_project_iam_custom_role" "terraform_apply_secret_containers" {
   depends_on = [terraform_data.services_ready]
 }
 
+# Terraform plan refreshes only the managed control-plane resources below.
+# IAM-policy and secret metadata reads stay in their existing dedicated
+# securityReviewer and secretmanager.viewer grants, while state-object reads
+# remain scoped to the exact external bucket prefix.
+resource "google_project_iam_custom_role" "terraform_plan_readonly" {
+  project     = var.project_id
+  role_id     = "accessTerraformPlanRead"
+  title       = "Access Terraform plan read only"
+  description = "Read only the resource types managed by the Access platform Terraform module."
+  permissions = [
+    "artifactregistry.repositories.get",
+    "artifactregistry.repositories.getIamPolicy",
+    "artifactregistry.repositories.list",
+    "cloudscheduler.jobs.get",
+    "cloudscheduler.jobs.list",
+    "cloudsql.databases.get",
+    "cloudsql.databases.list",
+    "cloudsql.instances.get",
+    "cloudsql.instances.list",
+    "cloudsql.operations.get",
+    "cloudsql.operations.list",
+    "cloudtasks.queues.get",
+    "cloudtasks.queues.getIamPolicy",
+    "cloudtasks.queues.list",
+    "compute.backendServices.get",
+    "compute.backendServices.list",
+    "compute.firewalls.get",
+    "compute.firewalls.list",
+    "compute.globalAddresses.get",
+    "compute.globalAddresses.list",
+    "compute.globalForwardingRules.get",
+    "compute.globalForwardingRules.list",
+    "compute.networks.get",
+    "compute.networks.list",
+    "compute.regionNetworkEndpointGroups.get",
+    "compute.regionNetworkEndpointGroups.list",
+    "compute.securityPolicies.get",
+    "compute.securityPolicies.list",
+    "compute.sslCertificates.get",
+    "compute.sslCertificates.list",
+    "compute.subnetworks.get",
+    "compute.subnetworks.list",
+    "compute.targetHttpProxies.get",
+    "compute.targetHttpProxies.list",
+    "compute.targetHttpsProxies.get",
+    "compute.targetHttpsProxies.list",
+    "compute.urlMaps.get",
+    "compute.urlMaps.list",
+    "dns.managedZones.get",
+    "dns.managedZones.list",
+    "dns.resourceRecordSets.list",
+    "logging.logMetrics.get",
+    "logging.logMetrics.list",
+    "monitoring.alertPolicies.get",
+    "monitoring.alertPolicies.list",
+    "monitoring.dashboards.get",
+    "monitoring.dashboards.list",
+    "monitoring.uptimeCheckConfigs.get",
+    "monitoring.uptimeCheckConfigs.list",
+    "resourcemanager.projects.get",
+    "run.jobs.get",
+    "run.jobs.getIamPolicy",
+    "run.jobs.list",
+    "run.services.get",
+    "run.services.getIamPolicy",
+    "run.services.list",
+    "serviceusage.services.get",
+    "serviceusage.services.list",
+    "servicenetworking.services.get",
+    "storage.buckets.get",
+    "storage.buckets.getIamPolicy",
+    "storage.buckets.list",
+    "workflows.workflows.get",
+    "workflows.workflows.list",
+  ]
+  depends_on = [terraform_data.services_ready]
+}
+
+# The apply identity manages only the service-account resources and IAM
+# policies present in this module. It cannot mint keys, tokens, or credentials
+# and does not receive iam.serviceAccounts.actAs through this project role.
+resource "google_project_iam_custom_role" "terraform_apply_service_accounts" {
+  project     = var.project_id
+  role_id     = "accessServiceAccountLifecycle"
+  title       = "Access service account lifecycle"
+  description = "Create, update, delete, and bind only managed service-account resources."
+  permissions = [
+    "iam.serviceAccounts.create",
+    "iam.serviceAccounts.delete",
+    "iam.serviceAccounts.get",
+    "iam.serviceAccounts.getIamPolicy",
+    "iam.serviceAccounts.list",
+    "iam.serviceAccounts.setIamPolicy",
+    "iam.serviceAccounts.update",
+  ]
+  depends_on = [terraform_data.services_ready]
+}
+
 resource "google_project_iam_custom_role" "deploy_revision" {
   project     = var.project_id
   role_id     = "accessDeployRevision"
@@ -230,9 +328,16 @@ resource "google_iam_workload_identity_pool_provider" "workflow" {
     "attribute.workflow_identity" = "\"${each.key}\""
   }
 
-  attribute_condition = "assertion.repository == \"${var.github_repository}\" && assertion.ref == \"${var.wif_trust[each.key].ref_pattern}\" && assertion.environment == \"${var.wif_trust[each.key].github_environment}\" && (${join(" || ", [for claim in sort(tolist(var.wif_trust[each.key].workflow_claims)) : "has(assertion.${claim}) && assertion.${claim} in [${join(", ", [for ref in sort(tolist(var.wif_trust[each.key].workflow_refs)) : format("%q", ref)])}"])})"
+  attribute_condition = "assertion.sub == \"repo:justinpeterman-droid/prison-policy-ai:environment:${var.wif_trust[each.key].github_environment}\" && assertion.repository == \"${var.github_repository}\" && assertion.ref == \"${var.wif_trust[each.key].ref_pattern}\" && assertion.environment == \"${var.wif_trust[each.key].github_environment}\" && (${join(" || ", [for claim in sort(tolist(var.wif_trust[each.key].workflow_claims)) : "has(assertion.${claim}) && assertion.${claim} in [${join(", ", [for ref in sort(tolist(var.wif_trust[each.key].workflow_refs)) : format("%q", ref)])}]"])})"
 
   oidc { issuer_uri = "https://token.actions.githubusercontent.com" }
+
+  lifecycle {
+    precondition {
+      condition     = var.github_repository == "justinpeterman-droid/prison-policy-ai"
+      error_message = "github_repository must match the approved repository encoded in the GitHub OIDC subject allowlist."
+    }
+  }
 }
 
 resource "google_service_account_iam_member" "workflow_impersonation" {

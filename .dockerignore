@@ -10,10 +10,24 @@ backend/webapp/static/shield-*.png
 # Never part of the runtime image
 .git/
 .github/
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.tfvars
+*.tfstate
 tests/
 scripts/
+!scripts/
+scripts/*
+!scripts/dispatch_outbox.py
 frontend/
 docs/
+infra/
+release/
+access-client/
+access-updater/
 **/__pycache__/
 **/*.pyc
 .pytest_cache/

@@ -15,6 +15,7 @@
 # rather than adding to them, it pulled binary assets *into* scope and crashed
 # the formatter it was meant to protect.
 exclude_paths:
+  - "access-client/SLUT-Client.accdb"
   - "templates/*.docx"
   - "officer-training/*.docx"
   - "backend/webapp/static/fonts/*"

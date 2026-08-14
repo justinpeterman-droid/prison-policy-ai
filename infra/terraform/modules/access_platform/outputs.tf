@@ -48,9 +48,17 @@ output "review_bucket_name" { value = google_storage_bucket.private["review"].na
 output "terraform_test_contract" {
   value = {
     database = {
-      postgres_17       = google_sql_database_instance.postgres.database_version == "POSTGRES_17"
+      postgres_18       = google_sql_database_instance.postgres.database_version == "POSTGRES_18"
       production_ha     = google_sql_database_instance.postgres.settings[0].availability_type == "REGIONAL"
       deletion_boundary = google_sql_database_instance.postgres.deletion_protection == (var.environment == "production")
+      ssl_mode          = google_sql_database_instance.postgres.settings[0].ip_configuration[0].ssl_mode
+      flag_values = {
+        for flag in google_sql_database_instance.postgres.settings[0].database_flags : flag.name => flag.value
+      }
+    }
+    network = {
+      enable_flow_logs     = length(google_compute_subnetwork.private.log_config) == 1 && google_compute_subnetwork.private.log_config[0].aggregation_interval == "INTERVAL_5_SEC" && google_compute_subnetwork.private.log_config[0].flow_sampling == 0.5 && google_compute_subnetwork.private.log_config[0].metadata == "INCLUDE_ALL_METADATA"
+      default_deny_ingress = google_compute_firewall.default_deny_ingress.network == google_compute_network.access.name && google_compute_firewall.default_deny_ingress.direction == "INGRESS" && google_compute_firewall.default_deny_ingress.priority == 65534 && google_compute_firewall.default_deny_ingress.source_ranges == toset(["0.0.0.0/0"]) && length([for rule in google_compute_firewall.default_deny_ingress.deny : rule if rule.protocol == "all"]) == 1
     }
     service_accounts = {
       count                     = length(google_service_account.identities) + 1
@@ -66,6 +74,8 @@ output "terraform_test_contract" {
       provider_specific_binding_count = length(google_service_account_iam_member.workflow_impersonation)
       workflow_identity_mapping_count = length([for name, provider in google_iam_workload_identity_pool_provider.workflow : provider if provider.attribute_mapping["attribute.workflow_identity"] == format("%q", name)])
       direct_claim_condition_count    = length([for provider in values(google_iam_workload_identity_pool_provider.workflow) : provider if strcontains(provider.attribute_condition, "assertion.workflow_ref") || strcontains(provider.attribute_condition, "assertion.job_workflow_ref")])
+      exact_subject_condition_count   = length([for name, provider in google_iam_workload_identity_pool_provider.workflow : provider if strcontains(provider.attribute_condition, "assertion.sub == \"repo:justinpeterman-droid/prison-policy-ai:environment:${var.wif_trust[name].github_environment}\"")])
+      approved_repository_configured  = var.github_repository == "justinpeterman-droid/prison-policy-ai"
       principal_set_relations = {
         for identity, binding in google_service_account_iam_member.workflow_impersonation : identity => binding.member == "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.workflow.name}/attribute.workflow_identity/${identity}"
       }
@@ -81,7 +91,11 @@ output "terraform_test_contract" {
     }
     iam = {
       project_binding_count = length(google_project_iam_member.least_privilege) + 1
-      project_roles         = sort(concat([for key, binding in google_project_iam_member.least_privilege : key == "terraform-apply-secret-container-admin" ? "custom:secret-container-admin" : binding.role], ["custom:op04-infrastructure"]))
+      project_roles = sort(concat([for key, binding in google_project_iam_member.least_privilege : lookup({
+        terraform-plan-viewer                  = "custom:terraform-plan-readonly"
+        terraform-apply-service-account-admin  = "custom:service-account-lifecycle"
+        terraform-apply-secret-container-admin = "custom:secret-container-admin"
+      }, key, binding.role)], ["custom:op04-infrastructure"]))
       exact_relations = {
         for key, binding in google_project_iam_member.least_privilege : key => binding.member == google_service_account.identities[local.project_iam_bindings[key].account].member && binding.role == local.project_iam_bindings[key].role
       }
@@ -94,6 +108,20 @@ output "terraform_test_contract" {
         if binding.role == "roles/monitoring.metricWriter"
       }
       op04_infrastructure_relation = google_project_iam_member.terraform_apply_op04_infrastructure.role == google_project_iam_custom_role.terraform_apply_op04_infrastructure.name && google_project_iam_member.terraform_apply_op04_infrastructure.member == google_service_account.identities["terraform_apply"].member
+      terraform_plan_role = {
+        id_category   = google_project_iam_custom_role.terraform_plan_readonly.role_id == "accessTerraformPlanRead"
+        permissions   = toset(google_project_iam_custom_role.terraform_plan_readonly.permissions)
+        binding_exact = google_project_iam_member.least_privilege["terraform-plan-viewer"].role == google_project_iam_custom_role.terraform_plan_readonly.name && google_project_iam_member.least_privilege["terraform-plan-viewer"].member == google_service_account.identities["terraform_plan"].member
+      }
+      service_account_lifecycle_role = {
+        id_category = google_project_iam_custom_role.terraform_apply_service_accounts.role_id == "accessServiceAccountLifecycle"
+        permissions = toset(google_project_iam_custom_role.terraform_apply_service_accounts.permissions)
+        credential_permission_count = length([
+          for permission in google_project_iam_custom_role.terraform_apply_service_accounts.permissions : permission
+          if startswith(permission, "iam.serviceAccountKeys.") || contains(["iam.serviceAccounts.actAs", "iam.serviceAccounts.getAccessToken", "iam.serviceAccounts.getOpenIdToken", "iam.serviceAccounts.implicitDelegation", "iam.serviceAccounts.signBlob", "iam.serviceAccounts.signJwt"], permission)
+        ])
+        binding_exact = google_project_iam_member.least_privilege["terraform-apply-service-account-admin"].role == google_project_iam_custom_role.terraform_apply_service_accounts.name && google_project_iam_member.least_privilege["terraform-apply-service-account-admin"].member == google_service_account.identities["terraform_apply"].member
+      }
       custom_role = {
         id_category = google_project_iam_custom_role.terraform_apply_secret_containers.role_id == "accessSecretContainerAdmin"
         secret_payload_permission_count = length([
@@ -143,6 +171,8 @@ output "terraform_test_contract" {
       api_secret_source_relations  = { for category, secret in { database = "access-database-url", pepper = "identity-hash-pepper", cursor = "cursor-signing-key", update_grant = "client-update-grant-key", legacy_access = "legacy-access-code", legacy_admin = "legacy-admin-code", feedback = "github-feedback-token" } : category => length([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env if try(env.value_source[0].secret_key_ref[0].secret == google_secret_manager_secret.containers[secret].secret_id, false)]) == 1 }
       worker_database_only         = length([for env in google_cloud_run_v2_service.worker.template[0].containers[0].env : env if try(env.value_source[0].secret_key_ref[0].secret == google_secret_manager_secret.containers["access-database-url"].secret_id, false)]) == 1 && length([for env in google_cloud_run_v2_service.worker.template[0].containers[0].env : env if length(env.value_source) > 0]) == 1
       cloud_armor_attached         = google_compute_backend_service.api.security_policy == google_compute_security_policy.edge.id
+      cloud_armor_log4j_protection = length([for rule in google_compute_security_policy.edge.rule : rule if rule.action == "deny(403)" && rule.priority == 100 && !rule.preview && try(rule.match[0].expr[0].expression, "") == "evaluatePreconfiguredWaf('cve-canary')"]) == 1
+      artifact_registry_kms_exact  = google_artifact_registry_repository.backend.kms_key_name == var.artifact_registry_kms_key_name
       http_redirect_count          = length([google_compute_global_forwarding_rule.http])
       deploy_scoped_relations      = { artifact = google_artifact_registry_repository_iam_member.deploy_writer.repository == google_artifact_registry_repository.backend.name && google_artifact_registry_repository_iam_member.deploy_writer.role == "roles/artifactregistry.writer", services = length(google_cloud_run_v2_service_iam_member.deploy_services) == 2 && alltrue([for binding in values(google_cloud_run_v2_service_iam_member.deploy_services) : binding.role == google_project_iam_custom_role.deploy_revision.name && binding.member == google_service_account.identities["deploy"].member]) }
       rollback_scoped_relations    = { services = length(google_cloud_run_v2_service_iam_member.rollback_services) == 2 && alltrue([for binding in values(google_cloud_run_v2_service_iam_member.rollback_services) : binding.role == google_project_iam_custom_role.rollback_traffic.name && binding.member == google_service_account.identities["rollback"].member]), permissions = toset(google_project_iam_custom_role.rollback_traffic.permissions) == toset(["run.services.get", "run.services.update", "run.operations.get", "run.revisions.get", "run.revisions.list"]) }

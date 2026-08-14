@@ -81,17 +81,58 @@ dependency or external approval.
 - [x] 022 OP-04 — Serverless edge and storage. `MERGED` and independently reviewed at `0ce9d8d`.
 - [x] 023 OP-05 — Monitoring, backup, and budgets. `MERGED` and independently reviewed at `f5e8f24`.
 - [x] 024 OP-06 — Migration, roster, and first-Admin jobs. Reviewed and integrated at `00119a9`; local Docker and dedicated PostgreSQL lifecycle gates remain external.
-- [ ] 025 OP-07 — Quality and supply-chain gates. `BLOCKED`: implementation,
-  hash-locked developer environment, static checks, tests, and local Docker
-  build are ready. Fixed Syft/Grype releases cannot be verified because this
-  environment's Rekor transparency-log request fails with `tls: access denied`.
-  Do not bypass transparency-log verification; resume from a trusted runner or
-  network that can verify the signed release artifacts.
+- [x] 025 OP-07 — Quality and supply-chain gates. `LOCAL` in the pushed release
+  candidate. The signed Anchore release-asset flow was corrected in `33cb8d2`
+  (not unsigned OCI-image verification), and redaction narrowing was reviewed
+  in `ecce737`. GitHub-hosted run `31760769637` at code commit `096796f` passed
+  locked Ruff/mypy, unit, PostgreSQL integration, OpenAPI, redaction, Pages,
+  and exact unfiltered pinned Checkov gates; its paired Container Security run
+  `31760769639` passed the real `cosign verify-blob`/Rekor verification before
+  Syft and Grype execution, plus SPDX binding and fixed-High/Critical scanning.
+  The workstation's `SEC_E_LOGON_DENIED` against public Rekor remains a local
+  network limitation, not an unverified release gate. The candidate is not
+  merged.
 - [ ] 026 OP-08 — Controlled delivery workflows.
 
 ## Microsoft Access employee client
 
-- [ ] 027 AC-01 — Source/build harness.
+- [ ] 027 AC-01 - Source/build harness. `LOCAL` in the pushed release candidate,
+  with complete importable export dependencies in `4ed0fcd`, checkout-stable
+  pinned vendor bytes in `e18e1f8`, and canonical-form normalization in
+  `4b265bd`. The export/form changes are independently reviewed; the candidate
+  is not merged.
+  Steps 1-7 and 9-10 complete. The editable master `SLUT-Client.accdb` holds
+  frmShell, frmLogin, frmErrorDialog, macro AutoExec, and modules JsonConverter,
+  TestAssert, TestRunner, all exported to text sources.
+  Evidence on Access 16.0 build 20228 x64 with matching x64 PowerShell:
+  a fresh Windows `core.autocrlf=true` clone passed all 5 source-layout tests;
+  `ValidateAccessBuild.ps1`
+  OK for x64 (bitness match, zero application tables, vendor hashes, no forbidden
+  references, VBA compiles); full credential-free regression 1,247 passed /
+  30 skipped; `git diff --check` clean; the commit contains exactly the 28
+  allowlisted paths and no others. VBA-JSON v2.3.1 pinned at `1e49ba82`, verified
+  by byte length and SHA-256; `Export-AccessSource` writes every required
+  import dependency while preserving the vendor pin.
+  A trusted, ignored project-output reconstruction passed import, bounded waits
+  for only its own Access processes (never terminating one), self-contained
+  export, and logical manifest equality with rewritten in-root dependency paths.
+  A later fresh rerun exposed an intermittent database-session shutdown defect:
+  the exact responsive `MSACCESS.EXE` instance can remain alive beyond the
+  120-second bounded wait. Explicit `UserControl` and VBE-child-release
+  experiments did not repair it and were reverted; this needs a controlled
+  Access-host lifecycle remedy, not a longer wait or process termination.
+  Form canonicalization removes only Access
+  export metadata proven to be volatile on import: `Checksum`, `NameMap`, and a
+  repeated adjacent `NoSaveCTIWhenDisabled` property. The test copies the master
+  before export, so it does not mutate the tracked `.accdb`; `access_com` is
+  registered as a Windows-only pytest marker.
+  TASK COMPLETION DOES NOT MEAN MERGED. Two gates remain open: the controlled
+  Access COM shutdown lifecycle above, and ACCDE creation on this Access build.
+  `SysCmd 603` returns
+  without error and produces no file, and no supported COM alternative exists
+  (`acCmdMakeMDEFile` only opens a dialog), so this matrix row is stopped per plan;
+  AC-02 is BLOCKED until this task is independently reviewed and merged, per its
+  own stated precondition.
 - [ ] 028 AC-02 — API core.
 - [ ] 029 AC-03 — Authentication and DPAPI persistence.
 - [ ] 030 AC-04 — Shell and client policy.

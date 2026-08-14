@@ -50,6 +50,28 @@ variable "state_bucket_name" {
   }
 }
 
+variable "storage_log_bucket_name" {
+  description = "Externally provisioned production bucket that receives Cloud Storage access logs. Never commit its value."
+  type        = string
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$", var.storage_log_bucket_name))
+    error_message = "storage_log_bucket_name must be a provider-valid bucket name supplied at plan time."
+  }
+}
+
+variable "artifact_registry_kms_key_name" {
+  description = "Externally provisioned production KMS key resource name for Artifact Registry. Never commit its value."
+  type        = string
+  nullable    = false
+
+  validation {
+    condition     = length(trimspace(var.artifact_registry_kms_key_name)) > 0
+    error_message = "artifact_registry_kms_key_name must be supplied by the external encryption key owner at plan time."
+  }
+}
+
 variable "labels" {
   description = "Labels applied to resources created by this root."
   type        = map(string)

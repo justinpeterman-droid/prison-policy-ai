@@ -100,12 +100,22 @@ override_resource {
 }
 override_resource {
   target          = module.access_platform.google_secret_manager_secret.containers["initial-admin-pin"]
-  values          = { id = "fixture-secret-initial-admin-pin" }
+  values          = { id = "initial-admin-pin" }
   override_during = plan
 }
 override_resource {
   target          = module.access_platform.google_project_iam_custom_role.terraform_apply_secret_containers
   values          = { name = "projects/slut-access-production-fixture/roles/accessSecretContainerAdmin" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_project_iam_custom_role.terraform_plan_readonly
+  values          = { name = "projects/slut-access-production-fixture/roles/accessTerraformPlanRead" }
+  override_during = plan
+}
+override_resource {
+  target          = module.access_platform.google_project_iam_custom_role.terraform_apply_service_accounts
+  values          = { name = "projects/slut-access-production-fixture/roles/accessServiceAccountLifecycle" }
   override_during = plan
 }
 override_resource {
@@ -119,8 +129,10 @@ run "private_platform_contract" {
 
   variables {
     project_id                        = "slut-access-production-fixture"
-    source_repository                 = "example.invalid/agency/prison-policy-ai"
+    source_repository                 = "justinpeterman-droid/prison-policy-ai"
     state_bucket_name                 = "slut-access-production-fixture"
+    storage_log_bucket_name           = "access-test-fixture-audit-logs"
+    artifact_registry_kms_key_name    = "projects/fixture-project/locations/us-central1/keyRings/fixture-key-ring/cryptoKeys/fixture-artifact-key"
     labels                            = { fixture = "op03" }
     image_digest                      = "example.invalid/access/fixture@sha256:0000000000000000000000000000000000000000000000000000000000000000"
     source_commit                     = "1111111111111111111111111111111111111111"
@@ -159,8 +171,8 @@ run "private_platform_contract" {
   }
 
   assert {
-    condition     = module.access_platform.terraform_test_contract.database.postgres_17
-    error_message = "Cloud SQL must be PostgreSQL 17."
+    condition     = module.access_platform.terraform_test_contract.database.postgres_18
+    error_message = "Cloud SQL must be PostgreSQL 18."
   }
 
   assert {
@@ -223,11 +235,38 @@ run "private_platform_contract" {
 
   assert {
     condition = module.access_platform.terraform_test_contract.iam.project_binding_count == 17 && length(module.access_platform.terraform_test_contract.iam.project_roles) == 17 && length(setsubtract(toset(module.access_platform.terraform_test_contract.iam.project_roles), toset([
-      "roles/cloudsql.client", "roles/cloudtasks.enqueuer", "roles/monitoring.metricWriter", "roles/viewer", "roles/iam.securityReviewer", "roles/secretmanager.viewer", "roles/compute.networkAdmin", "roles/servicenetworking.networksAdmin", "roles/cloudsql.admin", "roles/iam.serviceAccountAdmin", "roles/iam.workloadIdentityPoolAdmin", "roles/resourcemanager.projectIamAdmin", "custom:secret-container-admin", "custom:op04-infrastructure",
+      "roles/cloudsql.client", "roles/cloudtasks.enqueuer", "roles/monitoring.metricWriter", "roles/iam.securityReviewer", "roles/secretmanager.viewer", "roles/compute.networkAdmin", "roles/servicenetworking.networksAdmin", "roles/cloudsql.admin", "roles/iam.workloadIdentityPoolAdmin", "roles/resourcemanager.projectIamAdmin", "custom:terraform-plan-readonly", "custom:service-account-lifecycle", "custom:secret-container-admin", "custom:op04-infrastructure",
       ]))) == 0 && length(setsubtract(toset([
-      "roles/cloudsql.client", "roles/cloudtasks.enqueuer", "roles/monitoring.metricWriter", "roles/viewer", "roles/iam.securityReviewer", "roles/secretmanager.viewer", "roles/compute.networkAdmin", "roles/servicenetworking.networksAdmin", "roles/cloudsql.admin", "roles/iam.serviceAccountAdmin", "roles/iam.workloadIdentityPoolAdmin", "roles/resourcemanager.projectIamAdmin", "custom:secret-container-admin", "custom:op04-infrastructure",
-    ]), toset(module.access_platform.terraform_test_contract.iam.project_roles))) == 0 && length([for role in module.access_platform.terraform_test_contract.iam.project_roles : role if role == "roles/cloudsql.client"]) == 4 && module.access_platform.terraform_test_contract.iam.metric_writer_binding_count == 1 && alltrue(values(module.access_platform.terraform_test_contract.iam.metric_writer_relations)) && alltrue(values(module.access_platform.terraform_test_contract.iam.exact_relations)) && module.access_platform.terraform_test_contract.iam.op04_infrastructure_relation && module.access_platform.terraform_test_contract.iam.custom_role.id_category && module.access_platform.terraform_test_contract.iam.custom_role.secret_payload_permission_count == 0 && module.access_platform.terraform_test_contract.iam.op04_infrastructure_role.id_category && module.access_platform.terraform_test_contract.iam.op04_infrastructure_role.iam_role_lifecycle_count == 4 && module.access_platform.terraform_test_contract.iam.op04_infrastructure_role.forbidden_data_plane_permission_count == 0
+      "roles/cloudsql.client", "roles/cloudtasks.enqueuer", "roles/monitoring.metricWriter", "roles/iam.securityReviewer", "roles/secretmanager.viewer", "roles/compute.networkAdmin", "roles/servicenetworking.networksAdmin", "roles/cloudsql.admin", "roles/iam.workloadIdentityPoolAdmin", "roles/resourcemanager.projectIamAdmin", "custom:terraform-plan-readonly", "custom:service-account-lifecycle", "custom:secret-container-admin", "custom:op04-infrastructure",
+    ]), toset(module.access_platform.terraform_test_contract.iam.project_roles))) == 0 && length([for role in module.access_platform.terraform_test_contract.iam.project_roles : role if role == "roles/cloudsql.client"]) == 4 && module.access_platform.terraform_test_contract.iam.metric_writer_binding_count == 1 && alltrue(values(module.access_platform.terraform_test_contract.iam.metric_writer_relations)) && alltrue(values(module.access_platform.terraform_test_contract.iam.exact_relations)) && module.access_platform.terraform_test_contract.iam.op04_infrastructure_relation && module.access_platform.terraform_test_contract.iam.custom_role.id_category && module.access_platform.terraform_test_contract.iam.custom_role.secret_payload_permission_count == 0 && module.access_platform.terraform_test_contract.iam.op04_infrastructure_role.id_category && module.access_platform.terraform_test_contract.iam.op04_infrastructure_role.iam_role_lifecycle_count == 4 && module.access_platform.terraform_test_contract.iam.op04_infrastructure_role.forbidden_data_plane_permission_count == 0 && module.access_platform.terraform_test_contract.iam.terraform_plan_role.id_category && module.access_platform.terraform_test_contract.iam.terraform_plan_role.binding_exact && module.access_platform.terraform_test_contract.iam.service_account_lifecycle_role.id_category && module.access_platform.terraform_test_contract.iam.service_account_lifecycle_role.binding_exact && module.access_platform.terraform_test_contract.iam.service_account_lifecycle_role.credential_permission_count == 0
     error_message = "The complete project IAM collection must retain only the reviewed management and runtime roles."
+  }
+
+  assert {
+    condition = module.access_platform.terraform_test_contract.iam.terraform_plan_role.permissions == toset([
+      "artifactregistry.repositories.get", "artifactregistry.repositories.getIamPolicy", "artifactregistry.repositories.list",
+      "cloudscheduler.jobs.get", "cloudscheduler.jobs.list",
+      "cloudsql.databases.get", "cloudsql.databases.list", "cloudsql.instances.get", "cloudsql.instances.list", "cloudsql.operations.get", "cloudsql.operations.list",
+      "cloudtasks.queues.get", "cloudtasks.queues.getIamPolicy", "cloudtasks.queues.list",
+      "compute.backendServices.get", "compute.backendServices.list", "compute.firewalls.get", "compute.firewalls.list", "compute.globalAddresses.get", "compute.globalAddresses.list", "compute.globalForwardingRules.get", "compute.globalForwardingRules.list", "compute.networks.get", "compute.networks.list", "compute.regionNetworkEndpointGroups.get", "compute.regionNetworkEndpointGroups.list", "compute.securityPolicies.get", "compute.securityPolicies.list", "compute.sslCertificates.get", "compute.sslCertificates.list", "compute.subnetworks.get", "compute.subnetworks.list", "compute.targetHttpProxies.get", "compute.targetHttpProxies.list", "compute.targetHttpsProxies.get", "compute.targetHttpsProxies.list", "compute.urlMaps.get", "compute.urlMaps.list",
+      "dns.managedZones.get", "dns.managedZones.list", "dns.resourceRecordSets.list",
+      "logging.logMetrics.get", "logging.logMetrics.list",
+      "monitoring.alertPolicies.get", "monitoring.alertPolicies.list", "monitoring.dashboards.get", "monitoring.dashboards.list", "monitoring.uptimeCheckConfigs.get", "monitoring.uptimeCheckConfigs.list",
+      "resourcemanager.projects.get",
+      "run.jobs.get", "run.jobs.getIamPolicy", "run.jobs.list", "run.services.get", "run.services.getIamPolicy", "run.services.list",
+      "serviceusage.services.get", "serviceusage.services.list",
+      "servicenetworking.services.get",
+      "storage.buckets.get", "storage.buckets.getIamPolicy", "storage.buckets.list",
+      "workflows.workflows.get", "workflows.workflows.list",
+    ])
+    error_message = "Terraform plan must receive only the read permissions derived from managed resource types."
+  }
+
+  assert {
+    condition = module.access_platform.terraform_test_contract.iam.service_account_lifecycle_role.permissions == toset([
+      "iam.serviceAccounts.create", "iam.serviceAccounts.delete", "iam.serviceAccounts.get", "iam.serviceAccounts.getIamPolicy", "iam.serviceAccounts.list", "iam.serviceAccounts.setIamPolicy", "iam.serviceAccounts.update",
+    ])
+    error_message = "Terraform apply may manage service-account lifecycle and IAM only, never credentials or impersonation."
   }
 
   assert {
@@ -251,6 +290,11 @@ run "private_platform_contract" {
   }
 
   assert {
+    condition     = module.access_platform.terraform_test_contract.wif.approved_repository_configured && module.access_platform.terraform_test_contract.wif.exact_subject_condition_count == module.access_platform.terraform_test_contract.wif.provider_count
+    error_message = "Every GitHub WIF provider must constrain assertion.sub to its exact repository and approved environment identity."
+  }
+
+  assert {
     condition     = toset(module.access_platform.terraform_test_contract.workflow_claim_categories["terraform-plan"]) == toset(["job_workflow_ref", "workflow_ref"])
     error_message = "Terraform plan must permit both its top-level and reusable workflow claims."
   }
@@ -268,6 +312,39 @@ run "private_platform_contract" {
   assert {
     condition     = module.access_platform.terraform_test_contract.serverless.same_digest && module.access_platform.terraform_test_contract.serverless.api_internal_lb_ingress && module.access_platform.terraform_test_contract.serverless.worker_internal_ingress && alltrue(values(module.access_platform.terraform_test_contract.serverless.service_label_relations)) && alltrue(values(module.access_platform.terraform_test_contract.serverless.health_probe_relations))
     error_message = "API and worker must use one digest, bounded private health probes, exact ingress boundaries, and sanitized shared labels."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.network.enable_flow_logs && module.access_platform.terraform_test_contract.network.default_deny_ingress
+    error_message = "The private subnet must emit flow logs and the custom VPC must have an explicit terminal deny-ingress firewall."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.serverless.cloud_armor_log4j_protection && module.access_platform.terraform_test_contract.serverless.artifact_registry_kms_exact
+    error_message = "Cloud Armor must deny the Log4j canary before throttling and Artifact Registry must use the required external KMS key."
+  }
+
+  assert {
+    condition = module.access_platform.terraform_test_contract.database.postgres_18 && module.access_platform.terraform_test_contract.database.ssl_mode == "TRUSTED_CLIENT_CERTIFICATE_REQUIRED" && module.access_platform.terraform_test_contract.database.flag_values == {
+      "cloudsql.enable_pgaudit"    = "on"
+      "log_checkpoints"            = "on"
+      "log_connections"            = "on"
+      "log_disconnections"         = "on"
+      "log_duration"               = "on"
+      "log_hostname"               = "on"
+      "log_lock_waits"             = "on"
+      "log_min_duration_statement" = "-1"
+      "log_min_error_statement"    = "error"
+      "log_min_messages"           = "warning"
+      "log_statement"              = "ddl"
+      "pgaudit.log"                = "ddl,role,write"
+    }
+    error_message = "Cloud SQL must use PostgreSQL 18, require trusted client certificates, and retain the exact audited logging flags."
+  }
+
+  assert {
+    condition     = module.access_platform.terraform_test_contract.database.postgres_18
+    error_message = "Cloud SQL must use the resource-derived POSTGRES_18 database version."
   }
 
   assert {
@@ -318,7 +395,7 @@ run "private_platform_contract" {
     condition = module.access_platform.terraform_test_contract.jobs.bootstrap_environment == {
       ADMIN_BOOTSTRAP_REQUEST_BUCKET = "access-test-configuration"
       ADMIN_BOOTSTRAP_REQUEST_PREFIX = "admin-bootstrap-requests/"
-      INITIAL_ADMIN_PIN_SECRET       = "fixture-secret-initial-admin-pin"
+      INITIAL_ADMIN_PIN_SECRET       = "initial-admin-pin"
     }
     error_message = "Bootstrap must receive only the exact bucket, prefix, and secret parent runtime configuration."
   }

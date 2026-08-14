@@ -12,6 +12,28 @@ resource "google_compute_subnetwork" "private" {
   network                  = google_compute_network.access.id
   ip_cidr_range            = "10.20.0.0/24"
   private_ip_google_access = true
+
+  log_config {
+    aggregation_interval = "INTERVAL_5_SEC"
+    flow_sampling        = 0.5
+    metadata             = "INCLUDE_ALL_METADATA"
+  }
+}
+
+# No workload accepts unsolicited VPC ingress. This explicit terminal rule
+# also prevents the network from depending on provider-created default rules.
+resource "google_compute_firewall" "default_deny_ingress" {
+  name      = "${var.network_name}-default-deny-ingress"
+  project   = var.project_id
+  network   = google_compute_network.access.name
+  direction = "INGRESS"
+  priority  = 65534
+
+  deny {
+    protocol = "all"
+  }
+
+  source_ranges = ["0.0.0.0/0"]
 }
 
 resource "google_compute_global_address" "private_services" {

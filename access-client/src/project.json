@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "startup_form": "frmShell",
+  "autoexec_macro": "AutoExec",
+  "allow_bypass_key": false,
+  "display_navigation_pane": false,
+  "display_document_tabs": false,
+  "use_access_special_keys": false,
+  "references": [
+    "Visual Basic For Applications",
+    "Microsoft Access Object Library",
+    "OLE Automation",
+    "Microsoft Office Object Library",
+    "Microsoft Office Access database engine Object Library"
+  ],
+  "forbidden_references": [
+    "Microsoft Word Object Library",
+    "Microsoft WinHTTP Services",
+    "Microsoft Scripting Runtime",
+    "Microsoft Visual Basic for Applications Extensibility"
+  ]
+}

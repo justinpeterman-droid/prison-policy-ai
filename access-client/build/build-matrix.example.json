@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "rows": [
+    {
+      "id": "M1",
+      "role": "developer-build",
+      "windows": "Windows 11",
+      "access_product": "Microsoft 365 Apps",
+      "platform": "x64",
+      "channel": "Current",
+      "notes": "Full Access required; matching-bitness PowerShell."
+    }
+  ]
+}
