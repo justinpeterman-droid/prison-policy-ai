@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -22,7 +23,9 @@ FORBIDDEN = (
     "employee_id",
     "inmate_id",
 )
-BINARY_SUFFIXES = {".accdb", ".png", ".jpg", ".jpeg", ".webp", ".docx", ".pdf", ".mp4", ".woff", ".woff2"}
+BINARY_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".docx", ".pdf", ".mp4", ".woff", ".woff2"}
+PINNED_ACCESS_SOURCE = ROOT / "access-client" / "SLUT-Client.accdb"
+PINNED_ACCESS_SOURCE_SHA256 = "4617985a26ad567dab21f47570774f2d51007f4c7e3518ab3d62bbfe1faed4b1"
 STRUCTURED_SUFFIXES = {".json", ".sarif", ".spdx"}
 FIXTURE_VALUE = re.compile(r"(?:fixture-|fake-|fictional-)[a-z0-9_-]+|local-(?:user|admin)|slut", re.I)
 ASSIGNMENT = re.compile(
@@ -77,10 +80,21 @@ def structured_values(value: object) -> list[str]:
     return bad
 
 
+def is_pinned_access_source(path: Path) -> bool:
+    """Allow the single versioned Access source, never arbitrary databases."""
+    try:
+        return (
+            path.resolve() == PINNED_ACCESS_SOURCE.resolve()
+            and hashlib.sha256(path.read_bytes()).hexdigest() == PINNED_ACCESS_SOURCE_SHA256
+        )
+    except OSError:
+        return False
+
+
 def scan(path: Path, *, strict_structured: bool) -> bool:
     if not path.exists() or not path.is_file():
         return False
-    if path.suffix.lower() in BINARY_SUFFIXES:
+    if path.suffix.lower() in BINARY_SUFFIXES or is_pinned_access_source(path):
         return True
     try:
         text = path.read_text(encoding="utf-8")

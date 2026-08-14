@@ -277,7 +277,7 @@ def test_sensitive_output_fails_closed_for_json_nested_utf8_and_missing_paths(tm
         assert result.returncode == 1
 
 
-def test_sensitive_output_accepts_known_access_binary_artifact(tmp_path):
+def test_sensitive_output_rejects_unpinned_access_binary_artifact(tmp_path):
     candidate = tmp_path / "source.accdb"
     candidate.write_bytes(b"\x00\xff\x00Access-binary")
 
@@ -285,7 +285,17 @@ def test_sensitive_output_accepts_known_access_binary_artifact(tmp_path):
         [sys.executable, str(ROOT / "scripts/ci/check_sensitive_output.py"), "--paths", str(candidate)]
     )
 
+    assert result.returncode == 1
+
+
+def test_sensitive_output_accepts_only_the_pinned_access_source_and_codacy_excludes_it():
+    source = ROOT / "access-client" / "SLUT-Client.accdb"
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/ci/check_sensitive_output.py"), "--paths", str(source)]
+    )
+
     assert result.returncode == 0
+    assert '"access-client/SLUT-Client.accdb"' in (ROOT / ".codacy.yml").read_text(encoding="utf-8")
 
 
 def test_sbom_validator_rejects_missing_and_forged_provenance(tmp_path, monkeypatch):
