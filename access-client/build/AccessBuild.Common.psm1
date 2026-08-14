@@ -313,7 +313,11 @@ function Import-AccessSource {
             if ($isTestOnly -and $Configuration -ne 'Test') { continue }
             $sourceFile = (Resolve-Path -LiteralPath (Join-Path $Source $object.path)).Path
             if ($object.type -eq 'module') {
-                [void]$app.VBE.ActiveVBProject.VBComponents.Import($sourceFile)
+                $component = $app.VBE.ActiveVBProject.VBComponents.Import($sourceFile)
+                # VBE imports a component into the project but leaves it unsaved.
+                # Save it under its imported name before compilation/close so Access
+                # cannot raise a headless "Save As" modal during shutdown.
+                $app.DoCmd.Save($script:AcModule, $component.Name)
             } else {
                 $code = Get-AccessObjectTypeCode -Type $object.type
                 $app.LoadFromText($code, $object.name, $sourceFile)
