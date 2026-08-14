@@ -95,10 +95,11 @@ dependency or external approval.
 
 ## Microsoft Access employee client
 
-- [x] 027 AC-01 - Source/build harness. `LOCAL` in the pushed release candidate
-  `4b265bd`, with complete importable export dependencies in `6e1bb06` and
-  checkout-stable pinned vendor bytes in `e18e1f8`. The current canonical-form
-  update awaits its independent review; the candidate is not merged.
+- [ ] 027 AC-01 - Source/build harness. `LOCAL` in the pushed release candidate,
+  with complete importable export dependencies in `4ed0fcd`, checkout-stable
+  pinned vendor bytes in `e18e1f8`, and canonical-form normalization in
+  `4b265bd`. The export/form changes are independently reviewed; the candidate
+  is not merged.
   Steps 1-7 and 9-10 complete. The editable master `SLUT-Client.accdb` holds
   frmShell, frmLogin, frmErrorDialog, macro AutoExec, and modules JsonConverter,
   TestAssert, TestRunner, all exported to text sources.
@@ -111,16 +112,22 @@ dependency or external approval.
   allowlisted paths and no others. VBA-JSON v2.3.1 pinned at `1e49ba82`, verified
   by byte length and SHA-256; `Export-AccessSource` writes every required
   import dependency while preserving the vendor pin.
-  A trusted, ignored project-output reconstruction now passes import, bounded
-  waits for only its own Access processes (never terminating one), self-contained
+  A trusted, ignored project-output reconstruction passed import, bounded waits
+  for only its own Access processes (never terminating one), self-contained
   export, and logical manifest equality with rewritten in-root dependency paths.
+  A later fresh rerun exposed an intermittent database-session shutdown defect:
+  the exact responsive `MSACCESS.EXE` instance can remain alive beyond the
+  120-second bounded wait. Explicit `UserControl` and VBE-child-release
+  experiments did not repair it and were reverted; this needs a controlled
+  Access-host lifecycle remedy, not a longer wait or process termination.
   Form canonicalization removes only Access
   export metadata proven to be volatile on import: `Checksum`, `NameMap`, and a
   repeated adjacent `NoSaveCTIWhenDisabled` property. The test copies the master
   before export, so it does not mutate the tracked `.accdb`; `access_com` is
   registered as a Windows-only pytest marker.
-  TASK COMPLETION DOES NOT MEAN MERGED. One external gate remains open: ACCDE
-  creation is UNPROVEN on this Access build - `SysCmd 603` returns
+  TASK COMPLETION DOES NOT MEAN MERGED. Two gates remain open: the controlled
+  Access COM shutdown lifecycle above, and ACCDE creation on this Access build.
+  `SysCmd 603` returns
   without error and produces no file, and no supported COM alternative exists
   (`acCmdMakeMDEFile` only opens a dialog), so this matrix row is stopped per plan;
   AC-02 is BLOCKED until this task is independently reviewed and merged, per its
