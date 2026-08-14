@@ -80,7 +80,10 @@ function Get-AccessManifest {
 
 function ConvertTo-CanonicalText {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$Path)
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$ObjectType
+    )
     # Normalize to CRLF, strip trailing whitespace per line, and end with exactly
     # one terminator. Written without a shrink-the-array loop: PowerShell collapses
     # a one-element array to a scalar, after which index -1 addresses a character
@@ -88,6 +91,29 @@ function ConvertTo-CanonicalText {
     $text = [IO.File]::ReadAllText($Path)
     $text = $text -replace "`r`n", "`n" -replace "`r", "`n"
     $lines = @($text -split "`n" | ForEach-Object { $_.TrimEnd() })
+    if ($ObjectType -eq 'form') {
+        # Access regenerates this form-specific checksum on import, and can
+        # duplicate this adjacent property. Neither represents source intent.
+        $lines = @($lines | Where-Object { $_ -notmatch '^\s*Checksum =-?\d+$' })
+        $deduplicated = New-Object 'System.Collections.Generic.List[string]'
+        $previousWasNoSaveCti = $false
+        $insideNameMap = $false
+        foreach ($line in $lines) {
+            if ($line -eq '    NameMap = Begin') {
+                $insideNameMap = $true
+                continue
+            }
+            if ($insideNameMap) {
+                if ($line -eq '    End') { $insideNameMap = $false }
+                continue
+            }
+            $isNoSaveCti = $line -eq '    NoSaveCTIWhenDisabled =1'
+            if ($isNoSaveCti -and $previousWasNoSaveCti) { continue }
+            $deduplicated.Add($line)
+            $previousWasNoSaveCti = $isNoSaveCti
+        }
+        $lines = @($deduplicated)
+    }
     $joined = ($lines -join "`n").TrimEnd("`n")
     $canonical = ($joined -replace "`n", "`r`n") + "`r`n"
     [IO.File]::WriteAllText($Path, $canonical, (New-Object Text.UTF8Encoding($false)))
@@ -211,7 +237,7 @@ function Export-AccessSource {
                 $code = Get-AccessObjectTypeCode -Type $object.type
                 $app.SaveAsText($code, $object.name, $target)
             }
-            [void](ConvertTo-CanonicalText -Path $target)
+            [void](ConvertTo-CanonicalText -Path $target -ObjectType $object.type)
             $object | Add-Member -NotePropertyName 'sha256' -NotePropertyValue (Get-Sha256 -Path $target) -Force
         }
     } finally {

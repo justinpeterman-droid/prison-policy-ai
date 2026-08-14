@@ -14,21 +14,21 @@
                         "name":  "frmErrorDialog",
                         "path":  "forms/frmErrorDialog.txt",
                         "order":  20,
-                        "sha256":  "b3888d62a62db1f331eab3d8df9239ff4469d563a409e1c8342f2a8b736fbdb7"
+                        "sha256":  "3c5f0e57546ef4cf802bbc1615e09d757c88825c812ce778fe34e71419009f95"
                     },
                     {
                         "type":  "form",
                         "name":  "frmLogin",
                         "path":  "forms/frmLogin.txt",
                         "order":  30,
-                        "sha256":  "89db31a9afa7ea8c7dd742c1fc4c5baf85c8950827f7130be3eaf34ef6bebdcd"
+                        "sha256":  "d4e79ec53dc4bb1bc250ca9b0945ee3ca65952bed496bbc39055c822617932e4"
                     },
                     {
                         "type":  "form",
                         "name":  "frmShell",
                         "path":  "forms/frmShell.txt",
                         "order":  40,
-                        "sha256":  "cf17584a06bd3d7056cf89f37be5f4da5a9e4e8570b0bed1ae3a4700739fc8a2"
+                        "sha256":  "c5140db04f62516737087cc63b196dddfa20f20159dbd6aaccb5ebdfe94380b5"
                     },
                     {
                         "type":  "module",

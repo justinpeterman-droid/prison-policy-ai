@@ -1,7 +1,6 @@
 Version =21
 VersionRequired =20
 PublishOption =1
-Checksum =2118747619
 Begin Form
     RecordSelectors = NotDefault
     NavigationButtons = NotDefault
@@ -23,10 +22,6 @@ Begin Form
     End
     GUID = Begin
         0x21dc5a59c7fcc442b558353066e05ace
-    End
-    NameMap = Begin
-        0x0acc0e5500000000000000000000000000000000000000000c00000005000000 ,
-        0x0000000000000000000000000000
     End
     DatasheetFontName ="Aptos"
     FilterOnLoad =0

@@ -75,3 +75,13 @@ def test_pinned_vendor_files_disable_checkout_line_ending_conversion():
 def test_reports_and_queries_have_no_access_objects():
     assert list((CLIENT / "src" / "reports").glob("*.txt")) == []
     assert list((CLIENT / "src" / "queries").glob("*.sql")) == []
+
+
+def test_manifested_forms_exclude_access_volatile_export_metadata():
+    manifest = json.loads((CLIENT / "src" / "manifest.json").read_text("utf-8"))
+    forms = [item for item in manifest["objects"] if item["type"] == "form"]
+    for form in forms:
+        text = (CLIENT / "src" / form["path"]).read_text("utf-8")
+        assert "Checksum =" not in text
+        assert "NameMap = Begin" not in text
+        assert text.count("    NoSaveCTIWhenDisabled =1") == 1
