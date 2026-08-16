@@ -12,7 +12,25 @@ FROM python:3.14-slim@sha256:ce40764625a4ff50df3548277632e7f96c4e77fe75fa848aae9
 WORKDIR /app
 
 COPY backend/requirements.lock .
-RUN python -m venv /venv && /venv/bin/pip install --no-cache-dir --require-hashes -r requirements.lock
+# The runtime stage below is chainguard/python, which ships CPython at
+# /usr/bin/python3.14 and has no /usr/local at all. A venv built here points
+# its interpreter symlinks and pyvenv.cfg at this stage's /usr/local/bin, so
+# once /venv is copied across, /venv/bin/python dangles and every exec of it
+# fails: gunicorn (shebang #!/venv/bin/python), the HEALTHCHECK, and the Cloud
+# Run jobs' command = ["python"]. Repoint both at the runtime location. Both
+# stages are CPython 3.14, so site-packages and the ABI already line up.
+RUN python -m venv /venv \
+    && /venv/bin/pip install --no-cache-dir --require-hashes -r requirements.lock \
+    && PYVER="$(/venv/bin/python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')" \
+    && rm -f /venv/bin/python /venv/bin/python3 "/venv/bin/python${PYVER}" \
+    && ln -s "/usr/bin/python${PYVER}" "/venv/bin/python${PYVER}" \
+    && ln -s "python${PYVER}" /venv/bin/python3 \
+    && ln -s "python${PYVER}" /venv/bin/python \
+    && sed -i \
+        -e 's|^home = .*|home = /usr/bin|' \
+        -e "s|^executable = .*|executable = /usr/bin/python${PYVER}|" \
+        -e "s|^command = .*|command = /usr/bin/python${PYVER} -m venv /venv|" \
+        /venv/pyvenv.cfg
 
 FROM chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d
 
