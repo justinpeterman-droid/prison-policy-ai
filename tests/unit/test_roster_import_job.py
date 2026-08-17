@@ -67,6 +67,24 @@ def test_roster_plan_is_hash_bound():
     assert [finding.code for finding in plan.findings] == ["source_hash_mismatch"]
 
 
+def test_roster_plan_reports_hash_mismatch_alongside_an_invalid_source_schema():
+    """A tampered source that is also malformed must still surface the tamper."""
+    plan = build_roster_plan(
+        {"staff": []},  # not a list -> invalid_source_schema early return
+        corrections={},
+        expected_sha256="0" * 64,
+        source_bytes=b"{}",
+    )
+
+    assert not plan.ready
+    assert [finding.code for finding in plan.findings] == [
+        "source_hash_mismatch",
+        "invalid_source_schema",
+    ]
+    assert plan.inserts == ()
+    assert plan.updates == ()
+
+
 def test_roster_plan_accepts_a_matching_canonical_hash():
     rows = [
         {

@@ -145,7 +145,10 @@ def build_roster_plan(
     ):
         findings.append(RosterFinding("source_hash_mismatch"))
     if not isinstance(rows, list) or not isinstance(corrections, dict):
-        return RosterImportPlan(source_sha256, (RosterFinding("invalid_source_schema"),), (), ())
+        # Carry any hash mismatch through: a tampered source that is also
+        # malformed must still report the tamper to the reviewer, not just the
+        # schema problem it happens to trip first.
+        return RosterImportPlan(source_sha256, (*findings, RosterFinding("invalid_source_schema")), (), ())
 
     existing = [_existing_values(row) for row in existing_staff]
     by_employee = {row["employee_number"]: row for row in existing}
