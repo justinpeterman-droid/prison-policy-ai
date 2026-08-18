@@ -841,6 +841,8 @@ def reports_api():
 
 def _send_filled(metadata: dict):
     """Fill the 005 template and return it as a DOCX (or text fallback)."""
+    from io import BytesIO
+
     output = fill_template(metadata)
 
     if output.get("text"):
@@ -852,8 +854,22 @@ def _send_filled(metadata: dict):
             }
         )
 
+    output_path = Path(output["path"])
+    temporary = output.get("temporary") is True
+    try:
+        document_bytes = output_path.read_bytes()
+    finally:
+        if temporary:
+            try:
+                output_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning(
+                    "Could not remove generated report file",
+                    exc_info=True,
+                )
+
     return send_file(
-        output["path"],
+        BytesIO(document_bytes),
         as_attachment=True,
         download_name="Incident_Report_Form.docx",
         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

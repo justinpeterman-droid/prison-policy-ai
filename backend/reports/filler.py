@@ -124,7 +124,10 @@ def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
 
             zout.writestr(item, data)
 
-    return {"path": str(resolved_output_path)}
+    return {
+        "path": str(resolved_output_path),
+        "temporary": output_path is None,
+    }
 
 
 def _ensure_template() -> Path:
