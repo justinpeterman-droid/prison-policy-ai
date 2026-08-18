@@ -11,7 +11,7 @@ Prison Policy AI is becoming **one authoritative platform** used through two cli
 
 The backend, PostgreSQL model, Access source/build foundation, and cloud release-candidate work already exist. The React application and browser-session adapter are approved designs but are not yet shipped. This document distinguishes the shared platform boundary from the temporary legacy Flask browser pilot.
 
-The approved web design is recorded in `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md`; its staged implementation plans live under `docs/superpowers/plans/`. The persistent delivery state is recorded in `docs/access-cloud-run-implementation-checklist.md`.
+The approved web architecture and staged implementation order are recorded here and in `docs/access-cloud-run-implementation-checklist.md`. Detailed task plans remain subject to their own test and review gates before each stage is accepted.
 
 ## System boundary
 
