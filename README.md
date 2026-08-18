@@ -29,7 +29,7 @@ Microsoft Access client             React web companion (planned)
 
 Cloud Run and PostgreSQL are the authority for identity, permissions, report ownership, revisions, job state, exports, and audit. Hiding a control in Access or React is never an authorization boundary; every operation is authorized again on the server.
 
-The detailed target architecture is documented in `docs/architecture/unified-platform.md`. The approved web-companion design and implementation plans are tracked in draft PR #84.
+The detailed target architecture is documented in `docs/architecture/unified-platform.md`. The approved web-companion design is in `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md`, with executable stages under `docs/superpowers/plans/`.
 
 ## Current capabilities
 
