@@ -4,7 +4,7 @@
 
 **Merge:** PR #85, merge commit `8c3552130886dfd5368a1b363c713fa1f75ce440`.
 
-**Purpose:** Preserve the test-first decisions and exact verification evidence for W-01. This file is no longer an executable implementation plan. W-02 is the active next web-companion stage.
+**Purpose:** Preserve the test-first decisions and exact verification evidence for W-01. This file is no longer an executable implementation plan. The Guided Operations Web Foundation is the active next web-companion stage.
 
 ## Accepted outcomes
 
@@ -84,5 +84,5 @@ Final feature-branch head: `ba337ebdde21ce46a7a86891c1fe97e8e723da66`.
 - Issues #71 and #72 are closed as completed.
 - Issue #69 is closed as not planned.
 - No deployment, migration, cloud mutation, secret change, branch-protection change, or production operation was part of W-01.
-- The next implementation stage is `docs/superpowers/plans/2026-08-18-browser-auth-session-adapter.md`.
-- Preparation of an integration-to-`main` release PR is separate from deployment and does not claim that W-02 through W-05 are implemented.
+- The next implementation stage is `docs/superpowers/plans/2026-08-18-guided-operations-web-foundation-implementation.md`, governed by `docs/superpowers/plans/2026-08-18-guided-operations-web-program-roadmap.md`.
+- Preparation of an integration-to-`main` release PR is separate from deployment and does not claim that the Guided Operations web program is implemented.
