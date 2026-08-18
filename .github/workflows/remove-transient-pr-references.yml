@@ -7,6 +7,11 @@ on:
       - fix/release-cleanup-chat
     paths:
       - .github/workflows/remove-transient-pr-references.yml
+  pull_request:
+    branches:
+      - integration/access-cloud-run-rp02
+    paths:
+      - .github/workflows/remove-transient-pr-references.yml
 
 permissions:
   contents: write
