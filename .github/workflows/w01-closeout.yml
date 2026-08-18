@@ -1,0 +1,150 @@
+name: Apply W-01 Closeout
+
+on:
+  push:
+    branches:
+      - docs/w01-closeout
+
+permissions:
+  contents: write
+
+jobs:
+  closeout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout closeout branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: docs/w01-closeout
+          fetch-depth: 0
+
+      - name: Record accepted W-01 state
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file_path = Path(path)
+              text = file_path.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected one match in {path}, found {count}")
+              file_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          replace_once(
+              "README.md",
+              """## Active roadmap
+
+1. **W-01 — Release cleanup and current documentation:** resolve the remaining reliability issues and consolidate the release candidate.
+2. **W-02 — Secure browser authentication:** HttpOnly browser sessions, renewal, CSRF protection, and individual employee login.
+3. **W-03 — Officer React companion:** dashboard, report workflow, history, exports, Policy Expert, and session controls.
+4. **W-04 — Administrator React companion:** accounts, roster, report oversight, revisions, audit, health, and bulk export.
+5. **W-05 — Cutover and release:** cross-client verification, React at `/`, retirement of shared codes and legacy Flask pages, and controlled rollout.
+""",
+              """## Active roadmap
+
+1. **W-01 — Completed on the candidate (`8c355213`):** reliability cleanup, current documentation, and repository-root build policy.
+2. **W-02 — Next: secure browser authentication:** HttpOnly browser sessions, renewal, CSRF protection, and individual employee login.
+3. **W-03 — Officer React companion:** dashboard, report workflow, history, exports, Policy Expert, and session controls.
+4. **W-04 — Administrator React companion:** accounts, roster, report oversight, revisions, audit, health, and bulk export.
+5. **W-05 — Cutover and release:** cross-client verification, React at `/`, retirement of shared codes and legacy Flask pages, and controlled rollout.
+""",
+          )
+
+          replace_once(
+              "HANDOFF.md",
+              "- W-01 release cleanup must pass its complete hosted checks and review before it is accepted into the release-candidate line.",
+              "- W-01 release cleanup is accepted on the release-candidate line at merge `8c355213`; W-02 secure browser authentication is next.",
+          )
+
+          replace_once(
+              "HANDOFF.md",
+              """## 2. Accept W-01 release cleanup
+
+Accept W-01 only after all required checks and review are green. Its scope includes:
+
+- bounded GitHub feedback submissions;
+- deletion of route-owned temporary DOCX files while preserving caller-owned paths;
+- retirement of stale backend-local deployment instructions;
+- replacement of obsolete README and handoff material;
+- a current unified-platform architecture document and web-companion ledger.
+
+After W-01 is accepted into the release-candidate line, close issues #71 and #72 as completed. Close #69 as obsolete/not planned because the unsafe backend-local script no longer exists and controlled delivery belongs to OP-08.
+""",
+              """## 2. W-01 accepted; begin W-02
+
+W-01 merged into the release-candidate line at `8c355213` after the exact candidate passed Unit Tests, Backend Quality, PostgreSQL 17 integration, Terraform, container build, provenance, vulnerability, SBOM, and redaction checks.
+
+- Issues #71 and #72 are closed as completed.
+- Issue #69 is closed as not planned because the unsafe backend-local deployment script remains retired and controlled delivery belongs to OP-08.
+- No production deployment, migration, cloud mutation, or secret change was performed.
+
+The next implementation stage is W-02: individual employee-number/PIN browser login through Secure, HttpOnly sessions with renewal, CSRF protection, no-store responses, and server-side revocation.
+""",
+          )
+
+          replace_once(
+              "docs/access-cloud-run-implementation-checklist.md",
+              "candidate. On 2026-08-18 it was 114 commits ahead of `main` and 0 behind.",
+              "candidate. On 2026-08-18 it was 115 commits ahead of `main` and 0 behind.",
+          )
+
+          replace_once(
+              "docs/access-cloud-run-implementation-checklist.md",
+              """- W-01 release cleanup is under implementation/review and is not yet part of
+  the release-candidate line.
+""",
+              """- W-01 release cleanup is accepted on the release-candidate line at
+  `8c355213`; W-02 secure browser authentication is the next web stage.
+""",
+          )
+
+          replace_once(
+              "docs/access-cloud-run-implementation-checklist.md",
+              """- [ ] W-01 — Release cleanup and current documentation. `IN PROGRESS`.
+  Scope: resolve #71/#72, retire obsolete #69 instructions, refresh
+  README/HANDOFF, document the unified platform, and prepare current release
+  evidence.
+- [ ] W-02 — Secure browser authentication/session adapter. Planned after W-01:
+  employee-number/PIN login through the existing identity service, Secure
+  HttpOnly cookies, renewal, CSRF, no-store responses, and server-side
+  revocation.
+""",
+              """- [x] W-01 — Release cleanup and current documentation. `CANDIDATE` at
+  merge `8c355213`. Issues #71/#72 are completed; #69 is closed not planned.
+  Exact-head verification at `ba337ebd`: Unit Tests `32173978705`, Backend
+  Quality `32173978708`, and Container Security `32173978585` all passed,
+  including Python 3.12/3.14, PostgreSQL 17, Ruff, mypy, OpenAPI, Terraform,
+  redaction, container provenance, vulnerability, and SBOM gates.
+- [ ] W-02 — Secure browser authentication/session adapter. `NEXT`:
+  employee-number/PIN login through the existing identity service, Secure
+  HttpOnly cookies, renewal, CSRF, no-store responses, and server-side
+  revocation.
+""",
+          )
+
+          replace_once(
+              "docs/access-cloud-run-implementation-checklist.md",
+              """- [x] Current Access/cloud candidate is based on `main` and was 0 commits behind
+  on 2026-08-18.
+- [ ] Current Access/cloud release candidate merged to `main`.
+""",
+              """- [x] Current Access/cloud candidate is based on `main` and was 0 commits behind
+  on 2026-08-18.
+- [x] W-01 release cleanup accepted on the candidate at `8c355213` with all
+  exact-head hosted gates green; #71/#72 completed and #69 retired.
+- [ ] Current Access/cloud release candidate merged to `main`.
+""",
+          )
+          PY
+
+      - name: Commit closeout and remove one-time workflow
+        shell: bash
+        run: |
+          rm .github/workflows/w01-closeout.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md HANDOFF.md docs/access-cloud-run-implementation-checklist.md .github/workflows/w01-closeout.yml
+          git commit -m "docs: close W-01 and activate W-02"
+          git push origin HEAD:docs/w01-closeout
