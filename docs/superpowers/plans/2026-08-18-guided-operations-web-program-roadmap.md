@@ -4,65 +4,75 @@
 
 **Goal:** Deliver the approved Guided Operations browser application without replacing the existing report engine, Access client, policy-search pipeline, individual identity system, revision controls, or Word export behavior.
 
-**Architecture:** A new React/TypeScript/Vite application is built under `frontend/web/` and served as versioned static assets by the existing Flask/Cloud Run service. A separate cookie-authenticated `/api/web/v1` adapter reuses the same identity, authorization, incident, report, job, policy, audit, and export service layers that currently back the bearer-authenticated Access API; new paperwork and form resources are added behind the same server-enforced controls.
+**Architecture:** A complete high-fidelity visual contract is approved first. A new React/TypeScript/Vite application is then built under `frontend/web/` and served as versioned static assets by the existing Flask/Cloud Run service. A separate cookie-authenticated `/api/web/v1` adapter reuses the same identity, authorization, incident, report, job, policy, audit, and export service layers that currently back the bearer-authenticated Access API; new form and operational-paperwork resources remain behind the same server-enforced controls.
 
-**Tech Stack:** Python 3.14, Flask 3, SQLAlchemy 2, Alembic, PostgreSQL 17, React, TypeScript, Vite, React Router, TanStack Query, Zod, Vitest, React Testing Library, MSW, Playwright, CSS variables, native CSS/WAAPI motion, and dedicated HTML/CSS print templates.
+**Tech Stack:** Python 3.14, Flask 3, SQLAlchemy 2, Alembic, PostgreSQL 17, React, TypeScript, Vite, React Router, TanStack Query, Zod, Vitest, React Testing Library, MSW, Playwright, CSS variables, native CSS/WAAPI motion, dedicated HTML/CSS print templates, and OpenAI Image Generation for the visual contract.
 
 **Spec:** `docs/superpowers/specs/2026-08-18-guided-operations-web-frontend-design.md`
 
+**Sanitized Source Reference:** `docs/design/guided-operations/sanitized-paperwork-structures.md`
+
 ## Global Constraints
 
+- The complete visual concept pack is approved before production UI code begins.
 - The officer navigation is exactly Home, New Report, Reports, Policy Expert, Forms Library, and Account.
 - The normal application is light-first: approximately 80% light surfaces, 15% navy structure, and 5% gold/bronze or semantic accent.
 - The visual system is `Light Precision Workspace`; dimensional controls are selective and never reduce readability.
-- High-fidelity concepts for the required screens are approved before production UI code is accepted.
 - Every official incident number uses `YYYY-MM-NNN`; `2026-08-029` is a valid example, leading zeroes are preserved, invalid months are rejected, and duplicates are refused.
 - Officers never manage records-management status directly; officer progress is derived from workflow state.
 - Field notes remain bounded by the existing backend constant `FIELD_NOTES_MAX_CHARACTERS = 30_000`.
 - Raw field notes never directly populate official forms; reviewed structured facts and gap answers are the only population source.
 - Supervisor Summary and Disciplinary Supplement are editable copy-only outputs with no Print or Word-download action.
 - Chain of Custody remains a physical carbon-copy requirement; the web app provides guidance and acknowledgment but no digital substitute.
-- Uploaded workbooks, real names, employee numbers, phone numbers, and historical operational entries are never committed, copied into fixtures, or placed in screenshots.
+- Uploaded workbooks, real names, employee numbers, phone numbers, equipment identifiers, signatures, and historical operational entries are never committed, copied into fixtures, or placed in screenshots.
 - Browser authentication uses HttpOnly, Secure cookies and server-side session resolution; access and renewal tokens never enter JavaScript or `localStorage`.
 - Cookie-authenticated mutations require origin validation plus a session-bound CSRF token.
 - The existing `/api/v1` bearer contract remains unchanged for Microsoft Access.
 - All modifying requests use idempotency keys; revisioned writes reject stale clients with `409 revision_conflict`.
 - Network failure never clears visible work; the UI uses Saved, Saving, Unsaved changes, Reconnecting, and Save failed—work preserved.
 - WCAG 2.2 AA, full keyboard operation, visible focus, 44px primary touch targets, reduced motion, and print legibility are release gates.
-- Legacy Jinja pages and the Access client remain available during pilot; shared-code browser routes are retired only after parity, rollback, training, and user approval.
+- Legacy Jinja pages and the Access client remain available during pilot; shared-code browser routes are retired only after parity, rollback, training, and explicit user approval.
 - Each detailed plan produces independently testable software and one focused commit per task.
 
 ---
 
 ## Detailed Plans
 
-1. `docs/superpowers/plans/2026-08-18-guided-operations-web-foundation-implementation.md`
-2. `docs/superpowers/plans/2026-08-18-guided-operations-incident-workspace-implementation.md`
-3. `docs/superpowers/plans/2026-08-18-guided-operations-officer-utilities-implementation.md`
-4. `docs/superpowers/plans/2026-08-18-guided-operations-admin-command-center-implementation.md`
-5. `docs/superpowers/plans/2026-08-18-guided-operations-daily-paperwork-implementation.md`
-6. `docs/superpowers/plans/2026-08-18-guided-operations-print-center-rollout-implementation.md`
+1. `docs/superpowers/plans/2026-08-18-guided-operations-visual-concept-pack-implementation.md`
+2. `docs/superpowers/plans/2026-08-18-guided-operations-web-foundation-implementation.md`
+3. `docs/superpowers/plans/2026-08-18-guided-operations-incident-workspace-implementation.md`
+4. `docs/superpowers/plans/2026-08-18-guided-operations-officer-utilities-implementation.md`
+5. `docs/superpowers/plans/2026-08-18-guided-operations-admin-command-center-implementation.md`
+6. `docs/superpowers/plans/2026-08-18-guided-operations-daily-paperwork-implementation.md`
+7. `docs/superpowers/plans/2026-08-18-guided-operations-print-center-rollout-implementation.md`
 
 ## Dependency Graph
 
 ```text
-Web Foundation
-├── Incident Workspace
-│   └── Officer Utilities (Home summaries and Forms Library consume incident/form contracts)
-├── Officer Utilities
-├── Admin Command Center
-│   └── Daily Paperwork Center
-└── Print Center and Rollout
+Complete Visual Concept Pack
+└── Web Foundation
+    ├── Incident Workspace
+    │   └── Officer Utilities Home and Forms integrations
+    ├── Officer Utilities
+    └── Admin Command Center
+        └── Daily Paperwork Center
 
 Incident Workspace + Officer Utilities + Admin Command Center + Daily Paperwork
-└── Print Center and Rollout
+└── Weekly/Monthly Print Center and Rollout
 ```
 
-The web foundation lands first. Incident Workspace and Officer Utilities may proceed in parallel only after browser authentication, SPA delivery, common API envelopes, design tokens, and the query client are stable. Admin Command Center may begin after the same foundation and must reuse the existing admin authorization/elevation services. Daily Paperwork depends on the shared paperwork persistence introduced by Officer Utilities. Rollout is last.
+The visual concept pack lands and receives explicit approval first. The web foundation lands next. Incident Workspace and Officer Utilities may proceed in parallel only after browser authentication, SPA delivery, common API envelopes, design tokens, query client, and complete visual contract are stable. Admin Command Center begins after the same foundation and reuses existing admin authorization/elevation services. Daily Paperwork depends on the generic paperwork persistence introduced by Officer Utilities and the protected admin shell. Rollout is last.
 
 ## Locked Repository Structure
 
 ```text
+docs/design/guided-operations/
+  README.md
+  concept-index.md
+  source-copy-inventory.md
+  sanitized-paperwork-structures.md
+  *.png
+
 frontend/web/
   package.json
   package-lock.json
@@ -72,15 +82,7 @@ frontend/web/
   src/
     main.tsx
     app/
-      App.tsx
-      router.tsx
-      providers.tsx
-      route-guards.tsx
     api/
-      client.ts
-      errors.ts
-      schemas.ts
-      query-keys.ts
     components/
       primitives/
       layout/
@@ -90,7 +92,6 @@ frontend/web/
       auth/
       dashboard/
       incidents/
-      reports/
       paperwork/
       forms-library/
       policy/
@@ -98,47 +99,58 @@ frontend/web/
       administration/
     print/
     styles/
-      tokens.css
-      typography.css
-      motion.css
-      print.css
-      global.css
     test/
-      setup.ts
-      server.ts
-      handlers.ts
   tests/e2e/
 
 backend/
   identity/
     browser_sessions.py
+    browser_admin.py
   paperwork/
     __init__.py
     models.py
     schemas.py
     service.py
+    policy.py
     count_sheet.py
     daily.py
+    daily_templates.py
     templates.py
   forms/
     __init__.py
     catalog.py
+    library.py
     packets.py
     population.py
     physical.py
+    output_events.py
+  reports/
+    incident_numbers.py
+    workflow_progress.py
+    admin_incidents.py
   webapp/
     web_api/
       __init__.py
       context.py
+      responses.py
       middleware.py
       auth.py
       incidents.py
       reports.py
+      jobs.py
       forms.py
       paperwork.py
       policy.py
       account.py
-      admin.py
+      admin_auth.py
+      admin_overview.py
+      admin_incidents.py
+      admin_accounts.py
+      admin_audit.py
+      admin_health.py
+      admin_review_lab.py
+      admin_daily_paperwork.py
+      print_templates.py
     routes/
       web_app.py
     static/web/
@@ -157,9 +169,11 @@ openapi/
   web-v1.yaml
 
 templates/paperwork/
-  daily/
-  monthly/
   catalog.json
+  count_sheet.json
+  daily/
+  weekly/
+  monthly/
 
 tests/
   contract/test_web_v1_openapi.py
@@ -167,11 +181,13 @@ tests/
   integration/test_web_incidents.py
   integration/test_form_packets.py
   integration/test_paperwork_api.py
+  integration/test_web_admin_*.py
   unit/test_browser_sessions.py
   unit/test_incident_progress.py
   unit/test_count_sheet.py
-  unit/test_daily_paperwork.py
+  unit/test_daily_*.py
   security/test_web_cookie_security.py
+  security/test_web_admin_authorization.py
 ```
 
 ## Shared Python Interfaces
@@ -188,6 +204,7 @@ class BrowserActor:
     auth_version: int
     must_change_pin: bool
 
+
 @dataclass(frozen=True)
 class BrowserCookiePair:
     access_token: str
@@ -196,6 +213,7 @@ class BrowserCookiePair:
     access_expires_at: datetime
     renewal_expires_at: datetime
     persistent: bool
+
 
 @dataclass(frozen=True)
 class WorkflowProgress:
@@ -211,6 +229,7 @@ class WorkflowProgress:
     label: str
     blocking_count: int
 
+
 class PaperworkKind(str, Enum):
     COUNT_SHEET = "count_sheet"
     ASSIGNMENT_ROSTER = "assignment_roster"
@@ -220,10 +239,21 @@ class PaperworkKind(str, Enum):
     RANDOM_SEARCH_LOG = "random_search_log"
     DETECTOR_SIGN_OUT = "detector_sign_out"
 
+
 class FormOutputKind(str, Enum):
     DIGITAL_DOCUMENT = "digital_document"
-    COPY_TEXT = "copy_text"
     PHYSICAL_ONLY = "physical_only"
+
+
+class ReportPresentation(str, Enum):
+    DOCUMENT = "document"
+    COPY_TEXT = "copy_text"
+
+
+class AssignmentState(str, Enum):
+    UNASSIGNED = "unassigned"
+    ASSIGNED = "assigned"
+    NO_OFFICER_AVAILABLE = "no_officer_available"
 ```
 
 Required service signatures:
@@ -271,6 +301,7 @@ def calculate_workflow_progress(
     reports: Sequence[Report],
     jobs: Sequence[AiJob],
     packet_items: Sequence[IncidentPacketItem],
+    current_revision_actions: Sequence[DocumentActionEvent],
 ) -> WorkflowProgress: ...
 
 
@@ -316,7 +347,7 @@ def populate_form_instance(
 - Authentication responses return safe profile/session state only; token values are written only to cookies.
 - Cookies are named `slut_web_access`, `slut_web_renewal`, `slut_web_device`, and `slut_web_csrf`.
 - Access, renewal, and device cookies are HttpOnly; the CSRF cookie is readable by same-origin JavaScript and contains only a random anti-CSRF value.
-- Production cookies use `Secure`, `SameSite=Lax`, bounded paths, and explicit max ages. Local HTTP development may omit `Secure` only when `FLASK_ENV=development` and the host is loopback.
+- Production cookies use `Secure`, `SameSite=Lax`, bounded paths, and explicit max ages. Local HTTP development may omit `Secure` only when development mode is explicit and the host is loopback.
 - Every mutation validates `Origin`, `Sec-Fetch-Site`, and `X-CSRF-Token` against the session-bound digest.
 - Read requests never rotate renewal credentials. `POST /api/web/v1/auth/renew` rotates both session credentials and the CSRF token.
 - React sends `X-Client-Version` from the built package version, `X-Request-ID`, and `Idempotency-Key` where required.
@@ -324,9 +355,10 @@ def populate_form_instance(
 
 ## Cross-Plan Release Gates
 
-- [ ] Approved high-fidelity concepts exist for all six visual concept groups in the spec.
+- [ ] The complete high-fidelity concept pack is approved and recorded.
 - [ ] Web foundation unit, contract, integration, security, accessibility, and SPA smoke tests pass.
-- [ ] Incident number uniqueness and workflow progress are server-tested.
+- [ ] Incident-number uniqueness and workflow progress are server-tested.
+- [ ] Printed/exported progress considers actions for the current saved revision only.
 - [ ] Populated forms are generated only from a saved reviewed incident revision.
 - [ ] Copy-only and physical-only actions are impossible through UI and API metadata, not merely hidden by CSS.
 - [ ] Count-sheet totals and reconciliation pass unit, integration, keyboard, and print tests.
@@ -338,10 +370,12 @@ def populate_form_instance(
 
 ## Program Execution Order
 
-- [ ] **Gate 1:** Complete and approve the Web Foundation plan.
+- [ ] **Gate 0:** Generate, review, revise, and approve the complete Visual Concept Pack.
+- [ ] **Gate 1:** Complete and approve the Web Foundation.
 - [ ] **Gate 2A:** Complete Incident Workspace.
-- [ ] **Gate 2B:** Complete Officer Utilities after the shared paperwork record contract lands.
+- [ ] **Gate 2B:** Complete Officer Utilities after the shared paperwork-record contract lands.
 - [ ] **Gate 3A:** Complete Admin Command Center.
 - [ ] **Gate 3B:** Complete Daily Paperwork Center.
 - [ ] **Gate 4:** Complete Weekly/Monthly Print Center and rollout verification.
-- [ ] **Gate 5:** Pilot alongside Access and legacy Jinja, collect usability findings, fix regressions, and obtain explicit retirement approval.
+- [ ] **Gate 5:** Pilot alongside Access and legacy Jinja, collect usability findings, fix regressions, and obtain explicit primary-cutover approval.
+- [ ] **Gate 6:** Obtain separate explicit approval before retiring any legacy route.
