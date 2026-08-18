@@ -1,0 +1,149 @@
+name: Remove Transient PR References
+
+on:
+  push:
+    branches:
+      - fix/release-cleanup-chat
+    paths:
+      - .github/workflows/remove-transient-pr-references.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout implementation branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/release-cleanup-chat
+          fetch-depth: 0
+
+      - name: Replace temporary PR references with durable paths
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file_path = Path(path)
+              text = file_path.read_text(encoding="utf-8")
+              if text.count(old) != 1:
+                  raise SystemExit(
+                      f"expected exactly one match in {path}, found {text.count(old)}"
+                  )
+              file_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          replace_once(
+              "README.md",
+              "The detailed target architecture is documented in `docs/architecture/unified-platform.md`. The approved web-companion design and implementation plans are tracked in draft PR #84.",
+              "The detailed target architecture is documented in `docs/architecture/unified-platform.md`. The approved web-companion design is in `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md`, with executable stages under `docs/superpowers/plans/`.",
+          )
+
+          replace_once(
+              "docs/architecture/unified-platform.md",
+              "The detailed approved web design and implementation plans are in draft PR #84. The persistent delivery state is recorded in `docs/access-cloud-run-implementation-checklist.md`.",
+              "The approved web design is recorded in `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md`; its staged implementation plans live under `docs/superpowers/plans/`. The persistent delivery state is recorded in `docs/access-cloud-run-implementation-checklist.md`.",
+          )
+
+          replace_once(
+              "HANDOFF.md",
+              """- `main` contains the reviewed backend/PostgreSQL checkpoint.
+- `integration/access-cloud-run-rp02` is the current Access/cloud release-candidate line and remains ahead of `main`.
+- **PR #84** contains the approved unified Access + React web-companion architecture and five implementation plans. It is documentation/planning only.
+- **PR #85** contains release cleanup, reliability fixes, and current repository documentation. It must pass its complete hosted checks before review completion.
+- The legacy Flask browser application and shared access codes remain temporary migration surfaces. They are not the target identity model.
+""",
+              """- `main` contains the reviewed backend/PostgreSQL checkpoint.
+- `integration/access-cloud-run-rp02` is the current Access/cloud release-candidate line and remains ahead of `main`.
+- The approved unified Access + React architecture is recorded in `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md`, with five staged plans under `docs/superpowers/plans/`.
+- W-01 release cleanup must pass its complete hosted checks and review before it is accepted into the release-candidate line.
+- The legacy Flask browser application and shared access codes remain temporary migration surfaces. They are not the target identity model.
+""",
+          )
+
+          replace_once(
+              "HANDOFF.md",
+              """## 1. Review and land the planning baseline
+
+Review **PR #84** against the approved product decisions:
+
+- one employee-number/PIN identity shared by Access and web;
+- Administrator-created accounts from the approved roster;
+- React + TypeScript web companion;
+- Secure, HttpOnly browser sessions with CSRF protection;
+- one authoritative `/api/v1` and PostgreSQL data model;
+- full Officer and Administrator web parity;
+- staged retirement, then removal, of `ACCESS_CODE`, `ADMIN_CODE`, and legacy Flask pages.
+
+Merge it into `integration/access-cloud-run-rp02` only after the documentation review is accepted. It does not authorize implementation or deployment by itself.
+
+## 2. Review and land release cleanup
+
+Review **PR #85** after all required checks are green. Its scope includes:
+""",
+              """## 1. Use the approved planning baseline
+
+Review `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md` and the five plans under `docs/superpowers/plans/` against the approved product decisions:
+
+- one employee-number/PIN identity shared by Access and web;
+- Administrator-created accounts from the approved roster;
+- React + TypeScript web companion;
+- Secure, HttpOnly browser sessions with CSRF protection;
+- one authoritative `/api/v1` and PostgreSQL data model;
+- full Officer and Administrator web parity;
+- staged retirement, then removal, of `ACCESS_CODE`, `ADMIN_CODE`, and legacy Flask pages.
+
+The planning baseline does not authorize implementation or deployment by itself. Each stage still requires its own tests and review.
+
+## 2. Accept W-01 release cleanup
+
+Accept W-01 only after all required checks and review are green. Its scope includes:
+""",
+          )
+
+          replace_once(
+              "HANDOFF.md",
+              "After the PR merges, close issues #71 and #72 as completed. Close #69 as obsolete/not planned because the unsafe backend-local script no longer exists and controlled delivery belongs to OP-08.",
+              "After W-01 is accepted into the release-candidate line, close issues #71 and #72 as completed. Close #69 as obsolete/not planned because the unsafe backend-local script no longer exists and controlled delivery belongs to OP-08.",
+          )
+
+          replace_once(
+              "docs/access-cloud-run-implementation-checklist.md",
+              """- Draft PR #84 contains the approved unified Microsoft Access + React
+  architecture and implementation plans; it is documentation/planning only.
+- Draft PR #85 contains W-01 release cleanup and documentation fixes.
+""",
+              """- The approved unified Microsoft Access + React design is stored at
+  `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md`;
+  its staged implementation plans live under `docs/superpowers/plans/`.
+- W-01 release cleanup is under implementation/review and is not yet part of
+  the release-candidate line.
+""",
+          )
+
+          replace_once(
+              "docs/access-cloud-run-implementation-checklist.md",
+              """- [ ] W-01 — Release cleanup and current documentation. `IN PROGRESS` in draft
+  PR #85. Scope: resolve #71/#72, retire obsolete #69 instructions, refresh
+  README/HANDOFF, document the unified platform, and prepare current release
+  evidence.
+""",
+              """- [ ] W-01 — Release cleanup and current documentation. `IN PROGRESS`.
+  Scope: resolve #71/#72, retire obsolete #69 instructions, refresh
+  README/HANDOFF, document the unified platform, and prepare current release
+  evidence.
+""",
+          )
+          PY
+
+      - name: Commit durable references and remove one-time workflow
+        shell: bash
+        run: |
+          rm .github/workflows/remove-transient-pr-references.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md HANDOFF.md docs/architecture/unified-platform.md docs/access-cloud-run-implementation-checklist.md .github/workflows/remove-transient-pr-references.yml
+          git commit -m "docs: use durable planning references"
+          git push origin HEAD:fix/release-cleanup-chat
