@@ -9,6 +9,7 @@ HANDOFF = ROOT / "HANDOFF.md"
 CHECKLIST = ROOT / "docs" / "access-cloud-run-implementation-checklist.md"
 ARCHITECTURE = ROOT / "docs" / "architecture" / "unified-platform.md"
 ARCHITECTURE_PATH = "docs/architecture/unified-platform.md"
+ENTRY_DOCS = (README, HANDOFF, CHECKLIST, ARCHITECTURE)
 
 
 def _read(path: Path) -> str:
@@ -47,7 +48,7 @@ def test_handoff_uses_durable_release_references():
 
 
 def test_entry_docs_do_not_depend_on_draft_pr_numbers():
-    for path in (README, HANDOFF, CHECKLIST, ARCHITECTURE):
+    for path in ENTRY_DOCS:
         text = _read(path)
         assert "draft PR #" not in text
         assert "PR #84" not in text
