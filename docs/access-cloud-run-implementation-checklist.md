@@ -24,12 +24,12 @@ been updated.
 
 - `main` is the reviewed backend/PostgreSQL checkpoint at `a333271`.
 - `integration/access-cloud-run-rp02` is the current Access/cloud release
-  candidate. On 2026-08-18 it was 114 commits ahead of `main` and 0 behind.
+  candidate. On 2026-08-18 it was 115 commits ahead of `main` and 0 behind.
 - The approved unified Microsoft Access + React design and staged workstream are
   recorded in `docs/architecture/unified-platform.md` and the Web companion
   section below.
-- W-01 release cleanup is under implementation/review and is not yet part of
-  the release-candidate line.
+- W-01 release cleanup is accepted on the release-candidate line at
+  `8c355213`; W-02 secure browser authentication is the next web stage.
 - No current candidate is production-approved merely because its hosted checks
   pass.
 
@@ -123,11 +123,13 @@ been updated.
 This workstream is additive to the original 42 tasks; it does not renumber or
 replace the Access, cloud, signed-release, or rollout program.
 
-- [ ] W-01 — Release cleanup and current documentation. `IN PROGRESS`.
-  Scope: resolve #71/#72, retire obsolete #69 instructions, refresh
-  README/HANDOFF, document the unified platform, and prepare current release
-  evidence.
-- [ ] W-02 — Secure browser authentication/session adapter. Planned after W-01:
+- [x] W-01 — Release cleanup and current documentation. `CANDIDATE` at
+  merge `8c355213`. Issues #71/#72 are completed; #69 is closed not planned.
+  Exact-head verification at `ba337ebd`: Unit Tests `32173978705`, Backend
+  Quality `32173978708`, and Container Security `32173978585` all passed,
+  including Python 3.12/3.14, PostgreSQL 17, Ruff, mypy, OpenAPI, Terraform,
+  redaction, container provenance, vulnerability, and SBOM gates.
+- [ ] W-02 — Secure browser authentication/session adapter. `NEXT`:
   employee-number/PIN login through the existing identity service, Secure
   HttpOnly cookies, renewal, CSRF, no-store responses, and server-side
   revocation.
@@ -218,6 +220,8 @@ replace the Access, cloud, signed-release, or rollout program.
 - [x] Backend tasks 012-019 merged to `main` and Gate B accepted.
 - [x] Current Access/cloud candidate is based on `main` and was 0 commits behind
   on 2026-08-18.
+- [x] W-01 release cleanup accepted on the candidate at `8c355213` with all
+  exact-head hosted gates green; #71/#72 completed and #69 retired.
 - [ ] Current Access/cloud release candidate merged to `main`.
 - [ ] Infrastructure task 026 complete and all infrastructure external gates
   accepted.
