@@ -100,6 +100,7 @@ jobs:
 
       - name: Upload SARIF results file
         if: steps.codacy_scan.outcome == 'success'
-        uses: github/codeql-action/upload-sarif@e306b2ed11bcb6d30c3a02149c11f0e6aaed69a3
+        # CodeQL Action v4.37.7, verified release commit.
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         with:
           sarif_file: results.sarif
