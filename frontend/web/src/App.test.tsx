@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { App } from "./App";
 
 const OFFICER_NAVIGATION = [
@@ -19,6 +19,8 @@ const PRIMARY_ACTIONS = [
   "Open Forms Library",
 ];
 
+afterEach(cleanup);
+
 describe("Guided Operations officer home", () => {
   it("renders the approved six-item officer navigation", () => {
     render(
@@ -27,9 +29,11 @@ describe("Guided Operations officer home", () => {
       </MemoryRouter>,
     );
 
+    const navigation = screen.getByRole("navigation", { name: "Officer navigation" });
     for (const label of OFFICER_NAVIGATION) {
-      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
+      expect(within(navigation).getByRole("link", { name: label })).toBeInTheDocument();
     }
+    expect(within(navigation).queryByText("Administration")).not.toBeInTheDocument();
   });
 
   it("keeps the four primary daily actions easy to find", () => {
@@ -51,7 +55,34 @@ describe("Guided Operations officer home", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("2026-08-029")).toBeInTheDocument();
-    expect(screen.getByText("Barracks 4 Fight")).toBeInTheDocument();
+    expect(screen.getAllByText("2026-08-029").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Barracks 4 Fight").length).toBeGreaterThan(0);
+    expect(screen.getByText("Continue Your Work")).toBeInTheDocument();
+    expect(screen.getByText("Recent Incidents")).toBeInTheDocument();
+  });
+
+  it("presents daily paperwork and forms without crowding the primary actions", () => {
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Your Daily Checklist")).toBeInTheDocument();
+    expect(screen.getByText("Frequently Used Forms")).toBeInTheDocument();
+    expect(screen.getByText("Complete Assignment Roster")).toBeInTheDocument();
+    expect(screen.getByText("Complete Uniform Inspection Log")).toBeInTheDocument();
+  });
+
+  it("exposes useful connection and save state in plain language", () => {
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Online")).toBeInTheDocument();
+    expect(screen.getByText(/Last synced/i)).toBeInTheDocument();
+    expect(screen.getByText(/All changes saved/i)).toBeInTheDocument();
   });
 });
