@@ -41,10 +41,15 @@ def fill_template(metadata: dict, output_path: Path | None = None) -> dict:
             inmate_injuries, inmate_treatment, officer_injuries,
             officer_treatment, recommendation, narrative,
             officer_signature, date_filed, supervisor_name
+        output_path: optional caller-owned destination. When omitted, this
+            function creates a route-owned temporary file.
 
     Returns:
-        {"path": "/path/to/filled.docx"} on success,
-        {"text": "fallback text"} if template not found
+        {"path": "/path/to/filled.docx", "temporary": bool} on success.
+        ``temporary`` is true only when this function created the destination,
+        allowing the immediate caller to delete it without touching a
+        caller-provided path. Returns {"text": "fallback text"} when the
+        template is unavailable.
     """
     if not TEMPLATE_PATH.exists():
         # Fallback: plain text
