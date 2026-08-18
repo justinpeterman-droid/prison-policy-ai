@@ -25,9 +25,9 @@ been updated.
 - `main` is the reviewed backend/PostgreSQL checkpoint at `a333271`.
 - `integration/access-cloud-run-rp02` is the current Access/cloud release
   candidate. On 2026-08-18 it was 114 commits ahead of `main` and 0 behind.
-- The approved unified Microsoft Access + React design is stored at
-  `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md`;
-  its staged implementation plans live under `docs/superpowers/plans/`.
+- The approved unified Microsoft Access + React design and staged workstream are
+  recorded in `docs/architecture/unified-platform.md` and the Web companion
+  section below.
 - W-01 release cleanup is under implementation/review and is not yet part of
   the release-candidate line.
 - No current candidate is production-approved merely because its hosted checks
@@ -250,9 +250,8 @@ replace the Access, cloud, signed-release, or rollout program.
 ## Release gates
 
 - [ ] Gate A — Architecture, contracts, classification, and prerequisites
-  approved. Product architecture is approved in
-  `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md`;
-  external prerequisites remain open.
+  approved. Product architecture is recorded in
+  `docs/architecture/unified-platform.md`; external prerequisites remain open.
 - [x] Gate B — Backend and PostgreSQL acceptance complete.
 - [ ] Gate C — Test cloud infrastructure/security/backup/delivery accepted.
 - [ ] Gate D — Signed Access and responsive web clients pass
