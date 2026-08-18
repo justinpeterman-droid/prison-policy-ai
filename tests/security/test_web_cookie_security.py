@@ -100,7 +100,15 @@ def test_safe_profile_shape_contains_no_identity_credentials():
 
     serialized = repr(profile)
     assert profile["employee_number"] == "F-1001"
+    assert profile["must_change_pin"] is False
     assert "access-secret" not in serialized
     assert "renewal-secret" not in serialized
     assert "csrf-public" not in serialized
-    assert "pin" not in serialized.lower()
+    assert {
+        "pin",
+        "current_pin",
+        "temporary_pin",
+        "access_token",
+        "renewal_token",
+        "csrf_token",
+    }.isdisjoint(profile)
