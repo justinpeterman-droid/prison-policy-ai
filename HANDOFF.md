@@ -8,15 +8,15 @@ This file lists actions that require repository-owner, Google Cloud, Microsoft A
 
 - `main` contains the reviewed backend/PostgreSQL checkpoint.
 - `integration/access-cloud-run-rp02` is the current Access/cloud release-candidate line and remains ahead of `main`.
-- **PR #84** contains the approved unified Access + React web-companion architecture and five implementation plans. It is documentation/planning only.
-- **PR #85** contains release cleanup, reliability fixes, and current repository documentation. It must pass its complete hosted checks before review completion.
+- The approved unified Access + React architecture is recorded in `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md`, with five staged plans under `docs/superpowers/plans/`.
+- W-01 release cleanup must pass its complete hosted checks and review before it is accepted into the release-candidate line.
 - The legacy Flask browser application and shared access codes remain temporary migration surfaces. They are not the target identity model.
 
 No item below should be treated as completed merely because code exists on an integration or feature branch.
 
-## 1. Review and land the planning baseline
+## 1. Use the approved planning baseline
 
-Review **PR #84** against the approved product decisions:
+Review `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md` and the five plans under `docs/superpowers/plans/` against the approved product decisions:
 
 - one employee-number/PIN identity shared by Access and web;
 - Administrator-created accounts from the approved roster;
@@ -26,11 +26,11 @@ Review **PR #84** against the approved product decisions:
 - full Officer and Administrator web parity;
 - staged retirement, then removal, of `ACCESS_CODE`, `ADMIN_CODE`, and legacy Flask pages.
 
-Merge it into `integration/access-cloud-run-rp02` only after the documentation review is accepted. It does not authorize implementation or deployment by itself.
+The planning baseline does not authorize implementation or deployment by itself. Each stage still requires its own tests and review.
 
-## 2. Review and land release cleanup
+## 2. Accept W-01 release cleanup
 
-Review **PR #85** after all required checks are green. Its scope includes:
+Accept W-01 only after all required checks and review are green. Its scope includes:
 
 - bounded GitHub feedback submissions;
 - deletion of route-owned temporary DOCX files while preserving caller-owned paths;
@@ -38,7 +38,7 @@ Review **PR #85** after all required checks are green. Its scope includes:
 - replacement of obsolete README and handoff material;
 - a current unified-platform architecture document and web-companion ledger.
 
-After the PR merges, close issues #71 and #72 as completed. Close #69 as obsolete/not planned because the unsafe backend-local script no longer exists and controlled delivery belongs to OP-08.
+After W-01 is accepted into the release-candidate line, close issues #71 and #72 as completed. Close #69 as obsolete/not planned because the unsafe backend-local script no longer exists and controlled delivery belongs to OP-08.
 
 ## 3. Protect `main` before release consolidation
 
@@ -110,7 +110,7 @@ The initial web design intentionally uses employee number + 4–8 character alph
 
 ## 8. Web-companion execution order
 
-After PR #84 and PR #85 are accepted, implement the approved workstream in order:
+After the planning baseline and W-01 are accepted, implement the approved workstream in order:
 
 1. **W-02 — Browser authentication/session adapter**
 2. **W-03 — Officer React companion**
