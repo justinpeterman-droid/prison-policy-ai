@@ -1,0 +1,82 @@
+name: Apply PR88 Documentation Newline Fixes
+
+on:
+  push:
+    branches:
+      - fix/pr88-doc-final-newlines
+    paths:
+      - .github/workflows/apply-pr88-doc-newlines.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout documentation-fix branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/pr88-doc-final-newlines
+          fetch-depth: 0
+
+      - name: Add final newlines and a regression check
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          documents = (
+              Path("docs/architecture/unified-platform.md"),
+              Path("docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md"),
+          )
+          for path in documents:
+              data = path.read_bytes()
+              if data.endswith(b"\n"):
+                  raise SystemExit(f"expected missing final newline in {path}")
+              path.write_bytes(data + b"\n")
+
+          test_path = Path("tests/unit/test_current_docs.py")
+          marker = "def test_permanent_markdown_documents_end_with_newline():"
+          text = test_path.read_text(encoding="utf-8")
+          if marker in text:
+              raise SystemExit("documentation newline regression test already exists")
+          block = '''\n\ndef test_permanent_markdown_documents_end_with_newline():
+    documents = (
+        ROOT / "docs" / "architecture" / "unified-platform.md",
+        ROOT
+        / "docs"
+        / "superpowers"
+        / "specs"
+        / "2026-08-18-web-companion-unified-platform-design.md",
+    )
+    for document in documents:
+        assert document.read_bytes().endswith(b"\\n"), document
+'''
+          test_path.write_text(text.rstrip("\n") + block, encoding="utf-8")
+          PY
+
+      - name: Verify exact files now end with a line feed
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          paths = (
+              Path("docs/architecture/unified-platform.md"),
+              Path("docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md"),
+              Path("tests/unit/test_current_docs.py"),
+          )
+          for path in paths:
+              assert path.read_bytes().endswith(b"\n"), path
+          PY
+
+      - name: Commit fixes and remove one-time workflow
+        shell: bash
+        run: |
+          rm .github/workflows/apply-pr88-doc-newlines.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/architecture/unified-platform.md docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md tests/unit/test_current_docs.py .github/workflows/apply-pr88-doc-newlines.yml
+          git commit -m "fix(docs): add required final newlines"
+          git push origin HEAD:fix/pr88-doc-final-newlines
