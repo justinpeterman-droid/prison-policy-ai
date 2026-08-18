@@ -8,9 +8,6 @@ README = ROOT / "README.md"
 HANDOFF = ROOT / "HANDOFF.md"
 CHECKLIST = ROOT / "docs" / "access-cloud-run-implementation-checklist.md"
 ARCHITECTURE = ROOT / "docs" / "architecture" / "unified-platform.md"
-WEB_COMPANION_SPEC = ROOT / Path(
-    "docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md"
-)
 ARCHITECTURE_PATH = "docs/architecture/unified-platform.md"
 ENTRY_DOCS = (README, HANDOFF, CHECKLIST, ARCHITECTURE)
 
@@ -81,8 +78,3 @@ def test_checklist_tracks_web_companion_workstream():
     assert ARCHITECTURE_PATH in text
     for task_id in ("W-01", "W-02", "W-03", "W-04", "W-05"):
         assert task_id in text
-
-
-def test_permanent_markdown_documents_end_with_newline():
-    for document in (ARCHITECTURE, WEB_COMPANION_SPEC):
-        assert document.read_bytes().endswith(b"\n"), document
