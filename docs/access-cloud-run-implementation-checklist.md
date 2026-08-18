@@ -25,9 +25,11 @@ been updated.
 - `main` is the reviewed backend/PostgreSQL checkpoint at `a333271`.
 - `integration/access-cloud-run-rp02` is the current Access/cloud release
   candidate. On 2026-08-18 it was 114 commits ahead of `main` and 0 behind.
-- Draft PR #84 contains the approved unified Microsoft Access + React
-  architecture and implementation plans; it is documentation/planning only.
-- Draft PR #85 contains W-01 release cleanup and documentation fixes.
+- The approved unified Microsoft Access + React design is stored at
+  `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md`;
+  its staged implementation plans live under `docs/superpowers/plans/`.
+- W-01 release cleanup is under implementation/review and is not yet part of
+  the release-candidate line.
 - No current candidate is production-approved merely because its hosted checks
   pass.
 
@@ -121,8 +123,8 @@ been updated.
 This workstream is additive to the original 42 tasks; it does not renumber or
 replace the Access, cloud, signed-release, or rollout program.
 
-- [ ] W-01 — Release cleanup and current documentation. `IN PROGRESS` in draft
-  PR #85. Scope: resolve #71/#72, retire obsolete #69 instructions, refresh
+- [ ] W-01 — Release cleanup and current documentation. `IN PROGRESS`.
+  Scope: resolve #71/#72, retire obsolete #69 instructions, refresh
   README/HANDOFF, document the unified platform, and prepare current release
   evidence.
 - [ ] W-02 — Secure browser authentication/session adapter. Planned after W-01:
@@ -248,8 +250,9 @@ replace the Access, cloud, signed-release, or rollout program.
 ## Release gates
 
 - [ ] Gate A — Architecture, contracts, classification, and prerequisites
-  approved. Product architecture is approved in PR #84; external prerequisites
-  remain open.
+  approved. Product architecture is approved in
+  `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md`;
+  external prerequisites remain open.
 - [x] Gate B — Backend and PostgreSQL acceptance complete.
 - [ ] Gate C — Test cloud infrastructure/security/backup/delivery accepted.
 - [ ] Gate D — Signed Access and responsive web clients pass
