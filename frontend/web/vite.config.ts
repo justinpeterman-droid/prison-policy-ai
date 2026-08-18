@@ -9,9 +9,4 @@ export default defineConfig({
     emptyOutDir: true,
     manifest: true,
   },
-  test: {
-    environment: "jsdom",
-    setupFiles: ["./src/test/setup.ts"],
-    css: true,
-  },
 });
