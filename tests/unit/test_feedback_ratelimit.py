@@ -196,6 +196,6 @@ def test_feedback_timeout_returns_safe_retryable_error(monkeypatch, caplog):
 
     assert response.status_code == 503
     assert response.get_json() == {
-        "error": "Feedback service is temporarily unavailable. Please try again."
+        "error": "Feedback service is temporarily unavailable. Please try again.",
     }
     assert "feedback_github_timeout" in caplog.text
