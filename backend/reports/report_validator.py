@@ -83,6 +83,26 @@ RANK_NO_PERIOD = re.compile(r"\b(Sgt|Cpl|Lt|Cpt)\s+[A-Z]")
 BAD_TIME = re.compile(r"\b\d{1,2}:\d{2}\s?[AP]\.?M\.?|\b\d{3,4}\s?hours\b")
 FIRST_PERSON_TYPES = ("first_person", "disciplinary")
 
+# Literal suffixes accepted by the old RW-014 repair. Keeping this operation
+# out of the regex engine prevents quadratic backtracking on long user-provided
+# report text while preserving the exact case-insensitive closer semantics.
+_REPAIR_STATEMENT_CLOSERS = (
+    "disciplinary action taken.",
+    "end of statement.",
+    "end of statement",
+    "end of report.",
+    "end of report",
+)
+
+
+def _strip_statement_closer(text: str) -> str:
+    candidate = text.rstrip()
+    folded = candidate.casefold()
+    for closer in _REPAIR_STATEMENT_CLOSERS:
+        if folded.endswith(closer):
+            return candidate[: -len(closer)].rstrip()
+    return text
+
 
 @dataclass
 class Violation:
@@ -458,12 +478,7 @@ def repair(text: str) -> tuple[str, list[str]]:
         text = new
 
     # RW-014: strip a statement closer (ruling 13)
-    new = re.sub(
-        r"\s*(?:End of (?:report|statement)\.?|Disciplinary action taken\.)\s*$",
-        "",
-        text,
-        flags=re.I,
-    )
+    new = _strip_statement_closer(text)
     if new != text:
         fixed.append("RW-014")
         text = new.rstrip()

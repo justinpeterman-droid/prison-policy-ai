@@ -28,7 +28,8 @@ def ocr_page(page_num):
 
     img_b64 = base64.b64encode(img_path.read_bytes()).decode()
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    headers = {"x-goog-api-key": API_KEY}
     payload = {
         "contents": [
             {
@@ -40,7 +41,7 @@ def ocr_page(page_num):
         ]
     }
 
-    r = requests.post(url, json=payload, timeout=120)
+    r = requests.post(url, headers=headers, json=payload, timeout=120)
     if r.status_code != 200:
         return f"ERROR: {r.status_code} {r.text[:200]}"
 
