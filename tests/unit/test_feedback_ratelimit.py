@@ -4,6 +4,7 @@ Uses an injected `now` so the fixed-window behavior is deterministic.
 """
 
 import pytest
+from flask import Flask
 
 # feedback.py only imports flask + stdlib, so this runs locally and in CI.
 try:
@@ -23,6 +24,24 @@ def _clear_hits():
     feedback._hits.clear()
     yield
     feedback._hits.clear()
+
+
+def _feedback_client():
+    app = Flask(__name__)
+    app.config.update(TESTING=True)
+    app.register_blueprint(feedback.feedback_bp)
+    return app.test_client()
+
+
+class _FakeGitHubResponse:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        return False
+
+    def read(self):
+        return b'{"html_url":"https://github.com/example/issues/1"}'
 
 
 def test_allows_up_to_the_limit():
@@ -127,3 +146,56 @@ def test_build_issue_body_ignores_unknown_context_keys():
         {"evil": "injected"},
     )
     assert "injected" not in body
+
+
+# ── GitHub request timeout ────────────────────────────────────────
+
+
+def test_feedback_request_passes_configured_timeout(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, *, timeout):
+        captured["timeout"] = timeout
+        return _FakeGitHubResponse()
+
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    monkeypatch.setenv("FEEDBACK_GITHUB_TIMEOUT_SECONDS", "3.5")
+    monkeypatch.setattr(feedback.urllib.request, "urlopen", fake_urlopen)
+
+    response = _feedback_client().post(
+        "/api/feedback",
+        json={"comment": "It broke", "url": "https://x.app/reports"},
+    )
+
+    assert response.status_code == 200
+    assert captured["timeout"] == 3.5
+
+
+def test_feedback_timeout_configuration_is_bounded(monkeypatch):
+    monkeypatch.setenv("FEEDBACK_GITHUB_TIMEOUT_SECONDS", "999")
+    assert feedback._github_timeout_seconds() == 30.0
+
+
+def test_feedback_timeout_invalid_configuration_uses_default(monkeypatch):
+    monkeypatch.setenv("FEEDBACK_GITHUB_TIMEOUT_SECONDS", "invalid")
+    assert feedback._github_timeout_seconds() == 10.0
+
+
+def test_feedback_timeout_returns_safe_retryable_error(monkeypatch, caplog):
+    def fake_urlopen(request, *, timeout):
+        raise TimeoutError("upstream stalled")
+
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    monkeypatch.setattr(feedback.urllib.request, "urlopen", fake_urlopen)
+
+    with caplog.at_level("WARNING"):
+        response = _feedback_client().post(
+            "/api/feedback",
+            json={"comment": "It broke", "url": "https://x.app/reports"},
+        )
+
+    assert response.status_code == 503
+    assert response.get_json() == {
+        "error": "Feedback service is temporarily unavailable. Please try again.",
+    }
+    assert "feedback_github_timeout" in caplog.text

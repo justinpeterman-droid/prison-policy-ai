@@ -1,131 +1,189 @@
 # Prison Policy AI
 
-AI-powered policy assistant for Arkansas Department of Correction staff. Two tools in one app:
+Prison Policy AI is a corrections workflow platform with two core capabilities:
 
-- **📋 Policy Knowledge Expert** — Ask any ADC policy question, get answers with citations
-- **📝 Report Writing Assistant** — Paste field notes → classified, reports generated, forms filled
+- **Policy Expert** — answers policy questions with citations from the approved policy corpus.
+- **Report Assistant** — turns field notes into structured facts, identifies missing information, generates reviewable narratives, and exports Word documents without silently inventing facts.
 
-**Deployed:** `https://prison-policy-ai-403037827694.us-central1.run.app`
+The project is evolving from a legacy Flask browser pilot into **one authoritative platform** shared by a Microsoft Access client and a web-native React companion. Both clients use the same `/api/v1` service, individual employee accounts, PostgreSQL 17 records, report revisions, AI jobs, exports, and audit trail.
 
----
+> **Release status:** backend and PostgreSQL acceptance are complete, but the current Access/cloud release candidate and the planned React web companion are not automatically approved for production. See `docs/access-cloud-run-implementation-checklist.md` and `HANDOFF.md` for the active gates.
 
-## Project Structure
+## Architecture
 
-```
-prison-policy-ai/
-├── backend/
-│   ├── pipeline/              # RAG: extract, chunk, embed, query, import
-│   ├── reports/               # v2 report engine (3-step pipeline)
-│   │   ├── classifier.py      # Incident type detection (Gemini)
-│   │   ├── extraction.py      # Slot extraction (Gemini, temp=0, schema-constrained)
-│   │   ├── schema.py          # Slot schema, response_schema builder, reporter binding
-│   │   ├── validate.py        # Gap detection, auto_content, invented_facts (NO AI)
-│   │   ├── generator.py       # 5 report generators (structured facts only)
-│   │   ├── prompts.py         # Classifier prompt + charge catalog loader
-│   │   ├── prompts_v2.py      # v2 generation prompts (never see raw notes)
-│   │   ├── filler.py          # DOCX template filling (python-docx)
-│   │   └── roster.py          # Staff roster loader
-│   ├── webapp/                # Flask + Gunicorn
-│   │   ├── app.py             # App factory, cookie-based auth
-│   │   ├── routes/chat.py     # Policy Q&A endpoint
-│   │   ├── routes/reports.py  # v2 3-step: /classify, /extract, /generate, /download
-│   │   ├── templates/         # home.html, chat.html, reports.html, login.html
-│   │   └── static/            # CSS (Linear dark theme), fonts, seal.svg
-│   ├── scripts/deploy.sh
-│   ├── requirements.txt
-│   └── Dockerfile
-├── frontend/forms/            # Claude's 6-form React app
-├── templates/                 # DOCX templates + checklist/charges JSON + roster
-├── .godplans/PLAN.mdx        # Detailed implementation plan
-├── VISION.md                  # Project vision for collaborators
-├── REPORT_ENGINE_SPEC.md      # v2 report engine specification
-├── UI_SPEC.md                 # v2 UI specification
-├── README.md
-└── ideas.md                   # Raw idea dump
+```text
+Microsoft Access client             React web companion (planned)
+          |                                      |
+          +------------------+-------------------+
+                             |
+                       Cloud Run /api/v1
+                             |
+       +---------------------+----------------------+
+       |            |              |                |
+    Identity     Reports        AI jobs        Policy Expert
+       |            |              |                |
+       +---------------------+----------------------+
+                             |
+                        PostgreSQL 17
 ```
 
----
+Cloud Run and PostgreSQL are the authority for identity, permissions, report ownership, revisions, job state, exports, and audit. Hiding a control in Access or React is never an authorization boundary; every operation is authorized again on the server.
 
-## Report Pipeline (v2 — Three Steps)
+The detailed target architecture is documented in `docs/architecture/unified-platform.md`; the staged web workstream and release gates are tracked in `docs/access-cloud-run-implementation-checklist.md`.
 
+## Current capabilities
+
+| Area | Current state |
+|---|---|
+| Policy Expert | Retrieval-augmented policy Q&A with numbered citations and bounded history |
+| Report engine | Classify → extract → detect gaps → generate → validate → export |
+| Anti-fabrication | Nullable extraction, deterministic validation, invented-fact checks, and explicit supplement markers |
+| Identity API | Employee-number/PIN accounts, lockout, rotating sessions, roles, Admin step-up, audit, and idempotency |
+| Reports API | Officer ownership, Admin oversight, immutable revisions, provenance, concurrency protection, and Word exports |
+| AI execution | Durable jobs/outbox, private worker, stale-result protection, and safe status APIs |
+| Operations | Admin audit/health surfaces, Terraform, monitoring definitions, supply-chain checks, and migration runbooks |
+| Microsoft Access | Source-controlled build/reconstruction harness; full application screens remain in progress |
+| Browser UI | Legacy Flask pilot remains temporarily available during migration; centralized history lives only behind `/api/v1` |
+| React companion | Approved and planned, not yet shipped |
+
+## Report pipeline
+
+```text
+Field notes
+    |
+    v
+Classification
+    |
+    v
+Schema-constrained extraction
+    |
+    v
+Deterministic gap and invented-fact checks
+    |
+    v
+Officer supplies missing information
+    |
+    v
+Narrative generation from structured facts
+    |
+    v
+Revisioned save and deterministic DOCX export
 ```
-Field Notes
-    │ POST /api/reports/classify
-    ▼ Classifier (Gemini) → 7 BMU categories
-    │ POST /api/reports/extract
-    ▼ Extraction (Gemini, temp=0) → structured slots → find_gaps()
-    │ officer fills Missing Information panel
-    │ POST /api/reports/generate
-    ▼ Generator → up to 5 reports from structured facts + auto_content
-    │ POST /api/reports/download
-    ▼ Template Filler → filled 005/409 DOCX
+
+Important safeguards:
+
+- extraction is schema-constrained and permits null values;
+- missing facts become questions rather than guesses;
+- deterministic validation remains separate from the language model;
+- generation receives structured facts rather than unrestricted raw notes;
+- every durable edit creates an attributable revision;
+- one Officer owns each report, while authorized Administrators can review and revise all reports.
+
+## Repository map
+
+```text
+backend/
+  identity/                 account, PIN, session, role, audit, and rate-limit services
+  jobs/                     durable job, outbox, migration, roster, and bootstrap services
+  persistence/              SQLAlchemy database and PostgreSQL models
+  pipeline/                 policy ingestion, retrieval, citations, and model integration
+  reports/                  classification, extraction, validation, generation, revisions, exports
+  webapp/
+    api_v1/                 versioned Access/web API
+    routes/                 temporary legacy Flask browser routes
+  worker/                   private AI-job worker
+
+access-client/              Microsoft Access source/build harness
+infra/                      Terraform and monitoring definitions
+migrations/                 Alembic migrations and register
+openapi/access-v1.yaml      versioned API contract
+scripts/                    repository-root operational and verification scripts
+templates/                  DOCX templates and bounded reference data
+tests/                      unit, contract, PostgreSQL integration, security, eval, and Access tests
+docs/                       architecture, plans, runbooks, operations, and release ledger
 ```
 
-### Anti-Fabrication Guardrails
+A future `web-client/` directory will contain the React + TypeScript application after the browser-auth foundation is implemented.
 
-- Extraction at temp=0, schema-constrained — zero hallucination
-- All slots nullable — nulls force gap questions, model cannot "fill in"
-- `invented_facts()` scan — ADC#s/dates not in source → yellow highlight
-- UNKNOWN values → ⚠ `[TO BE SUPPLEMENTED: ...]` markers
-- Generator receives structured facts only — never raw notes
-- Per-officer reports — each staff member's 005 shows only their actions
+## Local development
 
----
+Run all commands from the **repository root**.
 
-## Quick Start
-
-Install dependencies from the repository root:
+### Python setup
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.lock --require-hashes
 ```
 
-For isolated local work, explicitly disable the shared-code gate and run the
-application from the repository root:
+The supported CI matrix is Python 3.12 and Python 3.14. PostgreSQL 17 is required for the integration suite; PostgreSQL 16 is not a valid substitute because the database constraints use PostgreSQL 17 jsonpath behavior.
 
-```powershell
-$env:ACCESS_CODE=""
-python backend/webapp/app.py
-```
+### Legacy browser pilot
+
+For isolated local work with the identity API disabled, explicitly disable the shared-code gate:
 
 ```bash
 ACCESS_CODE="" PYTHONPATH=. python backend/webapp/app.py
 ```
 
-## Deploy
+PowerShell:
 
-Production requires `ACCESS_CODE` to be present. Bind it from Google Secret
-Manager or set it in the service environment before deployment; never commit
-the value or place it in shell history. An omitted value stops application
-startup, while an explicitly empty value disables authentication and is only
-appropriate for isolated local development.
-
-```bash
-gcloud run deploy prison-policy-ai \
-  --source . --region us-central1 \
-  --project gen-lang-client-0968389176 \
-  --allow-unauthenticated
+```powershell
+$env:ACCESS_CODE = ""
+$env:PYTHONPATH = "."
+python backend/webapp/app.py
 ```
 
----
+Do not use the legacy browser workflow as proof of centralized persistence or per-user authorization. Identity-backed development requires `ACCESS_API_ENABLED=true` plus the database, signing, hashing, version, and HTTPS-origin settings enforced by `backend/identity/config.py`.
 
-## Key Files
+## Tests and quality gates
 
-| File | Purpose |
-|------|---------|
-| `backend/reports/classifier.py` | Incident type detection (7 categories, charge validation) |
-| `backend/reports/extraction.py` | Slot extraction from notes (temp=0, response_schema) |
-| `backend/reports/validate.py` | Gap detection, auto_content, invented_facts (deterministic) |
-| `backend/reports/generator.py` | 5 report generators (structured facts only) |
-| `backend/reports/prompts_v2.py` | Generation prompts (receive facts, never raw notes) |
-| `backend/reports/filler.py` | DOCX template filling (python-docx) |
-| `backend/reports/schema.py` | Slot schema, reporter binding, staff extraction |
-| `backend/webapp/routes/reports.py` | v2 3-step API endpoints |
-| `templates/incident_checklist_v2.json` | Authoritative — 7 categories, rules, questions, auto_content |
-| `templates/disciplinary_charges.json` | 61 extracted charges for classifier validation |
-| `templates/005_template_v3.docx` | Exact ADC replica (navy blue, Times New Roman) |
+```bash
+python -m pytest tests/unit -q
+python -m pytest tests/contract -q
+python -m pytest tests/security -q
+python -m ruff check backend tests scripts
+python -m ruff format --check backend tests scripts
+python -m mypy backend
+```
 
----
+With a disposable PostgreSQL 17 database:
 
-*Built with Hermes Agent + Claude Code*
-*GCP project: gen-lang-client-0968389176 | Region: us-central1*
+```bash
+TEST_DATABASE_URL="postgresql+psycopg://..." python -m pytest tests/integration -q
+```
+
+GitHub Actions additionally validates Terraform, OpenAPI, sensitive-output redaction, container construction, pinned runtime provenance, vulnerability scanning, and SBOM generation.
+
+## Build and deployment policy
+
+Container and source builds must use the **repository root** so the root Dockerfile, `backend` package, templates, migrations, and other required assets are present:
+
+```bash
+docker build -t prison-policy-ai:local .
+```
+
+The obsolete backend-local manual deployment script has been retired. Do not recreate it or deploy from a backend subdirectory. Production delivery remains gated on **OP-08 controlled delivery workflows**, protected GitHub environments, Workload Identity Federation, approved cloud configuration, and the release checklist. A manual command in an old document is not deployment authorization.
+
+## Active roadmap
+
+1. **W-01 — Release cleanup and current documentation:** resolve the remaining reliability issues and consolidate the release candidate.
+2. **W-02 — Secure browser authentication:** HttpOnly browser sessions, renewal, CSRF protection, and individual employee login.
+3. **W-03 — Officer React companion:** dashboard, report workflow, history, exports, Policy Expert, and session controls.
+4. **W-04 — Administrator React companion:** accounts, roster, report oversight, revisions, audit, health, and bulk export.
+5. **W-05 — Cutover and release:** cross-client verification, React at `/`, retirement of shared codes and legacy Flask pages, and controlled rollout.
+
+The Microsoft Access employee, Administrator, signed-release, pilot, disaster-recovery, and rollout tracks remain separately gated in the 42-task implementation ledger.
+
+## Key documents
+
+- `docs/architecture/unified-platform.md` — current and target platform boundaries
+- `docs/access-cloud-run-implementation-checklist.md` — persistent task and release-gate ledger
+- `HANDOFF.md` — manual/external actions that cannot be completed by repository code alone
+- `openapi/access-v1.yaml` — API contract
+- `access-client/README.md` — Access source/build requirements and known gates
+- `docs/runbooks/` — database, roster, secrets, edge verification, Admin enrollment, and disaster recovery
+- `AGENTS.md` and `CLAUDE.md` — repository-working conventions for coding agents
+
+## Data and safety
+
+Use fictional data for development and tests. Do not commit real employee, inmate, incident, credential, roster, report, policy-sensitive, or production database content. Nothing in this repository authorizes automatic filing into an external corrections records system.

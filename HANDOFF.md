@@ -1,140 +1,132 @@
-# Handoff Runbook
+# Current Handoff and External Gates
 
-Tasks that need **live access** (GCP `gcloud`/ADC, Cloud Run, GitHub repo
-settings) which the coding session couldn't do itself. Everything here is
-prepared in code; this is the "press the buttons" list. Ordered by priority.
+Last updated: 2026-08-18
 
-Project: `gen-lang-client-0968389176` · Region: `us-central1` · Service: `prison-policy-ai`
+This file lists actions that require repository-owner, Google Cloud, Microsoft Access, security, records, privacy, or operational approval. It is not a deployment script and does not override the release ledger in `docs/access-cloud-run-implementation-checklist.md`.
 
-Two open PRs:
-- **PR #22** (`claude/claude-md-docs-2cv50x`) — CLAUDE.md, security/quality hardening, test + eval harness, and the policy-chat citation/grounding + retrieval rework. All real checks green; ready to merge.
-- **PR #23** (`claude/wif-keyless-deploy`) — keyless deploy (WIF). **Draft — do the GCP setup in §3 first.**
+## Current repository state
 
-> The only red check on PR #22 is `github-advanced-security`, a GitHub-side
-> infrastructure failure (its agentic scanner requests an unsupported model and
-> exits). It is not caused by the diff and is not fixable from the repo — see §6
-> to silence it. CodeQL/pytest/Codacy are green.
+- `main` contains the reviewed backend/PostgreSQL checkpoint.
+- `integration/access-cloud-run-rp02` is the current Access/cloud release-candidate line and remains ahead of `main`.
+- The approved unified Access + React architecture and five staged web tasks are recorded in `docs/architecture/unified-platform.md` and `docs/access-cloud-run-implementation-checklist.md`.
+- W-01 release cleanup must pass its complete hosted checks and review before it is accepted into the release-candidate line.
+- The legacy Flask browser application and shared access codes remain temporary migration surfaces. They are not the target identity model.
 
----
+No item below should be treated as completed merely because code exists on an integration or feature branch.
 
-## 1. Fix the feedback widget — set `GITHUB_TOKEN` (highest priority; user-facing)
+## 1. Use the approved planning baseline
 
-The 💬 Feedback widget fails because the Cloud Run service has no `GITHUB_TOKEN`,
-so `/api/feedback` can't open issues. The deploy workflow never sets it. Add it:
+Review `docs/architecture/unified-platform.md` and the Web companion section of `docs/access-cloud-run-implementation-checklist.md` against the approved product decisions:
 
-```bash
-# Option A — Secret Manager (preferred: keeps the token out of the service config)
-printf '<TOKEN>' | gcloud secrets create github-feedback-token \
-  --data-file=- --project gen-lang-client-0968389176
-gcloud run services update prison-policy-ai --region us-central1 \
-  --project gen-lang-client-0968389176 \
-  --update-secrets GITHUB_TOKEN=github-feedback-token:latest
+- one employee-number/PIN identity shared by Access and web;
+- Administrator-created accounts from the approved roster;
+- React + TypeScript web companion;
+- Secure, HttpOnly browser sessions with CSRF protection;
+- one authoritative `/api/v1` and PostgreSQL data model;
+- full Officer and Administrator web parity;
+- staged retirement, then removal, of `ACCESS_CODE`, `ADMIN_CODE`, and legacy Flask pages.
 
-# Option B — plain env var
-gcloud run services update prison-policy-ai --region us-central1 \
-  --project gen-lang-client-0968389176 \
-  --update-env-vars GITHUB_TOKEN=<TOKEN>
-```
+The planning baseline does not authorize implementation or deployment by itself. Each stage still requires its own tests and review.
 
-Token: a fine-grained PAT with **Issues: Read and write** on
-`justinpeterman-droid/prison-policy-ai` (or a classic PAT with `repo`).
-Verify: submit feedback in the app → a new issue should appear on the repo.
+## 2. Accept W-01 release cleanup
 
----
+Accept W-01 only after all required checks and review are green. Its scope includes:
 
-## 2. Run the policy-chat eval baseline (needs GCP ADC)
+- bounded GitHub feedback submissions;
+- deletion of route-owned temporary DOCX files while preserving caller-owned paths;
+- retirement of stale backend-local deployment instructions;
+- replacement of obsolete README and handoff material;
+- a current unified-platform architecture document and web-companion ledger.
 
-Establishes the baseline for the RAG improvements just landed (citation grounding,
-retrieval augment/trim). Do this from the repo root with ADC available
-(`gcloud auth application-default login` for the project, or a service-account
-JSON in `GOOGLE_APPLICATION_CREDENTIALS`):
+After W-01 is accepted into the release-candidate line, close issues #71 and #72 as completed. Close #69 as obsolete/not planned because the unsafe backend-local script no longer exists and controlled delivery belongs to OP-08.
 
-```bash
-pip install -r requirements.txt
-PYTHONPATH=. python3 tests/eval/run_eval.py            # full scorecard
-PYTHONPATH=. python3 tests/eval/run_eval.py --gate-only
-```
+## 3. Protect `main` before release consolidation
 
-Output: a scorecard on stdout + `tests/eval/output/results.json`. **Share the
-scorecard** so the next RAG lever (semantic reranker, extractive segments) can be
-targeted against real numbers. Tune `tests/eval/cases.jsonl` `expect_sources` to
-the real doc titles once you see them in the results.
+Repository-owner action is required. Configure branch rules for `main` before merging the Access/cloud candidate:
 
-Also useful (report pipeline, needs ADC):
-```bash
-PYTHONPATH=. python3 tests/test_pipeline.py --all --compare
-```
+- require pull requests;
+- require the approved Backend Quality, Unit Tests, and Container Security checks;
+- require branches to be current before merge;
+- prevent force pushes and deletion;
+- restrict direct pushes;
+- preserve required-review dismissal rules appropriate for the repository.
 
----
+Record the exact required-check names after a successful current workflow run. Do not guess names from old documentation.
 
-## 3. PR #23 — Workload Identity Federation setup, then merge
+## 4. Complete OP-08 controlled delivery
 
-Do the one-time GCP setup, set the two repo secrets, then mark PR #23 ready and
-merge. **The full `gcloud` runbook is in the PR #23 description** (pool + provider
-+ SA impersonation). Summary:
+The retired backend-local manual deploy path must not be restored. Source and container builds always begin at the repository root, but production deployment must wait for OP-08.
 
-1. Create the deploy service account + grant deploy roles.
-2. Create the Workload Identity Pool + GitHub OIDC provider (scoped to this repo).
-3. Bind the repo to impersonate the SA.
-4. Set repo secrets `GCP_WIF_PROVIDER` and `GCP_DEPLOY_SA` (Settings → Secrets → Actions).
-5. Merge PR #23. After the next deploy is green, **delete the old `GCP_SA_KEY`
-   secret** and revoke that service-account key.
+OP-08 must provide reviewed workflows for:
 
-Do NOT merge PR #23 before steps 1–4, or the deploy breaks.
+- test and production environment separation;
+- protected GitHub environments and approvals;
+- Workload Identity Federation rather than long-lived service-account keys;
+- immutable image/release identification;
+- migrations, roster import, initial-Admin bootstrap, service deployment, verification, rollback, and evidence capture;
+- no uncontrolled traffic shift or production mutation from an ordinary push.
 
----
+Until OP-08 passes review, use the repository for validation only; do not substitute an old manual command.
 
-## 4. Verify the Gemini model in prod (#9)
+## 5. Supply and approve cloud prerequisites
 
-The default is now `gemini-flash-latest` (auto-tracks the current GA Flash). If
-you want a frozen version, set it explicitly:
+The platform still needs organization-approved values and ownership for:
 
-```bash
-gcloud run services update prison-policy-ai --region us-central1 \
-  --project gen-lang-client-0968389176 \
-  --update-env-vars GENERATION_MODEL=gemini-3.6-flash
-```
+- Google Cloud test and production projects, billing, regions, quotas, and labels;
+- domains, DNS, certificates, ingress, Cloud Armor, and workstation/browser access policy;
+- remote-state bucket and environment initialization;
+- database, application, worker, dispatcher, migration, rollback, roster, and first-Admin identities;
+- Secret Manager values and named custodians;
+- approved source roster and first-Admin enrollment/PIN delivery;
+- backup, PITR, restore, rollback, monitoring, budget, and alert destinations;
+- support ownership and incident escalation.
 
-Also confirm the model **location** serves your chosen id (chat uses the `global`
-endpoint via `GCP_MODEL_LOCATION`/`AGENT_BUILDER_LOCATION`).
+Use the Terraform, secret, migration, Admin-enrollment, edge-verification, and disaster-recovery runbooks under `docs/runbooks/`. Never place real secrets, roster data, report content, or production identifiers in Git.
 
----
+## 6. Finish the Microsoft Access AC-01 external gates
 
-## 5. Merge PR #22 and deploy
+The source/build harness is substantial but not release-ready. It still requires an approved Windows/Access matrix and controlled resolution of:
 
-PR #22 is green (except the infra check in §6). Merge it. Deploy happens
-automatically on push to `main` via `.github/workflows/cloud-run.yml` — **note
-that workflow still uses the old `GCP_SA_KEY` until PR #23 is merged.** Manual
-deploy if needed:
+1. **Access COM shutdown:** a responsive `MSACCESS.EXE` instance can remain alive beyond the bounded shutdown wait. Do not fix this by killing unrelated Access processes or by extending the wait indefinitely.
+2. **ACCDE creation:** verify the supported interactive Access workflow, exact artifact path, read-only reopen, Access version/channel/bitness, and artifact hash.
+3. **Trust and endpoint controls:** document the approved Trusted Location, VBA-project access needed for the build machine, macro/signing policy, and endpoint-protection acceptance.
+4. **Source reconstruction:** rerun export/import/validation from a fresh Windows clone with matching PowerShell and Access bitness.
 
-```bash
-gcloud run deploy prison-policy-ai --source . --region us-central1 \
-  --project gen-lang-client-0968389176 --allow-unauthenticated
-```
+See `access-client/README.md`. AC-02 and later client work should not claim release readiness while AC-01's load-bearing gates are open.
 
-After deploy, sanity-check: `/health` → 200, log in, ask the policy chat a
-question and confirm answers now show inline `[n]` citations mapped to the source
-chips, and that a "can I date an inmate?" question still returns the PREA
-prohibition.
+## 7. Approve policy, privacy, records, and support rules
 
----
+Before a pilot, owners must approve:
 
-## 6. (Optional) Silence the broken `github-advanced-security` check
+- report ownership, revision, reopening, transfer, export, retention, and deletion policy;
+- audit access, audit retention, and oversight responsibilities;
+- policy-corpus source approval and update ownership;
+- internet/browser use, personal-device expectations, shared-device warnings, session lifetime, and incident response;
+- production roster handling and employee offboarding;
+- support hours, escalation, training, and user communications;
+- disaster-recovery objectives and evidence from a completed restore exercise.
 
-It fails on every commit (GitHub-side, unfixable from the repo). To stop the
-noise without losing real coverage: **repo Settings → Code security → Code
-scanning** and disable the agentic/"autofind" default-setup scanner (or that
-specific check). CodeQL code scanning — which caught the real clear-text-logging
-and workflow-permission issues — is separate and should stay on.
+The initial web design intentionally uses employee number + 4–8 character alphanumeric PIN without MFA. That decision makes rate limiting, lockout, secure cookies, CSRF protection, session revocation, no-store caching, Admin step-up, and monitoring mandatory acceptance controls.
 
----
+## 8. Web-companion execution order
 
-## Still open / not done (by decision)
+After the planning baseline and W-01 are accepted, implement the approved workstream in order:
 
-- **#1 access code** — left as-is per your call.
-- **Stricter RAG grounding** — uncited answers are currently *flagged*
-  (`UNGROUNDED_NOTE`), not blocked, to protect passage-less PREA/DOMAIN_RULES
-  answers. A stricter "block unless a domain rule fired" mode is a possible
-  follow-up.
-- **Next RAG levers** — semantic reranker (Vertex Ranking API) and extractive
-  segments; both need the live env to tune against the eval baseline (§2).
+1. **W-02 — Browser authentication/session adapter**
+2. **W-03 — Officer React companion**
+3. **W-04 — Administrator React companion**
+4. **W-05 — Cross-client acceptance, cutover, and controlled release**
+
+Each stage needs its own tests and review. Do not retire shared-code access until full Officer and Administrator parity, Access/web continuity, authorization-isolation, and rollback acceptance pass in the test environment.
+
+## 9. Final release gates
+
+A production release still requires all of the following:
+
+- Gate A: architecture, data classification, and prerequisites approved;
+- Gate B: backend and PostgreSQL acceptance remains green on the exact candidate;
+- Gate C: test cloud infrastructure, security, backup, and delivery accepted;
+- Gate D: signed Access and responsive web clients pass Windows, browser, mobile, accessibility, security, and support acceptance;
+- Gate E: pilot, disaster recovery, rollback, training, records/privacy, and business approvals complete.
+
+Only a reviewed release candidate that satisfies the persistent ledger may advance. A green feature PR, successful local command, or existing Cloud Run revision is not production approval.
