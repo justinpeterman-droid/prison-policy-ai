@@ -166,8 +166,8 @@ The obsolete backend-local manual deployment script has been retired. Do not rec
 
 ## Active roadmap
 
-1. **W-01 — Release cleanup and current documentation:** resolve the remaining reliability issues and consolidate the release candidate.
-2. **W-02 — Secure browser authentication:** HttpOnly browser sessions, renewal, CSRF protection, and individual employee login.
+1. **W-01 — Completed on the candidate (`8c355213`):** reliability cleanup, current documentation, and repository-root build policy.
+2. **W-02 — Next: secure browser authentication:** HttpOnly browser sessions, renewal, CSRF protection, and individual employee login.
 3. **W-03 — Officer React companion:** dashboard, report workflow, history, exports, Policy Expert, and session controls.
 4. **W-04 — Administrator React companion:** accounts, roster, report oversight, revisions, audit, health, and bulk export.
 5. **W-05 — Cutover and release:** cross-client verification, React at `/`, retirement of shared codes and legacy Flask pages, and controlled rollout.

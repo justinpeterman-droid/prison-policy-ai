@@ -9,7 +9,7 @@ This file lists actions that require repository-owner, Google Cloud, Microsoft A
 - `main` contains the reviewed backend/PostgreSQL checkpoint.
 - `integration/access-cloud-run-rp02` is the current Access/cloud release-candidate line and remains ahead of `main`.
 - The approved unified Access + React architecture and five staged web tasks are recorded in `docs/architecture/unified-platform.md` and `docs/access-cloud-run-implementation-checklist.md`.
-- W-01 release cleanup must pass its complete hosted checks and review before it is accepted into the release-candidate line.
+- W-01 release cleanup is accepted on the release-candidate line at merge `8c355213`; W-02 secure browser authentication is next.
 - The legacy Flask browser application and shared access codes remain temporary migration surfaces. They are not the target identity model.
 
 No item below should be treated as completed merely because code exists on an integration or feature branch.
@@ -28,17 +28,15 @@ Review `docs/architecture/unified-platform.md` and the Web companion section of 
 
 The planning baseline does not authorize implementation or deployment by itself. Each stage still requires its own tests and review.
 
-## 2. Accept W-01 release cleanup
+## 2. W-01 accepted; begin W-02
 
-Accept W-01 only after all required checks and review are green. Its scope includes:
+W-01 merged into the release-candidate line at `8c355213` after the exact candidate passed Unit Tests, Backend Quality, PostgreSQL 17 integration, Terraform, container build, provenance, vulnerability, SBOM, and redaction checks.
 
-- bounded GitHub feedback submissions;
-- deletion of route-owned temporary DOCX files while preserving caller-owned paths;
-- retirement of stale backend-local deployment instructions;
-- replacement of obsolete README and handoff material;
-- a current unified-platform architecture document and web-companion ledger.
+- Issues #71 and #72 are closed as completed.
+- Issue #69 is closed as not planned because the unsafe backend-local deployment script remains retired and controlled delivery belongs to OP-08.
+- No production deployment, migration, cloud mutation, or secret change was performed.
 
-After W-01 is accepted into the release-candidate line, close issues #71 and #72 as completed. Close #69 as obsolete/not planned because the unsafe backend-local script no longer exists and controlled delivery belongs to OP-08.
+The next implementation stage is W-02: individual employee-number/PIN browser login through Secure, HttpOnly sessions with renewal, CSRF protection, no-store responses, and server-side revocation.
 
 ## 3. Protect `main` before release consolidation
 
@@ -110,7 +108,7 @@ The initial web design intentionally uses employee number + 4–8 character alph
 
 ## 8. Web-companion execution order
 
-After the planning baseline and W-01 are accepted, implement the approved workstream in order:
+Implement the approved workstream in order:
 
 1. **W-02 — Browser authentication/session adapter**
 2. **W-03 — Officer React companion**
