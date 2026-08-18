@@ -1,0 +1,228 @@
+openapi: 3.1.0
+info:
+  title: Guided Operations Web API
+  version: 0.1.0
+  description: >-
+    Cookie-authenticated same-origin API for the Standard Logistics & Unit Tools
+    browser workspace. Identity credentials are never returned in JSON.
+servers:
+  - url: /api/web/v1
+security:
+  - BrowserSession: []
+paths:
+  /auth/session:
+    get:
+      operationId: getBrowserSession
+      security: []
+      responses:
+        "200":
+          description: Safe current browser session state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionEnvelope"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+  /auth/login:
+    post:
+      operationId: loginBrowserSession
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authentication succeeded and opaque credentials were set as cookies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedSessionEnvelope"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationFailed"
+        "403":
+          $ref: "#/components/responses/CsrfFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+  /auth/renew:
+    post:
+      operationId: renewBrowserSession
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "200":
+          description: Browser credentials and CSRF value rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedSessionEnvelope"
+        "401":
+          $ref: "#/components/responses/AuthenticationFailed"
+        "403":
+          $ref: "#/components/responses/CsrfFailed"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+  /auth/logout:
+    post:
+      operationId: logoutBrowserSession
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "200":
+          description: Current browser session revoked and cookies cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutEnvelope"
+        "401":
+          $ref: "#/components/responses/AuthenticationFailed"
+        "403":
+          $ref: "#/components/responses/CsrfFailed"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+components:
+  securitySchemes:
+    BrowserSession:
+      type: apiKey
+      in: cookie
+      name: slut_web_access
+  parameters:
+    CsrfHeader:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 20
+        maxLength: 512
+  schemas:
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [employee_number, pin, persistent]
+      properties:
+        employee_number:
+          type: string
+          minLength: 1
+          maxLength: 64
+        pin:
+          type: string
+          pattern: "^[A-Za-z0-9]{4,8}$"
+        persistent:
+          type: boolean
+    SessionProfile:
+      type: object
+      additionalProperties: false
+      required:
+        - account_id
+        - staff_id
+        - session_id
+        - employee_number
+        - display_name
+        - rank
+        - shift
+        - role
+        - must_change_pin
+      properties:
+        account_id: { type: string, format: uuid }
+        staff_id: { type: string, format: uuid }
+        session_id: { type: string, format: uuid }
+        employee_number: { type: string }
+        display_name: { type: string }
+        rank: { type: [string, "null"] }
+        shift: { type: [string, "null"] }
+        role: { type: string, enum: [user, admin] }
+        must_change_pin: { type: boolean }
+    SessionState:
+      type: object
+      additionalProperties: false
+      required: [authenticated, profile]
+      properties:
+        authenticated: { type: boolean }
+        profile:
+          oneOf:
+            - $ref: "#/components/schemas/SessionProfile"
+            - type: "null"
+    AuthenticatedSessionState:
+      allOf:
+        - $ref: "#/components/schemas/SessionState"
+        - type: object
+          properties:
+            authenticated: { const: true }
+            profile: { $ref: "#/components/schemas/SessionProfile" }
+    SuccessEnvelopeBase:
+      type: object
+      required: [data, request_id, server_time, api_version]
+      properties:
+        request_id: { type: string }
+        server_time: { type: string, format: date-time }
+        api_version: { type: string, const: v1 }
+    SessionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelopeBase"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/SessionState" }
+    AuthenticatedSessionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelopeBase"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/AuthenticatedSessionState" }
+    LogoutEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelopeBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              required: [signed_out]
+              properties:
+                signed_out: { type: boolean, const: true }
+    ErrorEnvelope:
+      type: object
+      required: [error, request_id, server_time]
+      properties:
+        error:
+          type: object
+          required: [code, message, retryable, details]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            retryable: { type: boolean }
+            details: { type: object }
+        request_id: { type: string }
+        server_time: { type: string, format: date-time }
+  responses:
+    ValidationFailed:
+      description: Request validation failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    AuthenticationFailed:
+      description: Authentication is required or credentials are invalid
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    CsrfFailed:
+      description: Same-origin or CSRF validation failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    RateLimited:
+      description: Authentication rate limit reached
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    DependencyUnavailable:
+      description: A required identity dependency is unavailable
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
