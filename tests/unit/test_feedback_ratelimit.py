@@ -159,7 +159,7 @@ def test_feedback_request_passes_configured_timeout(monkeypatch):
         return _FakeGitHubResponse()
 
     monkeypatch.setenv("GITHUB_TOKEN", "test-token")
-    monkeypatch.setenv("GITHUB_FEEDBACK_TIMEOUT_SECONDS", "3.5")
+    monkeypatch.setenv("FEEDBACK_GITHUB_TIMEOUT_SECONDS", "3.5")
     monkeypatch.setattr(feedback.urllib.request, "urlopen", fake_urlopen)
 
     response = _feedback_client().post(
@@ -169,6 +169,16 @@ def test_feedback_request_passes_configured_timeout(monkeypatch):
 
     assert response.status_code == 200
     assert captured["timeout"] == 3.5
+
+
+def test_feedback_timeout_configuration_is_bounded(monkeypatch):
+    monkeypatch.setenv("FEEDBACK_GITHUB_TIMEOUT_SECONDS", "999")
+    assert feedback._github_timeout_seconds() == 30.0
+
+
+def test_feedback_timeout_invalid_configuration_uses_default(monkeypatch):
+    monkeypatch.setenv("FEEDBACK_GITHUB_TIMEOUT_SECONDS", "invalid")
+    assert feedback._github_timeout_seconds() == 10.0
 
 
 def test_feedback_timeout_returns_safe_retryable_error(monkeypatch, caplog):
@@ -184,8 +194,8 @@ def test_feedback_timeout_returns_safe_retryable_error(monkeypatch, caplog):
             json={"comment": "It broke", "url": "https://x.app/reports"},
         )
 
-    assert response.status_code == 504
+    assert response.status_code == 503
     assert response.get_json() == {
-        "error": "Feedback service timed out. Please try again."
+        "error": "Feedback service is temporarily unavailable. Please try again."
     }
-    assert "feedback_upstream_timeout" in caplog.text
+    assert "feedback_github_timeout" in caplog.text
