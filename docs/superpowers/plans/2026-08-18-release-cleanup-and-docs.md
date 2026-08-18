@@ -1,269 +1,88 @@
-# Release Cleanup and Documentation Refresh Implementation Plan
+# W-01 Release Cleanup and Documentation — Completion Record
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+**Status:** Completed and accepted on `integration/access-cloud-run-rp02`.
 
-**Goal:** Clean the current release candidate, resolve the known deployment/reliability defects, reconcile documentation with the actual architecture, and prepare a trustworthy integration-to-main release.
+**Merge:** PR #85, merge commit `8c3552130886dfd5368a1b363c713fa1f75ce440`.
 
-**Architecture:** Work from `integration/access-cloud-run-rp02`; do not make feature changes here. Fix the three known reliability/deployment issues with regression tests, then update release documentation and prepare a gated integration-to-main PR. Branch protection is a GitHub settings action and must be completed before production rollout.
+**Purpose:** Preserve the test-first decisions and exact verification evidence for W-01. This file is no longer an executable implementation plan. W-02 is the active next web-companion stage.
 
-**Tech Stack:** Python 3.14, Flask, pytest, GitHub Actions, Docker/Cloud Run, Markdown.
+## Accepted outcomes
 
-**Spec:** `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md`
+### #72 — bounded GitHub feedback submissions
 
-## Global Constraints
+The feedback endpoint now:
 
-- PostgreSQL 17 remains the integration-test floor.
-- Preserve the existing anti-fabrication report pipeline and `/api/v1` contracts.
-- Do not remove shared-code legacy access in this plan; final removal belongs to the cutover plan.
-- Do not merge the release candidate to `main` until all required checks are green.
+- passes a finite timeout to `urllib.request.urlopen`;
+- reads `FEEDBACK_GITHUB_TIMEOUT_SECONDS` with a 10-second default;
+- clamps finite values to 1–30 seconds and safely handles invalid/non-finite configuration;
+- classifies direct and wrapped timeout failures as `feedback_github_timeout`;
+- returns a generic retryable `503` without exposing internal transport details.
 
----
+**Red evidence:** commit `0ed8ec76`, Unit Tests run `32168566445`; the new timeout tests failed while 1,342 existing tests passed.
 
-### Task 1: Fix root-source Cloud Run deployment (#69)
+### #71 — route-owned DOCX cleanup
 
-**Files:**
-- Modify: `backend/scripts/deploy.sh`
-- Modify: deployment instructions in `README.md` or current runbook
-- Create/Test: `tests/unit/test_deploy_script.py`
+The legacy report download route now:
 
-**Interfaces:**
-- Consumes: repository root containing `Dockerfile`, `backend/`, and top-level assets.
-- Produces: a deploy script that always passes the repository root to `gcloud run deploy --source`.
+- distinguishes route-owned temporary documents from caller-owned output paths;
+- reads a route-owned document into `BytesIO`;
+- deletes the pathname in `finally` before returning the response;
+- preserves caller-owned paths;
+- cleans up even when response construction fails.
 
-- [ ] **Step 1: Write the failing regression test**
+This deliberately replaced the earlier `after_this_request` proposal. Reading, deleting, then returning `BytesIO` avoids deleting an open pathname on Windows and covers failures before Flask has registered a response callback. The temporary legacy documents are bounded, so buffering one document is accepted during migration.
 
-```python
-from pathlib import Path
+**Red evidence:** commit `73feb69f`, Unit Tests run `32169324699`; four new ownership/cleanup tests failed while 1,347 existing tests passed.
 
+### #69 — retired backend-local deployment path
 
-def test_deploy_script_uses_repository_root():
-    text = Path("backend/scripts/deploy.sh").read_text()
-    assert 'REPO_ROOT=' in text
-    assert '--source "$REPO_ROOT"' in text
-    assert 'cd "$SCRIPT_DIR"' not in text
-```
+The unsafe `backend/scripts/deploy.sh` path no longer exists and was not recreated. Repository documentation and tests now require source/container builds from the repository root. Production delivery remains OP-08 scope, using protected environments, Workload Identity Federation, reviewed ordering, verification, and rollback evidence.
 
-- [ ] **Step 2: Run the focused test**
+Issue #69 was closed as **not planned**, because repairing and retaining an ad-hoc backend-local production script would conflict with the accepted delivery architecture.
 
-Run: `python -m pytest tests/unit/test_deploy_script.py -q`
-Expected: FAIL against the current script.
+### Current documentation
 
-- [ ] **Step 3: Implement the root-safe script**
+W-01 replaced stale project entry points with:
 
-Use the script directory only to derive the root:
+- a README describing the actual Access + React + `/api/v1` + PostgreSQL 17 platform;
+- a current external-gates-only `HANDOFF.md`;
+- `docs/architecture/unified-platform.md`;
+- a persistent W-01 through W-05 web-companion workstream in the implementation ledger;
+- documentation regression tests that prevent restoration of obsolete PR references and backend-local deployment guidance.
 
-```bash
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)"
-gcloud run deploy "$SERVICE_NAME" --source "$REPO_ROOT" "$@"
-```
+**Red evidence:** commit `9cb2776a`, Backend Quality run `32170908095`; four documentation-contract tests failed while 1,322 tests passed and 30 skipped.
 
-Keep existing project/region flags intact.
+## Exact final verification
 
-- [ ] **Step 4: Run the focused test and shell syntax check**
+Final feature-branch head: `ba337ebdde21ce46a7a86891c1fe97e8e723da66`.
 
-Run: `python -m pytest tests/unit/test_deploy_script.py -q && bash -n backend/scripts/deploy.sh`
-Expected: PASS.
+### Unit Tests — run `32173978705`
 
-- [ ] **Step 5: Commit**
+- Python 3.12: 1,357 unit tests passed; 271 PostgreSQL integration tests passed, 1 skipped; optimized images current.
+- Python 3.14: 1,357 unit tests passed; 271 PostgreSQL integration tests passed, 1 skipped; optimized images current.
 
-```bash
-git add backend/scripts/deploy.sh tests/unit/test_deploy_script.py
-git commit -m "fix(deploy): deploy Cloud Run from repository root"
-```
+### Backend Quality — run `32173978708`
 
-### Task 2: Add a finite GitHub feedback timeout (#72)
+- Ruff check and format check passed.
+- mypy passed.
+- Python 3.12 and 3.14 unit jobs passed.
+- OpenAPI contract passed.
+- PostgreSQL 17 integration passed: 271 passed, 1 skipped.
+- Terraform formatting and pinned Checkov scan passed.
+- Tracked sensitive-output/redaction check passed.
 
-**Files:**
-- Modify: `backend/webapp/routes/feedback.py`
-- Modify/Test: `tests/unit/test_feedback_ratelimit.py`
+### Container Security — run `32173978585`
 
-**Interfaces:**
-- Consumes: `FEEDBACK_GITHUB_TIMEOUT_SECONDS`, default `10`.
-- Produces: finite `urllib.request.urlopen(..., timeout=seconds)` behavior and a safe timeout response.
+- container build passed;
+- pinned runtime provenance passed;
+- fixed High/Critical vulnerability scan passed;
+- SPDX SBOM generation and binding passed;
+- Pages publication-scope and redaction checks passed.
 
-- [ ] **Step 1: Add failing tests**
+## Repository state after acceptance
 
-```python
-def test_feedback_uses_finite_timeout(monkeypatch, client):
-    seen = {}
-    def fake_urlopen(req, timeout):
-        seen["timeout"] = timeout
-        raise TimeoutError()
-    monkeypatch.setattr("backend.webapp.routes.feedback.urllib.request.urlopen", fake_urlopen)
-    monkeypatch.setenv("GITHUB_TOKEN", "x")
-    response = client.post("/api/feedback", json={"comment": "x", "url": "https://example.test"})
-    assert seen["timeout"] == 10
-    assert response.status_code == 503
-```
-
-- [ ] **Step 2: Run the focused tests**
-
-Run: `python -m pytest tests/unit/test_feedback_ratelimit.py -q`
-Expected: FAIL because no timeout is passed and timeout is not classified separately.
-
-- [ ] **Step 3: Implement timeout parsing and handling**
-
-```python
-def _github_timeout_seconds() -> float:
-    raw = os.environ.get("FEEDBACK_GITHUB_TIMEOUT_SECONDS", "10")
-    try:
-        return min(max(float(raw), 1.0), 30.0)
-    except ValueError:
-        return 10.0
-```
-
-Call `urlopen(req, timeout=_github_timeout_seconds())`; catch `TimeoutError` and `urllib.error.URLError` whose reason is a timeout, log category `feedback_github_timeout`, and return `503` with a retryable generic message.
-
-- [ ] **Step 4: Re-run tests**
-
-Run: `python -m pytest tests/unit/test_feedback_ratelimit.py -q`
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add backend/webapp/routes/feedback.py tests/unit/test_feedback_ratelimit.py
-git commit -m "fix(feedback): bound GitHub request time"
-```
-
-### Task 3: Remove temporary DOCX files after legacy download (#71)
-
-**Files:**
-- Modify: `backend/webapp/routes/reports.py`
-- Modify/Test: `tests/unit/test_filler_boxes.py` or create `tests/unit/test_report_download_cleanup.py`
-
-**Interfaces:**
-- Consumes: temporary paths created by the legacy report filler.
-- Produces: response cleanup registered with Flask `after_this_request` only for files owned by the route.
-
-- [ ] **Step 1: Write a failing cleanup test**
-
-```python
-def test_download_deletes_generated_temp_file(client, monkeypatch, tmp_path):
-    output = tmp_path / "generated.docx"
-    output.write_bytes(b"docx")
-    monkeypatch.setattr("backend.webapp.routes.reports.fill_template", lambda *a, **k: output)
-    response = client.post("/api/reports/download", json={"metadata": {}})
-    response.get_data()
-    assert not output.exists()
-```
-
-- [ ] **Step 2: Run the test**
-
-Run: `python -m pytest tests/unit/test_report_download_cleanup.py -q`
-Expected: FAIL because the generated pathname remains.
-
-- [ ] **Step 3: Register response cleanup**
-
-Use `after_this_request` and delete only the route-created temp path:
-
-```python
-@after_this_request
-def _cleanup(response):
-    try:
-        output_path.unlink(missing_ok=True)
-    except OSError:
-        logger.warning("Could not remove generated report file", exc_info=True)
-    return response
-```
-
-Do not delete caller-provided paths used by lower-level filler tests or services.
-
-- [ ] **Step 4: Run cleanup and report tests**
-
-Run: `python -m pytest tests/unit/test_report_download_cleanup.py tests/unit/test_filler_boxes.py -q`
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add backend/webapp/routes/reports.py tests/unit/test_report_download_cleanup.py
-git commit -m "fix(reports): clean temporary download files"
-```
-
-### Task 4: Rewrite current-state documentation
-
-**Files:**
-- Modify: `README.md`
-- Modify: `HANDOFF.md`
-- Modify: `docs/access-cloud-run-implementation-checklist.md`
-- Create: `docs/architecture/unified-platform.md`
-
-**Interfaces:**
-- Consumes: approved web companion spec and current integration-branch status.
-- Produces: one consistent description of Access + web + `/api/v1` + PostgreSQL + Cloud Run.
-
-- [ ] **Step 1: Add documentation assertions**
-
-Create `tests/unit/test_current_docs.py`:
-
-```python
-from pathlib import Path
-
-
-def test_readme_describes_unified_clients():
-    text = Path("README.md").read_text()
-    for phrase in ["Microsoft Access", "React", "/api/v1", "PostgreSQL 17"]:
-        assert phrase in text
-
-
-def test_handoff_does_not_reference_obsolete_prs():
-    text = Path("HANDOFF.md").read_text()
-    assert "PR #22" not in text
-    assert "PR #23" not in text
-```
-
-- [ ] **Step 2: Run the documentation tests**
-
-Run: `python -m pytest tests/unit/test_current_docs.py -q`
-Expected: FAIL on stale content.
-
-- [ ] **Step 3: Rewrite the docs**
-
-README sections must be: Product, Architecture, Clients, Backend/API, Local testing, Release process, Security model, Current roadmap. `HANDOFF.md` must contain only current external/manual gates. `docs/architecture/unified-platform.md` must link the approved design and show client/data flow.
-
-- [ ] **Step 4: Run docs tests and link checks used by the repo**
-
-Run: `python -m pytest tests/unit/test_current_docs.py -q`
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add README.md HANDOFF.md docs/access-cloud-run-implementation-checklist.md docs/architecture/unified-platform.md tests/unit/test_current_docs.py
-git commit -m "docs: refresh unified platform documentation"
-```
-
-### Task 5: Validate the release candidate and prepare integration-to-main PR
-
-**Files:**
-- Modify only if tests expose defects.
-- GitHub settings: protect `main` before production rollout.
-
-**Interfaces:**
-- Consumes: cleaned integration branch.
-- Produces: evidence for a release PR to `main`.
-
-- [ ] **Step 1: Run static and unit gates**
-
-Run the repository's locked Ruff/mypy/unit/contract/security commands from `backend-quality.yml`.
-Expected: all PASS.
-
-- [ ] **Step 2: Run PostgreSQL 17 integration and migration lifecycle**
-
-Run the existing PostgreSQL integration suite and `scripts/verify_migration.py` against PostgreSQL 17.
-Expected: all PASS, excluding documented opt-in skips only.
-
-- [ ] **Step 3: Run container/security gates**
-
-Run the same container build, SBOM, vulnerability, and signature checks required by the release workflows.
-Expected: all PASS.
-
-- [ ] **Step 4: Configure branch protection**
-
-In GitHub repository settings, require pull requests and required release/status checks for `main`, and disallow force pushes. Record the exact required-check names in `docs/operations/github-environment-policy.md`.
-
-- [ ] **Step 5: Open the release PR**
-
-Create `integration/access-cloud-run-rp02 -> main` with a checklist containing exact test run IDs/results and an explicit statement that the web-companion feature itself is not yet part of this merge unless separately implemented.
+- Issues #71 and #72 are closed as completed.
+- Issue #69 is closed as not planned.
+- No deployment, migration, cloud mutation, secret change, branch-protection change, or production operation was part of W-01.
+- The next implementation stage is `docs/superpowers/plans/2026-08-18-browser-auth-session-adapter.md`.
+- Preparation of an integration-to-`main` release PR is separate from deployment and does not claim that W-02 through W-05 are implemented.
