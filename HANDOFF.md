@@ -8,7 +8,7 @@ This file lists actions that require repository-owner, Google Cloud, Microsoft A
 
 - `main` contains the reviewed backend/PostgreSQL checkpoint.
 - `integration/access-cloud-run-rp02` is the current Access/cloud release-candidate line and remains ahead of `main`.
-- The approved unified Access + React architecture is recorded in `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md`, with five staged plans under `docs/superpowers/plans/`.
+- The approved unified Access + React architecture and five staged web tasks are recorded in `docs/architecture/unified-platform.md` and `docs/access-cloud-run-implementation-checklist.md`.
 - W-01 release cleanup must pass its complete hosted checks and review before it is accepted into the release-candidate line.
 - The legacy Flask browser application and shared access codes remain temporary migration surfaces. They are not the target identity model.
 
@@ -16,7 +16,7 @@ No item below should be treated as completed merely because code exists on an in
 
 ## 1. Use the approved planning baseline
 
-Review `docs/superpowers/specs/2026-08-18-web-companion-unified-platform-design.md` and the five plans under `docs/superpowers/plans/` against the approved product decisions:
+Review `docs/architecture/unified-platform.md` and the Web companion section of `docs/access-cloud-run-implementation-checklist.md` against the approved product decisions:
 
 - one employee-number/PIN identity shared by Access and web;
 - Administrator-created accounts from the approved roster;
