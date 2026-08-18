@@ -78,3 +78,16 @@ def test_checklist_tracks_web_companion_workstream():
     assert ARCHITECTURE_PATH in text
     for task_id in ("W-01", "W-02", "W-03", "W-04", "W-05"):
         assert task_id in text
+
+
+def test_permanent_markdown_documents_end_with_newline():
+    documents = (
+        ROOT / "docs" / "architecture" / "unified-platform.md",
+        ROOT
+        / "docs"
+        / "superpowers"
+        / "specs"
+        / "2026-08-18-web-companion-unified-platform-design.md",
+    )
+    for document in documents:
+        assert document.read_bytes().endswith(b"\n"), document
