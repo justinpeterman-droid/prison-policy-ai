@@ -1,0 +1,92 @@
+name: Guided Operations Foundation
+
+on:
+  pull_request:
+    paths:
+      - "frontend/web/**"
+      - "backend/identity/browser_sessions.py"
+      - "backend/persistence/models/browser.py"
+      - "backend/webapp/web_api/**"
+      - "backend/webapp/routes/web_app.py"
+      - "backend/webapp/app.py"
+      - "migrations/versions/20260818_0006_browser_sessions.py"
+      - "Dockerfile"
+      - "tests/**"
+      - ".github/workflows/guided-operations-foundation.yml"
+  push:
+    branches:
+      - feature/guided-operations-web-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guided-operations-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend tests and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install frontend dependencies
+        working-directory: frontend/web
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+      - name: Run component tests
+        working-directory: frontend/web
+        run: npm test
+      - name: Type-check frontend
+        working-directory: frontend/web
+        run: npm run typecheck
+      - name: Build production assets
+        working-directory: frontend/web
+        run: npm run build
+      - name: Upload preview assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: guided-operations-web-preview
+          path: backend/webapp/static/web
+          if-no-files-found: error
+          retention-days: 7
+
+  backend:
+    name: Browser API security and route tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install backend dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run Guided Operations backend tests
+        run: >-
+          python -m pytest
+          tests/unit/test_web_build_contract.py
+          tests/unit/test_web_app_routes.py
+          tests/unit/test_browser_session_model.py
+          tests/unit/test_browser_sessions.py
+          tests/unit/test_web_csrf.py
+          tests/integration/test_web_auth.py
+          tests/security/test_web_cookie_security.py
+          tests/unit/test_safe_next.py
+          tests/unit/test_api_v1_isolation.py
+          -q
+
+  image:
+    name: Cloud Run image build
+    needs: [frontend, backend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production image
+        run: docker build --tag prison-policy-ai:guided-operations .
