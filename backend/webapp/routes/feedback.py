@@ -3,6 +3,7 @@
 import os
 import json
 import logging
+import math
 import time
 import urllib.request
 import urllib.error
@@ -34,9 +35,10 @@ MAX_URL_LEN = 2000  # page URL
 MAX_CONTEXT_VALUE_LEN = 500  # per browser-context field
 
 # GitHub must never be allowed to hold a Gunicorn thread indefinitely. The
-# environment setting is intentionally bounded so a typo cannot disable the
+# environment setting is intentionally clamped so a typo cannot disable the
 # operational protection by selecting an infinite or extremely large timeout.
 DEFAULT_GITHUB_FEEDBACK_TIMEOUT_SECONDS = 10.0
+MIN_GITHUB_FEEDBACK_TIMEOUT_SECONDS = 1.0
 MAX_GITHUB_FEEDBACK_TIMEOUT_SECONDS = 30.0
 
 # Query params stripped from the reported URL before it ever leaves the
@@ -87,20 +89,24 @@ def _client_key() -> str:
     return request.remote_addr or "unknown"
 
 
-def _feedback_timeout_seconds() -> float:
-    """Return the bounded timeout for the outbound GitHub request."""
-    raw = os.environ.get("GITHUB_FEEDBACK_TIMEOUT_SECONDS", "").strip()
-    if not raw:
-        return DEFAULT_GITHUB_FEEDBACK_TIMEOUT_SECONDS
+def _github_timeout_seconds() -> float:
+    """Return the finite, bounded timeout for the outbound GitHub request."""
+    raw = os.environ.get(
+        "FEEDBACK_GITHUB_TIMEOUT_SECONDS",
+        str(DEFAULT_GITHUB_FEEDBACK_TIMEOUT_SECONDS),
+    )
     try:
         value = float(raw)
     except ValueError:
-        logger.warning("feedback_timeout_config_invalid")
+        logger.warning("feedback_github_timeout_config_invalid")
         return DEFAULT_GITHUB_FEEDBACK_TIMEOUT_SECONDS
-    if not 0 < value <= MAX_GITHUB_FEEDBACK_TIMEOUT_SECONDS:
-        logger.warning("feedback_timeout_config_invalid")
+    if not math.isfinite(value):
+        logger.warning("feedback_github_timeout_config_invalid")
         return DEFAULT_GITHUB_FEEDBACK_TIMEOUT_SECONDS
-    return value
+    return min(
+        max(value, MIN_GITHUB_FEEDBACK_TIMEOUT_SECONDS),
+        MAX_GITHUB_FEEDBACK_TIMEOUT_SECONDS,
+    )
 
 
 def _sanitize_url(url: str) -> str:
@@ -209,21 +215,21 @@ def feedback_api():
     req.add_header("Content-Type", "application/json")
 
     try:
-        with urllib.request.urlopen(req, timeout=_feedback_timeout_seconds()) as response:
+        with urllib.request.urlopen(req, timeout=_github_timeout_seconds()) as response:
             res_data = json.loads(response.read().decode("utf-8"))
             return jsonify({"success": True, "issue_url": res_data.get("html_url")})
     except TimeoutError:
-        logger.warning("feedback_upstream_timeout")
-        return jsonify({"error": "Feedback service timed out. Please try again."}), 504
+        logger.warning("feedback_github_timeout")
+        return jsonify({"error": "Feedback service is temporarily unavailable. Please try again."}), 503
+    except urllib.error.HTTPError as error:
+        logger.error("GitHub API error: %s %s", error.code, error.read().decode("utf-8"))
+        return jsonify({"error": "Failed to submit feedback to GitHub."}), 500
     except urllib.error.URLError as error:
         if isinstance(error.reason, TimeoutError):
-            logger.warning("feedback_upstream_timeout")
-            return jsonify({"error": "Feedback service timed out. Please try again."}), 504
+            logger.warning("feedback_github_timeout")
+            return jsonify({"error": "Feedback service is temporarily unavailable. Please try again."}), 503
         logger.error("GitHub API transport error: %s", error.reason)
         return jsonify({"error": "Failed to submit feedback to GitHub."}), 502
-    except urllib.error.HTTPError as e:
-        logger.error("GitHub API error: %s %s", e.code, e.read().decode("utf-8"))
-        return jsonify({"error": "Failed to submit feedback to GitHub."}), 500
     except Exception:
         logger.exception("Unexpected error submitting feedback")
         return jsonify({"error": "An unexpected error occurred."}), 500
