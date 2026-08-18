@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 import backend.reports.report_validator as report_validator
 
 
@@ -18,6 +20,28 @@ def test_statement_closer_repair_does_not_use_unbounded_regex_search(monkeypatch
     monkeypatch.setattr(report_validator.re, "sub", reject_regex_search)
     report = (" " * 4096) + "not a statement closer"
 
+    assert report_validator.repair(report) == (report, [])
+
+
+@pytest.mark.parametrize(
+    "closer",
+    [
+        "End of report.",
+        "END OF REPORT",
+        "End of statement.",
+        "end of statement",
+        "Disciplinary action taken.",
+    ],
+)
+def test_statement_closer_literal_repair_preserves_accepted_variants(closer):
+    assert report_validator.repair(f"He was restrained. {closer}   ") == (
+        "He was restrained.",
+        ["RW-014"],
+    )
+
+
+def test_statement_closer_literal_repair_preserves_non_closer_whitespace():
+    report = "He was restrained.   "
     assert report_validator.repair(report) == (report, [])
 
 
