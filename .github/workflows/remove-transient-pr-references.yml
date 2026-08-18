@@ -1,3 +1,4 @@
+# One-time branch maintenance; this workflow removes itself after success.
 name: Remove Transient PR References
 
 on:
