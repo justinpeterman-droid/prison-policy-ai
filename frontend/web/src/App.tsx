@@ -1,27 +1,28 @@
-import { Link } from "react-router-dom";
-import "./App.css";
+import type { ReactNode } from "react";
+import "./guided-operations.css";
 
 type IconName =
   | "home"
-  | "new-report"
-  | "reports"
-  | "policy"
-  | "forms"
-  | "account"
+  | "plus"
+  | "folder"
+  | "shield"
+  | "form"
+  | "user"
   | "clipboard"
-  | "count"
-  | "message"
+  | "calendar"
+  | "chat"
   | "documents"
   | "clock"
-  | "folder"
-  | "file"
   | "check"
+  | "printer"
+  | "chevron"
+  | "bell"
+  | "cloud"
   | "headset"
-  | "shield"
-  | "people"
-  | "handshake"
-  | "star"
-  | "chevron";
+  | "book"
+  | "link"
+  | "activity"
+  | "menu";
 
 interface IconProps {
   name: IconName;
@@ -29,237 +30,126 @@ interface IconProps {
 }
 
 function Icon({ name, className }: IconProps) {
-  const shared = {
+  const common = {
+    className,
+    viewBox: "0 0 24 24",
     fill: "none",
     stroke: "currentColor",
-    strokeWidth: 1.9,
+    strokeWidth: 1.8,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
+    "aria-hidden": true,
   };
 
-  let paths: React.ReactNode;
   switch (name) {
     case "home":
-      paths = (
-        <>
-          <path d="m3 11 9-8 9 8" />
-          <path d="M5 10v10h14V10" />
-          <path d="M9 20v-6h6v6" />
-        </>
-      );
-      break;
-    case "new-report":
-      paths = (
-        <>
-          <path d="M7 3h8l4 4v14H7z" />
-          <path d="M15 3v5h5" />
-          <path d="M10 13h6M13 10v6" />
-        </>
-      );
-      break;
-    case "reports":
+      return <svg {...common}><path d="m3 11 9-8 9 8"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9.5 21v-7h5v7"/></svg>;
+    case "plus":
+      return <svg {...common}><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>;
     case "folder":
-      paths = (
-        <>
-          <path d="M3 7h7l2 2h9v10H3z" />
-          <path d="M3 7V5h7l2 2" />
-        </>
-      );
-      break;
-    case "policy":
-      paths = (
-        <>
-          <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z" />
-          <path d="M9 12h6M12 9v6" />
-        </>
-      );
-      break;
-    case "forms":
-    case "file":
-      paths = (
-        <>
-          <path d="M6 3h9l3 3v15H6z" />
-          <path d="M15 3v4h4M9 11h6M9 15h6" />
-        </>
-      );
-      break;
-    case "account":
-      paths = (
-        <>
-          <circle cx="12" cy="8" r="4" />
-          <path d="M4 21c.8-4.3 3.5-6.5 8-6.5s7.2 2.2 8 6.5" />
-        </>
-      );
-      break;
-    case "clipboard":
-      paths = (
-        <>
-          <path d="M8 5H5v16h14V5h-3" />
-          <rect x="8" y="2.5" width="8" height="5" rx="2" />
-          <path d="M9 12h6M9 16h4" />
-        </>
-      );
-      break;
-    case "count":
-      paths = (
-        <>
-          <rect x="4" y="3" width="16" height="18" rx="2" />
-          <path d="M8 7h8M8 11h2M14 11h2M8 15h2M14 15h2" />
-        </>
-      );
-      break;
-    case "message":
-      paths = (
-        <>
-          <path d="M4 5h16v11H9l-5 4z" />
-          <path d="M9 10h.01M12 10h.01M15 10h.01" />
-        </>
-      );
-      break;
-    case "documents":
-      paths = (
-        <>
-          <path d="M8 3h10v14H8z" />
-          <path d="M5 7H3v14h10v-2M11 7h4M11 11h4" />
-        </>
-      );
-      break;
-    case "clock":
-      paths = (
-        <>
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 7v6l4 2" />
-        </>
-      );
-      break;
-    case "check":
-      paths = <path d="m5 12 4 4L19 6" />;
-      break;
-    case "headset":
-      paths = (
-        <>
-          <path d="M4 13v-2a8 8 0 0 1 16 0v2" />
-          <path d="M4 13h3v6H5a2 2 0 0 1-2-2v-2a2 2 0 0 1 1-2ZM20 13h-3v6h2a2 2 0 0 0 2-2v-2a2 2 0 0 0-1-2Z" />
-        </>
-      );
-      break;
+      return <svg {...common}><path d="M3 6.5h6l2 2h10v10.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg>;
     case "shield":
-      paths = (
-        <>
-          <path d="M12 3 4.5 6v5.5c0 4.7 2.9 8 7.5 9.5 4.6-1.5 7.5-4.8 7.5-9.5V6z" />
-          <path d="m8.5 12 2.2 2.2 4.8-5" />
-        </>
-      );
-      break;
-    case "people":
-      paths = (
-        <>
-          <circle cx="9" cy="8" r="3" />
-          <circle cx="17" cy="9" r="2.5" />
-          <path d="M3.5 20c.7-3.8 2.5-5.7 5.5-5.7s4.8 1.9 5.5 5.7M14 15.2c3.4-.6 5.5 1 6.5 4.8" />
-        </>
-      );
-      break;
-    case "handshake":
-      paths = (
-        <>
-          <path d="m3 9 4-4 4 2-5 6zM21 9l-4-4-4 2 5 6z" />
-          <path d="m8 11 5 5c1 1 2.5-.5 1.5-1.5l-3-3M13 16l1 1c1 1 2.5-.5 1.5-1.5M7 13l4 4c1 1 2.5-.5 1.5-1.5" />
-        </>
-      );
-      break;
-    case "star":
-      paths = <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z" />;
-      break;
+      return <svg {...common}><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6z"/><path d="m9.2 12.2 1.8 1.8 3.9-4"/></svg>;
+    case "form":
+      return <svg {...common}><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h5M9 12h7M9 16h7"/></svg>;
+    case "user":
+      return <svg {...common}><circle cx="12" cy="8" r="4"/><path d="M4.5 21c.8-4.2 3.2-6 7.5-6s6.7 1.8 7.5 6"/></svg>;
+    case "clipboard":
+      return <svg {...common}><path d="M8 5H5v16h14V5h-3"/><rect x="8" y="3" width="8" height="4" rx="2"/><path d="M8 11h8M8 15h5"/></svg>;
+    case "calendar":
+      return <svg {...common}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M7 14h3M14 14h3M7 18h3"/></svg>;
+    case "chat":
+      return <svg {...common}><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>;
+    case "documents":
+      return <svg {...common}><path d="M8 3h11v15H8z"/><path d="M5 6H3v15h11v-2"/><path d="M11 8h5M11 12h5"/></svg>;
+    case "clock":
+      return <svg {...common}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>;
+    case "check":
+      return <svg {...common}><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg>;
+    case "printer":
+      return <svg {...common}><path d="M7 9V3h10v6M7 18H5a2 2 0 0 1-2-2v-5h18v5a2 2 0 0 1-2 2h-2"/><path d="M7 15h10v6H7z"/></svg>;
     case "chevron":
-      paths = <path d="m9 5 7 7-7 7" />;
-      break;
-    default:
-      paths = null;
+      return <svg {...common}><path d="m9 6 6 6-6 6"/></svg>;
+    case "bell":
+      return <svg {...common}><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 8h18c0-1-3-1-3-8"/><path d="M10 21h4"/></svg>;
+    case "cloud":
+      return <svg {...common}><path d="M7 18h11a4 4 0 0 0 .5-8A7 7 0 0 0 5.2 8.3 5 5 0 0 0 7 18Z"/></svg>;
+    case "headset":
+      return <svg {...common}><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><path d="M4 13h3v6H5a1 1 0 0 1-1-1zM20 13h-3v6h2a1 1 0 0 0 1-1zM17 19c0 2-2 2-4 2"/></svg>;
+    case "book":
+      return <svg {...common}><path d="M3 5.5A4.5 4.5 0 0 1 7.5 3H11v16H7.5A4.5 4.5 0 0 0 3 21.5z"/><path d="M21 5.5A4.5 4.5 0 0 0 16.5 3H13v16h3.5a4.5 4.5 0 0 1 4.5 2.5z"/></svg>;
+    case "link":
+      return <svg {...common}><path d="m10 14 4-4"/><path d="M8.5 16.5 7 18a3.5 3.5 0 1 1-5-5l3-3a3.5 3.5 0 0 1 5 0"/><path d="M15.5 7.5 17 6a3.5 3.5 0 1 1 5 5l-3 3a3.5 3.5 0 0 1-5 0"/></svg>;
+    case "activity":
+      return <svg {...common}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>;
+    case "menu":
+      return <svg {...common}><path d="M4 7h16M4 12h16M4 17h16"/></svg>;
   }
-
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      focusable="false"
-      {...shared}
-    >
-      {paths}
-    </svg>
-  );
 }
 
-function BrandMark() {
-  return (
-    <svg viewBox="0 0 72 84" role="img" aria-label="S.L.U.T. shield">
-      <defs>
-        <linearGradient id="shieldGold" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#f8dc8b" />
-          <stop offset="0.5" stopColor="#d09a30" />
-          <stop offset="1" stopColor="#8f590f" />
-        </linearGradient>
-        <linearGradient id="shieldNavy" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#174f80" />
-          <stop offset="1" stopColor="#071f38" />
-        </linearGradient>
-      </defs>
-      <path d="M36 3 66 14v28c0 19-11.6 31.5-30 39C17.6 73.5 6 61 6 42V14z" fill="url(#shieldGold)" />
-      <path d="M36 8 60 17v24c0 15.5-8.9 26.3-24 33-15.1-6.7-24-17.5-24-33V17z" fill="url(#shieldNavy)" />
-      <path d="M24 28c7 2 11 5 12 11 1-6 5-9 12-11-2 8-6 13-12 16-6-3-10-8-12-16Z" fill="#f3ce73" />
-      <path d="M36 39v20M27 51h18" fill="none" stroke="#f3ce73" strokeWidth="3" strokeLinecap="round" />
-    </svg>
-  );
+function BrandShield() {
+  return <span className="gow-shield" aria-hidden="true"><Icon name="shield" /></span>;
 }
 
-const navigation = [
-  { label: "Home", icon: "home" as const, to: "/workspace" },
-  { label: "New Report", icon: "new-report" as const, to: "/workspace/new-report" },
-  { label: "Reports", icon: "reports" as const, to: "/workspace/reports" },
-  { label: "Policy Expert", icon: "policy" as const, to: "/workspace/policy-expert" },
-  { label: "Forms Library", icon: "forms" as const, to: "/workspace/forms" },
-  { label: "Account", icon: "account" as const, to: "/workspace/account" },
+const navigation: Array<{ label: string; href: string; icon: IconName }> = [
+  { label: "Home", href: "/workspace", icon: "home" },
+  { label: "New Report", href: "/workspace/new-report", icon: "plus" },
+  { label: "Reports", href: "/workspace/reports", icon: "folder" },
+  { label: "Policy Expert", href: "/workspace/policy-expert", icon: "shield" },
+  { label: "Forms Library", href: "/workspace/forms", icon: "form" },
+  { label: "Account", href: "/workspace/account", icon: "user" },
 ];
 
-const actions = [
+const primaryActions: Array<{
+  title: string;
+  description: ReactNode;
+  label: string;
+  href: string;
+  icon: IconName;
+  iconTone?: "gold" | "paper";
+  primary?: boolean;
+}> = [
   {
     title: "Start New Incident",
-    description: "Create a guided report with required forms.",
-    icon: "clipboard" as const,
-    button: "Start",
-    to: "/workspace/new-report",
+    description: <>Create a guided report<br />with required forms.</>,
+    label: "Start",
+    href: "/workspace/new-report",
+    icon: "clipboard",
+    primary: true,
   },
   {
     title: "Open Count Sheet",
-    description: "NCU Days Count — fill out, reconcile, and print.",
-    icon: "count" as const,
-    button: "Open",
-    to: "/workspace/count-sheet",
+    description: <>NCU Days Count<br />Fill out and print.</>,
+    label: "Open",
+    href: "/workspace/count-sheet",
+    icon: "calendar",
+    iconTone: "gold",
   },
   {
     title: "Ask a Policy Question",
-    description: "Search policies and get grounded answers with citations.",
-    icon: "message" as const,
-    button: "Ask",
-    to: "/workspace/policy-expert",
+    description: <>Search policies and<br />get cited answers.</>,
+    label: "Ask",
+    href: "/workspace/policy-expert",
+    icon: "chat",
   },
   {
     title: "Open Forms Library",
-    description: "Browse, preview, and print approved department forms.",
-    icon: "documents" as const,
-    button: "Browse",
-    to: "/workspace/forms",
+    description: <>Browse and print<br />department forms.</>,
+    label: "Browse",
+    href: "/workspace/forms",
+    icon: "documents",
+    iconTone: "paper",
   },
 ];
 
 const recentIncidents = [
-  { number: "2026-08-028", name: "East Hall Contraband", status: "Needs information", tone: "warning" },
-  { number: "2026-08-027", name: "Intake Staff Assault", status: "Ready to review", tone: "" },
-  { number: "2026-08-026", name: "Cell 112 Disturbance", status: "Complete", tone: "complete" },
+  { number: "2026-08-029", name: "Barracks 4 Fight", state: "Ready to review", tone: "ready", time: "18 min ago" },
+  { number: "2026-08-028", name: "East Hall Contraband", state: "Needs information", tone: "warning", time: "1 hr ago" },
+  { number: "2026-08-027", name: "Intake Staff Assault", state: "Complete", tone: "complete", time: "Yesterday" },
+  { number: "2026-08-026", name: "Cell 112 Disturbance", state: "Complete", tone: "complete", time: "Yesterday" },
 ];
 
-const frequentlyUsedForms = [
+const frequentForms = [
   "005/409 Incident Report",
   "Cover Letter",
   "Supervisor Summary",
@@ -267,266 +157,190 @@ const frequentlyUsedForms = [
   "Perimeter Check List",
 ];
 
-const checklist = [
-  "Complete Assignment Roster",
-  "Complete Uniform Inspection Log",
-  "Open Count Sheet",
-];
-
-function Panel({
-  title,
-  icon,
-  action,
-  children,
-  className = "",
-}: {
-  title: string;
-  icon: IconName;
-  action?: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
+function PanelHeading({ icon, title, action }: { icon: IconName; title: string; action?: ReactNode }) {
   return (
-    <section className={`panel ${className}`.trim()}>
-      <header className="panel-header">
-        <h2 className="panel-title">
-          <Icon name={icon} />
-          {title}
-        </h2>
-        {action ? (
-          <Link className="panel-action" to="#" aria-label={`${action} ${title}`}>
-            {action} →
-          </Link>
-        ) : null}
-      </header>
-      <div className="panel-content">{children}</div>
-    </section>
+    <div className="gow-panel-heading">
+      <div className="gow-panel-heading-main"><Icon name={icon} /><h2>{title}</h2></div>
+      {action}
+    </div>
   );
+}
+
+function StatusBadge({ tone, children }: { tone?: string; children: ReactNode }) {
+  return <span className={`gow-inline-status ${tone ?? ""}`.trim()}>{children}</span>;
 }
 
 export function App() {
   return (
-    <div className="app-shell">
-      <aside className="sidebar" aria-label="Application navigation">
-        <div className="brand">
-          <div className="brand-mark">
-            <BrandMark />
+    <div className="gow-app">
+      <aside className="gow-sidebar">
+        <div className="gow-brand">
+          <BrandShield />
+          <div>
+            <p className="gow-brand-name">S.L.U.T</p>
+            <p className="gow-brand-subtitle">Secure · Logical · Unified · Trusted</p>
           </div>
-          <div className="brand-copy">
-            <p className="brand-title">S.L.U.T.</p>
-            <p className="brand-subtitle">Standard Logistics &amp; Unit Tools</p>
-          </div>
+          <button className="gow-mobile-menu-button" type="button" aria-label="Open navigation menu"><Icon name="menu" /></button>
         </div>
 
-        <nav className="primary-navigation" aria-label="Officer workspace">
+        <nav className="gow-nav" aria-label="Officer navigation">
           {navigation.map((item, index) => (
-            <Link
+            <a
+              className="gow-nav-link"
+              href={item.href}
               key={item.label}
-              className="navigation-link"
-              to={item.to}
               aria-label={item.label}
               aria-current={index === 0 ? "page" : undefined}
             >
-              <Icon name={item.icon} className="navigation-icon" />
-              <span className="navigation-label">{item.label}</span>
-            </Link>
+              <span className="gow-nav-icon"><Icon name={item.icon} /></span>
+              <span className="gow-nav-label">{item.label}</span>
+            </a>
           ))}
         </nav>
 
-        <div className="sidebar-footer">
-          <div className="sidebar-status">
-            <div className="sidebar-status-row">
-              <span className="online-dot" />
-              <span>
-                <strong>System Online</strong>
-                All systems operational
-              </span>
-            </div>
-            <div className="sidebar-status-row">
-              <Icon name="headset" className="navigation-icon" />
-              <span>
-                <strong>Need Help?</strong>
-                Open support guidance
-              </span>
-            </div>
-          </div>
+        <div className="gow-sidebar-status" aria-label="System status">
+          <div className="gow-side-status-line"><span className="gow-side-dot" /> <strong>System Online</strong></div>
+          <div className="gow-side-status-line"><Icon name="check" /> All systems operational</div>
+          <div className="gow-side-help"><Icon name="headset" /> Need Help?</div>
+        </div>
+
+        <div className="gow-sidebar-footer">
+          <strong>S.L.U.T</strong>
+          <p>Better tools. Safer facilities.</p>
         </div>
       </aside>
 
-      <div className="workspace">
-        <header className="topbar">
-          <div className="topbar-status">
-            <span className="online-dot" />
-            Online
-          </div>
-          <div className="topbar-status">
-            <Icon name="check" className="navigation-icon" />
-            Last synced 2 minutes ago
-          </div>
-          <span className="topbar-divider" />
-          <button className="profile-control" type="button" aria-label="Open account menu">
-            <span className="avatar" aria-hidden="true">OM</span>
-            Officer Morgan
-            <Icon name="chevron" className="navigation-icon" />
-          </button>
+      <main className="gow-workspace">
+        <header className="gow-topbar" aria-label="Workspace status">
+          <div className="gow-status-chip"><span className="gow-online-dot" /><span>Online</span></div>
+          <div className="gow-status-chip"><Icon name="cloud" /><span>Last synced 2 minutes ago</span></div>
+          <div className="gow-status-chip"><Icon name="check" /><span>All changes saved</span></div>
+          <div className="gow-notification" aria-label="2 notifications"><Icon name="bell" /><span className="gow-notification-badge">2</span></div>
+          <div className="gow-user-chip"><span className="gow-avatar">OP</span><span>Officer Peterman</span><Icon name="chevron" /></div>
         </header>
 
-        <main className="dashboard">
-          <section className="hero" aria-labelledby="dashboard-heading">
-            <div className="hero-copy">
-              <p className="hero-kicker">Good afternoon,</p>
-              <h1 className="hero-title" id="dashboard-heading">Officer Morgan</h1>
-              <div className="hero-meta">
-                <span>Monday, August 18, 2026</span>
-                <span>Day Shift</span>
-              </div>
-            </div>
-            <div className="hero-values" aria-hidden="true">
-              <span>Professionalism</span><i />
-              <span>Accountability</span><i />
-              <span>Integrity</span>
-            </div>
-          </section>
+        <section className="gow-hero" aria-labelledby="home-heading">
+          <div className="gow-hero-copy">
+            <p className="gow-greeting-small">Good afternoon,</p>
+            <h1 className="gow-greeting-name" id="home-heading">Officer Peterman</h1>
+            <p className="gow-hero-message">Stay safe. Stay focused. You’re making a difference.</p>
+          </div>
+          <div className="gow-hero-values" aria-label="Professional values">
+            <span>Professionalism</span><span>•</span><span>Accountability</span><span>•</span><span>Integrity</span>
+          </div>
+        </section>
 
-          <section className="action-grid" aria-label="Primary daily actions">
-            {actions.map((action) => (
-              <article className="action-card" key={action.title}>
-                <div className="action-icon-fixture">
-                  <Icon name={action.icon} />
+        <div className="gow-dashboard-body">
+          <section className="gow-action-grid" aria-label="Primary actions">
+            {primaryActions.map((action) => (
+              <article className="gow-action-card" key={action.title}>
+                <div className="gow-action-header">
+                  <span className={`gow-action-icon ${action.iconTone ?? ""}`.trim()}><Icon name={action.icon} /></span>
+                  <div>
+                    <h2 className="gow-action-title">{action.title}</h2>
+                    <p className="gow-action-description">{action.description}</p>
+                  </div>
                 </div>
-                <div className="action-copy">
-                  <h2>{action.title}</h2>
-                  <p>{action.description}</p>
-                </div>
-                <Link className="action-link" to={action.to} aria-label={action.title}>
-                  <span>{action.button}</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
+                <span />
+                <a
+                  className={`gow-action-link ${action.primary ? "primary" : ""}`.trim()}
+                  href={action.href}
+                  aria-label={action.title}
+                >
+                  {action.label}<Icon name="chevron" />
+                </a>
               </article>
             ))}
           </section>
 
-          <section className="dashboard-grid" aria-label="Current work and resources">
-            <Panel title="Continue Your Work" icon="clock">
-              <div className="continue-card">
-                <span className="incident-number">2026-08-029</span>
-                <span className="incident-name">Barracks 4 Fight</span>
-                <span className="incident-meta">Last edited 18 minutes ago</span>
-                <div className="progress-row">
-                  <Link
-                    className="secondary-button"
-                    to="/workspace/reports/current"
-                    aria-label="Continue current incident"
-                  >
-                    Continue →
-                  </Link>
-                  <span className="status-badge">Ready to review</span>
-                </div>
+          <section className="gow-primary-grid" aria-label="Current incident work and forms">
+            <article className="gow-panel">
+              <PanelHeading icon="clock" title="Continue Your Work" />
+              <div className="gow-continue-card">
+                <div className="gow-incident-number">2026-08-029</div>
+                <div className="gow-incident-title">Barracks 4 Fight</div>
+                <div className="gow-incident-meta">Last edited 18 minutes ago</div>
+                <div className="gow-progress-line" aria-label="5 of 6 steps complete"><span /></div>
+                <div className="gow-incident-meta">5 of 6 steps complete</div>
+                <a className="gow-continue-action" href="/workspace/reports/2026-08-029">Continue Incident <Icon name="chevron" /></a>
               </div>
-            </Panel>
+            </article>
 
-            <Panel title="Recent Incidents" icon="file" action="View all">
-              <ul className="list">
+            <article className="gow-panel">
+              <PanelHeading icon="form" title="Recent Incidents" action={<a className="gow-panel-link" href="/workspace/reports">View All</a>} />
+              <ul className="gow-list">
                 {recentIncidents.map((incident) => (
-                  <li className="list-row" key={incident.number}>
-                    <span className="row-id">{incident.number}</span>
-                    <span className="row-name">{incident.name}</span>
-                    <span className={`status-badge ${incident.tone}`.trim()}>{incident.status}</span>
+                  <li className="gow-list-row" key={incident.number}>
+                    <span className="gow-incident-number">{incident.number}</span>
+                    <span className="gow-list-title">{incident.name}</span>
+                    <StatusBadge tone={incident.tone === "warning" ? "warning" : incident.tone === "complete" ? "complete" : undefined}>{incident.state}</StatusBadge>
+                    <span className="gow-list-time">{incident.time}</span>
                   </li>
                 ))}
               </ul>
-            </Panel>
+            </article>
 
-            <Panel title="Frequently Used Forms" icon="folder" action="View all">
-              <ul className="list">
-                {frequentlyUsedForms.map((form) => (
-                  <li className="form-row" key={form}>
-                    <Icon name="file" />
+            <article className="gow-panel">
+              <PanelHeading icon="folder" title="Frequently Used Forms" action={<a className="gow-panel-link" href="/workspace/forms">View All</a>} />
+              <ul className="gow-list">
+                {frequentForms.map((form) => (
+                  <li className="gow-form-row" key={form}>
+                    <span className="gow-row-icon"><Icon name="form" /></span>
                     <span>{form}</span>
-                    <Icon name="chevron" className="chevron" />
+                    <Icon name="printer" />
                   </li>
                 ))}
               </ul>
-            </Panel>
-
-            <Panel title="Quick Access" icon="folder" className="quick-access">
-              <div className="quick-list">
-                <Link className="quick-link" to="/workspace/reports" aria-label="View report library">
-                  <Icon name="reports" /> View My Reports <Icon name="chevron" className="chevron" />
-                </Link>
-                <Link className="quick-link" to="/workspace/forms" aria-label="Open forms from quick access">
-                  <Icon name="forms" /> Open Forms Library <Icon name="chevron" className="chevron" />
-                </Link>
-                <Link className="quick-link" to="/workspace/policy-expert" aria-label="Open policy expert from quick access">
-                  <Icon name="policy" /> Policy Expert <Icon name="chevron" className="chevron" />
-                </Link>
-                <Link className="quick-link" to="/workspace/count-sheet" aria-label="Open count sheet from quick access">
-                  <Icon name="count" /> Open Count Sheet <Icon name="chevron" className="chevron" />
-                </Link>
-                <Link className="quick-link" to="/workspace/admin/paperwork" aria-label="Open daily paperwork">
-                  <Icon name="clipboard" /> Daily Paperwork <Icon name="chevron" className="chevron" />
-                </Link>
-              </div>
-            </Panel>
+            </article>
           </section>
 
-          <section className="bottom-grid" aria-label="Daily support information">
-            <Panel title="Your Daily Checklist" icon="clipboard">
-              <div>
-                {checklist.map((item) => (
-                  <div className="checklist-row" key={item}>
-                    <span className="check-circle" />
-                    <span>{item}</span>
-                    <button className="secondary-button" type="button">Open</button>
-                  </div>
-                ))}
-              </div>
-            </Panel>
+          <section className="gow-secondary-grid" aria-label="Daily work and activity">
+            <article className="gow-panel">
+              <PanelHeading icon="clipboard" title="Your Daily Checklist" action={<span className="gow-panel-link">3 items</span>} />
+              <div className="gow-check-row"><span className="gow-check-control" /><span>Complete Assignment Roster</span><a className="gow-small-button" href="/workspace/admin/paperwork/roster">Open</a></div>
+              <div className="gow-check-row"><span className="gow-check-control" /><span>Complete Uniform Inspection Log</span><a className="gow-small-button" href="/workspace/admin/paperwork/uniform">Open</a></div>
+              <div className="gow-check-row"><span className="gow-check-control" /><span>Open Count Sheet</span><a className="gow-small-button" href="/workspace/count-sheet">Open</a></div>
+            </article>
 
-            <Panel title="Quick Links" icon="handshake">
-              <div className="quick-list">
-                <Link className="quick-link" to="/workspace/forms" aria-label="Go to forms library">
-                  <Icon name="forms" /> Forms Library <Icon name="chevron" className="chevron" />
-                </Link>
-                <Link className="quick-link" to="/workspace/policy-expert" aria-label="Go to policy expert">
-                  <Icon name="policy" /> Policy Expert <Icon name="chevron" className="chevron" />
-                </Link>
-                <Link className="quick-link" to="/workspace/account" aria-label="Go to my account">
-                  <Icon name="account" /> My Account <Icon name="chevron" className="chevron" />
-                </Link>
-              </div>
-            </Panel>
+            <article className="gow-panel">
+              <PanelHeading icon="link" title="Quick Links" />
+              {[
+                ["Forms Library", "form", "/workspace/forms"],
+                ["Policy Expert", "shield", "/workspace/policy-expert"],
+                ["My Account", "user", "/workspace/account"],
+                ["Help & Support", "headset", "/workspace/help"],
+              ].map(([label, icon, href]) => (
+                <div className="gow-link-row" key={label}>
+                  <a href={href}>
+                    <span className="gow-row-icon"><Icon name={icon as IconName} /></span>
+                    <span>{label}</span>
+                    <Icon name="chevron" />
+                  </a>
+                </div>
+              ))}
+            </article>
 
-            <Panel title="Recent Activity" icon="clock" action="View all">
-              <div>
-                {[
-                  ["Incident report updated", "18 min ago"],
-                  ["Policy question answered", "42 min ago"],
-                  ["005/409 form viewed", "1 hr ago"],
-                  ["Count sheet opened", "2 hr ago"],
-                ].map(([activity, time]) => (
-                  <div className="activity-row" key={activity}>
-                    <span className="activity-dot" />
-                    <span>{activity}</span>
-                    <span className="activity-time">{time}</span>
-                  </div>
-                ))}
-              </div>
-            </Panel>
+            <article className="gow-panel">
+              <PanelHeading icon="activity" title="Recent Activity" action={<a className="gow-panel-link" href="/workspace/activity">View All</a>} />
+              {[
+                ["Report 2026-08-029 updated", "18 min ago"],
+                ["Policy question answered", "42 min ago"],
+                ["Form viewed: 005/409", "1 hr ago"],
+                ["Count sheet opened", "2 hr ago"],
+                ["Logged in", "8:12 AM"],
+              ].map(([label, time]) => (
+                <div className="gow-activity-row" key={label}><span className="gow-activity-dot" /><span>{label}</span><span className="gow-list-time">{time}</span></div>
+              ))}
+            </article>
           </section>
 
-          <footer className="trust-strip">
-            <div className="quote">“Discipline is the bridge between goals and accomplishment.”</div>
-            <div className="trust-value"><Icon name="shield" /> Security</div>
-            <div className="trust-value"><Icon name="people" /> Service</div>
-            <div className="trust-value"><Icon name="handshake" /> Teamwork</div>
-            <div className="trust-value"><Icon name="star" /> Excellence</div>
-            <time className="current-time" dateTime="2026-08-18T15:42:00">
-              Mon, Aug 18, 2026<br />3:42 PM
-            </time>
+          <footer className="gow-dashboard-footer">
+            <div className="gow-quote"><span className="gow-quote-mark">“</span><span>Discipline is the bridge between goals and accomplishment.</span></div>
+            <div className="gow-values" aria-label="Workplace values"><span><Icon name="shield" /> Security</span><span><Icon name="user" /> Service</span><span><Icon name="link" /> Teamwork</span></div>
+            <div className="gow-date-time">Mon, Aug 18, 2026<br />8:42 AM</div>
           </footer>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
