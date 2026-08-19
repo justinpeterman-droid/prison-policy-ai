@@ -1,76 +1,61 @@
-"""Cookie-authenticated API used only by the Guided Operations web client."""
-import json
+"""Cookie-authenticated browser API isolated from the Access bearer API."""
 import logging
 import re
-from time import perf_counter
-from uuid import uuid4
+import secrets
+from datetime import UTC, datetime
 
 from flask import Blueprint, g, request
+from packaging.version import InvalidVersion, Version
+from werkzeug.exceptions import HTTPException
 
 from backend.webapp.api_v1.errors import ApiError
 from backend.webapp.api_v1.responses import failure
 from backend.webapp.web_api.middleware import close_browser_request
 
 
-web_api_bp = Blueprint("web_api", __name__, url_prefix="/api/web/v1")
-logger = logging.getLogger("backend.webapp.web_api")
+logger = logging.getLogger(__name__)
+web_api_bp = Blueprint("web_api_v1", __name__, url_prefix="/api/web/v1")
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
-_VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$")
 
 
 @web_api_bp.before_request
-def begin_web_request():
+def begin_browser_request():
     supplied = request.headers.get("X-Request-ID", "")
-    g.request_id = supplied if _REQUEST_ID.fullmatch(supplied) else str(uuid4())
-    version = request.headers.get("X-Client-Version", "0.1.0")
-    g.client_version = version if _VERSION.fullmatch(version) else "invalid"
-    g.web_request_started = perf_counter()
-    g.web_action = request.endpoint or "unknown"
-
-
-@web_api_bp.teardown_request
-def close_web_request(error=None):
-    close_browser_request(error)
+    g.request_id = supplied if _REQUEST_ID.fullmatch(supplied) else secrets.token_hex(16)
+    raw_version = request.headers.get("X-Client-Version", "")
+    try:
+        g.client_version = Version(raw_version) if raw_version else None
+    except InvalidVersion:
+        g.client_version = "invalid"
+    g.server_time = datetime.now(UTC)
+    g.browser_db_failed = False
 
 
 @web_api_bp.after_request
-def record_web_request(response):
-    elapsed = max(0.0, perf_counter() - getattr(g, "web_request_started", perf_counter()))
-    event = {
-        "request_id": g.request_id,
-        "action": str(getattr(g, "web_action", "unknown"))[:96],
-        "result": "success" if response.status_code < 400 else "error",
-        "http_status_class": f"{response.status_code // 100}xx",
-        "latency_bucket": (
-            "lt_100ms" if elapsed < 0.1 else
-            "lt_500ms" if elapsed < 0.5 else
-            "lt_2s" if elapsed < 2 else
-            "gte_2s"
-        ),
-        "error_code": getattr(g, "api_error_code", None),
-        "client_version": g.client_version,
-    }
-    logger.info(json.dumps(event, separators=(",", ":"), sort_keys=True))
+def secure_browser_response(response):
+    response.headers["X-Request-ID"] = str(g.get("request_id", ""))
     response.headers["Cache-Control"] = "no-store"
-    response.headers["X-Request-ID"] = g.request_id
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
     return response
 
 
-@web_api_bp.errorhandler(ApiError)
-def handle_web_api_error(error: ApiError):
-    """Surface the shared identity errors — rate limiting above all — as themselves.
+@web_api_bp.teardown_request
+def teardown_browser_request(error):
+    close_browser_request(error)
 
-    Without this, `_consume_login_limits` raising a 429 falls through to the
-    catch-all below and a throttled officer is told the service broke.
-    """
+
+@web_api_bp.errorhandler(ApiError)
+def handle_browser_api_error(error: ApiError):
     g.browser_db_failed = True
-    g.api_error_code = error.code
     response = failure(
         error.code,
         error.message,
         error.status,
-        retryable=error.retryable,
-        details=error.details,
+        error.retryable,
+        error.details,
     )
     if error.code == "rate_limited" and error.details:
         retry_after = error.details.get("retry_after_seconds")
@@ -80,20 +65,37 @@ def handle_web_api_error(error: ApiError):
 
 
 @web_api_bp.errorhandler(Exception)
-def handle_unexpected_web_error(_error):
+def handle_unexpected_browser_error(error):
     g.browser_db_failed = True
-    g.api_error_code = "internal_error"
-    logger.error("Unhandled web API exception", extra={"request_id": g.request_id})
+    if isinstance(error, HTTPException):
+        code = "not_found" if error.code == 404 else "http_error"
+        return failure(code, error.description, error.code or 500)
+    logger.exception(
+        "Unhandled browser API error",
+        extra={"request_id": str(g.get("request_id", ""))},
+    )
     return failure(
         "internal_error",
-        "An unexpected error occurred.",
+        "The workspace request could not be completed.",
         500,
         retryable=False,
     )
 
 
-from backend.webapp.web_api.auth import auth_bp
-from backend.webapp.web_api.incidents import incidents_bp
+from backend.webapp.web_api.auth import auth_bp  # noqa: E402
+from backend.webapp.web_api.forms import forms_bp  # noqa: E402
+from backend.webapp.web_api.incident_records import incident_records_bp  # noqa: E402
+from backend.webapp.web_api.incidents import incidents_bp  # noqa: E402
+from backend.webapp.web_api.jobs import jobs_bp  # noqa: E402
+from backend.webapp.web_api.reports import reports_bp  # noqa: E402
+from backend.webapp.web_api.staff import staff_bp  # noqa: E402
 
 web_api_bp.register_blueprint(auth_bp, url_prefix="/auth")
 web_api_bp.register_blueprint(incidents_bp, url_prefix="/incidents")
+web_api_bp.register_blueprint(incident_records_bp)
+web_api_bp.register_blueprint(reports_bp)
+web_api_bp.register_blueprint(jobs_bp)
+web_api_bp.register_blueprint(forms_bp)
+web_api_bp.register_blueprint(staff_bp)
+
+__all__ = ["web_api_bp"]

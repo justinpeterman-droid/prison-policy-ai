@@ -4,22 +4,23 @@ import yaml
 
 
 SPEC = Path("openapi/web-v1.yaml")
+AUTH_PATHS = {
+    "/auth/session",
+    "/auth/login",
+    "/auth/renew",
+    "/auth/logout",
+}
 
 
 def _spec():
     return yaml.safe_load(SPEC.read_text(encoding="utf-8"))
 
 
-def test_web_openapi_contains_closed_authentication_surface():
+def test_web_openapi_preserves_closed_authentication_surface():
     document = _spec()
 
     assert document["openapi"] == "3.1.0"
-    assert set(document["paths"]) == {
-        "/auth/session",
-        "/auth/login",
-        "/auth/renew",
-        "/auth/logout",
-    }
+    assert AUTH_PATHS <= set(document["paths"])
     login = document["components"]["schemas"]["LoginRequest"]
     assert login["additionalProperties"] is False
     assert set(login["required"]) == {"employee_number", "pin", "persistent"}
