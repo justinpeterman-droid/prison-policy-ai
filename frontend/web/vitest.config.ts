@@ -6,6 +6,15 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    // Playwright owns the browser release-gate suites. Loading them through
+    // Vitest executes Playwright's hooks in the wrong runner and makes every
+    // component test command fail even when the component tests are green.
+    exclude: [
+      "tests/e2e/**",
+      "node_modules/**",
+      "dist/**",
+      "backend/webapp/static/web/**",
+    ],
     // Incident and authentication suites intentionally stub global fetch,
     // clipboard, and document cookies. Keep files sequential so one suite's
     // browser doubles cannot race another suite's async effects.
