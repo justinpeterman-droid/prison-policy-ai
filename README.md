@@ -1,131 +1,206 @@
-# Prison Policy AI
+# Prison Policy AI — Guided Operations
 
-AI-powered policy assistant for Arkansas Department of Correction staff. Two tools in one app:
+Prison Policy AI is an officer-focused operations platform for policy questions, incident reporting, required paperwork, and individually authenticated staff workflows.
 
-- **📋 Policy Knowledge Expert** — Ask any ADC policy question, get answers with citations
-- **📝 Report Writing Assistant** — Paste field notes → classified, reports generated, forms filled
+The current application is intentionally deployed as a **companion** to the existing Access and legacy browser experiences. Replacing or retiring either legacy surface requires a separate pilot and explicit approval.
 
-**Deployed:** `https://prison-policy-ai-403037827694.us-central1.run.app`
+## Current product surface
 
----
+### Guided Operations web workspace
 
-## Project Structure
+The React workspace is served under:
 
-```
-prison-policy-ai/
-├── backend/
-│   ├── pipeline/              # RAG: extract, chunk, embed, query, import
-│   ├── reports/               # v2 report engine (3-step pipeline)
-│   │   ├── classifier.py      # Incident type detection (Gemini)
-│   │   ├── extraction.py      # Slot extraction (Gemini, temp=0, schema-constrained)
-│   │   ├── schema.py          # Slot schema, response_schema builder, reporter binding
-│   │   ├── validate.py        # Gap detection, auto_content, invented_facts (NO AI)
-│   │   ├── generator.py       # 5 report generators (structured facts only)
-│   │   ├── prompts.py         # Classifier prompt + charge catalog loader
-│   │   ├── prompts_v2.py      # v2 generation prompts (never see raw notes)
-│   │   ├── filler.py          # DOCX template filling (python-docx)
-│   │   └── roster.py          # Staff roster loader
-│   ├── webapp/                # Flask + Gunicorn
-│   │   ├── app.py             # App factory, cookie-based auth
-│   │   ├── routes/chat.py     # Policy Q&A endpoint
-│   │   ├── routes/reports.py  # v2 3-step: /classify, /extract, /generate, /download
-│   │   ├── templates/         # home.html, chat.html, reports.html, login.html
-│   │   └── static/            # CSS (Linear dark theme), fonts, seal.svg
-│   ├── scripts/deploy.sh
-│   ├── requirements.txt
-│   └── Dockerfile
-├── frontend/forms/            # Claude's 6-form React app
-├── templates/                 # DOCX templates + checklist/charges JSON + roster
-├── .godplans/PLAN.mdx        # Detailed implementation plan
-├── VISION.md                  # Project vision for collaborators
-├── REPORT_ENGINE_SPEC.md      # v2 report engine specification
-├── UI_SPEC.md                 # v2 UI specification
-├── README.md
-└── ideas.md                   # Raw idea dump
+```text
+/workspace
 ```
 
----
+It currently includes:
 
-## Report Pipeline (v2 — Three Steps)
+- individual employee-number and PIN sign-in;
+- secure browser sessions and CSRF protection;
+- officer Home with authorized live summaries;
+- six-stage New Report workflow;
+- incident-centered Reports library;
+- Incident Document Studio;
+- required, recommended, and additional paperwork packets;
+- reviewed-fact digital form population;
+- copy-only records outputs;
+- physical-only Chain of Custody guidance and acknowledgment;
+- NCU Days Count;
+- approved Forms Library;
+- citation-backed Policy Expert; and
+- personal PIN and browser-session management.
 
+### Existing companion surfaces
+
+The repository also retains:
+
+- the Access-oriented bearer API under `/api/v1`;
+- the existing Flask/Jinja browser pages during the pilot period;
+- the deterministic report engine and Word exports; and
+- Review Lab and administrator services that will be integrated into the later Admin Command Center milestone.
+
+## Architecture
+
+```text
+React + TypeScript + Vite
+          │
+          │ cookie-authenticated /api/web/v1
+          ▼
+Flask application and browser adapters
+          │
+          ├── identity, browser sessions, PINs, audit, idempotency
+          ├── incidents, revisions, reports, AI jobs
+          ├── form catalog, packets, population, output policy
+          ├── operational paperwork and Count Sheet revisions
+          └── policy retrieval and citation-backed answers
+          │
+          ▼
+PostgreSQL 17 + approved document templates + model providers
 ```
-Field Notes
-    │ POST /api/reports/classify
-    ▼ Classifier (Gemini) → 7 BMU categories
-    │ POST /api/reports/extract
-    ▼ Extraction (Gemini, temp=0) → structured slots → find_gaps()
-    │ officer fills Missing Information panel
-    │ POST /api/reports/generate
-    ▼ Generator → up to 5 reports from structured facts + auto_content
-    │ POST /api/reports/download
-    ▼ Template Filler → filled 005/409 DOCX
+
+The browser API reuses the same route-neutral Python services as the Access API. It does not call `/api/v1` over HTTP internally.
+
+## Safety rules
+
+The implementation is built around these invariants:
+
+- The model may extract suggestions, but officers review facts before official forms are populated.
+- Raw unsaved field notes never populate official forms.
+- Unknown information remains blank or becomes an explicit missing-information question.
+- Officers do not manually set records-management workflow status.
+- Supervisor Summary and Disciplinary Supplement remain copy-only.
+- Chain of Custody remains an official physical carbon-copy form with no generated substitute.
+- Count Sheet mismatches are displayed and never silently corrected.
+- Identity credentials use opaque HttpOnly cookies and are never returned in readable JSON.
+- Sensitive notes, narratives, form contents, and PINs are excluded from audit metadata.
+- Tests, screenshots, and fixtures use fictional information only.
+
+## Repository map
+
+```text
+backend/
+├── dashboard/                 # Safe officer Home summaries
+├── forms/                     # Catalog, packets, population, physical/output rules
+├── identity/                  # Accounts, PINs, sessions, elevation, audit, idempotency
+├── jobs/                      # Durable AI-job and outbox services
+├── paperwork/                 # Revisioned operational paperwork and Count Sheet
+├── persistence/               # SQLAlchemy models and database setup
+├── pipeline/                  # Policy retrieval, ranking, and grounded generation
+├── reports/                   # Incident/report persistence and report engine
+└── webapp/
+    ├── api_v1/                # Access bearer API
+    ├── web_api/               # Cookie-authenticated Guided Operations API
+    ├── routes/                # Legacy Flask/Jinja routes
+    └── static/                # Built web assets
+
+frontend/web/                  # Guided Operations React application
+migrations/                    # Alembic migrations
+openapi/                       # Access and browser API contracts
+templates/                     # Approved report/form/checklist definitions
+tests/                         # Unit, integration, contract, security, and browser tests
+docs/design/guided-operations # Product implementation notes
 ```
 
-### Anti-Fabrication Guardrails
+## Local development
 
-- Extraction at temp=0, schema-constrained — zero hallucination
-- All slots nullable — nulls force gap questions, model cannot "fill in"
-- `invented_facts()` scan — ADC#s/dates not in source → yellow highlight
-- UNKNOWN values → ⚠ `[TO BE SUPPLEMENTED: ...]` markers
-- Generator receives structured facts only — never raw notes
-- Per-officer reports — each staff member's 005 shows only their actions
+### Prerequisites
 
----
+- Python 3.12 or a supported newer version
+- Node.js 22
+- PostgreSQL 17
 
-## Quick Start
+### Install dependencies
 
-Install dependencies from the repository root:
+From the repository root:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt pytest
+cd frontend/web
+npm install --legacy-peer-deps --no-audit --no-fund
+cd ../..
 ```
 
-For isolated local work, explicitly disable the shared-code gate and run the
-application from the repository root:
+### Configure a local identity database
+
+Use development-only values. Never reuse production secrets or commit an `.env` file.
+
+```bash
+export ACCESS_CODE=""
+export ACCESS_API_ENABLED="true"
+export DATABASE_URL="postgresql+psycopg://postgres:postgres@localhost:5432/access_dev"
+export IDENTITY_HASH_PEPPER="development-pepper-change-this-value"
+export CURSOR_SIGNING_KEY="development-cursor-key-change-this"
+export PUBLIC_BASE_URL="https://localhost"
+```
+
+PowerShell equivalent:
 
 ```powershell
 $env:ACCESS_CODE=""
-python backend/webapp/app.py
+$env:ACCESS_API_ENABLED="true"
+$env:DATABASE_URL="postgresql+psycopg://postgres:postgres@localhost:5432/access_dev"
+$env:IDENTITY_HASH_PEPPER="development-pepper-change-this-value"
+$env:CURSOR_SIGNING_KEY="development-cursor-key-change-this"
+$env:PUBLIC_BASE_URL="https://localhost"
 ```
+
+Apply migrations:
 
 ```bash
-ACCESS_CODE="" PYTHONPATH=. python backend/webapp/app.py
+python -m alembic upgrade head
 ```
 
-## Deploy
+The application does not ship a default employee login. Provision fictional local staff/accounts through the repository’s identity tooling or test fixtures.
 
-Production requires `ACCESS_CODE` to be present. Bind it from Google Secret
-Manager or set it in the service environment before deployment; never commit
-the value or place it in shell history. An omitted value stops application
-startup, while an explicitly empty value disables authentication and is only
-appropriate for isolated local development.
+### Build and run the workspace
 
 ```bash
-gcloud run deploy prison-policy-ai \
-  --source . --region us-central1 \
-  --project gen-lang-client-0968389176 \
-  --allow-unauthenticated
+cd frontend/web
+npm run build
+cd ../..
+PYTHONPATH=. python -m backend.webapp.app
 ```
 
----
+Then open the Flask application and navigate to `/workspace`.
 
-## Key Files
+For frontend-only UI development:
 
-| File | Purpose |
-|------|---------|
-| `backend/reports/classifier.py` | Incident type detection (7 categories, charge validation) |
-| `backend/reports/extraction.py` | Slot extraction from notes (temp=0, response_schema) |
-| `backend/reports/validate.py` | Gap detection, auto_content, invented_facts (deterministic) |
-| `backend/reports/generator.py` | 5 report generators (structured facts only) |
-| `backend/reports/prompts_v2.py` | Generation prompts (receive facts, never raw notes) |
-| `backend/reports/filler.py` | DOCX template filling (python-docx) |
-| `backend/reports/schema.py` | Slot schema, reporter binding, staff extraction |
-| `backend/webapp/routes/reports.py` | v2 3-step API endpoints |
-| `templates/incident_checklist_v2.json` | Authoritative — 7 categories, rules, questions, auto_content |
-| `templates/disciplinary_charges.json` | 61 extracted charges for classifier validation |
-| `templates/005_template_v3.docx` | Exact ADC replica (navy blue, Times New Roman) |
+```bash
+cd frontend/web
+npm run dev
+```
 
----
+## Verification
 
-*Built with Hermes Agent + Claude Code*
-*GCP project: gen-lang-client-0968389176 | Region: us-central1*
+Backend and contract tests:
+
+```bash
+python -m pytest -q
+```
+
+Frontend checks:
+
+```bash
+cd frontend/web
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+npm run test:e2e
+```
+
+The browser workflows use Playwright with fictional API fixtures. PostgreSQL integration tests use `TEST_DATABASE_URL` and run against PostgreSQL 17 in CI.
+
+## Major design and implementation documents
+
+- `docs/superpowers/specs/2026-08-18-guided-operations-web-frontend-design.md`
+- `docs/superpowers/plans/2026-08-18-guided-operations-web-program-roadmap.md`
+- `docs/superpowers/plans/2026-08-18-guided-operations-incident-workspace-implementation.md`
+- `docs/superpowers/plans/2026-08-18-guided-operations-officer-utilities-implementation.md`
+- `docs/design/guided-operations/officer-utilities.md`
+- `REPORT_ENGINE_SPEC.md`
+
+## Release status
+
+Guided Operations remains in staged development and pilot preparation. A passing repository test matrix does not by itself authorize production traffic changes, real roster import, legacy-route retirement, or records-policy decisions. Those actions require the documented rollout gates and explicit repository-owner approval.
