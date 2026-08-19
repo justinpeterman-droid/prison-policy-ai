@@ -38,6 +38,16 @@ def _blank_count_payload():
     }
 
 
+def _assert_content_free(summary):
+    for incident in (summary.continue_incident, *summary.recent_incidents):
+        if incident is None:
+            continue
+        assert not hasattr(incident, "field_notes")
+        assert not hasattr(incident, "narrative")
+        assert not hasattr(incident, "extracted_facts")
+        assert not hasattr(incident, "gap_answers")
+
+
 def test_home_summary_uses_authorized_records_and_no_fictional_dashboard_rows(
     db_session,
     fictional_staff_and_accounts,
@@ -83,8 +93,7 @@ def test_home_summary_uses_authorized_records_and_no_fictional_dashboard_rows(
     assert summary.count_sheet.record_id == count.record_id
     assert summary.count_sheet.current_revision_number == 1
     assert summary.quick_forms
-    assert "field_notes" not in repr(summary)
-    assert "narrative" not in repr(summary)
+    _assert_content_free(summary)
 
 
 def test_home_summary_returns_clear_empty_states_without_sample_data(
@@ -106,3 +115,4 @@ def test_home_summary_returns_clear_empty_states_without_sample_data(
     assert summary.continue_incident is None
     assert summary.count_sheet is None
     assert summary.quick_forms == ()
+    _assert_content_free(summary)
