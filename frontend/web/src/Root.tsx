@@ -57,7 +57,7 @@ function AuthenticatedWorkspace() {
       </main>
     );
   }
-  return <App />;
+  return <App profile={profile} />;
 }
 
 export function Root() {
