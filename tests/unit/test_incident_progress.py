@@ -65,7 +65,7 @@ def test_progress_marks_complete_packet_ready_to_print():
     ).code == "ready_to_print"
 
 
-def test_progress_waits_for_required_physical_paperwork():
+def test_progress_treats_required_physical_paperwork_as_blocking_information():
     result = progress(
         facts_reviewed=True,
         generated_report_count=2,
@@ -74,7 +74,19 @@ def test_progress_waits_for_required_physical_paperwork():
         missing_physical_acknowledgment_count=1,
         has_field_notes=True,
     )
-    assert result.code == "field_notes_started"
+    assert result == WorkflowProgress(
+        code="needs_information",
+        label="Needs information",
+        blocking_count=1,
+    )
+
+
+def test_progress_combines_validation_and_physical_blockers():
+    result = progress(
+        blocking_validation_count=2,
+        missing_physical_acknowledgment_count=3,
+    )
+    assert result.blocking_count == 5
 
 
 def test_progress_distinguishes_started_and_not_started():
