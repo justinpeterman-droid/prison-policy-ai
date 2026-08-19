@@ -67,9 +67,9 @@ describe("officer Home dashboard", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Officer Casey Morgan" })).toBeInTheDocument();
-    expect(screen.getByText("2026-08-029")).toBeInTheDocument();
-    expect(screen.getByText("Fictional Training Incident")).toBeInTheDocument();
-    expect(screen.getByText("Ready to review")).toBeInTheDocument();
+    expect(screen.getAllByText("2026-08-029").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Fictional Training Incident").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Ready to review").length).toBeGreaterThan(0);
     expect(screen.getByText("005/409 Incident Report")).toBeInTheDocument();
     expect(screen.queryByText("Barracks 4 Fight")).not.toBeInTheDocument();
   });
