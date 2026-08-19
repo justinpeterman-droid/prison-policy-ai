@@ -55,6 +55,13 @@ AUDIT_ACTION_FIELDS = {
         "report_id", "old_owner_staff_id", "new_owner_staff_id"},
     "report.exported": {"report_id", "export_id", "export_format"},
     "report.exported_by_admin": {"report_id", "export_id", "export_format"},
+    "document.action_recorded": {
+        "incident_id",
+        "incident_revision_number",
+        "packet_item_id",
+        "report_id",
+        "document_action",
+    },
     "ai.job_submitted": {"job_id", "job_type", "incident_id"},
     "ai.job_succeeded": {"job_id", "job_type", "latency_ms"},
     "ai.job_failed": {"job_id", "job_type", "result_code"},
@@ -92,6 +99,7 @@ AUDIT_INTEGER_FIELDS = frozenset({
     "session_count",
     "revision_number",
     "source_revision_number",
+    "incident_revision_number",
     "latency_ms",
     "document_count",
     "result_count",
@@ -110,6 +118,9 @@ AUDIT_ENUM_FIELDS = {
     }),
     "export_format": frozenset({"docx"}),
     "job_type": frozenset({"classify", "extract", "generate", "disciplinary"}),
+    "document_action": frozenset({
+        "preview", "print", "download_word", "download_pdf", "copy_text",
+    }),
 }
 AUDIT_CHANGED_FIELDS = {
     "incident.saved": frozenset({
