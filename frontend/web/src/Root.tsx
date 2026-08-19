@@ -1,4 +1,6 @@
 import { App } from "./App";
+import { ChangePinForm } from "./features/account/ChangePinForm";
+import "./features/account/account.css";
 import { AuthProvider, useAuth } from "./features/auth/AuthProvider";
 import { LoginPage } from "./features/auth/LoginPage";
 
@@ -39,25 +41,37 @@ function SessionError() {
   );
 }
 
+function TemporaryPinScreen() {
+  const { refresh } = useAuth();
+  return (
+    <main className="login-page">
+      <section className="login-card" aria-labelledby="temporary-pin-heading">
+        <div className="login-heading">
+          <p className="login-overline">Account protection</p>
+          <h1 id="temporary-pin-heading">Change your temporary PIN</h1>
+          <p>A temporary PIN must be replaced before other workspace features can open.</p>
+        </div>
+        <ChangePinForm
+          submitLabel="Set my new PIN"
+          onChanged={() => void refresh()}
+        />
+      </section>
+    </main>
+  );
+}
+
 function AuthenticatedWorkspace() {
-  const { status, profile } = useAuth();
+  const { status, profile, refresh } = useAuth();
   if (status === "loading") return <LoadingScreen />;
   if (status === "error") return <SessionError />;
   if (status !== "authenticated" || !profile) return <LoginPage />;
-  if (profile.mustChangePin) {
-    return (
-      <main className="login-page">
-        <section className="login-card">
-          <div className="login-heading">
-            <p className="login-overline">Account protection</p>
-            <h1>Change your temporary PIN</h1>
-            <p>A temporary PIN must be replaced before other workspace features can open.</p>
-          </div>
-        </section>
-      </main>
-    );
-  }
-  return <App profile={profile} />;
+  if (profile.mustChangePin) return <TemporaryPinScreen />;
+  return (
+    <App
+      profile={profile}
+      onAuthenticationChanged={() => void refresh()}
+    />
+  );
 }
 
 export function Root() {
