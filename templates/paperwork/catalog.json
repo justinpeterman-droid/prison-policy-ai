@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "forms": [
+    {
+      "code": "form_005_409",
+      "name": "005/409 Incident Report",
+      "category": "incident",
+      "output_kind": "digital_document",
+      "revision_label": "ADC 005/409",
+      "active": true,
+      "definition": {
+        "description": "Official incident report populated only from a saved and reviewed incident revision.",
+        "render_kind": "docx_template",
+        "template_path": "templates/005_template_v3.docx",
+        "source_report_type": "first_person",
+        "download_formats": [
+          "print",
+          "word",
+          "pdf"
+        ],
+        "required_fields": [
+          "incident_number",
+          "incident_date",
+          "incident_time",
+          "location",
+          "reporting_officer"
+        ],
+        "review_fields": [
+          "narrative"
+        ],
+        "optional_fields": [
+          "category",
+          "other_involved_officers"
+        ]
+      }
+    },
+    {
+      "code": "cover_letter",
+      "name": "Incident Cover Letter",
+      "category": "incident",
+      "output_kind": "digital_document",
+      "revision_label": "guided-operations-v1",
+      "active": true,
+      "definition": {
+        "description": "Printable cover letter sourced from the saved cover-letter report and confirmed incident facts.",
+        "render_kind": "report_document",
+        "source_report_type": "cover_letter",
+        "download_formats": [
+          "print",
+          "word",
+          "pdf"
+        ],
+        "required_fields": [
+          "incident_number",
+          "incident_date",
+          "category",
+          "reporting_officer"
+        ],
+        "review_fields": [
+          "narrative"
+        ],
+        "optional_fields": [
+          "supervisor_name",
+          "attachment_summary"
+        ]
+      }
+    },
+    {
+      "code": "chain_of_custody_physical",
+      "name": "Chain of Custody Form",
+      "category": "evidence",
+      "output_kind": "physical_only",
+      "revision_label": "official carbon-copy form",
+      "active": true,
+      "definition": {
+        "description": "Official carbon-copy evidence form completed by hand; the web workspace supplies confirmed handwriting guidance only.",
+        "obtain_from": "approved paperwork location",
+        "guidance_fields": [
+          "incident_number",
+          "incident_date",
+          "reporting_officer",
+          "evidence_description",
+          "recovery_location"
+        ]
+      }
+    },
+    {
+      "code": "medical_documentation_checklist",
+      "name": "Medical Documentation Checklist",
+      "category": "medical",
+      "output_kind": "digital_document",
+      "revision_label": "guided-operations-v1",
+      "active": true,
+      "definition": {
+        "description": "Printable checklist for confirming medical documentation connected to an incident.",
+        "render_kind": "browser_form",
+        "download_formats": [
+          "print",
+          "pdf"
+        ],
+        "required_fields": [
+          "incident_number",
+          "incident_date",
+          "reporting_officer",
+          "medical_disposition"
+        ],
+        "review_fields": [],
+        "optional_fields": [
+          "injury_summary",
+          "treatment_location"
+        ]
+      }
+    },
+    {
+      "code": "additional_officer_statement",
+      "name": "Additional Officer Statement",
+      "category": "incident",
+      "output_kind": "digital_document",
+      "revision_label": "guided-operations-v1",
+      "active": true,
+      "definition": {
+        "description": "Printable supporting statement for an additional officer connected to the incident.",
+        "render_kind": "browser_form",
+        "download_formats": [
+          "print",
+          "pdf"
+        ],
+        "required_fields": [
+          "incident_number",
+          "incident_date",
+          "reporting_officer"
+        ],
+        "review_fields": [
+          "narrative"
+        ],
+        "optional_fields": [
+          "incident_time",
+          "location"
+        ]
+      }
+    }
+  ]
+}
