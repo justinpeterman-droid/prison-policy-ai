@@ -12,6 +12,7 @@ on:
       - "frontend/web/**"
       - "migrations/versions/20260819_0009_operational_paperwork.py"
       - "openapi/web-v1.yaml"
+      - "tests/fixtures/paperwork/**"
       - "tests/support/web_browser.py"
       - "tests/unit/test_account_web_routes.py"
       - "tests/unit/test_count_sheet.py"
@@ -137,3 +138,30 @@ jobs:
       - name: Build production assets
         working-directory: frontend/web
         run: npm run build
+
+  e2e:
+    name: Officer utility browser workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install frontend dependencies
+        working-directory: frontend/web
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+      - name: Install Chromium
+        working-directory: frontend/web
+        run: npx playwright install --with-deps chromium
+      - name: Run Officer Utilities browser workflows
+        working-directory: frontend/web
+        run: npm run test:e2e
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: officer-utilities-playwright-report
+          path: frontend/web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7

@@ -53,4 +53,6 @@ tests/eval/output/
 # web-build stage regenerates it, and tests/unit/test_web_app_routes.py asserts
 # the unbuilt state, so a stray local build must not become a tracked file.
 frontend/web/node_modules/
+frontend/web/playwright-report/
+frontend/web/test-results/
 backend/webapp/static/web/

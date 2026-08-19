@@ -1,0 +1,22 @@
+{
+  "fixture": "fictional NCU Days Count",
+  "work_date": "2026-08-19",
+  "shift": "A",
+  "entries": {
+    "A/W Office": {
+      "1": 4
+    },
+    "in_housing": {
+      "1": 6
+    },
+    "operational": {
+      "on_site": 10
+    }
+  },
+  "expected": {
+    "housing_total": 10,
+    "operational_total": 10,
+    "difference": 0,
+    "reconciled": true
+  }
+}
