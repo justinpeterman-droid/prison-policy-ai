@@ -11,8 +11,16 @@ backend/webapp/static/shield-*.png
 .git/
 .github/
 tests/
-scripts/
-frontend/
+
+# Keep only the runtime dispatcher script.
+scripts/*
+!scripts/dispatch_outbox.py
+
+# Keep only the production Guided Operations client source.
+frontend/*
+!frontend/web/
+!frontend/web/**
+
 docs/
 **/__pycache__/
 **/*.pyc
