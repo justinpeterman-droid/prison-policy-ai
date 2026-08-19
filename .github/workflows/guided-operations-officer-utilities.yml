@@ -12,6 +12,7 @@ on:
       - "frontend/web/**"
       - "migrations/versions/20260819_0009_operational_paperwork.py"
       - "openapi/web-v1.yaml"
+      - "tests/support/web_browser.py"
       - "tests/unit/test_account_web_routes.py"
       - "tests/unit/test_count_sheet.py"
       - "tests/unit/test_forms_library*.py"
@@ -21,6 +22,8 @@ on:
       - "tests/integration/test_forms_library*.py"
       - "tests/integration/test_officer_home_summary.py"
       - "tests/integration/test_paperwork*.py"
+      - "tests/integration/test_web_account.py"
+      - "tests/integration/test_web_policy.py"
       - "tests/contract/test_web_v1_openapi.py"
       - ".github/workflows/guided-operations-officer-utilities.yml"
   push:
@@ -91,6 +94,8 @@ jobs:
           tests/integration/test_forms_library_service.py
           tests/integration/test_forms_library_api.py
           tests/integration/test_officer_home_summary.py
+          tests/integration/test_web_account.py
+          tests/integration/test_web_policy.py
           -q
       - name: Verify migration upgrade downgrade upgrade
         run: |
