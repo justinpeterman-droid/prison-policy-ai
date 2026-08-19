@@ -4,43 +4,15 @@ from tests.integration.identity_fixtures import issue_fictional_tokens
 from tests.support.web_browser import authenticate_browser, browser_headers
 
 
-def _elevated_admin(
-    monkeypatch,
-    api_client,
-    db_session,
-    db_session_factory,
-    fictional_admin_account,
-):
-    tokens = issue_fictional_tokens(
-        db_session,
-        account=fictional_admin_account,
-        device_id="device-fictional-admin-overview",
-        now=datetime.now(UTC),
-    )
-    db_session.commit()
-    authenticate_browser(
-        monkeypatch,
-        api_client,
-        db_session_factory,
-        fictional_admin_account,
-        session_id=tokens.session_id,
-        device_id="device-fictional-admin-overview",
-    )
-    response = api_client.post(
-        "/api/web/v1/admin/elevation",
-        json={"pin": "Q7W9E2"},
-        headers=browser_headers("request-admin-overview-elevation"),
-    )
-    assert response.status_code == 200, response.get_json()
-
-
 def test_admin_overview_requires_elevation_and_returns_bounded_safe_shape(
     api_client,
     db_session,
     db_session_factory,
     fictional_admin_account,
+    fictional_user_account,
     monkeypatch,
 ):
+    fictional_user_account.must_change_pin = True
     tokens = issue_fictional_tokens(
         db_session,
         account=fictional_admin_account,
@@ -93,7 +65,7 @@ def test_admin_overview_requires_elevation_and_returns_bounded_safe_shape(
         "deactivated",
         "temporary_pin",
     }
-    assert data["account_conditions"]["temporary_pin"] >= 1
+    assert data["account_conditions"]["temporary_pin"] == 1
     assert set(data["system_availability"]) >= {"database", "queue", "ai", "policy_expert"}
     assert set(data["system_availability"].values()) <= {
         "Operational",
