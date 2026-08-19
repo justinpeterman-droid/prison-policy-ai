@@ -175,6 +175,15 @@ def fictional_staff(fictional_staff_and_accounts):
 @pytest.fixture
 def fictional_incident(db_session, fictional_staff_and_accounts, identity_fixed_now):
     return make_incident(
+        db_session, fictional_staff_and_accounts.preparer, identity_fixed_now,
+    )
+
+
+@pytest.fixture
+def fictional_reporting_incident(
+    db_session, fictional_staff_and_accounts, identity_fixed_now,
+):
+    return make_incident(
         db_session,
         fictional_staff_and_accounts.preparer,
         identity_fixed_now,
