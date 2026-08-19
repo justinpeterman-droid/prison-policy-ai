@@ -93,5 +93,7 @@ def handle_unexpected_web_error(_error):
 
 
 from backend.webapp.web_api.auth import auth_bp
+from backend.webapp.web_api.incidents import incidents_bp
 
 web_api_bp.register_blueprint(auth_bp, url_prefix="/auth")
+web_api_bp.register_blueprint(incidents_bp, url_prefix="/incidents")
