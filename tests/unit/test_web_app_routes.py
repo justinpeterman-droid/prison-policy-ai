@@ -54,6 +54,16 @@ def test_browser_session_api_is_registered_without_legacy_auth(monkeypatch):
     }
 
 
+def test_incident_library_api_is_registered_and_requires_individual_auth(monkeypatch):
+    response = configured_app(monkeypatch).test_client().get(
+        "/api/web/v1/incidents",
+        headers={"X-Client-Version": "0.1.0"},
+    )
+
+    assert response.status_code == 401
+    assert response.get_json()["error"]["code"] == "authentication_required"
+
+
 def test_throttled_login_reports_rate_limiting_not_an_internal_error(monkeypatch):
     """A throttled officer must be told to wait, not that the service broke.
 
