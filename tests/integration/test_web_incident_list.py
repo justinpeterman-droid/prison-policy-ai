@@ -338,9 +338,10 @@ def test_library_search_filters_and_pagination_are_stable(
     assert {UUID(item["incident_id"]) for item in _items(
         api_client.get("/api/web/v1/incidents?q=East%20Hall%20Review")
     )} == {both.id}
+    # Blair owns reports in both incidents, so both are valid officer-name matches.
     assert {UUID(item["incident_id"]) for item in _items(
         api_client.get("/api/web/v1/incidents?q=Blair%20Example")
-    )} == {prepared_only.id}
+    )} == {prepared_only.id, both.id}
     assert {UUID(item["incident_id"]) for item in _items(
         api_client.get(
             "/api/web/v1/incidents?category=use_of_force&location=East%20Hall"
