@@ -111,7 +111,7 @@ describe("Six-step New Report workflow", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /continue to field notes/i }));
 
-    fireEvent.change(screen.getByLabelText("Officer field notes"), {
+    fireEvent.change(await screen.findByLabelText("Officer field notes"), {
       target: { value: "Fictional field notes describing the incident." },
     });
     fireEvent.click(screen.getByRole("button", { name: /save and review facts/i }));
@@ -144,7 +144,7 @@ describe("Six-step New Report workflow", () => {
       </MemoryRouter>,
     );
     fireEvent.click(screen.getByRole("button", { name: /continue to field notes/i }));
-    const notes = screen.getByLabelText("Officer field notes");
+    const notes = await screen.findByLabelText("Officer field notes");
     fireEvent.change(notes, {
       target: { value: "Fictional text that must remain visible." },
     });

@@ -15,27 +15,31 @@ from backend.webapp.api_v1.middleware import (
     current_request_session,
     require_access_token,
 )
-from backend.persistence.database import DatabaseUnavailable, session_scope
+from backend.persistence.database import DatabaseUnavailable
 from backend.persistence.models import Account, StaffMember
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 
-api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
+# Keep package initialization route-neutral. Service modules import middleware
+# and schemas from this package; eagerly importing every route here made those
+# imports recursively load incident persistence while it was still initializing.
+_api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
+_routes_configured = False
 logger = logging.getLogger("backend.webapp.api_v1")
 
 
-@api_v1_bp.record_once
+@_api_v1_bp.record_once
 def configure_api(state):
     state.app.config.setdefault("AUDIT_WRITER", PostgresAuditWriter())
 
 
-@api_v1_bp.teardown_request
+@_api_v1_bp.teardown_request
 def close_api_request(error=None):
     close_request_session(error)
 
 
-@api_v1_bp.before_request
+@_api_v1_bp.before_request
 def prepare_api_request():
     begin_request()
     endpoint = (g.get("api_action") or "").strip()
@@ -100,7 +104,7 @@ def prepare_api_request():
             )
 
 
-@api_v1_bp.after_request
+@_api_v1_bp.after_request
 def record_api_request(response):
     code = getattr(g, "api_error_code", None)
     event = request_event(
@@ -114,7 +118,7 @@ def record_api_request(response):
     return response
 
 
-@api_v1_bp.errorhandler(ApiError)
+@_api_v1_bp.errorhandler(ApiError)
 def handle_api_error(error: ApiError):
     g.identity_db_failed = True
     g.api_error_code = error.code
@@ -132,7 +136,7 @@ def handle_api_error(error: ApiError):
     return response
 
 
-@api_v1_bp.errorhandler(Exception)
+@_api_v1_bp.errorhandler(Exception)
 def handle_unexpected_api_error(_error: Exception):
     g.identity_db_failed = True
     g.api_error_code = "internal_error"
@@ -145,54 +149,13 @@ def handle_unexpected_api_error(_error: Exception):
     )
 
 
-@api_v1_bp.get("/client-policy", endpoint="client_policy")
+@_api_v1_bp.get("/client-policy", endpoint="client_policy")
 def client_policy():
     settings: IdentitySettings = current_app.config["IDENTITY_SETTINGS"]
     return success(policy_data(settings))
 
 
-from backend.webapp.api_v1.auth import auth_bp
-
-api_v1_bp.register_blueprint(auth_bp, url_prefix="/auth")
-
-from backend.webapp.api_v1.admin import admin_bp
-
-api_v1_bp.register_blueprint(admin_bp, url_prefix="/admin")
-
-from backend.webapp.api_v1.staff import staff_bp
-
-api_v1_bp.register_blueprint(staff_bp, url_prefix="/staff")
-
-from backend.webapp.api_v1.incidents import incidents_bp
-
-api_v1_bp.register_blueprint(incidents_bp, url_prefix="/incidents")
-
-from backend.webapp.api_v1.reports import reports_bp
-
-api_v1_bp.register_blueprint(reports_bp, url_prefix="/reports")
-
-from backend.webapp.api_v1.admin_reports import admin_reports_bp
-
-api_v1_bp.register_blueprint(admin_reports_bp, url_prefix="/admin/reports")
-
-from backend.webapp.api_v1.jobs import jobs_bp
-
-api_v1_bp.register_blueprint(jobs_bp)
-
-from backend.webapp.api_v1.policy import policy_bp
-
-api_v1_bp.register_blueprint(policy_bp, url_prefix="/policy")
-
-from backend.webapp.api_v1.admin_health import admin_health_bp
-
-api_v1_bp.register_blueprint(admin_health_bp, url_prefix="/admin")
-
-from backend.webapp.api_v1.admin_audit import admin_audit_bp
-
-api_v1_bp.register_blueprint(admin_audit_bp, url_prefix="/admin")
-
-
-@api_v1_bp.get("/me", endpoint="me")
+@_api_v1_bp.get("/me", endpoint="me")
 @require_access_token
 def me():
     actor = current_actor()
@@ -221,3 +184,49 @@ def me():
             "dependency_unavailable", "Authentication is temporarily unavailable.",
             status=503, retryable=True,
         ) from None
+
+
+def _configure_routes() -> Blueprint:
+    """Register route blueprints only when the application asks for the API.
+
+    Importing `backend.webapp.api_v1.middleware` or a schema must stay safe for
+    route-neutral persistence and form services. Application startup accesses
+    `api_v1_bp` through module `__getattr__`, which performs this configuration
+    before Flask registers the completed blueprint.
+    """
+    global _routes_configured
+    if _routes_configured:
+        return _api_v1_bp
+
+    from backend.webapp.api_v1.auth import auth_bp
+    from backend.webapp.api_v1.admin import admin_bp
+    from backend.webapp.api_v1.staff import staff_bp
+    from backend.webapp.api_v1.incidents import incidents_bp
+    from backend.webapp.api_v1.reports import reports_bp
+    from backend.webapp.api_v1.admin_reports import admin_reports_bp
+    from backend.webapp.api_v1.jobs import jobs_bp
+    from backend.webapp.api_v1.policy import policy_bp
+    from backend.webapp.api_v1.admin_health import admin_health_bp
+    from backend.webapp.api_v1.admin_audit import admin_audit_bp
+
+    _api_v1_bp.register_blueprint(auth_bp, url_prefix="/auth")
+    _api_v1_bp.register_blueprint(admin_bp, url_prefix="/admin")
+    _api_v1_bp.register_blueprint(staff_bp, url_prefix="/staff")
+    _api_v1_bp.register_blueprint(incidents_bp, url_prefix="/incidents")
+    _api_v1_bp.register_blueprint(reports_bp, url_prefix="/reports")
+    _api_v1_bp.register_blueprint(admin_reports_bp, url_prefix="/admin/reports")
+    _api_v1_bp.register_blueprint(jobs_bp)
+    _api_v1_bp.register_blueprint(policy_bp, url_prefix="/policy")
+    _api_v1_bp.register_blueprint(admin_health_bp, url_prefix="/admin")
+    _api_v1_bp.register_blueprint(admin_audit_bp, url_prefix="/admin")
+    _routes_configured = True
+    return _api_v1_bp
+
+
+def __getattr__(name: str):
+    if name == "api_v1_bp":
+        return _configure_routes()
+    raise AttributeError(name)
+
+
+__all__ = ["api_v1_bp"]

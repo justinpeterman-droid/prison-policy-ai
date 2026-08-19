@@ -1,15 +1,20 @@
 import { useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
+import { AccountPage } from "./features/account/AccountPage";
 import type { SessionProfile } from "./features/auth/api";
-import { HomePage } from "./features/dashboard/HomePage";
+import { OfficerHomePage } from "./features/dashboard/OfficerHomePage";
+import { FormsLibraryPage } from "./features/forms-library/FormsLibraryPage";
 import { DocumentStudioPage } from "./features/incidents/DocumentStudioPage";
 import { NewReportPage } from "./features/incidents/NewReportPage";
 import { ReportsPage } from "./features/incidents/ReportsPage";
+import { CountSheetPage } from "./features/paperwork/count-sheet/CountSheetPage";
+import { PolicyExpertPage } from "./features/policy/PolicyExpertPage";
 import "./guided-operations.css";
 import "./incident-workspace.css";
 
 interface AppProps {
   profile: SessionProfile;
+  onAuthenticationChanged?: () => void;
 }
 
 type NavIcon = "home" | "plus" | "folder" | "shield" | "form" | "user";
@@ -50,26 +55,26 @@ function BrandShield() {
   return <span className="gow-shield" aria-hidden="true"><Icon name="shield" /></span>;
 }
 
-function PlaceholderPage({ title, description }: { title: string; description: string }) {
+function NotFoundPage() {
   return (
-    <section className="iw-page" aria-labelledby="placeholder-heading">
+    <section className="iw-page" aria-labelledby="not-found-heading">
       <header className="iw-page-header">
         <div>
           <p className="iw-eyebrow">Guided Operations Workspace</p>
-          <h1 id="placeholder-heading">{title}</h1>
-          <p>{description}</p>
+          <h1 id="not-found-heading">Workspace page not found</h1>
+          <p>Use the officer navigation to return to an available workspace.</p>
         </div>
       </header>
       <div className="iw-empty-state">
         <div className="iw-empty-icon" aria-hidden="true">◇</div>
-        <h2>This workspace is scheduled in the next product milestone</h2>
-        <p>The incident workflow is available now. This officer utility remains isolated until its own secure service and test gate are complete.</p>
+        <h2>The requested workspace is not available</h2>
+        <p>No incident, form, account, or paperwork information was changed.</p>
       </div>
     </section>
   );
 }
 
-export function App({ profile }: AppProps) {
+export function App({ profile, onAuthenticationChanged }: AppProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const initials = profileInitials(profile.displayName);
 
@@ -110,7 +115,7 @@ export function App({ profile }: AppProps) {
 
         <div className="gow-sidebar-status" aria-label="System status">
           <div className="gow-side-status-line"><span className="gow-side-dot" /> <strong>System Online</strong></div>
-          <div className="gow-side-status-line"><span aria-hidden="true">✓</span> All systems operational</div>
+          <div className="gow-side-status-line"><span aria-hidden="true">✓</span> Individual secure session</div>
           <div className="gow-side-help"><span aria-hidden="true">◉</span> Need Help?</div>
         </div>
         <div className="gow-sidebar-footer"><strong>S.L.U.T</strong><p>Better tools. Safer facilities.</p></div>
@@ -122,22 +127,28 @@ export function App({ profile }: AppProps) {
         <header className="gow-topbar" aria-label="Workspace status">
           <button className="gow-mobile-menu-trigger" type="button" aria-label="Open navigation menu" onClick={() => setMenuOpen(true)}>☰</button>
           <div className="gow-status-chip"><span className="gow-online-dot" /><span>Online</span></div>
-          <div className="gow-status-chip"><span aria-hidden="true">☁</span><span>Last synced 2 minutes ago</span></div>
-          <div className="gow-status-chip"><span aria-hidden="true">✓</span><span>All changes saved</span></div>
-          <div className="gow-notification" aria-label="2 notifications"><span aria-hidden="true">♢</span><span className="gow-notification-badge">2</span></div>
+          <div className="gow-status-chip"><span aria-hidden="true">✓</span><span>Secure browser session</span></div>
           <div className="gow-user-chip"><span className="gow-avatar">{initials}</span><span>{profile.displayName}</span><span aria-hidden="true">⌄</span></div>
         </header>
 
         <Routes>
-          <Route path="/" element={<HomePage profile={profile} />} />
+          <Route path="/" element={<OfficerHomePage profile={profile} />} />
           <Route path="/new-report" element={<NewReportPage profile={profile} />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/reports/:incidentId" element={<DocumentStudioPage />} />
-          <Route path="/policy-expert" element={<PlaceholderPage title="Policy Expert" description="Ask policy questions and receive citation-backed answers." />} />
-          <Route path="/forms" element={<PlaceholderPage title="Forms Library" description="Browse and print approved operational forms." />} />
-          <Route path="/account" element={<PlaceholderPage title="Account" description="Manage your PIN and active browser sessions." />} />
-          <Route path="/count-sheet" element={<PlaceholderPage title="NCU Days Count" description="Complete, reconcile, save, and print the official count sheet." />} />
-          <Route path="*" element={<PlaceholderPage title="Workspace page not found" description="Use the officer navigation to return to an available workspace." />} />
+          <Route path="/policy-expert" element={<PolicyExpertPage />} />
+          <Route path="/forms" element={<FormsLibraryPage />} />
+          <Route
+            path="/account"
+            element={(
+              <AccountPage
+                profile={profile}
+                onAuthenticationChanged={onAuthenticationChanged}
+              />
+            )}
+          />
+          <Route path="/count-sheet" element={<CountSheetPage profile={profile} />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
     </div>

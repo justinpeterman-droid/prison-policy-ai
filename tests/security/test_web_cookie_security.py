@@ -25,6 +25,26 @@ def _cookies(*, persistent=True):
     )
 
 
+def _cookie_headers(headers, name: str) -> list[str]:
+    return [value for value in headers if value.startswith(f"{name}=")]
+
+
+def _path(header: str) -> str:
+    return next(
+        part.split("=", 1)[1]
+        for part in header.split("; ")
+        if part.startswith("Path=")
+    )
+
+
+def _active_cookie(headers, name: str) -> str:
+    return next(
+        value
+        for value in _cookie_headers(headers, name)
+        if "Max-Age=0" not in value
+    )
+
+
 def test_session_cookie_writer_keeps_identity_tokens_http_only():
     app = Flask(__name__)
     with app.test_request_context(
@@ -36,25 +56,22 @@ def test_session_cookie_writer_keeps_identity_tokens_http_only():
         auth._write_session_cookies(response, _cookies(), "device-secret-value")
 
     headers = response.headers.getlist("Set-Cookie")
-    by_name = {header.split("=", 1)[0]: header for header in headers}
+    active = {
+        name: _active_cookie(headers, name)
+        for name in (ACCESS_COOKIE, RENEWAL_COOKIE, DEVICE_COOKIE, CSRF_COOKIE)
+    }
 
-    assert {ACCESS_COOKIE, RENEWAL_COOKIE, DEVICE_COOKIE, CSRF_COOKIE} <= set(by_name)
     for name in (ACCESS_COOKIE, RENEWAL_COOKIE, DEVICE_COOKIE):
-        assert "HttpOnly" in by_name[name]
-        assert "Secure" in by_name[name]
-        assert "SameSite=Lax" in by_name[name]
-    assert "HttpOnly" not in by_name[CSRF_COOKIE]
-    assert "Secure" in by_name[CSRF_COOKIE]
-    assert "SameSite=Lax" in by_name[CSRF_COOKIE]
+        assert "HttpOnly" in active[name]
+        assert "Secure" in active[name]
+        assert "SameSite=Lax" in active[name]
+    assert "HttpOnly" not in active[CSRF_COOKIE]
+    assert "Secure" in active[CSRF_COOKIE]
+    assert "SameSite=Lax" in active[CSRF_COOKIE]
 
 
 def test_csrf_cookie_is_readable_from_the_workspace_page():
-    """The SPA lives at /workspace, so a CSRF cookie scoped to the API is invisible.
-
-    document.cookie exposes only cookies whose Path is a prefix of the *page's*
-    path. Scope this one to /api/web/v1 and the client sends no X-CSRF-Token, so
-    every mutation — sign-out included — comes back 403.
-    """
+    """The SPA can read CSRF while credentials remain confined to browser APIs."""
     app = Flask(__name__)
     with app.test_request_context("/api/web/v1/auth/login", method="POST"):
         response = app.make_response({"ok": True})
@@ -62,27 +79,38 @@ def test_csrf_cookie_is_readable_from_the_workspace_page():
         cleared = app.make_response({"ok": True})
         auth._clear_session_cookies(cleared)
 
-    def path_of(headers, name: str) -> str:
-        header = next(value for value in headers if value.startswith(f"{name}="))
-        return next(
-            part.split("=", 1)[1]
-            for part in header.split("; ")
-            if part.startswith("Path=")
-        )
-
     written = response.headers.getlist("Set-Cookie")
-    assert path_of(written, CSRF_COOKIE) == "/"
-    assert "/workspace".startswith(path_of(written, CSRF_COOKIE))
+    written_paths = {
+        name: _path(_active_cookie(written, name))
+        for name in (ACCESS_COOKIE, RENEWAL_COOKIE, DEVICE_COOKIE, CSRF_COOKIE)
+    }
 
-    # The credentials themselves stay scoped to the API that consumes them.
-    assert path_of(written, ACCESS_COOKIE) == "/api/web/v1"
-    assert path_of(written, RENEWAL_COOKIE) == "/api/web/v1/auth"
-    assert path_of(written, DEVICE_COOKIE) == "/api/web/v1/auth"
+    assert written_paths[CSRF_COOKIE] == "/"
+    assert "/workspace".startswith(written_paths[CSRF_COOKIE])
 
-    # A cookie only clears on the exact path it was written to.
+    # The access and device credentials are available only to browser APIs.
+    # Account routes need the device binding, while renewal remains narrower.
+    assert written_paths[ACCESS_COOKIE] == "/api/web/v1"
+    assert written_paths[RENEWAL_COOKIE] == "/api/web/v1/auth"
+    assert written_paths[DEVICE_COOKIE] == "/api/web/v1"
+
     expired = cleared.headers.getlist("Set-Cookie")
-    for name in (ACCESS_COOKIE, RENEWAL_COOKIE, DEVICE_COOKIE, CSRF_COOKIE):
-        assert path_of(expired, name) == path_of(written, name)
+    for name in (ACCESS_COOKIE, RENEWAL_COOKIE, CSRF_COOKIE):
+        expired_paths = {
+            _path(value)
+            for value in _cookie_headers(expired, name)
+            if "Max-Age=0" in value
+        }
+        assert written_paths[name] in expired_paths
+
+    # Clear both the current device path and the former renewal-only path so a
+    # rollout cannot leave two same-name bindings in a browser cookie jar.
+    device_expired_paths = {
+        _path(value)
+        for value in _cookie_headers(expired, DEVICE_COOKIE)
+        if "Max-Age=0" in value
+    }
+    assert device_expired_paths == {"/api/web/v1", "/api/web/v1/auth"}
 
 
 def test_nonpersistent_renewal_cookie_is_a_browser_session_cookie():
@@ -96,13 +124,14 @@ def test_nonpersistent_renewal_cookie_is_a_browser_session_cookie():
         auth._write_session_cookies(response, _cookies(persistent=False), "device-secret-value")
 
     headers = response.headers.getlist("Set-Cookie")
-    renewal = next(value for value in headers if value.startswith(f"{RENEWAL_COOKIE}="))
-    device = next(value for value in headers if value.startswith(f"{DEVICE_COOKIE}="))
+    renewal = _active_cookie(headers, RENEWAL_COOKIE)
+    device = _active_cookie(headers, DEVICE_COOKIE)
 
     assert "Max-Age" not in renewal
     assert "Expires" not in renewal
     assert "Max-Age" not in device
     assert "Expires" not in device
+    assert _path(device) == "/api/web/v1"
 
 
 def test_safe_profile_shape_contains_no_identity_credentials():

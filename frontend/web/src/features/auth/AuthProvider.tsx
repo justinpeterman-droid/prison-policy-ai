@@ -45,7 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refresh = useCallback(async () => {
-    setStatus("loading");
+    // Keep an authenticated workspace mounted while refreshing rotated session
+    // cookies (for example after a PIN change). Initial and signed-out checks
+    // still show the dedicated loading screen.
+    setStatus((current) => current === "authenticated" ? current : "loading");
     try {
       const state = await getBrowserSession();
       apply(state.authenticated, state.profile);

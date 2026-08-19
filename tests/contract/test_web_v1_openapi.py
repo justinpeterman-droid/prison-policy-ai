@@ -10,6 +10,15 @@ AUTH_PATHS = {
     "/auth/renew",
     "/auth/logout",
 }
+PAPERWORK_PATHS = {
+    "/paperwork",
+    "/paperwork/count-sheets/structure",
+    "/paperwork/count-sheets",
+    "/paperwork/count-sheets/{record_id}",
+    "/paperwork/count-sheets/{record_id}/revisions",
+    "/paperwork/count-sheets/{record_id}/restore",
+    "/paperwork/count-sheets/{record_id}/actions",
+}
 
 
 def _spec():
@@ -25,6 +34,38 @@ def test_web_openapi_preserves_closed_authentication_surface():
     assert login["additionalProperties"] is False
     assert set(login["required"]) == {"employee_number", "pin", "persistent"}
     assert set(login["properties"]) == {"employee_number", "pin", "persistent"}
+
+
+def test_web_openapi_exposes_closed_revisioned_count_sheet_surface():
+    document = _spec()
+
+    assert PAPERWORK_PATHS <= set(document["paths"])
+    request_schema = document["components"]["schemas"]["SaveCountSheetRequest"]
+    assert request_schema["additionalProperties"] is False
+    assert set(request_schema["required"]) == {
+        "schema_version",
+        "work_date",
+        "shift",
+        "payload",
+        "base_revision_number",
+        "reason",
+    }
+    assert set(request_schema["properties"]) == set(request_schema["required"])
+    action_schema = document["components"]["schemas"]["PaperworkActionRequest"]
+    assert action_schema == {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["action"],
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["preview", "print", "download_pdf"],
+            }
+        },
+    }
+    assert "delete" not in document["paths"][
+        "/paperwork/count-sheets/{record_id}"
+    ]
 
 
 def test_web_session_responses_never_define_readable_identity_credentials():

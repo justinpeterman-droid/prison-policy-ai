@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Guided Operations Web API
-  version: 0.2.0
+  version: 0.3.0
 servers:
 - url: /api/web/v1
 security:
@@ -369,6 +369,124 @@ paths:
       responses:
         '200':
           description: Request completed
+  /paperwork:
+    get:
+      operationId: listBrowserPaperwork
+      parameters:
+      - name: kind
+        in: query
+        required: true
+        schema:
+          type: string
+          enum: [count_sheet]
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Authorized paperwork page
+  /paperwork/count-sheets/structure:
+    get:
+      operationId: getBrowserCountSheetStructure
+      responses:
+        '200':
+          description: Approved Count Sheet structure
+  /paperwork/count-sheets:
+    post:
+      operationId: createBrowserCountSheet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveCountSheetRequest'
+      responses:
+        '201':
+          description: Count Sheet created
+  /paperwork/count-sheets/{record_id}:
+    parameters:
+    - name: record_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      operationId: getBrowserCountSheet
+      responses:
+        '200':
+          description: Authorized Count Sheet
+    patch:
+      operationId: saveBrowserCountSheet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveCountSheetRequest'
+      responses:
+        '200':
+          description: Count Sheet revision saved
+  /paperwork/count-sheets/{record_id}/revisions:
+    parameters:
+    - name: record_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      operationId: listBrowserCountSheetRevisions
+      responses:
+        '200':
+          description: Authorized revision history
+  /paperwork/count-sheets/{record_id}/restore:
+    parameters:
+    - name: record_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      operationId: restoreBrowserCountSheet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaperworkRestoreRequest'
+      responses:
+        '200':
+          description: Historical revision restored as a new revision
+  /paperwork/count-sheets/{record_id}/actions:
+    parameters:
+    - name: record_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      operationId: recordBrowserCountSheetAction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaperworkActionRequest'
+      responses:
+        '200':
+          description: Output action recorded
 components:
   securitySchemes:
     BrowserSession:
@@ -419,3 +537,84 @@ components:
           type: string
         must_change_pin:
           type: boolean
+    CountSheetPayload:
+      type: object
+      additionalProperties: false
+      required:
+      - schema_version
+      - count_started
+      - count_ended
+      - cells
+      - in_housing
+      - operational
+      properties:
+        schema_version:
+          type: integer
+          const: 1
+        count_started:
+          type: [string, 'null']
+          format: time
+        count_ended:
+          type: [string, 'null']
+          format: time
+        cells:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: [integer, 'null']
+              minimum: 0
+        in_housing:
+          type: object
+          additionalProperties:
+            type: [integer, 'null']
+            minimum: 0
+        operational:
+          type: object
+          additionalProperties:
+            type: [integer, 'null']
+            minimum: 0
+    SaveCountSheetRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - schema_version
+      - work_date
+      - shift
+      - payload
+      - base_revision_number
+      - reason
+      properties:
+        schema_version:
+          type: integer
+          const: 1
+        work_date:
+          type: string
+          format: date
+        shift:
+          type: [string, 'null']
+          maxLength: 32
+        payload:
+          $ref: '#/components/schemas/CountSheetPayload'
+        base_revision_number:
+          type: [integer, 'null']
+          minimum: 1
+        reason:
+          type: string
+          enum: [autosave, manual_save, recovery]
+    PaperworkRestoreRequest:
+      type: object
+      additionalProperties: false
+      required: [revision_number]
+      properties:
+        revision_number:
+          type: integer
+          minimum: 1
+    PaperworkActionRequest:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [preview, print, download_pdf]

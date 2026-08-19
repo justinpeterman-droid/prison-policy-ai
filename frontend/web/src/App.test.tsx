@@ -1,8 +1,18 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import type { SessionProfile } from "./features/auth/api";
+import { fetchOfficerHomeSummary } from "./features/dashboard/api";
+
+vi.mock("./features/dashboard/api", () => ({
+  fetchOfficerHomeSummary: vi.fn(async () => ({
+    continueIncident: null,
+    recentIncidents: [],
+    quickForms: [],
+    countSheet: null,
+  })),
+}));
 
 const OFFICER_NAVIGATION = [
   "Home",
@@ -32,17 +42,20 @@ const PROFILE: SessionProfile = {
   mustChangePin: false,
 };
 
-function renderApp(profile: SessionProfile = PROFILE) {
+function renderApp(path = "/", profile: SessionProfile = PROFILE) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <App profile={profile} />
     </MemoryRouter>,
   );
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
 
-describe("Guided Operations officer home", () => {
+describe("Guided Operations officer application", () => {
   it("renders the approved six-item officer navigation", () => {
     renderApp();
 
@@ -57,7 +70,7 @@ describe("Guided Operations officer home", () => {
     renderApp();
 
     expect(screen.getAllByText("Officer Casey Morgan").length).toBeGreaterThan(0);
-    expect(screen.getByText("A Shift")).toBeInTheDocument();
+    expect(screen.getAllByText("A Shift").length).toBeGreaterThan(0);
     expect(screen.getByText("CM")).toBeInTheDocument();
     expect(screen.queryByText("Officer Peterman")).not.toBeInTheDocument();
   });
@@ -68,31 +81,38 @@ describe("Guided Operations officer home", () => {
     for (const label of PRIMARY_ACTIONS) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
+    expect(fetchOfficerHomeSummary).toHaveBeenCalled();
   });
 
-  it("shows incident work by official incident number", () => {
-    renderApp();
+  it("routes Policy Expert to the real citation workspace", () => {
+    renderApp("/policy-expert");
 
-    expect(screen.getAllByText("2026-08-029").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Barracks 4 Fight").length).toBeGreaterThan(0);
-    expect(screen.getByText("Continue Your Work")).toBeInTheDocument();
-    expect(screen.getByText("Recent Incidents")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Policy Expert" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ask Policy Expert" })).toBeInTheDocument();
+    expect(screen.queryByText(/scheduled in the next product milestone/i)).not.toBeInTheDocument();
   });
 
-  it("presents daily paperwork and forms without crowding the primary actions", () => {
-    renderApp();
+  it("routes Forms Library to the real approved-form workspace", () => {
+    renderApp("/forms");
 
-    expect(screen.getByText("Your Daily Checklist")).toBeInTheDocument();
-    expect(screen.getByText("Frequently Used Forms")).toBeInTheDocument();
-    expect(screen.getByText("Complete Assignment Roster")).toBeInTheDocument();
-    expect(screen.getByText("Complete Uniform Inspection Log")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Forms Library" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Search forms" })).toBeInTheDocument();
+    expect(screen.queryByText(/scheduled in the next product milestone/i)).not.toBeInTheDocument();
   });
 
-  it("exposes useful connection and save state in plain language", () => {
+  it("routes Account to the individual security workspace", () => {
+    renderApp("/account");
+
+    expect(screen.getByRole("heading", { name: "My Account" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Active browser sessions" })).toBeInTheDocument();
+    expect(screen.queryByText(/scheduled in the next product milestone/i)).not.toBeInTheDocument();
+  });
+
+  it("exposes connection state without claiming fictional synchronization", () => {
     renderApp();
 
     expect(screen.getByText("Online")).toBeInTheDocument();
-    expect(screen.getByText(/Last synced/i)).toBeInTheDocument();
-    expect(screen.getByText(/All changes saved/i)).toBeInTheDocument();
+    expect(screen.getByText("Secure browser session")).toBeInTheDocument();
+    expect(screen.queryByText(/Last synced 2 minutes ago/i)).not.toBeInTheDocument();
   });
 });

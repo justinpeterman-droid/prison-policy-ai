@@ -1,9 +1,10 @@
 """Fictional cookie-session helpers for browser API integration tests."""
 from contextlib import contextmanager
+from uuid import UUID
 
 from backend.identity.browser_sessions import BrowserActor
 from backend.webapp.web_api import middleware as web_middleware
-from backend.webapp.web_api.middleware import ACCESS_COOKIE, CSRF_COOKIE
+from backend.webapp.web_api.middleware import ACCESS_COOKIE, CSRF_COOKIE, DEVICE_COOKIE
 
 
 CSRF_VALUE = "fictional-csrf-token-000000000000"
@@ -14,11 +15,14 @@ def authenticate_browser(
     client,
     db_session_factory,
     account,
+    *,
+    session_id: UUID | None = None,
+    device_id: str | None = None,
 ) -> BrowserActor:
     actor = BrowserActor(
         account_id=account.id,
         staff_member_id=account.staff_member_id,
-        session_id=account.id,
+        session_id=session_id or account.id,
         role=account.role,
         auth_version=account.auth_version,
         must_change_pin=account.must_change_pin,
@@ -49,6 +53,8 @@ def authenticate_browser(
     )
     client.set_cookie(ACCESS_COOKIE, "fictional-browser-access")
     client.set_cookie(CSRF_COOKIE, CSRF_VALUE)
+    if device_id is not None:
+        client.set_cookie(DEVICE_COOKIE, device_id)
     return actor
 
 

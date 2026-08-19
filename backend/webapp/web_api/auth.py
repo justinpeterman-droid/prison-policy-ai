@@ -48,7 +48,9 @@ _LOGIN_FIELDS = {"employee_number", "pin", "persistent"}
 # exception: it is the readable half of a double-submit pair, so the client at
 # /workspace has to see it in document.cookie — and document.cookie only exposes
 # cookies whose Path is a prefix of the *page's* path, not the fetch target's.
-# Scoped to /api/web/v1 it is invisible to the SPA and every mutation 403s.
+# The device binding is required by Account as well as renewal routes, so it uses
+# the same browser-API scope as the access credential rather than the narrower
+# renewal-only path.
 CREDENTIAL_COOKIE_PATH = "/api/web/v1"
 RENEWAL_COOKIE_PATH = "/api/web/v1/auth"
 CSRF_COOKIE_PATH = "/"
@@ -122,6 +124,16 @@ def _write_session_cookies(response, cookies, device_id: str) -> None:
         samesite="Lax",
         path=RENEWAL_COOKIE_PATH,
     )
+    # Remove the earlier renewal-scoped device cookie before setting the
+    # browser-API-scoped replacement. This prevents duplicate same-name cookies
+    # from making device binding dependent on browser header ordering.
+    response.delete_cookie(
+        DEVICE_COOKIE,
+        path=RENEWAL_COOKIE_PATH,
+        secure=secure,
+        httponly=True,
+        samesite="Lax",
+    )
     response.set_cookie(
         DEVICE_COOKIE,
         device_id,
@@ -129,7 +141,7 @@ def _write_session_cookies(response, cookies, device_id: str) -> None:
         httponly=True,
         secure=secure,
         samesite="Lax",
-        path=RENEWAL_COOKIE_PATH,
+        path=CREDENTIAL_COOKIE_PATH,
     )
     response.set_cookie(
         CSRF_COOKIE,
@@ -146,6 +158,8 @@ def _clear_session_cookies(response) -> None:
     for name, path, httponly in (
         (ACCESS_COOKIE, CREDENTIAL_COOKIE_PATH, True),
         (RENEWAL_COOKIE, RENEWAL_COOKIE_PATH, True),
+        (DEVICE_COOKIE, CREDENTIAL_COOKIE_PATH, True),
+        # Clean up the original narrower-path cookie during rollout.
         (DEVICE_COOKIE, RENEWAL_COOKIE_PATH, True),
         (CSRF_COOKIE, CSRF_COOKIE_PATH, False),
     ):
