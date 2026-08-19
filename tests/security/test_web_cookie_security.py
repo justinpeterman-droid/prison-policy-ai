@@ -48,6 +48,43 @@ def test_session_cookie_writer_keeps_identity_tokens_http_only():
     assert "SameSite=Lax" in by_name[CSRF_COOKIE]
 
 
+def test_csrf_cookie_is_readable_from_the_workspace_page():
+    """The SPA lives at /workspace, so a CSRF cookie scoped to the API is invisible.
+
+    document.cookie exposes only cookies whose Path is a prefix of the *page's*
+    path. Scope this one to /api/web/v1 and the client sends no X-CSRF-Token, so
+    every mutation — sign-out included — comes back 403.
+    """
+    app = Flask(__name__)
+    with app.test_request_context("/api/web/v1/auth/login", method="POST"):
+        response = app.make_response({"ok": True})
+        auth._write_session_cookies(response, _cookies(), "device-secret-value")
+        cleared = app.make_response({"ok": True})
+        auth._clear_session_cookies(cleared)
+
+    def path_of(headers, name: str) -> str:
+        header = next(value for value in headers if value.startswith(f"{name}="))
+        return next(
+            part.split("=", 1)[1]
+            for part in header.split("; ")
+            if part.startswith("Path=")
+        )
+
+    written = response.headers.getlist("Set-Cookie")
+    assert path_of(written, CSRF_COOKIE) == "/"
+    assert "/workspace".startswith(path_of(written, CSRF_COOKIE))
+
+    # The credentials themselves stay scoped to the API that consumes them.
+    assert path_of(written, ACCESS_COOKIE) == "/api/web/v1"
+    assert path_of(written, RENEWAL_COOKIE) == "/api/web/v1/auth"
+    assert path_of(written, DEVICE_COOKIE) == "/api/web/v1/auth"
+
+    # A cookie only clears on the exact path it was written to.
+    expired = cleared.headers.getlist("Set-Cookie")
+    for name in (ACCESS_COOKIE, RENEWAL_COOKIE, DEVICE_COOKIE, CSRF_COOKIE):
+        assert path_of(expired, name) == path_of(written, name)
+
+
 def test_nonpersistent_renewal_cookie_is_a_browser_session_cookie():
     app = Flask(__name__)
     with app.test_request_context(

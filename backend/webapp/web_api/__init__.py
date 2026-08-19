@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from flask import Blueprint, g, request
 
+from backend.webapp.api_v1.errors import ApiError
 from backend.webapp.api_v1.responses import failure
 from backend.webapp.web_api.middleware import close_browser_request
 
@@ -52,6 +53,29 @@ def record_web_request(response):
     logger.info(json.dumps(event, separators=(",", ":"), sort_keys=True))
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Request-ID"] = g.request_id
+    return response
+
+
+@web_api_bp.errorhandler(ApiError)
+def handle_web_api_error(error: ApiError):
+    """Surface the shared identity errors — rate limiting above all — as themselves.
+
+    Without this, `_consume_login_limits` raising a 429 falls through to the
+    catch-all below and a throttled officer is told the service broke.
+    """
+    g.browser_db_failed = True
+    g.api_error_code = error.code
+    response = failure(
+        error.code,
+        error.message,
+        error.status,
+        retryable=error.retryable,
+        details=error.details,
+    )
+    if error.code == "rate_limited" and error.details:
+        retry_after = error.details.get("retry_after_seconds")
+        if isinstance(retry_after, int) and retry_after > 0:
+            response.headers["Retry-After"] = str(retry_after)
     return response
 
 
