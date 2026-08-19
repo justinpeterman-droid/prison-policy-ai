@@ -62,6 +62,16 @@ AUDIT_ACTION_FIELDS = {
         "report_id",
         "document_action",
     },
+    "physical_paperwork.acknowledged": {
+        "incident_id",
+        "incident_revision_number",
+        "packet_item_id",
+    },
+    "physical_paperwork.cleared": {
+        "incident_id",
+        "incident_revision_number",
+        "packet_item_id",
+    },
     "ai.job_submitted": {"job_id", "job_type", "incident_id"},
     "ai.job_succeeded": {"job_id", "job_type", "latency_ms"},
     "ai.job_failed": {"job_id", "job_type", "result_code"},
