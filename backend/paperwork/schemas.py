@@ -124,12 +124,14 @@ def validate_payload_for_kind(
     kind: PaperworkKind,
     payload: dict[str, JsonValue],
 ) -> dict[str, object]:
-    """Return a JSON-safe copy after kind-specific validation.
-
-    Count Sheet and the later daily-paperwork types register their exact typed
-    payloads in subsequent milestones. Until then this function preserves the
-    strict bounded shell and provides one service boundary for those validators.
-    """
+    """Return a JSON-safe copy after exact kind-specific validation."""
     if not isinstance(kind, PaperworkKind):
         raise ValueError("paperwork kind is invalid")
+    if kind is PaperworkKind.COUNT_SHEET:
+        from backend.paperwork.count_sheet import CountSheetRecordV1
+
+        model = CountSheetRecordV1.model_validate_json(
+            json.dumps(payload, ensure_ascii=False, allow_nan=False)
+        )
+        return model.model_dump(mode="json")
     return json.loads(json.dumps(payload, ensure_ascii=False, allow_nan=False))
