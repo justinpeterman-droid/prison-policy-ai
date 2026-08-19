@@ -7,14 +7,21 @@ interface OfficerWorkspaceLayoutProps {
   profile: SessionProfile;
 }
 
-const NAVIGATION = [
+interface OfficerNavigationItem {
+  label: string;
+  to: string;
+  icon: string;
+  end?: boolean;
+}
+
+const NAVIGATION: readonly OfficerNavigationItem[] = [
   { label: "Home", to: "/", end: true, icon: "⌂" },
   { label: "New Report", to: "/new-report", icon: "+" },
   { label: "Reports", to: "/reports", icon: "▣" },
   { label: "Policy Expert", to: "/policy-expert", icon: "◇" },
   { label: "Forms Library", to: "/forms", icon: "▤" },
   { label: "Account", to: "/account", icon: "●" },
-] as const;
+];
 
 function initials(displayName: string): string {
   const pieces = displayName.trim().split(/\s+/).filter(Boolean);
