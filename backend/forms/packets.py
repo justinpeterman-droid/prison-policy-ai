@@ -70,9 +70,8 @@ class _Requirement:
     scope: RequirementScope = "global"
 
 
-# These checklist entries are generated report outputs, not form templates.
-# They are deliberately explicit so they can never be silently mistaken for a
-# printable form. The route layer later exposes them through report metadata.
+# Generated report outputs are not form templates. They remain in the report
+# area and are deliberately excluded from printable/physical packet planning.
 _REPORT_OUTPUT_REQUIREMENTS = {
     "major_disciplinary_form": "disciplinary",
     "use_of_force_report_409": "first_person",
@@ -86,33 +85,49 @@ _REQUIREMENTS: dict[str, _Requirement] = {
     "chain_of_custody": _Requirement(("chain_of_custody_physical",)),
     "confiscation_f401": _Requirement(("confiscation_f401_physical",)),
     "field_test_result": _Requirement(
-        ("field_test_result_attachment",), "suspected_drugs"),
+        ("field_test_result_attachment",), "suspected_drugs"
+    ),
     "medical_report": _Requirement(
-        ("medical_documentation_checklist",), "medical_documentation"),
+        ("medical_documentation_checklist",), "medical_documentation"
+    ),
     "inmate_drug_test": _Requirement(
-        ("inmate_drug_test_reminder",), "drug_test"),
+        ("inmate_drug_test_reminder",), "drug_test"
+    ),
     "money_receipt_business_office": _Requirement(
-        ("business_office_receipt_reminder",), "money_confiscated"),
+        ("business_office_receipt_reminder",), "money_confiscated"
+    ),
     "weapon_chain_of_custody_f401": _Requirement(
         ("chain_of_custody_physical", "confiscation_f401_physical"),
         "weapon_involved",
     ),
     "witness_statements": _Requirement(
-        ("additional_officer_statement",), "witness_statements"),
+        ("additional_officer_statement",), "witness_statements"
+    ),
     "enemy_alert_form": _Requirement(("enemy_alert_form",), "enemy_alert"),
     "24_hour_review": _Requirement(("review_24_hour",)),
     "72_hour_review": _Requirement(("review_72_hour",)),
     "emergency_gate_pass_if_treated_outside": _Requirement(
-        ("emergency_gate_pass",), "outside_medical"),
+        ("emergency_gate_pass",), "outside_medical"
+    ),
     "injured_staff_company_nurse": _Requirement(
-        ("company_nurse_confirmation",), "staff_injured"),
+        ("company_nurse_confirmation",), "staff_injured"
+    ),
     "officer_accident_report": _Requirement(
-        ("officer_accident_report",), "staff_injured"),
+        ("officer_accident_report",), "staff_injured"
+    ),
     "forced_cell_movement_fact_sheet": _Requirement(
-        ("forced_cell_movement_fact_sheet",)),
+        ("forced_cell_movement_fact_sheet",)
+    ),
     "prea_checklist": _Requirement(("prea_checklist",)),
     "prea_notification": _Requirement(("prea_notification",)),
 }
+
+_OFFICER_SCOPED_TEMPLATE_CODES = frozenset(
+    template_code
+    for requirement in _REQUIREMENTS.values()
+    if requirement.scope == "officer"
+    for template_code in requirement.template_codes
+)
 
 
 _REQUIREMENT_LABELS = {
@@ -153,7 +168,8 @@ def _load_checklist(path: str | Path) -> dict:
 
 def _category(payload: dict, category: str) -> dict:
     matches = [
-        item for item in payload["categories"]
+        item
+        for item in payload["categories"]
         if isinstance(item, dict) and item.get("name") == category
     ]
     if len(matches) != 1:
@@ -162,7 +178,9 @@ def _category(payload: dict, category: str) -> dict:
         )
     row = matches[0]
     forms = row.get("forms_required")
-    if not isinstance(forms, list) or not all(isinstance(value, str) for value in forms):
+    if not isinstance(forms, list) or not all(
+        isinstance(value, str) for value in forms
+    ):
         raise PacketConfigurationError(
             f"incident checklist forms are invalid for category: {category}"
         )
@@ -192,13 +210,24 @@ def _normalized(value: object) -> str | None:
 
 def _is_true(value: object) -> bool:
     return _normalized(value) in {
-        "yes", "true", "1", "completed", "conducted", "filed", "obtained",
+        "yes",
+        "true",
+        "1",
+        "completed",
+        "conducted",
+        "filed",
+        "obtained",
     }
 
 
 def _is_false(value: object) -> bool:
     return _normalized(value) in {
-        "no", "false", "0", "n/a", "na", "not applicable",
+        "no",
+        "false",
+        "0",
+        "n/a",
+        "na",
+        "not applicable",
         "n/a - no injuries reported",
     }
 
@@ -213,7 +242,26 @@ def _has_value(value: object) -> bool:
     return True
 
 
-def _group_for(condition: str, snapshot: dict) -> Literal["required", "recommended"] | None:
+def _has_injury(value: object) -> bool:
+    normalized = _normalized(value)
+    if normalized in {
+        None,
+        "no",
+        "none",
+        "no injury",
+        "no injuries",
+        "none reported",
+        "no injuries reported",
+        "n/a",
+        "not applicable",
+    }:
+        return False
+    return _has_value(value)
+
+
+def _group_for(
+    condition: str, snapshot: dict
+) -> Literal["required", "recommended"] | None:
     if condition == "always":
         return "required"
     if condition == "photo_video":
@@ -224,8 +272,8 @@ def _group_for(condition: str, snapshot: dict) -> Literal["required", "recommend
     if condition == "medical_documentation":
         value = _nested_fact(snapshot, "medical_disposition")
         injuries = (
-            _has_value(_nested_fact(snapshot, "inmate_injuries"))
-            or _has_value(_nested_fact(snapshot, "officer_injuries"))
+            _has_injury(_nested_fact(snapshot, "inmate_injuries"))
+            or _has_injury(_nested_fact(snapshot, "officer_injuries"))
         )
         if _is_false(value):
             return None
@@ -268,21 +316,30 @@ def _group_for(condition: str, snapshot: dict) -> Literal["required", "recommend
     if condition == "outside_medical":
         disposition = _normalized(_nested_fact(snapshot, "medical_disposition"))
         gate_pass = _nested_fact(snapshot, "emergency_gate_pass")
-        if disposition == "sent by ambulance to outside facility" or _is_true(gate_pass):
+        if (
+            disposition == "sent by ambulance to outside facility"
+            or _is_true(gate_pass)
+        ):
             return "required"
         return "recommended" if disposition is None else None
     if condition == "staff_injured":
         value = _nested_fact(snapshot, "staff_injured")
         injuries = _nested_fact(snapshot, "officer_injuries")
-        if _is_true(value) or _has_value(injuries):
+        if _is_true(value) or _has_injury(injuries):
             return "required"
         return None if _is_false(value) else "recommended"
     raise PacketConfigurationError(f"unknown packet condition: {condition}")
 
 
 def _reason(category_label: str, requirement_name: str, group: str) -> str:
-    label = _REQUIREMENT_LABELS.get(requirement_name, requirement_name.replace("_", " "))
-    prefix = "Required" if group == "required" else "Recommended while information is incomplete"
+    label = _REQUIREMENT_LABELS.get(
+        requirement_name, requirement_name.replace("_", " ")
+    )
+    prefix = (
+        "Required"
+        if group == "required"
+        else "Recommended while information is incomplete"
+    )
     reason = f"{prefix} by {category_label} checklist: {label}."
     if len(reason) > 240:
         raise PacketConfigurationError("packet selection reason exceeds storage limit")
@@ -298,7 +355,11 @@ def _merge_plan(
     if previous is None:
         planned[key] = item
         return
-    group = "required" if "required" in {previous.packet_group, item.packet_group} else "recommended"
+    group = (
+        "required"
+        if "required" in {previous.packet_group, item.packet_group}
+        else "recommended"
+    )
     reasons = list(dict.fromkeys((previous.selection_reason, item.selection_reason)))
     reason = " ".join(reasons)
     if len(reason) > 240:
@@ -323,7 +384,9 @@ def plan_incident_packet(
     if not isinstance(snapshot, dict):
         raise PacketConfigurationError("incident snapshot must be an object")
     if not reporting_staff_ids:
-        raise PacketConfigurationError("an incident packet requires a reporting officer")
+        raise PacketConfigurationError(
+            "an incident packet requires a reporting officer"
+        )
     checklist = _load_checklist(checklist_path)
     category_row = _category(checklist, category)
     category_label = str(category_row.get("label") or category)
@@ -351,23 +414,29 @@ def plan_incident_packet(
                 else (None,)
             )
             for staff_id in scopes:
-                _merge_plan(planned, PlannedPacketItem(
-                    template_code=template_code,
-                    packet_group=group,
-                    selection_reason=_reason(
-                        category_label, requirement_name, group),
-                    reporting_staff_member_id=staff_id,
-                ))
+                _merge_plan(
+                    planned,
+                    PlannedPacketItem(
+                        template_code=template_code,
+                        packet_group=group,
+                        selection_reason=_reason(
+                            category_label, requirement_name, group
+                        ),
+                        reporting_staff_member_id=staff_id,
+                    ),
+                )
 
     group_order = {"required": 0, "recommended": 1}
-    return tuple(sorted(
-        planned.values(),
-        key=lambda item: (
-            group_order[item.packet_group],
-            item.template_code,
-            str(item.reporting_staff_member_id or ""),
-        ),
-    ))
+    return tuple(
+        sorted(
+            planned.values(),
+            key=lambda item: (
+                group_order[item.packet_group],
+                item.template_code,
+                str(item.reporting_staff_member_id or ""),
+            ),
+        )
+    )
 
 
 def _authorized_incident(session: Session, actor, incident_id: UUID):
@@ -377,26 +446,32 @@ def _authorized_incident(session: Session, actor, incident_id: UUID):
         raise PacketNotFound("Incident not found.") from None
 
 
-def _current_revision(session: Session, actor, incident_id: UUID, revision_number: int):
+def _current_revision(
+    session: Session, actor, incident_id: UUID, revision_number: int
+):
     view = _authorized_incident(session, actor, incident_id)
     if view.incident.current_revision_number != revision_number:
         raise PacketRevisionConflict(
             "Packet changes require the current saved incident revision."
         )
     try:
-        revision = get_incident_revision(session, actor, incident_id, revision_number)
+        revision = get_incident_revision(
+            session, actor, incident_id, revision_number
+        )
     except (IncidentNotFound, IncidentRevisionNotFound):
         raise PacketNotFound("Incident not found.") from None
     return view, revision
 
 
 def _views(
-    session: Session,
-    incident_id: UUID,
+    session: Session, incident_id: UUID
 ) -> tuple[IncidentPacketItemView, ...]:
     rows = session.execute(
         select(IncidentPacketItem, FormTemplate)
-        .join(FormTemplate, FormTemplate.id == IncidentPacketItem.form_template_id)
+        .join(
+            FormTemplate,
+            FormTemplate.id == IncidentPacketItem.form_template_id,
+        )
         .where(IncidentPacketItem.incident_id == incident_id)
         .order_by(
             IncidentPacketItem.packet_group,
@@ -405,18 +480,21 @@ def _views(
             IncidentPacketItem.id,
         )
     ).all()
-    return tuple(IncidentPacketItemView(
-        packet_item_id=item.id,
-        template_code=template.code,
-        name=template.name,
-        output_kind=template.output_kind,
-        packet_group=item.packet_group,
-        packet_state=item.packet_state,
-        selection_reason=item.selection_reason or "",
-        not_applicable_reason=item.not_applicable_reason,
-        reporting_staff_member_id=item.reporting_staff_member_id,
-        source_incident_revision_number=item.source_incident_revision_number,
-    ) for item, template in rows)
+    return tuple(
+        IncidentPacketItemView(
+            packet_item_id=item.id,
+            template_code=template.code,
+            name=template.name,
+            output_kind=template.output_kind,
+            packet_group=item.packet_group,
+            packet_state=item.packet_state,
+            selection_reason=item.selection_reason or "",
+            not_applicable_reason=item.not_applicable_reason,
+            reporting_staff_member_id=item.reporting_staff_member_id,
+            source_incident_revision_number=item.source_incident_revision_number,
+        )
+        for item, template in rows
+    )
 
 
 def build_incident_packet(
@@ -430,10 +508,13 @@ def build_incident_packet(
 ) -> tuple[IncidentPacketItemView, ...]:
     """Idempotently reconcile required/recommended items for a saved revision."""
     view, revision = _current_revision(
-        session, actor, incident_id, incident_revision_number)
-    templates = list(session.scalars(select(FormTemplate).where(
-        FormTemplate.active.is_(True)
-    )).all())
+        session, actor, incident_id, incident_revision_number
+    )
+    templates = list(
+        session.scalars(
+            select(FormTemplate).where(FormTemplate.active.is_(True))
+        ).all()
+    )
     template_by_code = {template.code: template for template in templates}
     plan = plan_incident_packet(
         category=view.incident.category,
@@ -446,7 +527,10 @@ def build_incident_packet(
 
     existing_rows = session.execute(
         select(IncidentPacketItem, FormTemplate)
-        .join(FormTemplate, FormTemplate.id == IncidentPacketItem.form_template_id)
+        .join(
+            FormTemplate,
+            FormTemplate.id == IncidentPacketItem.form_template_id,
+        )
         .where(IncidentPacketItem.incident_id == incident_id)
         .with_for_update()
     ).all()
@@ -487,6 +571,14 @@ def build_incident_packet(
         if planned.packet_group == "required" and item.packet_state == "removed":
             item.packet_state = "selected"
             item.not_applicable_reason = None
+        elif (
+            planned.packet_group == "recommended"
+            and item.packet_state == "not_applicable"
+        ):
+            # `not_applicable` is meaningful only for a required item. Preserve
+            # the officer's dismissal when the checklist relaxes to recommended.
+            item.packet_state = "removed"
+            item.not_applicable_reason = None
         elif previous_group == "additional" and planned.packet_group != "additional":
             item.packet_state = "selected"
             item.not_applicable_reason = None
@@ -516,7 +608,10 @@ def list_incident_packet(
 def _packet_item(session: Session, actor, packet_item_id: UUID):
     row = session.execute(
         select(IncidentPacketItem, FormTemplate)
-        .join(FormTemplate, FormTemplate.id == IncidentPacketItem.form_template_id)
+        .join(
+            FormTemplate,
+            FormTemplate.id == IncidentPacketItem.form_template_id,
+        )
         .where(IncidentPacketItem.id == packet_item_id)
         .with_for_update()
     ).one_or_none()
@@ -527,7 +622,9 @@ def _packet_item(session: Session, actor, packet_item_id: UUID):
     return item, template
 
 
-def _view(item: IncidentPacketItem, template: FormTemplate) -> IncidentPacketItemView:
+def _view(
+    item: IncidentPacketItem, template: FormTemplate
+) -> IncidentPacketItemView:
     return IncidentPacketItemView(
         packet_item_id=item.id,
         template_code=template.code,
@@ -551,7 +648,9 @@ def remove_recommended_form(
 ) -> IncidentPacketItemView:
     item, template = _packet_item(session, actor, packet_item_id)
     if item.packet_group != "recommended":
-        raise PacketMutationNotAllowed("Only recommended forms can be removed.")
+        raise PacketMutationNotAllowed(
+            "Only recommended forms can be removed."
+        )
     item.packet_state = "removed"
     item.not_applicable_reason = None
     item.updated_at = now or datetime.now(UTC)
@@ -594,21 +693,33 @@ def add_additional_form(
     checklist_path: str | Path = DEFAULT_CHECKLIST_PATH,
     now: datetime | None = None,
 ) -> IncidentPacketItemView:
-    # `checklist_path` stays in the interface so all packet mutations use the
-    # same injected configuration boundary during tests and future API calls.
+    # Keep the injected checklist boundary in the public interface so browser
+    # adapters and tests use one consistent packet configuration contract.
     del checklist_path
     _current_revision(session, actor, incident_id, incident_revision_number)
-    template = session.scalar(select(FormTemplate).where(
-        FormTemplate.code == template_code,
-        FormTemplate.active.is_(True),
-    ))
+    template = session.scalar(
+        select(FormTemplate).where(
+            FormTemplate.code == template_code,
+            FormTemplate.active.is_(True),
+        )
+    )
     if template is None:
         raise PacketNotFound("Form template not found.")
-    item = session.scalar(select(IncidentPacketItem).where(
-        IncidentPacketItem.incident_id == incident_id,
-        IncidentPacketItem.form_template_id == template.id,
-        IncidentPacketItem.reporting_staff_member_id.is_(None),
-    ).with_for_update())
+    if template.code in _OFFICER_SCOPED_TEMPLATE_CODES:
+        raise PacketMutationNotAllowed(
+            "This form is created for each reporting officer and cannot be "
+            "added as one incident-wide form."
+        )
+
+    item = session.scalar(
+        select(IncidentPacketItem)
+        .where(
+            IncidentPacketItem.incident_id == incident_id,
+            IncidentPacketItem.form_template_id == template.id,
+            IncidentPacketItem.reporting_staff_member_id.is_(None),
+        )
+        .with_for_update()
+    )
     fixed = now or datetime.now(UTC)
     if item is None:
         item = IncidentPacketItem(
@@ -619,14 +730,18 @@ def add_additional_form(
             packet_group="additional",
             packet_state="selected",
             source_incident_revision_number=incident_revision_number,
-            selection_reason="Added by an authorized officer from the Forms Library.",
+            selection_reason=(
+                "Added by an authorized officer from the Forms Library."
+            ),
             not_applicable_reason=None,
             added_by_account_id=actor.account_id,
             created_at=fixed,
             updated_at=fixed,
         )
         session.add(item)
-    elif item.packet_group == "additional":
+    elif item.packet_group in {"recommended", "additional"}:
+        # Selecting a form from the library re-enables an existing recommendation
+        # instead of creating a duplicate or silently leaving it removed.
         item.packet_state = "selected"
         item.not_applicable_reason = None
         item.source_incident_revision_number = incident_revision_number
