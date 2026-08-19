@@ -75,10 +75,20 @@ class FormTemplate(Base):
 class IncidentPacketItem(Base):
     __tablename__ = "incident_packet_items"
     __table_args__ = (
-        UniqueConstraint(
+        Index(
+            "uq_packet_items_global_template",
             "incident_id",
             "form_template_id",
-            name="uq_incident_packet_items_incident_template",
+            unique=True,
+            postgresql_where=text("reporting_staff_member_id IS NULL"),
+        ),
+        Index(
+            "uq_packet_items_officer_template",
+            "incident_id",
+            "form_template_id",
+            "reporting_staff_member_id",
+            unique=True,
+            postgresql_where=text("reporting_staff_member_id IS NOT NULL"),
         ),
         CheckConstraint(
             f"packet_group IN ({PACKET_GROUP_VALUES})",
@@ -113,6 +123,9 @@ class IncidentPacketItem(Base):
     form_template_id: Mapped[UUID] = mapped_column(
         ForeignKey("form_templates.id", ondelete="RESTRICT"),
         nullable=False,
+    )
+    reporting_staff_member_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("staff_members.id", ondelete="RESTRICT"),
     )
     packet_group: Mapped[str] = mapped_column(String(16), nullable=False)
     packet_state: Mapped[str] = mapped_column(

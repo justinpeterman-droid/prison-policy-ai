@@ -1,0 +1,276 @@
+{
+  "schema_version": 1,
+  "forms": [
+    {
+      "code": "form_005_409",
+      "name": "005/409 Incident Report",
+      "category": "incident",
+      "output_kind": "digital_document",
+      "revision_label": "ADC 005/409",
+      "active": true,
+      "definition": {
+        "description": "Official incident report populated only from a saved and reviewed incident revision.",
+        "render_kind": "docx_template",
+        "template_path": "templates/005_template_v3.docx",
+        "source_report_type": "first_person",
+        "download_formats": ["print", "word", "pdf"],
+        "required_fields": ["incident_number", "incident_date", "incident_time", "location", "reporting_officer"],
+        "review_fields": ["narrative"],
+        "optional_fields": ["category", "other_involved_officers"]
+      }
+    },
+    {
+      "code": "cover_letter",
+      "name": "Incident Cover Letter",
+      "category": "incident",
+      "output_kind": "digital_document",
+      "revision_label": "guided-operations-v1",
+      "active": true,
+      "definition": {
+        "description": "Printable cover letter sourced from the saved cover-letter report and confirmed incident facts.",
+        "render_kind": "report_document",
+        "source_report_type": "cover_letter",
+        "download_formats": ["print", "word", "pdf"],
+        "required_fields": ["incident_number", "incident_date", "category", "reporting_officer"],
+        "review_fields": ["narrative"],
+        "optional_fields": ["supervisor_name", "attachment_summary"]
+      }
+    },
+    {
+      "code": "chain_of_custody_physical",
+      "name": "Chain of Custody Form",
+      "category": "evidence",
+      "output_kind": "physical_only",
+      "revision_label": "official carbon-copy form",
+      "active": true,
+      "definition": {
+        "description": "Official carbon-copy evidence form completed by hand; the web workspace supplies confirmed handwriting guidance only.",
+        "obtain_from": "approved paperwork location",
+        "guidance_fields": ["incident_number", "incident_date", "reporting_officer", "evidence_description", "recovery_location"]
+      }
+    },
+    {
+      "code": "medical_documentation_checklist",
+      "name": "Medical Documentation Checklist",
+      "category": "medical",
+      "output_kind": "digital_document",
+      "revision_label": "guided-operations-v1",
+      "active": true,
+      "definition": {
+        "description": "Printable checklist for confirming medical documentation connected to an incident; it does not replace the medical report.",
+        "render_kind": "browser_form",
+        "download_formats": ["print", "pdf"],
+        "required_fields": ["incident_number", "incident_date", "reporting_officer", "medical_disposition"],
+        "review_fields": [],
+        "optional_fields": ["injury_summary", "treatment_location"]
+      }
+    },
+    {
+      "code": "additional_officer_statement",
+      "name": "Additional Officer Statement",
+      "category": "incident",
+      "output_kind": "digital_document",
+      "revision_label": "guided-operations-v1",
+      "active": true,
+      "definition": {
+        "description": "Printable supporting statement for an additional officer connected to the incident.",
+        "render_kind": "browser_form",
+        "download_formats": ["print", "pdf"],
+        "required_fields": ["incident_number", "incident_date", "reporting_officer"],
+        "review_fields": ["narrative"],
+        "optional_fields": ["incident_time", "location"]
+      }
+    },
+    {
+      "code": "photo_video_attachment",
+      "name": "Photograph or Video Attachment Reminder",
+      "category": "evidence",
+      "output_kind": "physical_only",
+      "revision_label": "supporting-evidence reminder",
+      "active": true,
+      "definition": {
+        "description": "Reminder to preserve and attach photograph or video evidence through the approved evidence workflow.",
+        "obtain_from": "approved digital evidence workflow",
+        "guidance_fields": ["incident_number", "incident_date", "location", "attachment_description"]
+      }
+    },
+    {
+      "code": "confiscation_f401_physical",
+      "name": "F401 Confiscation Form",
+      "category": "evidence",
+      "output_kind": "physical_only",
+      "revision_label": "official source form required",
+      "active": true,
+      "definition": {
+        "description": "Reminder to complete the approved F401 confiscation paperwork; no substitute layout is generated.",
+        "obtain_from": "approved paperwork location",
+        "guidance_fields": ["incident_number", "incident_date", "reporting_officer", "evidence_description", "recovery_location"]
+      }
+    },
+    {
+      "code": "field_test_result_attachment",
+      "name": "Field Test Result Attachment",
+      "category": "evidence",
+      "output_kind": "physical_only",
+      "revision_label": "supporting-document reminder",
+      "active": true,
+      "definition": {
+        "description": "Reminder to attach the approved field-test result documentation when suspected drugs are involved.",
+        "obtain_from": "approved evidence testing workflow",
+        "guidance_fields": ["incident_number", "incident_date", "evidence_description", "field_test_result_summary"]
+      }
+    },
+    {
+      "code": "inmate_drug_test_reminder",
+      "name": "Inmate Drug Test Documentation",
+      "category": "medical",
+      "output_kind": "physical_only",
+      "revision_label": "supporting-document reminder",
+      "active": true,
+      "definition": {
+        "description": "Reminder to complete or attach approved inmate drug-test documentation when a test is conducted or refused.",
+        "obtain_from": "approved testing paperwork location",
+        "guidance_fields": ["incident_number", "incident_date", "inmates_involved", "drug_test_disposition"]
+      }
+    },
+    {
+      "code": "business_office_receipt_reminder",
+      "name": "Business Office Money Receipt",
+      "category": "evidence",
+      "output_kind": "physical_only",
+      "revision_label": "supporting-document reminder",
+      "active": true,
+      "definition": {
+        "description": "Reminder to obtain and attach the approved Business Office receipt when money is confiscated.",
+        "obtain_from": "Business Office",
+        "guidance_fields": ["incident_number", "incident_date", "money_amount", "money_receipt_number"]
+      }
+    },
+    {
+      "code": "enemy_alert_form",
+      "name": "Enemy Alert Form",
+      "category": "incident",
+      "output_kind": "physical_only",
+      "revision_label": "official source form required",
+      "active": true,
+      "definition": {
+        "description": "Reminder to complete the approved Enemy Alert form when the checklist requires it.",
+        "obtain_from": "approved paperwork location",
+        "guidance_fields": ["incident_number", "incident_date", "inmates_involved", "incident_summary"]
+      }
+    },
+    {
+      "code": "review_24_hour",
+      "name": "24-Hour Review",
+      "category": "review",
+      "output_kind": "physical_only",
+      "revision_label": "official source form required",
+      "active": true,
+      "definition": {
+        "description": "Reminder to complete the approved 24-hour review using the current official form.",
+        "obtain_from": "approved review paperwork location",
+        "guidance_fields": ["incident_number", "incident_date", "category", "reporting_officer"]
+      }
+    },
+    {
+      "code": "review_72_hour",
+      "name": "72-Hour Review",
+      "category": "review",
+      "output_kind": "physical_only",
+      "revision_label": "official source form required",
+      "active": true,
+      "definition": {
+        "description": "Reminder to complete the approved 72-hour review using the current official form.",
+        "obtain_from": "approved review paperwork location",
+        "guidance_fields": ["incident_number", "incident_date", "category", "reporting_officer"]
+      }
+    },
+    {
+      "code": "emergency_gate_pass",
+      "name": "Emergency Medical Gate Pass Checklist",
+      "category": "medical",
+      "output_kind": "digital_document",
+      "revision_label": "guided-operations-v1",
+      "active": true,
+      "definition": {
+        "description": "Printable gate-pass creation checklist used when outside medical treatment is required.",
+        "render_kind": "browser_form",
+        "download_formats": ["print", "pdf"],
+        "required_fields": ["incident_number", "incident_date", "inmates_involved", "medical_disposition"],
+        "review_fields": [],
+        "optional_fields": ["job_code", "section", "sequence_number"]
+      }
+    },
+    {
+      "code": "company_nurse_confirmation",
+      "name": "Company Nurse Confirmation Reminder",
+      "category": "staff",
+      "output_kind": "physical_only",
+      "revision_label": "supporting-document reminder",
+      "active": true,
+      "definition": {
+        "description": "Reminder to record the approved Company Nurse confirmation when a staff injury occurs.",
+        "obtain_from": "approved staff-injury reporting workflow",
+        "guidance_fields": ["incident_number", "incident_date", "employees_involved", "company_nurse_confirmation_number"]
+      }
+    },
+    {
+      "code": "officer_accident_report",
+      "name": "Officer Accident Report",
+      "category": "staff",
+      "output_kind": "physical_only",
+      "revision_label": "official source form required",
+      "active": true,
+      "definition": {
+        "description": "Reminder to complete the current approved Officer Accident Report; no substitute layout is generated.",
+        "obtain_from": "approved staff-injury paperwork location",
+        "guidance_fields": ["incident_number", "incident_date", "employees_involved", "officer_injuries"]
+      }
+    },
+    {
+      "code": "forced_cell_movement_fact_sheet",
+      "name": "Forced Cell Movement Fact Sheet",
+      "category": "use_of_force",
+      "output_kind": "physical_only",
+      "revision_label": "official source form required",
+      "active": true,
+      "definition": {
+        "description": "Reminder to complete the approved Forced Cell Movement Fact Sheet using confirmed incident information.",
+        "obtain_from": "approved use-of-force paperwork location",
+        "guidance_fields": ["incident_number", "incident_date", "location", "authorization", "orders_given"]
+      }
+    },
+    {
+      "code": "prea_checklist",
+      "name": "PREA Step-by-Step Checklist",
+      "category": "prea",
+      "output_kind": "digital_document",
+      "revision_label": "guided-operations-v1",
+      "active": true,
+      "definition": {
+        "description": "Printable PREA response checklist based on the approved step-by-step structure.",
+        "render_kind": "browser_form",
+        "download_formats": ["print", "pdf"],
+        "required_fields": ["incident_number", "incident_date", "inmates_involved", "prea_notification_made"],
+        "review_fields": [],
+        "optional_fields": ["employees_involved", "allegation_summary"]
+      }
+    },
+    {
+      "code": "prea_notification",
+      "name": "PREA Incident Notification Cover",
+      "category": "prea",
+      "output_kind": "digital_document",
+      "revision_label": "guided-operations-v1",
+      "active": true,
+      "definition": {
+        "description": "Printable PREA incident notification cover populated from confirmed incident information.",
+        "render_kind": "browser_form",
+        "download_formats": ["print", "pdf"],
+        "required_fields": ["incident_number", "incident_date", "inmates_involved", "prea_notification_made"],
+        "review_fields": [],
+        "optional_fields": ["employees_involved", "allegation_summary"]
+      }
+    }
+  ]
+}
