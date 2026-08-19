@@ -41,6 +41,22 @@ describe("webApiRequest", () => {
     expect(new Headers(init?.headers).get("X-CSRF-Token")).toBe("csrf-value");
   });
 
+  it("cannot read a CSRF cookie scoped to the API path", async () => {
+    // The page is /workspace; the API is /api/web/v1. document.cookie matches on
+    // the *page's* path, so a cookie scoped to the API is invisible here and the
+    // request goes out unsigned — which the server answers with 403. This is why
+    // the server writes the CSRF cookie at "/" (see web_api/auth.py).
+    document.cookie = "slut_web_csrf=api-scoped; path=/api/web/v1";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      response({ data: { signed_out: true } }),
+    );
+
+    await webApiRequest("/auth/logout", { method: "POST" });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(new Headers(init?.headers).has("X-CSRF-Token")).toBe(false);
+  });
+
   it("does not require a preexisting CSRF cookie for login", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       response({ data: { authenticated: true, profile: {} } }),
