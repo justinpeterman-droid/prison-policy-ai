@@ -1,6 +1,13 @@
 """Import persistence mappings here so Alembic can discover all metadata."""
 
 from backend.persistence.models.browser import BrowserSessionBinding
+from backend.persistence.models.forms import (
+    DocumentActionEvent,
+    FormInstance,
+    FormTemplate,
+    IncidentPacketItem,
+    PhysicalPaperworkAcknowledgment,
+)
 from backend.persistence.models.identity import Account, StaffMember
 from backend.persistence.models.security import (
     AuditEvent,
@@ -9,7 +16,12 @@ from backend.persistence.models.security import (
     BrowserSession,
     IdempotencyRecord,
 )
-from backend.persistence.models.sessions import AccessSession, AdminElevation, AdminStepUpToken, RenewalTokenHistory
+from backend.persistence.models.sessions import (
+    AccessSession,
+    AdminElevation,
+    AdminStepUpToken,
+    RenewalTokenHistory,
+)
 from backend.persistence.models.jobs import AiJob, Export, TaskOutbox
 from backend.persistence.models.reporting import (
     Incident,
@@ -33,10 +45,15 @@ __all__ = [
     "BrowserHandoff",
     "BrowserSession",
     "BrowserSessionBinding",
+    "DocumentActionEvent",
+    "Export",
+    "FormInstance",
+    "FormTemplate",
     "Incident",
+    "IncidentPacketItem",
     "IncidentRevision",
     "IdempotencyRecord",
-    "Export",
+    "PhysicalPaperworkAcknowledgment",
     "Report",
     "ReportAccess",
     "ReportRevision",
