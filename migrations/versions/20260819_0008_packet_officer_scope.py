@@ -56,6 +56,27 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Revision 0007 permits one packet row per incident/template, whereas 0008
+    # permits one row per reporting officer. Collapse officer-scoped duplicates
+    # deterministically before restoring the older uniqueness contract. Child
+    # form instances/acknowledgments cascade and action events retain their
+    # incident/report attribution while their deleted packet reference becomes
+    # NULL according to the existing foreign-key policies.
+    op.execute(sa.text("""
+        WITH ranked AS (
+            SELECT
+                id,
+                row_number() OVER (
+                    PARTITION BY incident_id, form_template_id
+                    ORDER BY created_at, id
+                ) AS row_number
+            FROM incident_packet_items
+        )
+        DELETE FROM incident_packet_items AS item
+        USING ranked
+        WHERE item.id = ranked.id
+          AND ranked.row_number > 1
+    """))
     op.drop_index(
         "uq_packet_items_officer_template",
         table_name="incident_packet_items",
