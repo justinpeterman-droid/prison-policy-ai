@@ -68,6 +68,12 @@ class Incident(Base):
         Index("ix_incidents_status_date", "status", "incident_date", "id"),
         Index("ix_incidents_category_date", "category", "incident_date", "id"),
         Index("ix_incidents_updated_at", "updated_at", "id"),
+        Index(
+            "uq_incidents_incident_number",
+            "incident_number",
+            unique=True,
+            postgresql_where=text("incident_number IS NOT NULL"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -86,6 +92,8 @@ class Incident(Base):
     current_revision_number: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default="0",
     )
+    incident_number: Mapped[str | None] = mapped_column(String(11))
+    incident_name: Mapped[str | None] = mapped_column(String(160))
     incident_date: Mapped[date | None] = mapped_column(Date)
     incident_time: Mapped[time | None] = mapped_column(Time)
     facility: Mapped[str | None] = mapped_column(String(120))
