@@ -1829,7 +1829,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorEnvelope"
     IdempotencyConflict:
-      description: Mutation conflict; code is idempotency_conflict, request_in_progress, idempotent_response_unavailable, client_upgrade_required, duplicate_employee_number, account_already_exists, last_active_admin, or account_conflict
+      description: Mutation conflict; code is idempotency_conflict, request_in_progress, idempotent_response_unavailable, client_upgrade_required, duplicate_employee_number, account_already_exists, last_active_admin, account_conflict, or incident_number_conflict
       content:
         application/json:
           schema:
@@ -1856,7 +1856,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
     RevisionOrIdempotencyConflict:
-      description: Revision or idempotency conflict; code is revision_conflict, idempotency_conflict, request_in_progress, or client_upgrade_required
+      description: Revision, identity, or idempotency conflict; code is revision_conflict, incident_number_conflict, idempotency_conflict, request_in_progress, or client_upgrade_required
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
@@ -2740,6 +2740,15 @@ components:
       additionalProperties: false
       properties: &IncidentContentProperties
         schema_version: { type: integer, const: 1, default: 1 }
+        incident_number:
+          type: [string, "null"]
+          maxLength: 11
+          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{3}$'
+          example: '2026-08-029'
+        incident_name:
+          type: [string, "null"]
+          maxLength: 160
+          example: Barracks 4 Fight
         field_notes:
           type: string
           maxLength: 30000
@@ -2775,6 +2784,15 @@ components:
           example:
             - 00000000-0000-4000-8000-000000000021
             - 00000000-0000-4000-8000-000000000022
+        incident_number:
+          type: [string, "null"]
+          maxLength: 11
+          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{3}$'
+          example: '2026-08-029'
+        incident_name:
+          type: [string, "null"]
+          maxLength: 160
+          example: Barracks 4 Fight
         field_notes:
           type: string
           maxLength: 30000
