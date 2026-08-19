@@ -51,9 +51,9 @@ function exactKeys(
   expected: readonly string[],
   label: string,
 ): void {
-  const keys = Object.keys(value).toSorted();
-  const wanted = [...expected].toSorted();
-  if (keys.length !== wanted.length || keys.some((key, index) => key !== wanted[index])) {
+  const keys = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  if (keys.length !== wanted.length || keys.some((key: string, index: number) => key !== wanted[index])) {
     throw new Error(`${label} has an unsupported field.`);
   }
 }
@@ -139,24 +139,26 @@ export async function fetchFormsLibrary(
     params.set("category", category);
   }
   if (filters.outputKind) params.set("output_kind", filters.outputKind);
-  const limit = filters.limit ?? 25;
-  if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
-    throw new Error("Page size is invalid.");
+  if (filters.limit !== undefined) {
+    if (!Number.isInteger(filters.limit) || filters.limit < 1 || filters.limit > 50) {
+      throw new Error("Page size is invalid.");
+    }
+    params.set("limit", String(filters.limit));
   }
-  params.set("limit", String(limit));
   if (filters.cursor) params.set("cursor", filters.cursor);
-  const requestPath = `/forms-library?${params.toString()}`;
-  const raw = await webApiRequest<unknown>(requestPath);
+
+  const path = `/forms-library${params.size ? `?${params.toString()}` : ""}`;
+  const raw = await webApiRequest<unknown>(path);
   const envelope = object(raw, "Forms Library response");
-  const rawItems = envelope.items;
-  if (!Array.isArray(rawItems)) throw new Error("Forms Library response is invalid.");
+  exactKeys(envelope, ["items", "next_cursor"], "Forms Library response");
+  if (!Array.isArray(envelope.items)) throw new Error("Forms Library items are invalid.");
   const nextCursor = envelope.next_cursor;
   if (nextCursor !== null && typeof nextCursor !== "string") {
     throw new Error("Forms Library cursor is invalid.");
   }
   return {
-    items: rawItems.map(parseFormsLibraryItem),
+    items: envelope.items.map(parseFormsLibraryItem),
     nextCursor,
-    requestPath: typeof envelope.path === "string" ? envelope.path : requestPath,
+    requestPath: path,
   };
 }
