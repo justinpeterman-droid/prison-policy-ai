@@ -1,4 +1,5 @@
 import { webApiRequest } from "../../../api/client";
+import { parseCountSheetStructure } from "./schema";
 import type {
   CountSheetAction,
   CountSheetPageData,
@@ -19,8 +20,10 @@ function jsonHeaders(extra: Record<string, string> = {}): HeadersInit {
   return { "Content-Type": "application/json", ...extra };
 }
 
-export function getCountSheetStructure(): Promise<CountSheetStructure> {
-  return webApiRequest("/paperwork/count-sheets/structure");
+export async function getCountSheetStructure(): Promise<CountSheetStructure> {
+  return parseCountSheetStructure(
+    await webApiRequest<unknown>("/paperwork/count-sheets/structure"),
+  );
 }
 
 export function listCountSheets(cursor?: string | null): Promise<CountSheetPageData> {
