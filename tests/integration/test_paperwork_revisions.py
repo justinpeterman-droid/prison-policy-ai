@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import select
 
 from backend.identity.browser_sessions import BrowserActor
+from backend.paperwork.count_sheet import AREA_ROWS, HOUSING_COLUMNS, OPERATIONAL_FIELDS
 from backend.paperwork.models import PaperworkKind
 from backend.paperwork.schemas import SavePaperworkRequest
 from backend.paperwork.service import (
@@ -35,15 +36,31 @@ def _actor(account):
     )
 
 
+def _payload(value: int):
+    cells = {
+        area: {column: None for column in HOUSING_COLUMNS}
+        for area in AREA_ROWS
+    }
+    cells["A/W Office"]["1"] = value
+    return {
+        "schema_version": 1,
+        "count_started": None,
+        "count_ended": None,
+        "cells": cells,
+        "in_housing": {column: None for column in HOUSING_COLUMNS},
+        "operational": {
+            field: (value if field == "on_site" else None)
+            for field in OPERATIONAL_FIELDS
+        },
+    }
+
+
 def _request(*, value: int, base: int | None, reason="manual_save"):
     return SavePaperworkRequest.model_validate({
         "schema_version": 1,
         "work_date": date(2026, 8, 19),
         "shift": "A",
-        "payload": {
-            "cells": {"Fictional Area": {"1": value}},
-            "operational": {"on_site": value},
-        },
+        "payload": _payload(value),
         "base_revision_number": base,
         "reason": reason,
     })
@@ -99,7 +116,7 @@ def test_create_update_replay_conflict_and_restore_are_revisioned_atomically(
     )
 
     assert updated.current_revision_number == 2
-    assert updated.payload["cells"]["Fictional Area"]["1"] == 7
+    assert updated.payload["cells"]["A/W Office"]["1"] == 7
     second = get_paperwork_revision(
         db_session,
         owner,
@@ -137,7 +154,7 @@ def test_create_update_replay_conflict_and_restore_are_revisioned_atomically(
     )
 
     assert restored.current_revision_number == 3
-    assert restored.payload["cells"]["Fictional Area"]["1"] == 4
+    assert restored.payload["cells"]["A/W Office"]["1"] == 4
     revisions = list_paperwork_revisions(
         db_session,
         owner,
@@ -157,7 +174,8 @@ def test_create_update_replay_conflict_and_restore_are_revisioned_atomically(
         "paperwork.saved",
         "paperwork.restored",
     ]
-    assert all("payload" not in repr(event.details).lower() for event in events)
+    assert all("A/W Office" not in repr(event.details) for event in events)
+    assert all("current_payload" not in event.details for event in events)
     assert events[1].details["changed_fields"] == [
         "payload.cells",
         "payload.operational",
