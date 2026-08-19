@@ -1,4 +1,8 @@
+from contextlib import contextmanager
+
 from backend.webapp import app as app_mod
+from backend.webapp.api_v1.errors import ApiError
+from backend.webapp.web_api import auth as web_auth
 
 
 def configured_app(monkeypatch):
@@ -48,6 +52,45 @@ def test_browser_session_api_is_registered_without_legacy_auth(monkeypatch):
         "authenticated": False,
         "profile": None,
     }
+
+
+def test_throttled_login_reports_rate_limiting_not_an_internal_error(monkeypatch):
+    """A throttled officer must be told to wait, not that the service broke.
+
+    `_consume_login_limits` signals throttling with ApiError, which none of the
+    login route's except clauses name — without a blueprint handler for it the
+    catch-all turns a deliberate 429 into a 500 with no Retry-After.
+    """
+    app = configured_app(monkeypatch)
+    app.config["AUDIT_WRITER"] = lambda *args, **kwargs: None
+
+    @contextmanager
+    def fake_scope():
+        yield object()
+
+    monkeypatch.setattr(web_auth, "session_scope", fake_scope)
+
+    def throttle(*args, **kwargs):
+        raise ApiError(
+            "rate_limited",
+            "Too many authentication attempts.",
+            status=429,
+            retryable=True,
+            details={"retry_after_seconds": 42},
+        )
+
+    monkeypatch.setattr(web_auth, "_consume_login_limits", throttle)
+
+    response = app.test_client().post(
+        "/api/web/v1/auth/login",
+        json={"employee_number": "F-1001", "pin": "1234", "persistent": False},
+        headers={"Origin": "http://localhost", "X-Client-Version": "0.1.0"},
+    )
+
+    assert response.status_code == 429
+    assert response.get_json()["error"]["code"] == "rate_limited"
+    assert response.get_json()["error"]["retryable"] is True
+    assert response.headers["Retry-After"] == "42"
 
 
 def test_disabled_identity_api_does_not_register_browser_api(monkeypatch):

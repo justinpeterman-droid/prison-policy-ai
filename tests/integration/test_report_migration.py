@@ -27,7 +27,11 @@ def test_report_migration_upgrade_downgrade_and_reupgrade(db_engine):
     command.downgrade(config, "20260812_0002")
     assert REPORT_TABLES.isdisjoint(inspect(db_engine).get_table_names())
 
-    command.upgrade(config, "20260812_0003")
+    # Restore to head, not to this migration's own revision. `db_engine` is
+    # session-scoped, so whatever revision this test leaves behind is the schema
+    # every later test file runs against — re-upgrading to 0003 strips every
+    # migration after it for the rest of the run.
+    command.upgrade(config, "head")
     assert REPORT_TABLES <= set(inspect(db_engine).get_table_names())
 
 
