@@ -7,9 +7,12 @@ from backend.forms.catalog import (
     sync_form_catalog,
 )
 from backend.forms.output_events import (
+    DocumentActionEventView,
     DocumentActionNotAllowed,
+    DocumentActionNotFound,
     allowed_form_actions,
     allowed_report_actions,
+    record_document_action,
     validate_form_action,
     validate_report_action,
 )
@@ -50,7 +53,9 @@ from backend.forms.population import (
 
 __all__ = [
     "CatalogConfigurationError",
+    "DocumentActionEventView",
     "DocumentActionNotAllowed",
+    "DocumentActionNotFound",
     "FormCompleteness",
     "FormInstanceView",
     "FormPopulationConfigurationError",
@@ -80,6 +85,7 @@ __all__ = [
     "mark_not_applicable",
     "plan_incident_packet",
     "populate_form_instance",
+    "record_document_action",
     "remove_recommended_form",
     "render_form_preview",
     "resolve_form_fields",
