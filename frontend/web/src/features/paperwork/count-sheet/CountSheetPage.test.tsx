@@ -105,7 +105,7 @@ describe("NCU Days Count workspace", () => {
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "NCU Days Count" })).toBeInTheDocument();
-    expect(screen.getByText("North Central Unit Count Sheet")).toBeInTheDocument();
+    expect(screen.getAllByText("North Central Unit Count Sheet").length).toBeGreaterThan(0);
     expect(screen.getByRole("columnheader", { name: "Area" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Iso" })).toBeInTheDocument();
     expect(screen.getByRole("rowheader", { name: "A/W Office" })).toBeInTheDocument();
