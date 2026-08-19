@@ -39,14 +39,14 @@ def _physical_item(db_session, incident, account):
 
 def test_acknowledge_and_clear_append_safe_audit_events_once(
     db_session,
-    fictional_incident,
+    fictional_reporting_incident,
     fictional_staff_and_accounts,
     identity_fixed_now,
     user_actor,
 ):
     item = _physical_item(
         db_session,
-        fictional_incident,
+        fictional_reporting_incident,
         fictional_staff_and_accounts.user,
     )
     fixed = identity_fixed_now + timedelta(minutes=50)
@@ -97,8 +97,10 @@ def test_acknowledge_and_clear_append_safe_audit_events_once(
     assert all(event.actor_account_id == user_actor.account_id for event in events)
     assert all(event.actor_staff_member_id == user_actor.staff_member_id for event in events)
     expected = {
-        "incident_id": str(fictional_incident.id),
-        "incident_revision_number": fictional_incident.current_revision_number,
+        "incident_id": str(fictional_reporting_incident.id),
+        "incident_revision_number": (
+            fictional_reporting_incident.current_revision_number
+        ),
         "packet_item_id": str(item.id),
     }
     assert events[0].details == expected
