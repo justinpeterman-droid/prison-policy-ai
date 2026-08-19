@@ -1,14 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import { fetchOfficerHomeSummary, parseOfficerHomeSummary } from "./api";
 
+const mocks = vi.hoisted(() => ({ requestPath: "" }));
+
 vi.mock("../../api/client", () => ({
-  webApiRequest: vi.fn(async (path: string) => ({
-    request_path: path,
-    continue_incident: null,
-    recent_incidents: [],
-    quick_forms: [],
-    count_sheet: null,
-  })),
+  webApiRequest: vi.fn(async (path: string) => {
+    mocks.requestPath = path;
+    return {
+      continue_incident: null,
+      recent_incidents: [],
+      quick_forms: [],
+      count_sheet: null,
+    };
+  }),
 }));
 
 describe("officer Home summary API", () => {
@@ -53,8 +57,8 @@ describe("officer Home summary API", () => {
   });
 
   it("builds encoded date and shift parameters", async () => {
-    const result = await fetchOfficerHomeSummary("2026-08-19", "A Shift");
-    expect(result.requestPath).toContain("date=2026-08-19");
-    expect(result.requestPath).toContain("shift=A+Shift");
+    await fetchOfficerHomeSummary("2026-08-19", "A Shift");
+    expect(mocks.requestPath).toContain("date=2026-08-19");
+    expect(mocks.requestPath).toContain("shift=A+Shift");
   });
 });
