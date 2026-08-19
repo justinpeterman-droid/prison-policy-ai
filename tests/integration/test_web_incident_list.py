@@ -3,18 +3,16 @@ from contextlib import contextmanager
 from datetime import date, timedelta
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
-
 from backend.identity.browser_sessions import BrowserActor
 from backend.persistence.models.forms import (
     DocumentActionEvent,
     FormTemplate,
     IncidentPacketItem,
 )
-from backend.persistence.models.reporting import IncidentRevision
+from backend.persistence.models.reporting import Incident, IncidentRevision
 from backend.webapp.web_api import middleware as web_middleware
 from backend.webapp.web_api.middleware import ACCESS_COOKIE
-from tests.support.reporting import make_incident, make_report
+from tests.support.reporting import make_report
 
 
 SUMMARY_KEYS = {
@@ -80,32 +78,68 @@ def _incident(
     location,
     incident_date,
 ):
-    incident = make_incident(session, account, now)
-    incident.incident_number = number
-    incident.incident_name = name
-    incident.category = category
-    incident.location = location
-    incident.incident_date = incident_date
-    incident.updated_at = now
+    """Insert revision one with its final snapshot; revisions are append-only."""
+    field_notes = "Fictional field notes for incident library tests."
+    incident = Incident(
+        created_by_account_id=account.id,
+        created_by_staff_member_id=account.staff_member_id,
+        status="in_progress",
+        current_revision_number=1,
+        incident_number=number,
+        incident_name=name,
+        incident_date=incident_date,
+        facility="Fictional Unit",
+        shift="A",
+        location=location,
+        category=category,
+        field_notes=field_notes,
+        classification={},
+        extracted_facts={},
+        gap_answers={},
+        charges=[],
+        validation={},
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(incident)
+    session.flush()
 
-    revision = session.scalar(select(IncidentRevision).where(
-        IncidentRevision.incident_id == incident.id,
-        IncidentRevision.revision_number == 1,
-    ))
-    snapshot = dict(revision.snapshot)
-    snapshot.update({
-        "incident_number": number,
-        "incident_name": name,
-        "incident_date": incident_date.isoformat(),
-        "category": category,
-        "location": location,
-        "server_metadata": {
-            "reporting_staff_ids": [
-                str(value.staff_member_id) for value in reporting_accounts
+    session.add(IncidentRevision(
+        incident_id=incident.id,
+        revision_number=1,
+        editor_account_id=account.id,
+        editor_staff_member_id=account.staff_member_id,
+        snapshot={
+            "schema_version": 1,
+            "incident_number": number,
+            "incident_name": name,
+            "incident_date": incident_date.isoformat(),
+            "field_notes": field_notes,
+            "facility": incident.facility,
+            "shift": incident.shift,
+            "category": category,
+            "location": location,
+            "server_metadata": {
+                "reporting_staff_ids": [
+                    str(value.staff_member_id) for value in reporting_accounts
+                ]
+            },
+        },
+        changed_fields={
+            "fields": [
+                "category",
+                "field_notes",
+                "incident_date",
+                "incident_name",
+                "incident_number",
+                "location",
             ]
         },
-    })
-    revision.snapshot = snapshot
+        reason="manual_save",
+        client_version="1.0.0",
+        request_id=f"request_fixture_incident_library_{number.replace('-', '_')}",
+        created_at=now,
+    ))
     session.flush()
     return incident
 
