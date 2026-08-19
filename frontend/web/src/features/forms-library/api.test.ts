@@ -5,7 +5,7 @@ import {
   previewFormSelection,
 } from "./api";
 
-const request = vi.fn(async (path: string) => {
+const request = vi.fn(async (path: string, _init?: RequestInit) => {
   if (path === "/forms/selection/preview") {
     const detail = {
       template_id: "00000000-0000-4000-8000-000000000001",
