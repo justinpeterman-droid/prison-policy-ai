@@ -1,5 +1,6 @@
 """Revisioned, idempotent operational-paperwork persistence services."""
 from datetime import UTC, datetime
+import json
 from uuid import UUID, uuid4
 
 from sqlalchemy import and_, or_, select
@@ -431,7 +432,9 @@ def restore_paperwork_record(
     if claim.replayed:
         return _view_from_reference(session, actor, claim.response_reference or {})
 
-    source_snapshot_model = PaperworkSnapshotV1.model_validate(source.snapshot)
+    source_snapshot_model = PaperworkSnapshotV1.model_validate_json(
+        json.dumps(source.snapshot, ensure_ascii=False, allow_nan=False)
+    )
     source_snapshot = source_snapshot_model.model_dump(mode="json")
     previous_snapshot = _record_snapshot(record)
     revision_number = record.current_revision_number + 1
