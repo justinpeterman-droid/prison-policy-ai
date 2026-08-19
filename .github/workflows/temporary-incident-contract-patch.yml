@@ -1,0 +1,165 @@
+name: Temporary Incident Contract Patch
+
+on:
+  push:
+    branches:
+      - automation/incident-contract-patch
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch incident contract files
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected one marker, found {count}")
+              return text.replace(old, new, 1)
+
+          openapi_path = Path("openapi/access-v1.yaml")
+          text = openapi_path.read_text(encoding="utf-8")
+
+          content_start = text.index("    IncidentContent:\n")
+          content_end = text.index("    IncidentCreateRequest:\n", content_start)
+          content_block = text[content_start:content_end]
+          if "        incident_number:" not in content_block:
+              content_block = replace_once(
+                  content_block,
+                  "        schema_version: { type: integer, const: 1, default: 1 }\n        field_notes:\n",
+                  "        schema_version: { type: integer, const: 1, default: 1 }\n"
+                  "        incident_number:\n"
+                  "          type: [string, \"null\"]\n"
+                  "          maxLength: 11\n"
+                  "          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{3}$'\n"
+                  "          example: '2026-08-029'\n"
+                  "        incident_name:\n"
+                  "          type: [string, \"null\"]\n"
+                  "          maxLength: 160\n"
+                  "          example: Barracks 4 Fight\n"
+                  "        field_notes:\n",
+                  "IncidentContent identity fields",
+              )
+              text = text[:content_start] + content_block + text[content_end:]
+
+          create_start = text.index("    IncidentCreateRequest:\n")
+          create_end = text.index("    IncidentSaveRequest:\n", create_start)
+          create_block = text[create_start:create_end]
+          if "        incident_number:" not in create_block:
+              create_block = replace_once(
+                  create_block,
+                  "        field_notes:\n",
+                  "        incident_number:\n"
+                  "          type: [string, \"null\"]\n"
+                  "          maxLength: 11\n"
+                  "          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{3}$'\n"
+                  "          example: '2026-08-029'\n"
+                  "        incident_name:\n"
+                  "          type: [string, \"null\"]\n"
+                  "          maxLength: 160\n"
+                  "          example: Barracks 4 Fight\n"
+                  "        field_notes:\n",
+                  "IncidentCreateRequest identity fields",
+              )
+              text = text[:create_start] + create_block + text[create_end:]
+
+          text = text.replace(
+              "description: Mutation conflict; code is idempotency_conflict, request_in_progress, idempotent_response_unavailable, client_upgrade_required, duplicate_employee_number, account_already_exists, last_active_admin, or account_conflict",
+              "description: Mutation conflict; code is idempotency_conflict, request_in_progress, idempotent_response_unavailable, client_upgrade_required, duplicate_employee_number, account_already_exists, last_active_admin, account_conflict, or incident_number_conflict",
+              1,
+          )
+          text = text.replace(
+              "description: Revision or idempotency conflict; code is revision_conflict, idempotency_conflict, request_in_progress, or client_upgrade_required",
+              "description: Revision, identity, or idempotency conflict; code is revision_conflict, incident_number_conflict, idempotency_conflict, request_in_progress, or client_upgrade_required",
+              1,
+          )
+          openapi_path.write_text(text, encoding="utf-8")
+
+          persistence_path = Path("backend/reports/persistence.py")
+          text = persistence_path.read_text(encoding="utf-8")
+          apply_old = (
+              "    for field in (\n"
+              "        \"incident_date\", \"incident_time\", \"facility\", \"shift\", \"location\", \"category\",\n"
+          )
+          apply_new = (
+              "    for field in (\n"
+              "        \"incident_number\", \"incident_name\", \"incident_date\", \"incident_time\",\n"
+              "        \"facility\", \"shift\", \"location\", \"category\",\n"
+          )
+          text = replace_once(text, apply_old, apply_new, "live incident identity application")
+
+          previous_old = (
+              "            \"incident_date\", \"incident_time\", \"facility\", \"shift\", \"location\", \"category\",\n"
+          )
+          previous_new = (
+              "            \"incident_number\", \"incident_name\", \"incident_date\", \"incident_time\",\n"
+              "            \"facility\", \"shift\", \"location\", \"category\",\n"
+          )
+          count = text.count(previous_old)
+          if count != 2:
+              raise SystemExit(f"previous incident identity: expected two markers, found {count}")
+          text = text.replace(previous_old, previous_new)
+
+          text = replace_once(
+              text,
+              "        changed_fields={\"fields\": [\"field_notes\"] if content.get(\"field_notes\") else []},\n",
+              "        changed_fields={\"fields\": [\n"
+              "            field for field in (\"incident_number\", \"incident_name\", \"field_notes\")\n"
+              "            if content.get(field)\n"
+              "        ]},\n",
+              "initial incident identity change metadata",
+          )
+          persistence_path.write_text(text, encoding="utf-8")
+
+          event_path = Path("backend/persistence/models/incident_identity.py")
+          text = event_path.read_text(encoding="utf-8")
+          old = '''        changed_fields = dict(revision.changed_fields or {})
+          field_names = set(changed_fields.get("fields", ()))
+          for field, value in desired.items():
+              field_names.discard(field)
+              if getattr(incident, field) != value:
+                  field_names.add(field)
+              snapshot[field] = value
+              setattr(incident, field, value)
+
+          revision.snapshot = snapshot
+          changed_fields["fields"] = sorted(field_names)
+          revision.changed_fields = changed_fields
+          '''
+          new = '''        changed_fields = dict(revision.changed_fields or {})
+          field_names = set(changed_fields.get("fields", ()))
+          if reason == AI_REVISION_REASON:
+              field_names.difference_update(IDENTITY_FIELDS)
+          for field, value in desired.items():
+              snapshot[field] = value
+              setattr(incident, field, value)
+
+          revision.snapshot = snapshot
+          changed_fields["fields"] = sorted(field_names)
+          revision.changed_fields = changed_fields
+          '''
+          text = replace_once(text, old, new, "incident identity synchronization")
+          event_path.write_text(text, encoding="utf-8")
+          PY
+      - name: Commit generated patch
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No patch was needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add openapi/access-v1.yaml backend/reports/persistence.py backend/persistence/models/incident_identity.py
+          git commit -m "fix: synchronize official incident identity contracts"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
