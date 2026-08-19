@@ -64,14 +64,14 @@ def _packet_item(
 
 def test_acknowledgment_is_attributed_and_idempotent(
     db_session,
-    fictional_incident,
+    fictional_reporting_incident,
     fictional_staff_and_accounts,
     identity_fixed_now,
     user_actor,
 ):
     item = _packet_item(
         db_session,
-        incident=fictional_incident,
+        incident=fictional_reporting_incident,
         account=fictional_staff_and_accounts.user,
         template_code="chain_of_custody_physical",
     )
@@ -120,19 +120,19 @@ def test_acknowledgment_is_attributed_and_idempotent(
 
 def test_digital_or_unselected_items_cannot_be_acknowledged(
     db_session,
-    fictional_incident,
+    fictional_reporting_incident,
     fictional_staff_and_accounts,
     user_actor,
 ):
     digital = _packet_item(
         db_session,
-        incident=fictional_incident,
+        incident=fictional_reporting_incident,
         account=fictional_staff_and_accounts.user,
         template_code="form_005_409",
     )
     physical_removed = _packet_item(
         db_session,
-        incident=fictional_incident,
+        incident=fictional_reporting_incident,
         account=fictional_staff_and_accounts.user,
         template_code="chain_of_custody_physical",
         packet_state="removed",
@@ -160,12 +160,12 @@ def test_digital_or_unselected_items_cannot_be_acknowledged(
 
 def test_unrelated_officer_receives_not_found(
     db_session,
-    fictional_incident,
+    fictional_reporting_incident,
     fictional_staff_and_accounts,
 ):
     item = _packet_item(
         db_session,
-        incident=fictional_incident,
+        incident=fictional_reporting_incident,
         account=fictional_staff_and_accounts.user,
         template_code="chain_of_custody_physical",
     )
