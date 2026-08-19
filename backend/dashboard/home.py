@@ -6,9 +6,8 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.paperwork.contracts import PaperworkIdentity
 from backend.persistence.models.forms import FormTemplate
-from backend.persistence.models.paperwork import OperationalPaperworkRecord
+from backend.persistence.models.paperwork import PaperworkRecord
 from backend.reports.incident_library import (
     IncidentLibraryFilters,
     IncidentSummary,
@@ -50,25 +49,21 @@ class OfficerHomeSummary:
 
 def _count_sheet(
     session: Session,
+    actor,
     *,
     record_date: date,
     shift: str,
 ) -> CountSheetHomeItem | None:
-    identity = PaperworkIdentity(
-        paperwork_type="ncu_days_count",
-        record_date=record_date,
-        shift=shift,
-        record_key="primary",
-    )
+    """Return the signed-in officer's most recently saved sheet for the shift."""
     row = session.scalar(
-        select(OperationalPaperworkRecord)
+        select(PaperworkRecord)
         .where(
-            OperationalPaperworkRecord.paperwork_type == identity.paperwork_type,
-            OperationalPaperworkRecord.record_date == identity.record_date,
-            OperationalPaperworkRecord.shift == identity.shift,
-            OperationalPaperworkRecord.record_key == identity.record_key,
-            OperationalPaperworkRecord.archived_at.is_(None),
+            PaperworkRecord.kind == "count_sheet",
+            PaperworkRecord.work_date == record_date,
+            PaperworkRecord.shift == shift,
+            PaperworkRecord.created_by_staff_member_id == actor.staff_member_id,
         )
+        .order_by(PaperworkRecord.updated_at.desc(), PaperworkRecord.id.desc())
         .limit(1)
     )
     if row is None:
@@ -136,6 +131,7 @@ def get_officer_home_summary(
         quick_forms=_quick_forms(session),
         count_sheet=_count_sheet(
             session,
+            actor,
             record_date=record_date,
             shift=shift,
         ),
