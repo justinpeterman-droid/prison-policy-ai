@@ -33,6 +33,9 @@ from backend.persistence.models.reporting import (
     ReportType,
     RevisionReason,
 )
+from backend.persistence.models.incident_identity import (
+    synchronize_incident_identity as _synchronize_incident_identity,
+)
 
 __all__ = [
     "AccessSession",

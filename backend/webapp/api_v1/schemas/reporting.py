@@ -16,8 +16,20 @@ import re
 from typing import Annotated, Final, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    field_validator,
+    model_validator,
+)
 
+from backend.reports.incident_numbers import (
+    INCIDENT_NAME_MAX_LENGTH,
+    normalize_incident_name,
+    normalize_incident_number,
+)
 from backend.webapp.api_v1.client_policy import FIELD_NOTES_MAX_CHARACTERS
 
 
@@ -155,6 +167,9 @@ class IncidentSnapshotV1(BoundedContent):
     """One immutable version of an incident's officer-supplied content."""
 
     schema_version: Literal[1] = CONTENT_SCHEMA_VERSION
+    incident_number: str | None = Field(default=None, max_length=11)
+    incident_name: str | None = Field(
+        default=None, max_length=INCIDENT_NAME_MAX_LENGTH)
     field_notes: str = Field(default="", max_length=FIELD_NOTES_MAX_CHARACTERS)
     incident_date: date | None = None
     incident_time: time | None = None
@@ -172,6 +187,21 @@ class IncidentSnapshotV1(BoundedContent):
     validation: dict[CodeText, object] = Field(
         default_factory=dict, max_length=MAX_MAP_ENTRIES)
     warnings: list[ShortText] = Field(default_factory=list, max_length=MAX_WARNINGS)
+
+    @field_validator("incident_number", mode="before")
+    @classmethod
+    def _normalize_official_incident_number(cls, value):
+        if value is not None and not isinstance(value, str):
+            return value
+        return normalize_incident_number(value)
+
+    @field_validator("incident_name", mode="before")
+    @classmethod
+    def _normalize_descriptive_incident_name(cls, value):
+        if value is not None and not isinstance(value, str):
+            return value
+        return normalize_incident_name(value)
+
 
 class ReportContentV1(BoundedContent):
     """One immutable version of a generated report's text and review state."""

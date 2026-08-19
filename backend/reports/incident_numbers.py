@@ -27,6 +27,16 @@ def _clean_label(value: str | None) -> str | None:
     return cleaned or None
 
 
+def normalize_incident_name(value: str | None) -> str | None:
+    """Collapse display-name whitespace and enforce the storage boundary."""
+    cleaned = _clean_label(value)
+    if cleaned is not None and len(cleaned) > INCIDENT_NAME_MAX_LENGTH:
+        raise ValueError(
+            f"incident name must be {INCIDENT_NAME_MAX_LENGTH} characters or fewer"
+        )
+    return cleaned
+
+
 def suggest_incident_name(
     *,
     location: str | None,
