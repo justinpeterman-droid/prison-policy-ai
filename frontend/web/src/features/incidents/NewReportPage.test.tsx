@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionProfile } from "../auth/api";
@@ -80,6 +80,7 @@ describe("Six-step New Report workflow", () => {
       </MemoryRouter>,
     );
 
+    const workflow = screen.getByRole("list", { name: "Report workflow" });
     for (const label of [
       "Officers",
       "Field Notes",
@@ -88,7 +89,7 @@ describe("Six-step New Report workflow", () => {
       "Reports",
       "Forms & Export",
     ]) {
-      expect(screen.getByText(label)).toBeInTheDocument();
+      expect(within(workflow).getByText(label)).toBeInTheDocument();
     }
     expect(screen.getByText(PROFILE.displayName)).toBeInTheDocument();
     expect(screen.queryByText(/token/i)).not.toBeInTheDocument();

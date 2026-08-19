@@ -150,7 +150,16 @@ export function NewReportPage({ profile }: NewReportPageProps) {
     } catch (reason) {
       const error = reason instanceof WebApiError ? reason : null;
       setMessage(error?.message ?? "The incident could not be saved. Your visible work has not been cleared.");
-      setSaveState(error?.code === "network_unavailable" ? "reconnecting" : "failed");
+      // A revision conflict is recoverable: the notes are still on screen and
+      // still unsaved, so keep inviting a re-save rather than reporting a
+      // hard failure the officer cannot act on.
+      setSaveState(
+        error?.code === "network_unavailable"
+          ? "reconnecting"
+          : error?.code === "revision_conflict"
+            ? "unsaved"
+            : "failed",
+      );
     }
   }
 
