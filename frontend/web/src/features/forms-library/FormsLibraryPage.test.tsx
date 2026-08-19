@@ -5,6 +5,7 @@ import {
   fetchFormsLibrary,
   prepareFormDownload,
   previewFormSelection,
+  type FormLibraryItem,
 } from "./api";
 
 vi.mock("./api", async () => {
@@ -21,30 +22,30 @@ const mockedFetch = vi.mocked(fetchFormsLibrary);
 const mockedPreview = vi.mocked(previewFormSelection);
 const mockedDownload = vi.mocked(prepareFormDownload);
 
-const DIGITAL = {
+const DIGITAL: FormLibraryItem = {
   templateId: "00000000-0000-4000-8000-000000000001",
   code: "medical_documentation_checklist",
   name: "Medical Documentation Checklist",
   category: "medical",
   purpose: "Approved digital medical documentation checklist.",
   whenUsed: "Use when medical evaluation or treatment is documented.",
-  outputKind: "digital_document" as const,
+  outputKind: "digital_document",
   revisionLabel: "Current approved revision",
-  capabilities: ["preview", "print", "download_pdf", "fillable", "blank", "attach_to_incident"] as const,
+  capabilities: ["preview", "print", "download_pdf", "fillable", "blank", "attach_to_incident"],
   frequent: true,
   obtainFrom: null,
 };
 
-const PHYSICAL = {
+const PHYSICAL: FormLibraryItem = {
   templateId: "00000000-0000-4000-8000-000000000002",
   code: "chain_of_custody_physical",
   name: "Chain of Custody",
   category: "evidence",
   purpose: "Official physical carbon-copy form.",
   whenUsed: "Use when evidence is transferred.",
-  outputKind: "physical_only" as const,
+  outputKind: "physical_only",
   revisionLabel: "Current approved revision",
-  capabilities: ["attach_to_incident", "physical_guidance"] as const,
+  capabilities: ["attach_to_incident", "physical_guidance"],
   frequent: true,
   obtainFrom: "Approved forms location",
 };
