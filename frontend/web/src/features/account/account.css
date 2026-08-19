@@ -1,0 +1,327 @@
+.account-page {
+  display: grid;
+  gap: 20px;
+  color: var(--gow-ink, #10243d);
+}
+
+.account-heading {
+  padding: 23px 26px;
+  background: linear-gradient(145deg, #fff, #edf5fa);
+  border: 1px solid var(--gow-border, #cbd7e1);
+  border-radius: 20px;
+  box-shadow: var(--gow-shadow-card, 0 10px 24px rgba(19, 53, 83, 0.08));
+}
+
+.account-heading p,
+.account-heading h1,
+.account-heading span {
+  margin: 0;
+}
+
+.account-heading p,
+.account-panel > header p {
+  color: var(--gow-gold-700, #9b6610);
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.account-heading h1 {
+  margin: 3px 0 7px;
+  color: var(--gow-navy-900, #0b2d50);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  letter-spacing: -0.04em;
+}
+
+.account-heading span {
+  color: var(--gow-muted, #63758a);
+}
+
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.account-panel {
+  min-width: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--gow-border, #cbd7e1);
+  border-radius: 17px;
+  box-shadow: var(--gow-shadow-card, 0 10px 24px rgba(19, 53, 83, 0.08));
+}
+
+.account-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 19px;
+  background: linear-gradient(180deg, #fff, #f5f9fb);
+  border-bottom: 1px solid #dbe4ea;
+}
+
+.account-panel > header h2,
+.account-panel > header p {
+  margin: 0;
+}
+
+.account-panel > header h2 {
+  margin-top: 3px;
+  color: var(--gow-navy-900, #0b2d50);
+  font-size: 1rem;
+}
+
+.account-identity-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 18px;
+}
+
+.account-identity-list > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  background: #f4f8fb;
+  border: 1px solid #d8e1e8;
+  border-radius: 10px;
+}
+
+.account-identity-list dt {
+  color: var(--gow-muted, #63758a);
+  font-size: 0.64rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.account-identity-list dd {
+  margin: 0;
+  color: var(--gow-navy-900, #0b2d50);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.account-note {
+  margin: 0 18px 18px;
+  padding: 11px 13px;
+  color: #586f82;
+  background: #edf3f7;
+  border-radius: 9px;
+  font-size: 0.73rem;
+}
+
+.account-pin-form {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.account-field-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.account-field-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--gow-navy-800, #123d66);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.account-field-grid input {
+  width: 100%;
+  min-height: 43px;
+  padding: 0 11px;
+  color: var(--gow-ink, #10243d);
+  background: #fff;
+  border: 1px solid #afc0cd;
+  border-radius: 9px;
+  letter-spacing: 0.14em;
+}
+
+.account-pin-guidance {
+  margin: 0;
+  color: var(--gow-muted, #63758a);
+  font-size: 0.71rem;
+}
+
+.account-primary-button,
+.account-session-actions button,
+.account-session-card > button,
+.account-state button {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 9px;
+  font-size: 0.74rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.account-primary-button {
+  justify-self: start;
+  color: #fff;
+  background: linear-gradient(180deg, #176aa6, #0d4f83);
+  border: 1px solid #0a4778;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 5px 12px rgba(13, 79, 131, 0.2);
+}
+
+.account-form-message {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 0.73rem;
+}
+
+.account-form-message.error {
+  color: #7d302a;
+  background: #fff0ee;
+  border: 1px solid #e0aaa5;
+}
+
+.account-form-message.success {
+  color: #216441;
+  background: #e5f5e9;
+  border: 1px solid #a4d2b3;
+}
+
+.sessions-panel > .account-form-message {
+  margin: 14px 18px 0;
+}
+
+.account-session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account-session-actions button,
+.account-session-card > button,
+.account-state button {
+  color: var(--gow-navy-800, #123d66);
+  background: linear-gradient(180deg, #fff, #e9f0f6);
+  border: 1px solid #afc2d1;
+}
+
+.account-session-actions button.danger {
+  color: #812f28;
+  background: linear-gradient(180deg, #fff7f5, #f7dfdc);
+  border-color: #d5a19c;
+}
+
+.account-session-list {
+  display: grid;
+}
+
+.account-session-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 15px 18px;
+}
+
+.account-session-card + .account-session-card {
+  border-top: 1px solid #e0e7ed;
+}
+
+.account-session-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.account-session-title strong {
+  color: var(--gow-navy-900, #0b2d50);
+  font-size: 0.85rem;
+}
+
+.account-session-title span {
+  padding: 4px 7px;
+  color: #226744;
+  background: #e5f5e9;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 800;
+}
+
+.account-session-card dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+  margin: 9px 0 0;
+}
+
+.account-session-card dl > div {
+  display: grid;
+  gap: 2px;
+}
+
+.account-session-card dt {
+  color: var(--gow-muted, #63758a);
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.account-session-card dd {
+  margin: 0;
+  color: #40576b;
+  font-size: 0.7rem;
+}
+
+.account-state {
+  display: grid;
+  gap: 10px;
+  place-items: center;
+  min-height: 110px;
+  padding: 20px;
+  color: var(--gow-muted, #63758a);
+  text-align: center;
+  font-size: 0.78rem;
+}
+
+.account-state.error {
+  color: #7d302a;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+@media (max-width: 920px) {
+  .account-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .account-field-grid,
+  .account-identity-list {
+    grid-template-columns: 1fr;
+  }
+
+  .account-panel > header,
+  .account-session-card {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .account-session-card > button,
+  .account-primary-button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-page button {
+    transition: none;
+  }
+}
