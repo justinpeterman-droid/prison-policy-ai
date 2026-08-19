@@ -50,13 +50,18 @@ def teardown_browser_request(error):
 @web_api_bp.errorhandler(ApiError)
 def handle_browser_api_error(error: ApiError):
     g.browser_db_failed = True
-    return failure(
+    response = failure(
         error.code,
         error.message,
         error.status,
         error.retryable,
         error.details,
     )
+    if error.code == "rate_limited" and error.details:
+        retry_after = error.details.get("retry_after_seconds")
+        if isinstance(retry_after, int) and retry_after > 0:
+            response.headers["Retry-After"] = str(retry_after)
+    return response
 
 
 @web_api_bp.errorhandler(Exception)
