@@ -22,7 +22,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 4173",
+    // Production assets are mounted at /static/web, but browser workflows need
+    // Vite's SPA fallback at /workspace so BrowserRouter can exercise the real
+    // application routes. The CLI base override is test-only.
+    command: "npm run dev -- --host 127.0.0.1 --port 4173 --base /",
     url: "http://127.0.0.1:4173/workspace/",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
