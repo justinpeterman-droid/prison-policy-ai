@@ -49,17 +49,20 @@ def _receipt_from_reference(
         kind = PaperworkKind(str(reference["kind"]))
         revision_number = int(reference["revision_number"])
         action = str(reference["action"])
+        recorded = reference["recorded"] is True
     except (KeyError, TypeError, ValueError):
         raise RuntimeError("paperwork action reference is invalid") from None
     record = _record(session, actor, record_id)
     if (
-        record.kind != kind.value
+        not recorded
+        or record.kind != kind.value
         or revision_number < 1
         or record.current_revision_number < revision_number
         or action not in PAPERWORK_ACTIONS
     ):
         raise RuntimeError("paperwork action reference is invalid")
     return PaperworkActionReceipt(
+        recorded=True,
         record_id=record_id,
         kind=kind,
         revision_number=revision_number,
@@ -129,6 +132,7 @@ def record_paperwork_action(
         claim,
         response_status=200,
         response_reference={
+            "recorded": True,
             "record_id": str(record.id),
             "kind": record.kind,
             "revision_number": record.current_revision_number,
@@ -138,6 +142,7 @@ def record_paperwork_action(
     )
     session.flush()
     return PaperworkActionReceipt(
+        recorded=True,
         record_id=record.id,
         kind=PaperworkKind(record.kind),
         revision_number=record.current_revision_number,
