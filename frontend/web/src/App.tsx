@@ -5,6 +5,7 @@ import { HomePage } from "./features/dashboard/HomePage";
 import { DocumentStudioPage } from "./features/incidents/DocumentStudioPage";
 import { NewReportPage } from "./features/incidents/NewReportPage";
 import { ReportsPage } from "./features/incidents/ReportsPage";
+import { CountSheetPage } from "./features/paperwork/count-sheet/CountSheetPage";
 import "./guided-operations.css";
 import "./incident-workspace.css";
 
@@ -136,7 +137,7 @@ export function App({ profile }: AppProps) {
           <Route path="/policy-expert" element={<PlaceholderPage title="Policy Expert" description="Ask policy questions and receive citation-backed answers." />} />
           <Route path="/forms" element={<PlaceholderPage title="Forms Library" description="Browse and print approved operational forms." />} />
           <Route path="/account" element={<PlaceholderPage title="Account" description="Manage your PIN and active browser sessions." />} />
-          <Route path="/count-sheet" element={<PlaceholderPage title="NCU Days Count" description="Complete, reconcile, save, and print the official count sheet." />} />
+          <Route path="/count-sheet" element={<CountSheetPage profile={profile} />} />
           <Route path="*" element={<PlaceholderPage title="Workspace page not found" description="Use the officer navigation to return to an available workspace." />} />
         </Routes>
       </main>
