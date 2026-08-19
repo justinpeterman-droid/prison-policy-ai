@@ -11,3 +11,13 @@ def test_dockerfile_builds_and_copies_guided_operations_assets():
         "COPY --from=web-build /src/backend/webapp/static/web/ "
         "/app/backend/webapp/static/web/"
     ) in dockerfile
+
+
+def test_docker_context_includes_web_source_and_runtime_dispatcher():
+    dockerignore = Path(".dockerignore").read_text(encoding="utf-8")
+
+    assert "frontend/*" in dockerignore
+    assert "!frontend/web/" in dockerignore
+    assert "!frontend/web/**" in dockerignore
+    assert "scripts/*" in dockerignore
+    assert "!scripts/dispatch_outbox.py" in dockerignore
