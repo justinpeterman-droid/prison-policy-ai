@@ -469,7 +469,10 @@ def test_jobs_migration_downgrades_and_reupgrades_with_reverse_fk(db_engine):
         item["name"] for item in downgraded.get_foreign_keys("report_revisions")
     }
 
-    alembic_command.upgrade(config, "20260812_0005")
+    # Restore to head, not to this migration's own revision — `db_engine` is
+    # session-scoped, so a pinned re-upgrade leaves every later test file
+    # running against a schema missing all migrations after this one.
+    alembic_command.upgrade(config, "head")
     upgraded = inspect(db_engine)
     assert {"ai_jobs", "task_outbox", "exports"} <= set(upgraded.get_table_names())
     assert "fk_report_revisions_source_ai_job_id_ai_jobs" in {
