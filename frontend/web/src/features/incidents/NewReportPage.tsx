@@ -4,6 +4,7 @@ import { WebApiError } from "../../api/client";
 import type { SessionProfile } from "../auth/api";
 import {
   createIncident,
+  getIncident,
   getJob,
   listReports,
   rebuildPacket,
@@ -204,7 +205,16 @@ export function NewReportPage({ profile }: NewReportPageProps) {
       }
       if (job.state === "succeeded") {
         setJobMessage(jobType === "generate" ? "Reports are ready for review." : "Incident information is ready to review.");
-        if (jobType === "generate") setReports(await listReports(incident.incident_id));
+        if (jobType === "generate") {
+          setReports(await listReports(incident.incident_id));
+        } else {
+          // Classify and extract save their result as a new incident revision.
+          // Re-read it so the reviewed facts are visible and the next save
+          // carries the revision the job produced.
+          const refreshed = await getIncident(incident.incident_id);
+          setIncident(refreshed);
+          setFacts(refreshed.extracted_facts);
+        }
       } else if (job.state === "failed") {
         setJobMessage("The request did not complete. Your saved incident is unchanged.");
       } else {
@@ -289,7 +299,10 @@ export function NewReportPage({ profile }: NewReportPageProps) {
           <div className="iw-wizard-content">
             <label className="iw-field iw-notes-field">
               <span>Officer field notes</span>
-              <textarea value={fieldNotes} onChange={(event) => { setFieldNotes(event.target.value); markUnsaved(); }} rows={15} maxLength={50000} placeholder="Enter your observations, actions, statements, evidence, medical response, notifications, and other confirmed details. Unknown information may remain unknown." />
+              {/* The character counter below is inside this label, so without an
+                  explicit name the field announces as "Officer field notes0 of
+                  50,000 characters". */}
+              <textarea aria-label="Officer field notes" value={fieldNotes} onChange={(event) => { setFieldNotes(event.target.value); markUnsaved(); }} rows={15} maxLength={50000} placeholder="Enter your observations, actions, statements, evidence, medical response, notifications, and other confirmed details. Unknown information may remain unknown." />
               <small>{fieldNotes.length.toLocaleString()} of 50,000 characters</small>
             </label>
             <div className="iw-note-guidance"><strong>Write what is known.</strong><span>The system will identify missing information without inventing facts.</span></div>
@@ -300,6 +313,7 @@ export function NewReportPage({ profile }: NewReportPageProps) {
         {step === 2 ? (
           <div className="iw-wizard-content">
             <div className="iw-section-intro"><h3>Review the extracted facts</h3><p>Confirm, correct, or leave information unknown before it can populate an official form.</p></div>
+            {jobMessage ? <div className="iw-callout iw-callout-info" role="status"><p>{jobMessage}</p></div> : null}
             <div className="iw-fact-grid">
               <label className="iw-field"><span>Category</span><input value={category || incident?.category || ""} onChange={(event) => { setCategory(event.target.value); markUnsaved(); }} /></label>
               <label className="iw-field"><span>Location</span><input value={location || incident?.location || ""} onChange={(event) => { setLocation(event.target.value); markUnsaved(); }} /></label>
