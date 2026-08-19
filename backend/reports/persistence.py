@@ -415,7 +415,10 @@ def create_incident(
         editor_account_id=actor.account_id,
         editor_staff_member_id=actor.staff_member_id,
         snapshot=_server_snapshot(content, selection),
-        changed_fields={"fields": ["field_notes"] if content.get("field_notes") else []},
+        changed_fields={"fields": [
+            field for field in ("incident_number", "incident_name", "field_notes")
+            if content.get(field)
+        ]},
         reason="manual_save",
         client_version=client_version,
         request_id=request_id,
