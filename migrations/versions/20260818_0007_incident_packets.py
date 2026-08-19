@@ -287,28 +287,19 @@ def upgrade() -> None:
             ["packet_item_id"],
             ["incident_packet_items.id"],
             ondelete="CASCADE",
-            name=(
-                "fk_physical_paperwork_acknowledgments_packet_item_id_"
-                "incident_packet_items"
-            ),
+            name="fk_physical_ack_packet_item",
         ),
         sa.ForeignKeyConstraint(
             ["acknowledged_by_account_id"],
             ["accounts.id"],
             ondelete="RESTRICT",
-            name=(
-                "fk_physical_paperwork_acknowledgments_"
-                "acknowledged_by_account_id_accounts"
-            ),
+            name="fk_physical_ack_account",
         ),
         sa.ForeignKeyConstraint(
             ["acknowledged_by_staff_member_id"],
             ["staff_members.id"],
             ondelete="RESTRICT",
-            name=(
-                "fk_physical_paperwork_acknowledgments_"
-                "acknowledged_by_staff_member_id_staff_members"
-            ),
+            name="fk_physical_ack_staff_member",
         ),
         sa.UniqueConstraint(
             "packet_item_id",
