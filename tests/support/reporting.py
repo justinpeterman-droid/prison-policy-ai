@@ -93,11 +93,14 @@ def make_incident(
     reporting_staff_ids: tuple[UUID, ...] | None = None,
 ) -> Incident:
     fixed = now or datetime(2026, 8, 12, 15, 0, tzinfo=UTC)
-    selected_staff_ids = (
-        reporting_staff_ids
-        if reporting_staff_ids is not None
-        else (account.staff_member_id,)
-    )
+    snapshot: dict[str, object] = {
+        "schema_version": 1,
+        "field_notes": "Fictional field notes for persistence tests.",
+    }
+    if reporting_staff_ids is not None:
+        snapshot["server_metadata"] = {
+            "reporting_staff_ids": [str(staff_id) for staff_id in reporting_staff_ids],
+        }
     incident = Incident(
         created_by_account_id=account.id,
         created_by_staff_member_id=account.staff_member_id,
@@ -114,15 +117,7 @@ def make_incident(
         incident_id=incident.id, revision_number=1,
         editor_account_id=account.id,
         editor_staff_member_id=account.staff_member_id,
-        snapshot={
-            "schema_version": 1,
-            "field_notes": incident.field_notes,
-            "server_metadata": {
-                "reporting_staff_ids": [
-                    str(staff_id) for staff_id in selected_staff_ids
-                ],
-            },
-        },
+        snapshot=snapshot,
         changed_fields={"fields": ["field_notes"]}, reason="manual_save",
         client_version="1.0.0", request_id="request_fixture_incident_1",
         created_at=fixed,
