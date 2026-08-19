@@ -82,6 +82,8 @@ def test_acknowledgment_is_attributed_and_idempotent(
         user_actor,
         packet_item_id=item.id,
         note="Official carbon-copy form completed.",
+        request_id="request_fictional_physical_ack",
+        client_version="1.0.0",
         now=fixed,
     )
     replay = acknowledge_physical_paperwork(
@@ -89,6 +91,8 @@ def test_acknowledgment_is_attributed_and_idempotent(
         user_actor,
         packet_item_id=item.id,
         note="A replay must not rewrite the original acknowledgment.",
+        request_id="request_fictional_physical_ack_replay",
+        client_version="1.0.0",
         now=fixed + timedelta(minutes=5),
     )
 
@@ -107,11 +111,15 @@ def test_acknowledgment_is_attributed_and_idempotent(
         db_session,
         user_actor,
         packet_item_id=item.id,
+        request_id="request_fictional_physical_clear",
+        client_version="1.0.0",
     ) is True
     assert clear_physical_acknowledgment(
         db_session,
         user_actor,
         packet_item_id=item.id,
+        request_id="request_fictional_physical_clear_replay",
+        client_version="1.0.0",
     ) is False
     assert db_session.scalar(
         select(func.count()).select_from(PhysicalPaperworkAcknowledgment)
@@ -146,6 +154,8 @@ def test_digital_or_unselected_items_cannot_be_acknowledged(
             db_session,
             user_actor,
             packet_item_id=digital.id,
+            request_id="request_fictional_digital_ack",
+            client_version="1.0.0",
         )
     with pytest.raises(
         PhysicalPaperworkNotAllowed,
@@ -155,6 +165,8 @@ def test_digital_or_unselected_items_cannot_be_acknowledged(
             db_session,
             user_actor,
             packet_item_id=physical_removed.id,
+            request_id="request_fictional_removed_ack",
+            client_version="1.0.0",
         )
 
 
@@ -175,4 +187,6 @@ def test_unrelated_officer_receives_not_found(
             db_session,
             _actor(fictional_staff_and_accounts.unrelated),
             packet_item_id=item.id,
+            request_id="request_fictional_unrelated_ack",
+            client_version="1.0.0",
         )
