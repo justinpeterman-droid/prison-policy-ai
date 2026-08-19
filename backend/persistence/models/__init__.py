@@ -1,5 +1,6 @@
 """Import persistence mappings here so Alembic can discover all metadata."""
 
+from backend.persistence.models.browser import BrowserSessionBinding
 from backend.persistence.models.identity import Account, StaffMember
 from backend.persistence.models.security import (
     AuditEvent,
@@ -31,6 +32,7 @@ __all__ = [
     "AuthRateLimit",
     "BrowserHandoff",
     "BrowserSession",
+    "BrowserSessionBinding",
     "Incident",
     "IncidentRevision",
     "IdempotencyRecord",

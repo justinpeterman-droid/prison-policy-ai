@@ -182,17 +182,21 @@ def create_app() -> Flask:
     from backend.webapp.routes.feedback import feedback_bp
     from backend.webapp.routes.review_lab import review_lab_bp
     from backend.webapp.routes.browser_handoffs import browser_handoffs_bp
+    from backend.webapp.routes.web_app import web_app_bp
 
     app.register_blueprint(chat_bp)
     app.register_blueprint(reports_bp)
     app.register_blueprint(roster_bp)
     app.register_blueprint(feedback_bp)
     app.register_blueprint(review_lab_bp)
+    app.register_blueprint(web_app_bp)
     if identity_settings.enabled:
         from backend.webapp.api_v1 import api_v1_bp
+        from backend.webapp.web_api import web_api_bp
 
         app.register_blueprint(browser_handoffs_bp)
         app.register_blueprint(api_v1_bp)
+        app.register_blueprint(web_api_bp)
 
     # Record the resolved search/model config at startup so the values actually
     # in use are visible in the logs — a config mismatch is the usual cause of a
@@ -225,6 +229,8 @@ def create_app() -> Flask:
             or response.mimetype != "text/html"
             or response.status_code != 200
             or request.path.startswith("/api/")
+            or request.path == "/workspace"
+            or request.path.startswith("/workspace/")
         ):
             return response
         body = response.get_data()
@@ -250,6 +256,10 @@ def create_app() -> Flask:
         use it.
         """
         if request.path.startswith("/api/v1/"):
+            return None
+        if request.path.startswith("/api/web/v1/"):
+            return None
+        if request.path == "/workspace" or request.path.startswith("/workspace/"):
             return None
         if request.path in HANDOFF_EXEMPT and identity_settings.enabled:
             return None
