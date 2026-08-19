@@ -102,9 +102,26 @@ def integer_or_zero(value: int | None) -> int:
     return 0 if value is None else value
 
 
-def calculate_count_totals(payload: CountSheetRecordV1) -> CountSheetValidation:
+def _count_sheet_model(
+    payload: CountSheetRecordV1 | dict[str, object],
+) -> CountSheetRecordV1:
+    if isinstance(payload, CountSheetRecordV1):
+        return payload
+    # Persisted JSON contains ISO time strings. Strict Python-mode validation
+    # correctly rejects string-to-time coercion, while strict JSON-mode
+    # validation accepts the wire representation. Round-trip the bounded dict
+    # through JSON so API responses and stored revisions use the same contract
+    # as incoming request bodies without relaxing integer strictness.
+    return CountSheetRecordV1.model_validate_json(
+        json.dumps(payload, ensure_ascii=False, allow_nan=False)
+    )
+
+
+def calculate_count_totals(
+    payload: CountSheetRecordV1 | dict[str, object],
+) -> CountSheetValidation:
     """Calculate the approved totals without mutating officer-entered values."""
-    model = CountSheetRecordV1.model_validate(payload)
+    model = _count_sheet_model(payload)
     row_totals = {
         area: sum(
             integer_or_zero(model.cells[area][column])
@@ -145,12 +162,7 @@ def calculate_count_totals(payload: CountSheetRecordV1) -> CountSheetValidation:
 def validate_count_sheet(
     payload: CountSheetRecordV1 | dict[str, object],
 ) -> CountSheetValidation:
-    model = (
-        payload
-        if isinstance(payload, CountSheetRecordV1)
-        else CountSheetRecordV1.model_validate(payload)
-    )
-    return calculate_count_totals(model)
+    return calculate_count_totals(_count_sheet_model(payload))
 
 
 def count_sheet_structure() -> dict[str, object]:
