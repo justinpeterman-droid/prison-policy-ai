@@ -28,11 +28,7 @@ from backend.paperwork.service import (
 from backend.persistence.database import DatabaseUnavailable
 from backend.persistence.models.paperwork import PaperworkRevision
 from backend.webapp.api_v1.errors import ApiError
-from backend.webapp.api_v1.pagination import (
-    InvalidCursor,
-    decode_cursor,
-    encode_cursor,
-)
+from backend.webapp.api_v1.pagination import InvalidCursor, decode_cursor, encode_cursor
 from backend.webapp.api_v1.responses import success
 from backend.webapp.web_api.common import (
     LOCK_CONFLICT_STATES,
@@ -168,14 +164,9 @@ def _encoded_record_cursor(cursor: dict[str, str] | None) -> str | None:
     )
 
 
-def _revision_cursor(
-    record_id: UUID,
-    raw: str | None,
-) -> dict[str, str] | None:
+def _revision_cursor(record_id: UUID, raw: str | None) -> dict[str, str] | None:
     if not raw:
         return None
-    # Authorize before validating cursor details so unrelated callers cannot
-    # infer whether a revision exists through error-shape differences.
     get_paperwork_record(
         current_browser_session(),
         current_browser_actor(),
@@ -183,10 +174,7 @@ def _revision_cursor(
     )
     decoded = decode_cursor(raw, _settings_key())
     try:
-        row = current_browser_session().get(
-            PaperworkRevision,
-            UUID(decoded["id"]),
-        )
+        row = current_browser_session().get(PaperworkRevision, UUID(decoded["id"]))
     except ValueError:
         raise InvalidCursor("cursor is invalid") from None
     if (
@@ -195,10 +183,7 @@ def _revision_cursor(
         or timestamp(row.created_at) != decoded["created_at"]
     ):
         raise InvalidCursor("cursor is invalid")
-    return {
-        "revision_number": str(row.revision_number),
-        "id": str(row.id),
-    }
+    return {"revision_number": str(row.revision_number), "id": str(row.id)}
 
 
 def _encoded_revision_cursor(cursor: dict[str, str] | None) -> str | None:
@@ -213,6 +198,14 @@ def _encoded_revision_cursor(cursor: dict[str, str] | None) -> str | None:
     )
 
 
+def _validation_fields(error: ValidationError) -> list[str]:
+    return sorted({
+        ".".join(str(part) for part in item.get("loc", ()))[:120]
+        for item in error.errors(include_input=False, include_url=False)
+        if item.get("loc")
+    })[:20]
+
+
 def _save_model() -> SavePaperworkRequest:
     payload = json_body(
         exact=_SAVE_FIELDS,
@@ -222,11 +215,22 @@ def _save_model() -> SavePaperworkRequest:
         return SavePaperworkRequest.model_validate_json(
             json.dumps(payload, ensure_ascii=False, allow_nan=False)
         )
-    except (ValidationError, TypeError, ValueError):
+    except ValidationError as error:
         raise ApiError(
             "validation_failed",
             "The Count Sheet request is invalid.",
             status=400,
+            details={
+                "stage": "request_schema",
+                "fields": _validation_fields(error),
+            },
+        ) from None
+    except (TypeError, ValueError):
+        raise ApiError(
+            "validation_failed",
+            "The Count Sheet request is invalid.",
+            status=400,
+            details={"stage": "request_encoding"},
         ) from None
 
 
@@ -239,10 +243,7 @@ def _write(operation, *, created: bool = False):
     except RequestInProgress as error:
         db.rollback()
         raise ApiError(
-            "request_in_progress",
-            str(error),
-            status=409,
-            retryable=True,
+            "request_in_progress", str(error), status=409, retryable=True,
         ) from None
     except IdempotencyConflict as error:
         db.rollback()
@@ -258,12 +259,32 @@ def _write(operation, *, created: bool = False):
     except (PaperworkNotFound, PaperworkRevisionNotFound):
         db.rollback()
         raise ApiError("not_found", "Count Sheet not found.", status=404) from None
-    except (ValidationError, ValueError, TypeError):
+    except ValidationError as error:
         db.rollback()
         raise ApiError(
             "validation_failed",
             "The Count Sheet request is invalid.",
             status=400,
+            details={
+                "stage": "paperwork_schema",
+                "fields": _validation_fields(error),
+            },
+        ) from None
+    except ValueError:
+        db.rollback()
+        raise ApiError(
+            "validation_failed",
+            "The Count Sheet request is invalid.",
+            status=400,
+            details={"stage": "paperwork_rule"},
+        ) from None
+    except TypeError:
+        db.rollback()
+        raise ApiError(
+            "validation_failed",
+            "The Count Sheet request is invalid.",
+            status=400,
+            details={"stage": "paperwork_type"},
         ) from None
     except IntegrityError:
         db.rollback()
@@ -301,18 +322,10 @@ def _write(operation, *, created: bool = False):
 @require_browser_session
 def list_route():
     if set(request.args) - {"kind", "limit", "cursor"}:
-        raise ApiError(
-            "validation_failed",
-            "The paperwork request is invalid.",
-            status=400,
-        )
+        raise ApiError("validation_failed", "The paperwork request is invalid.", status=400)
     kind = _single_arg("kind")
     if kind != PaperworkKind.COUNT_SHEET.value:
-        raise ApiError(
-            "validation_failed",
-            "The paperwork request is invalid.",
-            status=400,
-        )
+        raise ApiError("validation_failed", "The paperwork request is invalid.", status=400)
     try:
         page = list_paperwork_records(
             current_browser_session(),
@@ -322,17 +335,12 @@ def list_route():
             cursor=_record_cursor(_single_arg("cursor")),
         )
         return success({
-            "items": [
-                _record_data(item, include_payload=False)
-                for item in page.items
-            ],
+            "items": [_record_data(item, include_payload=False) for item in page.items],
             "next_cursor": _encoded_record_cursor(page.next_cursor),
         })
     except (InvalidCursor, ValueError):
         raise ApiError(
-            "validation_failed",
-            "Paperwork pagination is invalid.",
-            status=400,
+            "validation_failed", "Paperwork pagination is invalid.", status=400,
         ) from None
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
         raise ApiError(
@@ -375,17 +383,13 @@ def create_route():
 def get_route(record_id: UUID):
     try:
         return success(_record_data(get_paperwork_record(
-            current_browser_session(),
-            current_browser_actor(),
-            record_id,
+            current_browser_session(), current_browser_actor(), record_id,
         )))
     except PaperworkNotFound:
         raise ApiError("not_found", "Count Sheet not found.", status=404) from None
     except (ValidationError, ValueError):
         raise ApiError(
-            "dependency_unavailable",
-            "The saved Count Sheet is invalid.",
-            status=503,
+            "dependency_unavailable", "The saved Count Sheet is invalid.", status=503,
         ) from None
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
         raise ApiError(
@@ -426,17 +430,13 @@ def save_route(record_id: UUID):
 @require_browser_session
 def revisions_route(record_id: UUID):
     if set(request.args) - {"limit", "cursor"}:
-        raise ApiError(
-            "validation_failed",
-            "Revision pagination is invalid.",
-            status=400,
-        )
+        raise ApiError("validation_failed", "The revision request is invalid.", status=400)
     try:
         page = list_paperwork_revisions(
             current_browser_session(),
             current_browser_actor(),
             record_id,
-            limit=_limit(default=25, maximum=100),
+            limit=_limit(),
             cursor=_revision_cursor(record_id, _single_arg("cursor")),
         )
         return success({
@@ -446,15 +446,11 @@ def revisions_route(record_id: UUID):
     except PaperworkNotFound:
         raise ApiError("not_found", "Count Sheet not found.", status=404) from None
     except (InvalidCursor, ValueError):
-        raise ApiError(
-            "validation_failed",
-            "Revision pagination is invalid.",
-            status=400,
-        ) from None
+        raise ApiError("validation_failed", "Revision pagination is invalid.", status=400) from None
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
         raise ApiError(
             "dependency_unavailable",
-            "Count Sheet history is temporarily unavailable.",
+            "Count Sheet revisions are temporarily unavailable.",
             status=503,
             retryable=True,
         ) from None
@@ -466,18 +462,16 @@ def revisions_route(record_id: UUID):
 def restore_route(record_id: UUID):
     payload = json_body(
         exact={"revision_number"},
-        message="The Count Sheet restore request is invalid.",
-    )
-    revision_number = positive_int(
-        payload["revision_number"],
-        name="revision_number",
+        message="The restore request is invalid.",
     )
     req_id, version = request_metadata()
     return _write(lambda db: _record_data(restore_paperwork_record(
         db,
         current_browser_actor(),
         record_id=record_id,
-        source_revision_number=revision_number,
+        source_revision_number=positive_int(
+            payload.get("revision_number"), name="revision_number"
+        ),
         idempotency_key=require_idempotency_key(),
         request_id=req_id,
         client_version=version,
@@ -489,36 +483,18 @@ def restore_route(record_id: UUID):
 @require_browser_session
 @require_browser_csrf
 def action_route(record_id: UUID):
-    payload = json_body(
-        exact={"action"},
-        message="The Count Sheet action is invalid.",
-    )
-    action = payload["action"]
-    if action not in _ACTIONS:
-        raise ApiError(
-            "validation_failed",
-            "The Count Sheet action is invalid.",
-            status=400,
-        )
+    payload = json_body(exact={"action"}, message="The action request is invalid.")
+    action = payload.get("action")
+    if not isinstance(action, str) or action not in _ACTIONS:
+        raise ApiError("validation_failed", "The action is invalid.", status=400)
     req_id, version = request_metadata()
-
-    def operation(db):
-        receipt = record_paperwork_action(
-            db,
-            current_browser_actor(),
-            record_id=record_id,
-            action=action,
-            idempotency_key=require_idempotency_key(),
-            request_id=req_id,
-            client_version=version,
-            audit_writer=current_app.config["AUDIT_WRITER"],
-        )
-        return {
-            "recorded": True,
-            "record_id": str(receipt.record_id),
-            "kind": receipt.kind.value,
-            "revision_number": receipt.revision_number,
-            "action": receipt.action,
-        }
-
-    return _write(operation)
+    return _write(lambda db: record_paperwork_action(
+        db,
+        current_browser_actor(),
+        record_id=record_id,
+        action=action,
+        idempotency_key=require_idempotency_key(),
+        request_id=req_id,
+        client_version=version,
+        audit_writer=current_app.config["AUDIT_WRITER"],
+    ))
