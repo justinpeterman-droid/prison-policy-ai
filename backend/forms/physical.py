@@ -6,6 +6,11 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from backend.identity.audit import (
+    AuditEventInput,
+    AuditWriter,
+    PostgresAuditWriter,
+)
 from backend.persistence.models.forms import (
     FormTemplate,
     IncidentPacketItem,
@@ -83,6 +88,56 @@ def _clean_note(value: str | None) -> str | None:
     return cleaned or None
 
 
+def _validate_request_metadata(
+    request_id: str,
+    client_version: str | None,
+) -> None:
+    if not isinstance(request_id, str) or not 1 <= len(request_id) <= 64:
+        raise PhysicalPaperworkNotAllowed(
+            "The physical paperwork request ID is invalid."
+        )
+    if client_version is not None and (
+        not isinstance(client_version, str) or len(client_version) > 64
+    ):
+        raise PhysicalPaperworkNotAllowed(
+            "The physical paperwork client version is invalid."
+        )
+
+
+def _audit_details(packet_item: IncidentPacketItem) -> dict[str, object]:
+    return {
+        "incident_id": str(packet_item.incident_id),
+        "incident_revision_number": packet_item.source_incident_revision_number,
+        "packet_item_id": str(packet_item.id),
+    }
+
+
+def _append_audit(
+    session: Session,
+    actor,
+    *,
+    action: str,
+    packet_item: IncidentPacketItem,
+    request_id: str,
+    client_version: str | None,
+    audit_writer: AuditWriter | None,
+) -> None:
+    (audit_writer or PostgresAuditWriter()).append(
+        session,
+        AuditEventInput(
+            actor_account_id=actor.account_id,
+            actor_staff_member_id=actor.staff_member_id,
+            action=action,
+            result="success",
+            request_id=request_id,
+            target_type="incident_packet_item",
+            target_id=packet_item.id,
+            details=_audit_details(packet_item),
+            client_version=client_version,
+        ),
+    )
+
+
 def _view(
     row: PhysicalPaperworkAcknowledgment,
     incident_id: UUID,
@@ -103,10 +158,14 @@ def acknowledge_physical_paperwork(
     actor,
     *,
     packet_item_id: UUID,
+    request_id: str,
+    client_version: str | None,
     note: str | None = None,
     now: datetime | None = None,
+    audit_writer: AuditWriter | None = None,
 ) -> PhysicalPaperworkAcknowledgmentView:
     """Record completion once; retries return the original attribution unchanged."""
+    _validate_request_metadata(request_id, client_version)
     packet_item, _template = _locked_item(session, actor, packet_item_id)
     existing = session.scalar(
         select(PhysicalPaperworkAcknowledgment)
@@ -125,6 +184,15 @@ def acknowledge_physical_paperwork(
         acknowledged_at=now or datetime.now(UTC),
     )
     session.add(row)
+    _append_audit(
+        session,
+        actor,
+        action="physical_paperwork.acknowledged",
+        packet_item=packet_item,
+        request_id=request_id,
+        client_version=client_version,
+        audit_writer=audit_writer,
+    )
     session.flush()
     return _view(row, packet_item.incident_id)
 
@@ -134,8 +202,12 @@ def clear_physical_acknowledgment(
     actor,
     *,
     packet_item_id: UUID,
+    request_id: str,
+    client_version: str | None,
+    audit_writer: AuditWriter | None = None,
 ) -> bool:
     """Clear a current acknowledgment, returning whether a row was removed."""
+    _validate_request_metadata(request_id, client_version)
     packet_item, _template = _locked_item(session, actor, packet_item_id)
     row = session.scalar(
         select(PhysicalPaperworkAcknowledgment)
@@ -145,5 +217,14 @@ def clear_physical_acknowledgment(
     if row is None:
         return False
     session.delete(row)
+    _append_audit(
+        session,
+        actor,
+        action="physical_paperwork.cleared",
+        packet_item=packet_item,
+        request_id=request_id,
+        client_version=client_version,
+        audit_writer=audit_writer,
+    )
     session.flush()
     return True
