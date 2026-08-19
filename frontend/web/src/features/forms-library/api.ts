@@ -122,8 +122,12 @@ function parseCapabilities(value: unknown): FormCapability[] {
   return result;
 }
 
-function parseItem(value: unknown, *, detail = false): FormLibraryItem {
+function parseItem(
+  value: unknown,
+  options: { detail?: boolean } = {},
+): FormLibraryItem {
   const row = object(value, "Forms Library item");
+  const detail = options.detail ?? false;
   exactKeys(
     row,
     detail ? [...ITEM_KEYS, "definition"] : ITEM_KEYS,
