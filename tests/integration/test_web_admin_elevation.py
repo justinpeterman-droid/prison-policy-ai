@@ -1,6 +1,5 @@
 from datetime import UTC, datetime
 
-from backend.identity.audit import DatabaseAuditWriter
 from tests.integration.identity_fixtures import issue_fictional_tokens
 from tests.support.web_browser import authenticate_browser, browser_headers
 
