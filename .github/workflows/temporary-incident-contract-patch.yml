@@ -1,9 +1,9 @@
 name: Temporary Incident Contract Patch
 
 on:
-  push:
+  pull_request:
     branches:
-      - automation/incident-contract-patch
+      - feature/guided-operations-incident-workspace
 
 permissions:
   contents: write
@@ -14,6 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: automation/incident-contract-patch
           fetch-depth: 0
       - name: Patch incident contract files
         shell: bash
@@ -162,4 +163,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add openapi/access-v1.yaml backend/reports/persistence.py backend/persistence/models/incident_identity.py
           git commit -m "fix: synchronize official incident identity contracts"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin HEAD:automation/incident-contract-patch
