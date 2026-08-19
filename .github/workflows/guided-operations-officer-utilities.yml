@@ -1,0 +1,124 @@
+name: Guided Operations Officer Utilities
+
+on:
+  pull_request:
+    paths:
+      - "backend/dashboard/**"
+      - "backend/forms/library.py"
+      - "backend/paperwork/**"
+      - "backend/persistence/models/paperwork.py"
+      - "backend/persistence/models/__init__.py"
+      - "backend/webapp/web_api/**"
+      - "frontend/web/**"
+      - "migrations/versions/20260819_0009_operational_paperwork.py"
+      - "tests/unit/test_count_sheet_*"
+      - "tests/unit/test_forms_library_*"
+      - "tests/unit/test_ncu_count_*"
+      - "tests/unit/test_officer_home_*"
+      - "tests/unit/test_operational_paperwork_*"
+      - "tests/integration/test_forms_library_service.py"
+      - "tests/integration/test_officer_home_summary.py"
+      - "tests/integration/test_operational_paperwork_service.py"
+      - ".github/workflows/guided-operations-officer-utilities.yml"
+  push:
+    branches:
+      - feature/guided-operations-officer-utilities
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guided-operations-officer-utilities-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Paperwork, Home, and Forms services
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: access_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d access_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/access_test
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/access_test
+      ACCESS_API_ENABLED: "true"
+      IDENTITY_HASH_PEPPER: officer-utilities-ci-pepper-value-000000
+      CURSOR_SIGNING_KEY: officer-utilities-ci-cursor-value-000000
+      PUBLIC_BASE_URL: https://review.example.gov
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt pytest
+      - name: Run Officer Utilities unit contracts
+        run: >-
+          python -m pytest
+          tests/unit/test_operational_paperwork_contracts.py
+          tests/unit/test_operational_paperwork_model.py
+          tests/unit/test_operational_paperwork_migration.py
+          tests/unit/test_operational_paperwork_web_routes.py
+          tests/unit/test_ncu_count_engine.py
+          tests/unit/test_ncu_count_definition.py
+          tests/unit/test_count_sheet_web_routes.py
+          tests/unit/test_forms_library_web_routes.py
+          tests/unit/test_officer_home_web_route.py
+          -q
+      - name: Run Officer Utilities PostgreSQL integrations
+        run: >-
+          python -m pytest
+          tests/integration/test_operational_paperwork_service.py
+          tests/integration/test_forms_library_service.py
+          tests/integration/test_officer_home_summary.py
+          -q
+      - name: Verify migration upgrade downgrade upgrade
+        run: |
+          python -m alembic upgrade head
+          python -m alembic downgrade 20260819_0008
+          python -m alembic upgrade head
+
+  frontend:
+    name: Officer utility pages and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install frontend dependencies
+        working-directory: frontend/web
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+      - name: Run Officer Utilities component tests
+        working-directory: frontend/web
+        run: >-
+          npm test --
+          src/features/dashboard/api.test.ts
+          src/features/dashboard/OfficerHomePage.test.tsx
+          src/features/forms-library/api.test.ts
+          src/features/forms-library/FormsLibraryPage.test.tsx
+          src/features/paperwork/counts.test.ts
+          src/features/paperwork/CountSheetGrid.test.tsx
+          src/features/paperwork/CountSheetPage.test.tsx
+          src/layout/OfficerWorkspaceLayout.test.tsx
+      - name: Type-check frontend
+        working-directory: frontend/web
+        run: npm run typecheck
+      - name: Build production assets
+        working-directory: frontend/web
+        run: npm run build
