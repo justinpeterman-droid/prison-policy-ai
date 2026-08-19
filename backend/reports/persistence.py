@@ -22,7 +22,9 @@ from backend.persistence.models.reporting import (
     ReportAccess,
     ReportRevision,
 )
+from backend.reports.incident_numbers import carry_forward_identity
 from backend.reports.revisions import (
+    INCIDENT_CONTENT_FIELDS,
     RevisionConflict,
     RevisionTargetMissing,
     create_recovery_revision,
@@ -322,11 +324,7 @@ def _append_audit(
 
 
 def _apply_content(incident: Incident, validated: IncidentSnapshotV1, payload: dict) -> None:
-    for field in (
-        "incident_date", "incident_time", "facility", "shift", "location", "category",
-        "field_notes", "classification", "extracted_facts", "gap_answers", "charges",
-        "validation",
-    ):
+    for field in INCIDENT_CONTENT_FIELDS:
         setattr(
             incident, field,
             getattr(validated, field) if field in {"incident_date", "incident_time"} else payload[field],
@@ -470,14 +468,12 @@ def save_incident_record(
             status=incident.status,
             updated_at=incident.updated_at,
         )
-    payload = _content_payload(content)
+    # Identity belongs to the incident, not to this revision — a partial save
+    # that omits the number keeps the assigned one and records it here.
+    payload = carry_forward_identity(incident, _content_payload(content))
     previous = IncidentSnapshotV1.model_validate({
         field: getattr(incident, field)
-        for field in (
-            "incident_date", "incident_time", "facility", "shift", "location", "category",
-            "field_notes", "classification", "extracted_facts", "gap_answers", "charges",
-            "validation",
-        )
+        for field in INCIDENT_CONTENT_FIELDS
     }).model_dump(mode="json")
     next_number = incident.current_revision_number + 1
     revision = IncidentRevision(
@@ -588,11 +584,7 @@ def restore_incident_record(
     payload = validated.model_dump(mode="json")
     previous = IncidentSnapshotV1.model_validate({
         field: getattr(incident, field)
-        for field in (
-            "incident_date", "incident_time", "facility", "shift", "location", "category",
-            "field_notes", "classification", "extracted_facts", "gap_answers", "charges",
-            "validation",
-        )
+        for field in INCIDENT_CONTENT_FIELDS
     }).model_dump(mode="json")
     next_number = incident.current_revision_number + 1
     restored = IncidentRevision(

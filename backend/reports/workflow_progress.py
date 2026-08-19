@@ -16,6 +16,7 @@ _LABELS = {
     "ready_to_generate": "Ready to generate",
     "generating_reports": "Generating reports",
     "ready_to_review": "Ready to review",
+    "awaiting_paperwork": "Awaiting paperwork",
     "ready_to_print": "Ready to print",
     "printed_or_exported": "Printed or exported",
 }
@@ -41,7 +42,15 @@ def calculate_workflow_progress(
     missing_physical_acknowledgment_count: int,
     has_field_notes: bool,
 ) -> WorkflowProgress:
-    """Return one deterministic progress state using the approved precedence."""
+    """Return one deterministic progress state using the approved precedence.
+
+    Progress never runs backwards. Once reports exist, the packet is somewhere in
+    the review-and-paperwork phase and stays there: an officer who has generated
+    and reviewed a whole packet but still owes a signature must not be told the
+    incident is "Not started". That is why the report-bearing cases are resolved
+    together, with `awaiting_paperwork` as their fallback, rather than each being
+    a separate test that can fall through to the beginning of the workflow.
+    """
     if has_output_action:
         return _result("printed_or_exported")
     if has_active_generation_job:
@@ -51,17 +60,20 @@ def calculate_workflow_progress(
             "needs_information",
             blocking_count=blocking_validation_count,
         )
-    if facts_reviewed and generated_report_count <= 0:
+    if generated_report_count > 0:
+        if not reports_reviewed:
+            return _result("ready_to_review")
+        if (
+            required_digital_forms_complete
+            and missing_physical_acknowledgment_count <= 0
+        ):
+            return _result("ready_to_print")
+        return _result(
+            "awaiting_paperwork",
+            blocking_count=missing_physical_acknowledgment_count,
+        )
+    if facts_reviewed:
         return _result("ready_to_generate")
-    if generated_report_count > 0 and not reports_reviewed:
-        return _result("ready_to_review")
-    if (
-        generated_report_count > 0
-        and reports_reviewed
-        and required_digital_forms_complete
-        and missing_physical_acknowledgment_count <= 0
-    ):
-        return _result("ready_to_print")
     if has_field_notes:
         return _result("field_notes_started")
     return _result("not_started")

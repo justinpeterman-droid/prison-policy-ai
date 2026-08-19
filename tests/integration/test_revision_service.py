@@ -195,6 +195,8 @@ def test_ai_result_stamps_centralized_provenance_and_fingerprint_columns(
     else:
         row = SimpleNamespace(
             current_revision_number=1,
+            incident_number=None,
+            incident_name=None,
             incident_date=None,
             incident_time=None,
             facility="Fictional Unit",
@@ -268,6 +270,8 @@ def test_non_ai_incident_save_does_not_inject_provenance(monkeypatch, reason):
     session.flush = lambda: setattr(session, "flush_count", session.flush_count + 1)
     row = SimpleNamespace(
         current_revision_number=1,
+        incident_number=None,
+        incident_name=None,
         incident_date=None,
         incident_time=None,
         facility="Fictional Unit",

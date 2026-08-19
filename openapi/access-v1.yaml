@@ -1856,7 +1856,10 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
     RevisionOrIdempotencyConflict:
-      description: Revision or idempotency conflict; code is revision_conflict, idempotency_conflict, request_in_progress, or client_upgrade_required
+      description: >-
+        Revision or idempotency conflict; code is revision_conflict,
+        idempotency_conflict, request_in_progress, client_upgrade_required, or
+        incident_number_conflict when the official unit-log number is taken.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
@@ -2744,6 +2747,20 @@ components:
           type: string
           maxLength: 30000
           example: Fictional field notes for incident contract testing.
+        incident_number:
+          type: [string, "null"]
+          maxLength: 11
+          pattern: "^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{3}$"
+          description: >-
+            Official unit-log number, YYYY-MM-NNN. Nine bare digits are accepted
+            and normalized. Unique across incidents. Omitting it on a save keeps
+            the number already assigned; it is never cleared by omission.
+          example: "2026-08-029"
+        incident_name:
+          type: [string, "null"]
+          maxLength: 160
+          description: Short recognition label; runs of whitespace are collapsed.
+          example: Barracks 4 Fight
         incident_date: { type: [string, "null"], format: date }
         incident_time: { type: [string, "null"], format: time }
         facility: { type: [string, "null"], maxLength: 120, example: Fictional Unit }
@@ -2779,6 +2796,12 @@ components:
           type: string
           maxLength: 30000
           example: Fictional field notes for incident contract testing.
+        incident_number:
+          type: [string, "null"]
+          maxLength: 11
+          pattern: "^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{3}$"
+          example: "2026-08-029"
+        incident_name: { type: [string, "null"], maxLength: 160, example: Barracks 4 Fight }
     IncidentSaveRequest:
       type: object
       additionalProperties: false

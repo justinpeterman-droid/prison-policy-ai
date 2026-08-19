@@ -21,6 +21,7 @@ from backend.persistence.models.reporting import (
     ReportRevision,
 )
 from backend.persistence.models.identity import StaffMember
+from backend.reports.incident_numbers import carry_forward_identity
 from backend.reports.provenance import collect_provenance
 from backend.webapp.api_v1.middleware import Actor
 from backend.webapp.api_v1.schemas.reporting import (
@@ -48,6 +49,8 @@ INCIDENT_SAVE_REASONS = frozenset({"autosave", "manual_save", "ai_result"})
 REPORT_SAVE_REASONS = frozenset(
     {"autosave", "manual_save", "ai_result", "admin_edit"})
 INCIDENT_CONTENT_FIELDS = (
+    "incident_number",
+    "incident_name",
     "incident_date",
     "incident_time",
     "facility",
@@ -422,7 +425,10 @@ def save_incident(
     _check_base(session, incident, base_revision_number)
 
     validated = IncidentSnapshotV1.model_validate(snapshot)
-    payload = validated.model_dump(mode="json")
+    # Identity belongs to the incident, not to this revision: a save that does
+    # not mention the number keeps the one already assigned, and records it in
+    # the snapshot so restoring this revision cannot erase it.
+    payload = carry_forward_identity(incident, validated.model_dump(mode="json"))
     changed_fields = _changed_fields(_incident_current_payload(incident), payload)
     persisted_snapshot = dict(payload)
     provenance = _ai_provenance(reason)

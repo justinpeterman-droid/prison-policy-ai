@@ -113,7 +113,8 @@ AUDIT_ENUM_FIELDS = {
 }
 AUDIT_CHANGED_FIELDS = {
     "incident.saved": frozenset({
-        "field_notes", "incident_date", "incident_time", "facility", "shift",
+        "field_notes", "incident_number", "incident_name", "incident_date",
+        "incident_time", "facility", "shift",
         "location", "category", "classification", "extracted_facts",
         "gap_answers", "charges", "validation",
     }),

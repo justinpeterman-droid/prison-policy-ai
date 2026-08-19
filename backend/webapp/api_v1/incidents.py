@@ -41,9 +41,12 @@ from backend.webapp.api_v1.schemas.reporting import SaveIncidentRequest
 
 
 incidents_bp = Blueprint("incidents_api", __name__)
-CREATE_FIELDS = {"reporting_staff_ids", "field_notes"}
+CREATE_FIELDS = {"reporting_staff_ids", "field_notes", "incident_number", "incident_name"}
+REQUIRED_CREATE_FIELDS = {"reporting_staff_ids", "field_notes"}
+#: Postgres names the partial unique index that guards the unit-log number.
+INCIDENT_NUMBER_INDEX = "uq_incidents_incident_number"
 SAVE_FIELDS = {
-    "schema_version", "field_notes", "incident_date", "incident_time", "facility",
+    "schema_version", "field_notes", "incident_number", "incident_name", "incident_date", "incident_time", "facility",
     "shift", "location", "category", "classification", "extracted_facts",
     "gap_answers", "charges", "validation", "warnings", "base_revision_number", "reason",
 }
@@ -110,6 +113,8 @@ def _view_data(view: IncidentView) -> dict[str, object]:
         "current_revision_number": view.revision_number or row.current_revision_number,
         "reporting_staff_ids": [str(value) for value in view.reporting_staff_ids],
         "field_notes": content.get("field_notes", ""),
+        "incident_number": content.get("incident_number"),
+        "incident_name": content.get("incident_name"),
         "incident_date": (
             incident_date.isoformat()
             if hasattr(incident_date, "isoformat") else incident_date
@@ -171,8 +176,14 @@ def _handle_write(operation):
     except (ValidationError, ValueError) as error:
         db.rollback()
         raise ApiError("validation_failed", "The incident request is invalid.", status=400) from None
-    except IntegrityError:
+    except IntegrityError as error:
         db.rollback()
+        if INCIDENT_NUMBER_INDEX in str(getattr(error, "orig", error)):
+            raise ApiError(
+                "incident_number_conflict",
+                "This incident number is already in use.",
+                status=409,
+            ) from None
         raise ApiError("revision_conflict", "The incident changed; reload and try again.", status=409) from None
     except OperationalError as error:
         db.rollback()
@@ -197,9 +208,13 @@ def _handle_write(operation):
 @require_access_token
 @require_compatible_write
 def create_route():
-    payload = _body(exact=CREATE_FIELDS)
+    payload = _body(allowed=CREATE_FIELDS)
+    if not REQUIRED_CREATE_FIELDS <= set(payload):
+        raise ApiError("validation_failed", "The request body is invalid.", status=400)
     try:
-        model = SaveIncidentRequest.model_validate({"field_notes": payload["field_notes"]})
+        model = SaveIncidentRequest.model_validate({
+            key: value for key, value in payload.items() if key != "reporting_staff_ids"
+        })
     except ValidationError:
         raise ApiError("validation_failed", "The incident request is invalid.", status=400) from None
     req_id, version = _metadata()

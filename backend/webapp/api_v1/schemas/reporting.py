@@ -16,8 +16,13 @@ import re
 from typing import Annotated, Final, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
+from backend.reports.incident_numbers import (
+    INCIDENT_NAME_MAX_LENGTH,
+    normalize_incident_name,
+    normalize_incident_number,
+)
 from backend.webapp.api_v1.client_policy import FIELD_NOTES_MAX_CHARACTERS
 
 
@@ -156,6 +161,11 @@ class IncidentSnapshotV1(BoundedContent):
 
     schema_version: Literal[1] = CONTENT_SCHEMA_VERSION
     field_notes: str = Field(default="", max_length=FIELD_NOTES_MAX_CHARACTERS)
+    #: Official unit-log identity. `None` means "not supplied by this revision",
+    #: never "clear it" — see `carry_forward_identity` in reports/incident_numbers.
+    incident_number: str | None = Field(default=None, max_length=11)
+    incident_name: str | None = Field(
+        default=None, max_length=INCIDENT_NAME_MAX_LENGTH)
     incident_date: date | None = None
     incident_time: time | None = None
     facility: str | None = Field(default=None, max_length=120)
@@ -172,6 +182,23 @@ class IncidentSnapshotV1(BoundedContent):
     validation: dict[CodeText, object] = Field(
         default_factory=dict, max_length=MAX_MAP_ENTRIES)
     warnings: list[ShortText] = Field(default_factory=list, max_length=MAX_WARNINGS)
+
+    @field_validator("incident_number", mode="before")
+    @classmethod
+    def _normalize_number(cls, value):
+        """Accept 202608029 or 2026-08-029; reject anything else with a 400."""
+        if value is None or isinstance(value, str):
+            return normalize_incident_number(value)
+        raise ValueError("incident number must use YYYY-MM-NNN")
+
+    @field_validator("incident_name", mode="before")
+    @classmethod
+    def _normalize_name(cls, value):
+        """Collapse runs of whitespace so one incident has one recognizable label."""
+        if value is None or isinstance(value, str):
+            return normalize_incident_name(value)
+        raise ValueError("incident name must be text")
+
 
 class ReportContentV1(BoundedContent):
     """One immutable version of a generated report's text and review state."""

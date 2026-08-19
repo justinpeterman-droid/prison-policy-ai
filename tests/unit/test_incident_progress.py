@@ -74,7 +74,45 @@ def test_progress_waits_for_required_physical_paperwork():
         missing_physical_acknowledgment_count=1,
         has_field_notes=True,
     )
-    assert result.code == "field_notes_started"
+    assert result == WorkflowProgress(
+        code="awaiting_paperwork",
+        label="Awaiting paperwork",
+        blocking_count=1,
+    )
+
+
+def test_progress_waits_for_incomplete_digital_forms():
+    assert progress(
+        facts_reviewed=True,
+        generated_report_count=2,
+        reports_reviewed=True,
+        required_digital_forms_complete=False,
+        has_field_notes=True,
+    ).code == "awaiting_paperwork"
+
+
+def test_progress_never_runs_backwards_once_reports_exist():
+    """A reviewed packet with paperwork outstanding is not "Not started".
+
+    Every combination that leaves reports generated must report a state at or
+    past review — the earlier precedence chain fell through to the first state
+    in the workflow whenever paperwork was incomplete.
+    """
+    reached = {
+        progress(
+            generated_report_count=1,
+            reports_reviewed=reviewed,
+            required_digital_forms_complete=forms,
+            missing_physical_acknowledgment_count=missing,
+            has_field_notes=notes,
+        ).code
+        for reviewed in (True, False)
+        for forms in (True, False)
+        for missing in (0, 2)
+        for notes in (True, False)
+    }
+    assert reached <= {"ready_to_review", "awaiting_paperwork", "ready_to_print"}
+    assert "not_started" not in reached and "field_notes_started" not in reached
 
 
 def test_progress_distinguishes_started_and_not_started():
