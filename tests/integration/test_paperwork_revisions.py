@@ -165,18 +165,26 @@ def test_create_update_replay_conflict_and_restore_are_revisioned_atomically(
     assert revisions.items[-1].reason == "restored"
 
     events = list(db_session.scalars(
-        select(AuditEvent)
-        .where(AuditEvent.target_id == created.record_id)
-        .order_by(AuditEvent.occurred_at, AuditEvent.id)
+        select(AuditEvent).where(AuditEvent.target_id == created.record_id)
     ).all())
-    assert [event.action for event in events] == [
-        "paperwork.created",
-        "paperwork.saved",
-        "paperwork.restored",
-    ]
+    # PostgreSQL's transaction timestamp is shared by all events appended in
+    # this transaction, so UUID ordering is not a meaningful event chronology.
+    # Revision number is the durable semantic order for revisioned paperwork.
+    by_revision = {
+        event.details["revision_number"]: event
+        for event in events
+    }
+    assert {
+        revision: event.action
+        for revision, event in by_revision.items()
+    } == {
+        1: "paperwork.created",
+        2: "paperwork.saved",
+        3: "paperwork.restored",
+    }
     assert all("A/W Office" not in repr(event.details) for event in events)
     assert all("current_payload" not in event.details for event in events)
-    assert events[1].details["changed_fields"] == [
+    assert by_revision[2].details["changed_fields"] == [
         "payload.cells",
         "payload.operational",
     ]
