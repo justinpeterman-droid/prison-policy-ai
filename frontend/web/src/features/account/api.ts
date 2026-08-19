@@ -137,3 +137,7 @@ export async function logoutAllAccountSessions(): Promise<void> {
     method: ACCOUNT_ROUTES.logoutAll.method,
   });
 }
+
+export async function signOutCurrentBrowserSession(): Promise<void> {
+  await webApiRequest<unknown>("/auth/logout", { method: "POST" });
+}
