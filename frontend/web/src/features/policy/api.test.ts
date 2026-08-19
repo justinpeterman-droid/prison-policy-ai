@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { askPolicyQuestion, parsePolicyAnswer } from "./api";
 
-const request = vi.fn(async () => ({
+const request = vi.fn(async (_path: string, _init?: RequestInit) => ({
   answer: "Fictional policy answer.",
   citations: [{ title: "Fictional Policy", section: "2.1", page: 4 }],
 }));
 
 vi.mock("../../api/client", () => ({
-  webApiRequest: (...args: unknown[]) => request(...args),
+  webApiRequest: (path: string, init?: RequestInit) => request(path, init),
 }));
 
 vi.mock("./route-manifest", () => ({
