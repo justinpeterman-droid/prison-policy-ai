@@ -124,31 +124,33 @@ jobs:
 
           event_path = Path("backend/persistence/models/incident_identity.py")
           text = event_path.read_text(encoding="utf-8")
-          old = '''        changed_fields = dict(revision.changed_fields or {})
-          field_names = set(changed_fields.get("fields", ()))
-          for field, value in desired.items():
-              field_names.discard(field)
-              if getattr(incident, field) != value:
-                  field_names.add(field)
-              snapshot[field] = value
-              setattr(incident, field, value)
-
-          revision.snapshot = snapshot
-          changed_fields["fields"] = sorted(field_names)
-          revision.changed_fields = changed_fields
-          '''
-          new = '''        changed_fields = dict(revision.changed_fields or {})
-          field_names = set(changed_fields.get("fields", ()))
-          if reason == AI_REVISION_REASON:
-              field_names.difference_update(IDENTITY_FIELDS)
-          for field, value in desired.items():
-              snapshot[field] = value
-              setattr(incident, field, value)
-
-          revision.snapshot = snapshot
-          changed_fields["fields"] = sorted(field_names)
-          revision.changed_fields = changed_fields
-          '''
+          old = (
+              "        changed_fields = dict(revision.changed_fields or {})\n"
+              "        field_names = set(changed_fields.get(\"fields\", ()))\n"
+              "        for field, value in desired.items():\n"
+              "            field_names.discard(field)\n"
+              "            if getattr(incident, field) != value:\n"
+              "                field_names.add(field)\n"
+              "            snapshot[field] = value\n"
+              "            setattr(incident, field, value)\n"
+              "\n"
+              "        revision.snapshot = snapshot\n"
+              "        changed_fields[\"fields\"] = sorted(field_names)\n"
+              "        revision.changed_fields = changed_fields\n"
+          )
+          new = (
+              "        changed_fields = dict(revision.changed_fields or {})\n"
+              "        field_names = set(changed_fields.get(\"fields\", ()))\n"
+              "        if reason == AI_REVISION_REASON:\n"
+              "            field_names.difference_update(IDENTITY_FIELDS)\n"
+              "        for field, value in desired.items():\n"
+              "            snapshot[field] = value\n"
+              "            setattr(incident, field, value)\n"
+              "\n"
+              "        revision.snapshot = snapshot\n"
+              "        changed_fields[\"fields\"] = sorted(field_names)\n"
+              "        revision.changed_fields = changed_fields\n"
+          )
           text = replace_once(text, old, new, "incident identity synchronization")
           event_path.write_text(text, encoding="utf-8")
           PY
