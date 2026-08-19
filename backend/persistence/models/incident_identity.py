@@ -46,10 +46,9 @@ def synchronize_incident_identity(
 
         changed_fields = dict(revision.changed_fields or {})
         field_names = set(changed_fields.get("fields", ()))
+        if reason == AI_REVISION_REASON:
+            field_names.difference_update(IDENTITY_FIELDS)
         for field, value in desired.items():
-            field_names.discard(field)
-            if getattr(incident, field) != value:
-                field_names.add(field)
             snapshot[field] = value
             setattr(incident, field, value)
 

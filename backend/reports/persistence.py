@@ -323,7 +323,8 @@ def _append_audit(
 
 def _apply_content(incident: Incident, validated: IncidentSnapshotV1, payload: dict) -> None:
     for field in (
-        "incident_date", "incident_time", "facility", "shift", "location", "category",
+        "incident_number", "incident_name", "incident_date", "incident_time",
+        "facility", "shift", "location", "category",
         "field_notes", "classification", "extracted_facts", "gap_answers", "charges",
         "validation",
     ):
@@ -417,7 +418,10 @@ def create_incident(
         editor_account_id=actor.account_id,
         editor_staff_member_id=actor.staff_member_id,
         snapshot=_server_snapshot(content, selection),
-        changed_fields={"fields": ["field_notes"] if content.get("field_notes") else []},
+        changed_fields={"fields": [
+            field for field in ("incident_number", "incident_name", "field_notes")
+            if content.get(field)
+        ]},
         reason="manual_save",
         client_version=client_version,
         request_id=request_id,
@@ -474,7 +478,8 @@ def save_incident_record(
     previous = IncidentSnapshotV1.model_validate({
         field: getattr(incident, field)
         for field in (
-            "incident_date", "incident_time", "facility", "shift", "location", "category",
+            "incident_number", "incident_name", "incident_date", "incident_time",
+            "facility", "shift", "location", "category",
             "field_notes", "classification", "extracted_facts", "gap_answers", "charges",
             "validation",
         )
@@ -589,7 +594,8 @@ def restore_incident_record(
     previous = IncidentSnapshotV1.model_validate({
         field: getattr(incident, field)
         for field in (
-            "incident_date", "incident_time", "facility", "shift", "location", "category",
+            "incident_number", "incident_name", "incident_date", "incident_time",
+            "facility", "shift", "location", "category",
             "field_notes", "classification", "extracted_facts", "gap_answers", "charges",
             "validation",
         )
