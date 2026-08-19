@@ -311,7 +311,7 @@ export function DocumentStudioPage() {
     const missing = copyReports.filter((report) => !copyDetails[report.report_id]);
     if (!missing.length) return;
     let active = true;
-    void Promise.all(missing.map(getReport)).then((items) => {
+    void Promise.all(missing.map((report) => getReport(report.report_id))).then((items) => {
       if (!active) return;
       setCopyDetails((current) => ({
         ...current,
