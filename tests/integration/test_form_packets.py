@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import inspect, select
+from sqlalchemy.exc import IntegrityError
 
 from backend.forms.catalog import load_form_catalog, sync_form_catalog
 from backend.forms.packets import (
@@ -253,6 +254,55 @@ def test_recommended_and_additional_mutations_survive_rebuild(
     assert by_code["additional_officer_statement"].packet_state == "selected"
 
 
+def test_forms_library_reselects_a_removed_recommendation_but_not_officer_forms(
+    db_session,
+    fictional_staff_and_accounts,
+):
+    accounts = fictional_staff_and_accounts
+    _catalog(db_session)
+    incident = _incident(
+        db_session,
+        owner=accounts.user,
+        reporting_accounts=[accounts.user],
+    )
+    actor = _actor(accounts.user)
+    packet = build_incident_packet(
+        db_session,
+        actor,
+        incident_id=incident.id,
+        incident_revision_number=1,
+        checklist_path=CHECKLIST,
+    )
+    photo = next(item for item in packet if item.template_code == "photo_video_attachment")
+    remove_recommended_form(
+        db_session,
+        actor,
+        packet_item_id=photo.packet_item_id,
+    )
+
+    restored = add_additional_form(
+        db_session,
+        actor,
+        incident_id=incident.id,
+        incident_revision_number=1,
+        template_code="photo_video_attachment",
+        checklist_path=CHECKLIST,
+    )
+    assert restored.packet_item_id == photo.packet_item_id
+    assert restored.packet_group == "recommended"
+    assert restored.packet_state == "selected"
+
+    with pytest.raises(PacketMutationNotAllowed, match="reporting officer"):
+        add_additional_form(
+            db_session,
+            actor,
+            incident_id=incident.id,
+            incident_revision_number=1,
+            template_code="form_005_409",
+            checklist_path=CHECKLIST,
+        )
+
+
 def test_build_refuses_stale_revision_and_unrelated_actor(
     db_session,
     fictional_staff_and_accounts,
@@ -317,7 +367,7 @@ def test_officer_scoped_uniqueness_rejects_duplicate_same_officer(
         selection_reason="Fictional duplicate that must be rejected.",
         added_by_account_id=accounts.user.id,
     ))
-    with pytest.raises(Exception):
+    with pytest.raises(IntegrityError):
         db_session.flush()
 
 
