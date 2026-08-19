@@ -54,14 +54,14 @@ def _packet_item(
 
 def test_printing_a_digital_form_records_one_safe_event_and_audit(
     db_session,
-    fictional_incident,
+    fictional_reporting_incident,
     fictional_staff_and_accounts,
     identity_fixed_now,
     user_actor,
 ):
     item = _packet_item(
         db_session,
-        incident=fictional_incident,
+        incident=fictional_reporting_incident,
         account=fictional_staff_and_accounts.user,
         template_code="form_005_409",
     )
@@ -70,8 +70,8 @@ def test_printing_a_digital_form_records_one_safe_event_and_audit(
     view = record_document_action(
         db_session,
         user_actor,
-        incident_id=fictional_incident.id,
-        incident_revision_number=fictional_incident.current_revision_number,
+        incident_id=fictional_reporting_incident.id,
+        incident_revision_number=fictional_reporting_incident.current_revision_number,
         packet_item_id=item.id,
         action="print",
         request_id="request_fictional_form_print",
@@ -79,11 +79,14 @@ def test_printing_a_digital_form_records_one_safe_event_and_audit(
         now=fixed,
     )
 
-    assert view.incident_id == fictional_incident.id
+    assert view.incident_id == fictional_reporting_incident.id
     assert view.packet_item_id == item.id
     assert view.report_id is None
     assert view.action == "print"
-    assert view.incident_revision_number == fictional_incident.current_revision_number
+    assert (
+        view.incident_revision_number
+        == fictional_reporting_incident.current_revision_number
+    )
     assert view.created_at == fixed
     assert db_session.scalar(
         select(func.count()).select_from(DocumentActionEvent)
@@ -96,21 +99,23 @@ def test_printing_a_digital_form_records_one_safe_event_and_audit(
     assert audit is not None
     assert audit.details == {
         "document_action": "print",
-        "incident_id": str(fictional_incident.id),
-        "incident_revision_number": fictional_incident.current_revision_number,
+        "incident_id": str(fictional_reporting_incident.id),
+        "incident_revision_number": (
+            fictional_reporting_incident.current_revision_number
+        ),
         "packet_item_id": str(item.id),
     }
 
 
 def test_physical_form_rejects_print_without_event_or_audit(
     db_session,
-    fictional_incident,
+    fictional_reporting_incident,
     fictional_staff_and_accounts,
     user_actor,
 ):
     item = _packet_item(
         db_session,
-        incident=fictional_incident,
+        incident=fictional_reporting_incident,
         account=fictional_staff_and_accounts.user,
         template_code="chain_of_custody_physical",
     )
@@ -122,8 +127,10 @@ def test_physical_form_rejects_print_without_event_or_audit(
         record_document_action(
             db_session,
             user_actor,
-            incident_id=fictional_incident.id,
-            incident_revision_number=fictional_incident.current_revision_number,
+            incident_id=fictional_reporting_incident.id,
+            incident_revision_number=(
+                fictional_reporting_incident.current_revision_number
+            ),
             packet_item_id=item.id,
             action="print",
             request_id="request_fictional_physical_print",
