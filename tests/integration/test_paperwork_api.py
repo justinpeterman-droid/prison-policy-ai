@@ -44,11 +44,15 @@ def _save_body(*, value: int = 4, base_revision_number=None, reason="manual_save
 
 def test_count_sheet_api_create_replay_save_history_restore_and_list(
     api_client,
+    db_session,
     db_session_factory,
     fictional_staff_and_accounts,
     monkeypatch,
 ):
     accounts = fictional_staff_and_accounts
+    # Browser requests open an independent SQLAlchemy session. Persist the
+    # fictional actor first, matching every existing browser API integration.
+    db_session.commit()
     authenticate_browser(monkeypatch, api_client, db_session_factory, accounts.user)
 
     structure = api_client.get(
@@ -174,11 +178,13 @@ def test_count_sheet_api_create_replay_save_history_restore_and_list(
 
 def test_count_sheet_api_requires_session_csrf_and_authorized_relationship(
     api_client,
+    db_session,
     db_session_factory,
     fictional_staff_and_accounts,
     monkeypatch,
 ):
     accounts = fictional_staff_and_accounts
+    db_session.commit()
 
     unauthenticated = api_client.get(
         "/api/web/v1/paperwork?kind=count_sheet",
@@ -233,11 +239,13 @@ def test_count_sheet_api_requires_session_csrf_and_authorized_relationship(
 
 def test_count_sheet_actions_are_closed_and_audited_without_payload_content(
     api_client,
+    db_session,
     db_session_factory,
     fictional_staff_and_accounts,
     monkeypatch,
 ):
     accounts = fictional_staff_and_accounts
+    db_session.commit()
     authenticate_browser(monkeypatch, api_client, db_session_factory, accounts.user)
     created = api_client.post(
         "/api/web/v1/paperwork/count-sheets",
