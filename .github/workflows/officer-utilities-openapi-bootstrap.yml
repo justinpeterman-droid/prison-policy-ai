@@ -1,0 +1,281 @@
+name: Officer Utilities OpenAPI Bootstrap
+
+on:
+  push:
+    branches:
+      - feature/guided-operations-officer-utilities
+    paths:
+      - .github/workflows/officer-utilities-openapi-bootstrap.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: officer-utilities-openapi-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/guided-operations-officer-utilities
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install OpenAPI tooling
+        run: python -m pip install pyyaml "openapi-spec-validator>=0.7,<1"
+      - name: Add revisioned paperwork paths and schemas
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          from openapi_spec_validator import validate_spec
+
+          path = Path("openapi/web-v1.yaml")
+          document = yaml.safe_load(path.read_text(encoding="utf-8"))
+          paths = document.setdefault("paths", {})
+          components = document.setdefault("components", {})
+          parameters = components.setdefault("parameters", {})
+          schemas = components.setdefault("schemas", {})
+          responses = components.setdefault("responses", {})
+
+          parameters.update({
+              "PaperworkId": {
+                  "name": "paperwork_id",
+                  "in": "path",
+                  "required": True,
+                  "schema": {"type": "string", "format": "uuid"},
+              },
+              "PaperworkRevisionNumber": {
+                  "name": "revision_number",
+                  "in": "path",
+                  "required": True,
+                  "schema": {"type": "integer", "minimum": 1},
+              },
+              "IdempotencyKey": {
+                  "name": "Idempotency-Key",
+                  "in": "header",
+                  "required": True,
+                  "schema": {"type": "string", "minLength": 1, "maxLength": 128},
+              },
+              "IfMatchRevision": {
+                  "name": "If-Match",
+                  "in": "header",
+                  "required": False,
+                  "schema": {"type": "string", "pattern": '^\"[1-9][0-9]*\"$'},
+              },
+          })
+
+          schemas.update({
+              "OperationalPaperwork": {
+                  "type": "object",
+                  "additionalProperties": False,
+                  "required": [
+                      "paperwork_id", "paperwork_type", "record_date", "shift",
+                      "status", "revision_number", "current_revision_number",
+                      "content", "created_by_staff_member_id", "created_at", "updated_at",
+                  ],
+                  "properties": {
+                      "paperwork_id": {"type": "string", "format": "uuid"},
+                      "paperwork_type": {"type": "string", "enum": ["ncu_days_count"]},
+                      "record_date": {"type": "string", "format": "date"},
+                      "shift": {"type": "string", "minLength": 1, "maxLength": 32},
+                      "status": {"type": "string", "enum": ["in_progress", "completed", "archived"]},
+                      "revision_number": {"type": "integer", "minimum": 1},
+                      "current_revision_number": {"type": "integer", "minimum": 1},
+                      "content": {"type": "object", "additionalProperties": True},
+                      "created_by_staff_member_id": {"type": "string", "format": "uuid"},
+                      "created_at": {"type": "string", "format": "date-time"},
+                      "updated_at": {"type": "string", "format": "date-time"},
+                  },
+              },
+              "OperationalPaperworkCreateRequest": {
+                  "type": "object",
+                  "additionalProperties": False,
+                  "required": ["paperwork_type", "record_date", "shift", "content"],
+                  "properties": {
+                      "paperwork_type": {"type": "string", "enum": ["ncu_days_count"]},
+                      "record_date": {"type": "string", "format": "date"},
+                      "shift": {"type": "string", "minLength": 1, "maxLength": 32},
+                      "content": {"type": "object", "additionalProperties": True},
+                  },
+              },
+              "OperationalPaperworkSaveRequest": {
+                  "type": "object",
+                  "additionalProperties": False,
+                  "required": ["content", "base_revision_number", "reason"],
+                  "properties": {
+                      "content": {"type": "object", "additionalProperties": True},
+                      "base_revision_number": {"type": "integer", "minimum": 1},
+                      "reason": {"type": "string", "enum": ["autosave", "manual_save", "status_change"]},
+                      "status": {"type": "string", "enum": ["in_progress", "completed", "archived"]},
+                  },
+              },
+              "OperationalPaperworkRevision": {
+                  "type": "object",
+                  "additionalProperties": False,
+                  "required": [
+                      "revision_number", "reason", "changed_fields",
+                      "editor_staff_member_id", "request_id", "client_version",
+                      "created_at", "is_current",
+                  ],
+                  "properties": {
+                      "revision_number": {"type": "integer", "minimum": 1},
+                      "reason": {"type": "string", "enum": ["autosave", "manual_save", "restored", "status_change"]},
+                      "changed_fields": {"type": "array", "items": {"type": "string"}},
+                      "editor_staff_member_id": {"type": "string", "format": "uuid"},
+                      "request_id": {"type": "string"},
+                      "client_version": {"type": "string"},
+                      "created_at": {"type": "string", "format": "date-time"},
+                      "is_current": {"type": "boolean"},
+                      "content": {"type": "object", "additionalProperties": True},
+                  },
+              },
+              "OperationalPaperworkRestoreRequest": {
+                  "type": "object",
+                  "additionalProperties": False,
+                  "required": ["revision_number"],
+                  "properties": {
+                      "revision_number": {"type": "integer", "minimum": 1},
+                  },
+              },
+              "OperationalPaperworkEnvelope": {
+                  "allOf": [
+                      {"$ref": "#/components/schemas/SuccessEnvelopeBase"},
+                      {"type": "object", "properties": {"data": {"$ref": "#/components/schemas/OperationalPaperwork"}}},
+                  ],
+              },
+              "OperationalPaperworkListData": {
+                  "type": "object",
+                  "additionalProperties": False,
+                  "required": ["items", "next_cursor"],
+                  "properties": {
+                      "items": {"type": "array", "items": {"$ref": "#/components/schemas/OperationalPaperwork"}},
+                      "next_cursor": {"type": ["string", "null"]},
+                  },
+              },
+              "OperationalPaperworkListEnvelope": {
+                  "allOf": [
+                      {"$ref": "#/components/schemas/SuccessEnvelopeBase"},
+                      {"type": "object", "properties": {"data": {"$ref": "#/components/schemas/OperationalPaperworkListData"}}},
+                  ],
+              },
+              "OperationalPaperworkRevisionListData": {
+                  "type": "object",
+                  "additionalProperties": False,
+                  "required": ["items"],
+                  "properties": {
+                      "items": {"type": "array", "items": {"$ref": "#/components/schemas/OperationalPaperworkRevision"}},
+                  },
+              },
+              "OperationalPaperworkRevisionEnvelope": {
+                  "allOf": [
+                      {"$ref": "#/components/schemas/SuccessEnvelopeBase"},
+                      {"type": "object", "properties": {"data": {"$ref": "#/components/schemas/OperationalPaperworkRevision"}}},
+                  ],
+              },
+              "OperationalPaperworkRevisionListEnvelope": {
+                  "allOf": [
+                      {"$ref": "#/components/schemas/SuccessEnvelopeBase"},
+                      {"type": "object", "properties": {"data": {"$ref": "#/components/schemas/OperationalPaperworkRevisionListData"}}},
+                  ],
+              },
+          })
+
+          responses.setdefault("NotFound", {
+              "description": "The resource does not exist or is not available to this employee",
+              "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}},
+          })
+          responses.setdefault("Conflict", {
+              "description": "The request conflicts with a newer revision or idempotent operation",
+              "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}},
+          })
+
+          error_responses = {
+              "400": {"$ref": "#/components/responses/ValidationFailed"},
+              "401": {"$ref": "#/components/responses/AuthenticationFailed"},
+              "403": {"$ref": "#/components/responses/CsrfFailed"},
+              "404": {"$ref": "#/components/responses/NotFound"},
+              "409": {"$ref": "#/components/responses/Conflict"},
+              "503": {"$ref": "#/components/responses/DependencyUnavailable"},
+          }
+          csrf = {"$ref": "#/components/parameters/CsrfHeader"}
+          idem = {"$ref": "#/components/parameters/IdempotencyKey"}
+          paperwork_id = {"$ref": "#/components/parameters/PaperworkId"}
+          revision_number = {"$ref": "#/components/parameters/PaperworkRevisionNumber"}
+
+          paths["/paperwork"] = {
+              "get": {
+                  "operationId": "listOperationalPaperwork",
+                  "parameters": [
+                      {"name": "paperwork_type", "in": "query", "schema": {"type": "string", "enum": ["ncu_days_count"]}},
+                      {"name": "date_from", "in": "query", "schema": {"type": "string", "format": "date"}},
+                      {"name": "date_to", "in": "query", "schema": {"type": "string", "format": "date"}},
+                      {"name": "shift", "in": "query", "schema": {"type": "string"}},
+                      {"name": "status", "in": "query", "schema": {"type": "string", "enum": ["in_progress", "completed", "archived"]}},
+                      {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 50}},
+                      {"name": "cursor", "in": "query", "schema": {"type": "string"}},
+                  ],
+                  "responses": {"200": {"description": "Authorized operational paperwork page", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OperationalPaperworkListEnvelope"}}}}, **error_responses},
+              },
+              "post": {
+                  "operationId": "createOperationalPaperwork",
+                  "parameters": [csrf, idem],
+                  "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OperationalPaperworkCreateRequest"}}}},
+                  "responses": {"201": {"description": "Operational paperwork created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OperationalPaperworkEnvelope"}}}}, **error_responses},
+              },
+          }
+          paths["/paperwork/{paperwork_id}"] = {
+              "get": {
+                  "operationId": "getOperationalPaperwork",
+                  "parameters": [paperwork_id],
+                  "responses": {"200": {"description": "Authorized operational paperwork record", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OperationalPaperworkEnvelope"}}}}, **error_responses},
+              },
+              "patch": {
+                  "operationId": "saveOperationalPaperwork",
+                  "parameters": [paperwork_id, csrf, idem, {"$ref": "#/components/parameters/IfMatchRevision"}],
+                  "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OperationalPaperworkSaveRequest"}}}},
+                  "responses": {"200": {"description": "Operational paperwork revision saved", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OperationalPaperworkEnvelope"}}}}, **error_responses},
+              },
+          }
+          paths["/paperwork/{paperwork_id}/revisions"] = {
+              "get": {
+                  "operationId": "listOperationalPaperworkRevisions",
+                  "parameters": [paperwork_id],
+                  "responses": {"200": {"description": "Immutable revision history", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OperationalPaperworkRevisionListEnvelope"}}}}, **error_responses},
+              },
+          }
+          paths["/paperwork/{paperwork_id}/revisions/{revision_number}"] = {
+              "get": {
+                  "operationId": "getOperationalPaperworkRevision",
+                  "parameters": [paperwork_id, revision_number],
+                  "responses": {"200": {"description": "One immutable revision", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OperationalPaperworkRevisionEnvelope"}}}}, **error_responses},
+              },
+          }
+          paths["/paperwork/{paperwork_id}/restore"] = {
+              "post": {
+                  "operationId": "restoreOperationalPaperworkRevision",
+                  "parameters": [paperwork_id, csrf, idem],
+                  "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OperationalPaperworkRestoreRequest"}}}},
+                  "responses": {"200": {"description": "Historical content restored as a new revision", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OperationalPaperworkEnvelope"}}}}, **error_responses},
+              },
+          }
+
+          validate_spec(document)
+          path.write_text(
+              yaml.safe_dump(document, sort_keys=False, allow_unicode=True),
+              encoding="utf-8",
+          )
+          PY
+      - name: Commit published contract and remove bootstrap workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/officer-utilities-openapi-bootstrap.yml
+          git add openapi/web-v1.yaml
+          git commit -m "docs(api): publish operational paperwork contract"
+          git push origin HEAD:feature/guided-operations-officer-utilities
