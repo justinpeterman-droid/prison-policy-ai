@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from backend.forms.catalog import load_form_catalog, sync_form_catalog
-from backend.forms.library import FormsLibraryFilters, list_forms_library
+from backend.forms.library import search_form_library
 
 
 def _catalog(db_session):
@@ -17,11 +17,7 @@ def _catalog(db_session):
 def test_forms_library_returns_sanitized_active_catalog_entries(db_session):
     _catalog(db_session)
 
-    page = list_forms_library(
-        db_session,
-        filters=FormsLibraryFilters(),
-        limit=50,
-    )
+    page = search_form_library(db_session, limit=50)
 
     assert page.items
     by_code = {item.code: item for item in page.items}
@@ -29,65 +25,64 @@ def test_forms_library_returns_sanitized_active_catalog_entries(db_session):
     physical = by_code["chain_of_custody_physical"]
 
     assert digital.output_kind == "digital_document"
-    assert digital.actions.preview is True
-    assert digital.actions.print is True
-    assert digital.actions.physical_guidance is False
-    assert "template_path" not in repr(digital)
+    assert "preview" in digital.capabilities
+    assert "print" in digital.capabilities
+    assert "physical_guidance" not in digital.capabilities
+    assert "template_path" not in repr({
+        "template_id": digital.template_id,
+        "code": digital.code,
+        "name": digital.name,
+        "category": digital.category,
+        "purpose": digital.purpose,
+        "when_used": digital.when_used,
+        "output_kind": digital.output_kind,
+        "revision_label": digital.revision_label,
+        "capabilities": digital.capabilities,
+        "frequent": digital.frequent,
+        "obtain_from": digital.obtain_from,
+    })
 
     assert physical.output_kind == "physical_only"
-    assert physical.actions.preview is False
-    assert physical.actions.print is False
-    assert physical.actions.download_word is False
-    assert physical.actions.download_pdf is False
-    assert physical.actions.physical_guidance is True
+    assert "preview" not in physical.capabilities
+    assert "print" not in physical.capabilities
+    assert "download_word" not in physical.capabilities
+    assert "download_pdf" not in physical.capabilities
+    assert "physical_guidance" in physical.capabilities
     assert physical.obtain_from
 
 
-def test_forms_library_search_and_filters_are_case_insensitive(db_session):
+def test_forms_library_search_and_category_filter_are_case_insensitive(db_session):
     _catalog(db_session)
 
-    searched = list_forms_library(
+    searched = search_form_library(
         db_session,
-        filters=FormsLibraryFilters(q="CHAIN OF CUSTODY"),
+        q="CHAIN OF CUSTODY",
         limit=20,
     )
     assert [item.code for item in searched.items] == [
         "chain_of_custody_physical"
     ]
 
-    physical = list_forms_library(
+    incident_forms = search_form_library(
         db_session,
-        filters=FormsLibraryFilters(output_kind="physical_only"),
-        limit=50,
-    )
-    assert physical.items
-    assert all(item.output_kind == "physical_only" for item in physical.items)
-
-    incident_forms = list_forms_library(
-        db_session,
-        filters=FormsLibraryFilters(category="incident_forms"),
+        category="INCIDENT",
         limit=50,
     )
     assert incident_forms.items
-    assert all(item.category == "incident_forms" for item in incident_forms.items)
+    assert all(item.category == "incident" for item in incident_forms.items)
 
 
-def test_forms_library_keyset_pagination_is_stable(db_session):
+def test_forms_library_offset_pagination_is_stable(db_session):
     _catalog(db_session)
 
-    first = list_forms_library(
-        db_session,
-        filters=FormsLibraryFilters(),
-        limit=3,
-    )
+    first = search_form_library(db_session, limit=3, offset=0)
     assert len(first.items) == 3
-    assert first.next_cursor is not None
+    assert first.next_offset == 3
 
-    second = list_forms_library(
+    second = search_form_library(
         db_session,
-        filters=FormsLibraryFilters(),
         limit=3,
-        cursor=first.next_cursor,
+        offset=first.next_offset,
     )
     assert {item.code for item in first.items}.isdisjoint(
         item.code for item in second.items
