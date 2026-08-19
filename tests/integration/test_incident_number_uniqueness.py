@@ -199,3 +199,43 @@ def test_invalid_incident_number_does_not_append_a_revision(
         assert verification.scalar(select(func.count()).select_from(
             IncidentRevision
         ).where(IncidentRevision.incident_id == incident_id)) == 1
+
+
+def test_partial_save_keeps_the_assigned_incident_number(
+    db_session,
+    api_client,
+    owner_bearer_headers,
+    fictional_staff,
+):
+    """A save that never mentions identity must not clear it.
+
+    The officer types the unit-log number once. An autosave of the notes, or any
+    later partial save, does not speak to identity — so omitting the field means
+    "unchanged", never "blank it". Losing the number would detach the record
+    from the unit log it is filed under.
+    """
+    db_session.commit()
+    created = api_client.post(
+        "/api/v1/incidents",
+        headers=_headers(owner_bearer_headers, "incident-identity-partial-create"),
+        json=_create_body(
+            fictional_staff,
+            incident_number="2026-08-077",
+            incident_name="Fictional Sticky Identity",
+        ),
+    )
+    incident_id = created.json["data"]["incident_id"]
+
+    saved = api_client.patch(
+        f"/api/v1/incidents/{incident_id}",
+        headers=_headers(owner_bearer_headers, "incident-identity-partial-save"),
+        json={
+            "field_notes": "Fictional notes revised without touching identity.",
+            "base_revision_number": 1,
+        },
+    )
+
+    assert created.status_code == 201
+    assert saved.status_code == 200
+    assert saved.json["data"]["incident_number"] == "2026-08-077"
+    assert saved.json["data"]["incident_name"] == "Fictional Sticky Identity"

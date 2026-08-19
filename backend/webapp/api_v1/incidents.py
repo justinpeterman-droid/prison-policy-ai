@@ -41,14 +41,17 @@ from backend.webapp.api_v1.schemas.reporting import SaveIncidentRequest
 
 
 incidents_bp = Blueprint("incidents_api", __name__)
-CREATE_FIELDS = {"reporting_staff_ids", "field_notes", "incident_number", "incident_name"}
-REQUIRED_CREATE_FIELDS = {"reporting_staff_ids", "field_notes"}
-#: Postgres names the partial unique index that guards the unit-log number.
-INCIDENT_NUMBER_INDEX = "uq_incidents_incident_number"
+CREATE_REQUIRED_FIELDS = {"reporting_staff_ids", "field_notes"}
+CREATE_FIELDS = {
+    *CREATE_REQUIRED_FIELDS,
+    "incident_number",
+    "incident_name",
+}
 SAVE_FIELDS = {
-    "schema_version", "field_notes", "incident_number", "incident_name", "incident_date", "incident_time", "facility",
-    "shift", "location", "category", "classification", "extracted_facts",
-    "gap_answers", "charges", "validation", "warnings", "base_revision_number", "reason",
+    "schema_version", "incident_number", "incident_name", "field_notes",
+    "incident_date", "incident_time", "facility", "shift", "location", "category",
+    "classification", "extracted_facts", "gap_answers", "charges", "validation",
+    "warnings", "base_revision_number", "reason",
 }
 
 
@@ -92,6 +95,8 @@ def _timestamp(value) -> str | None:
 def _view_data(view: IncidentView) -> dict[str, object]:
     row = view.incident
     content = view.content or {
+        "incident_number": row.incident_number,
+        "incident_name": row.incident_name,
         "field_notes": row.field_notes,
         "incident_date": row.incident_date,
         "incident_time": row.incident_time,
@@ -109,12 +114,12 @@ def _view_data(view: IncidentView) -> dict[str, object]:
     incident_time = content.get("incident_time")
     return {
         "incident_id": str(row.id),
+        "incident_number": content.get("incident_number"),
+        "incident_name": content.get("incident_name"),
         "status": view.status or row.status,
         "current_revision_number": view.revision_number or row.current_revision_number,
         "reporting_staff_ids": [str(value) for value in view.reporting_staff_ids],
         "field_notes": content.get("field_notes", ""),
-        "incident_number": content.get("incident_number"),
-        "incident_name": content.get("incident_name"),
         "incident_date": (
             incident_date.isoformat()
             if hasattr(incident_date, "isoformat") else incident_date
@@ -152,6 +157,11 @@ def _revision_data(row) -> dict[str, object]:
     return {**_revision_summary(row), **incident_revision_content(row)}
 
 
+def _constraint_name(error: IntegrityError) -> str | None:
+    diagnostic = getattr(getattr(error, "orig", None), "diag", None)
+    return getattr(diagnostic, "constraint_name", None)
+
+
 def _handle_write(operation):
     db = current_request_session()
     try:
@@ -173,18 +183,22 @@ def _handle_write(operation):
     except (IncidentNotFound, IncidentRevisionNotFound):
         db.rollback()
         raise ApiError("not_found", "Incident not found.", status=404) from None
-    except (ValidationError, ValueError) as error:
+    except (ValidationError, ValueError):
         db.rollback()
         raise ApiError("validation_failed", "The incident request is invalid.", status=400) from None
     except IntegrityError as error:
         db.rollback()
-        if INCIDENT_NUMBER_INDEX in str(getattr(error, "orig", error)):
+        if _constraint_name(error) == "uq_incidents_incident_number":
             raise ApiError(
                 "incident_number_conflict",
                 "This incident number is already in use.",
                 status=409,
             ) from None
-        raise ApiError("revision_conflict", "The incident changed; reload and try again.", status=409) from None
+        raise ApiError(
+            "revision_conflict",
+            "The incident changed; reload and try again.",
+            status=409,
+        ) from None
     except OperationalError as error:
         db.rollback()
         sqlstate = getattr(getattr(error, "orig", None), "sqlstate", None)
@@ -209,11 +223,13 @@ def _handle_write(operation):
 @require_compatible_write
 def create_route():
     payload = _body(allowed=CREATE_FIELDS)
-    if not REQUIRED_CREATE_FIELDS <= set(payload):
-        raise ApiError("validation_failed", "The request body is invalid.", status=400)
+    if not CREATE_REQUIRED_FIELDS <= set(payload):
+        raise ApiError("validation_failed", "The incident request is invalid.", status=400)
     try:
         model = SaveIncidentRequest.model_validate({
-            key: value for key, value in payload.items() if key != "reporting_staff_ids"
+            key: value
+            for key, value in payload.items()
+            if key != "reporting_staff_ids"
         })
     except ValidationError:
         raise ApiError("validation_failed", "The incident request is invalid.", status=400) from None

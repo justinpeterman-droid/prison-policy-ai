@@ -42,11 +42,13 @@ def _clean_label(value: str | None) -> str | None:
 
 
 def normalize_incident_name(value: str | None) -> str | None:
-    """Collapse whitespace runs and trim, so one incident has one label."""
+    """Collapse display-name whitespace and enforce the storage boundary."""
     cleaned = _clean_label(value)
-    if cleaned is None:
-        return None
-    return cleaned[:INCIDENT_NAME_MAX_LENGTH].rstrip() or None
+    if cleaned is not None and len(cleaned) > INCIDENT_NAME_MAX_LENGTH:
+        raise ValueError(
+            f"incident name must be {INCIDENT_NAME_MAX_LENGTH} characters or fewer"
+        )
+    return cleaned
 
 
 def carry_forward_identity(incident, payload: dict) -> dict:
