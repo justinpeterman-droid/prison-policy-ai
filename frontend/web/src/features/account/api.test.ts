@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { changePin, parseAccountSessions, revokeAccountSession } from "./api";
 
-const request = vi.fn(async () => ({}));
+const request = vi.fn(async (_path: string, _init?: RequestInit) => ({}));
 vi.mock("../../api/client", () => ({
-  webApiRequest: (...args: unknown[]) => request(...args),
+  webApiRequest: (path: string, init?: RequestInit) => request(path, init),
 }));
 
 vi.mock("./route-manifest", () => ({
