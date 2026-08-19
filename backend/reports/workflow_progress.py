@@ -55,23 +55,22 @@ def calculate_workflow_progress(
         return _result("printed_or_exported")
     if has_active_generation_job:
         return _result("generating_reports")
-    if blocking_validation_count > 0:
+
+    blocking_count = (
+        max(0, blocking_validation_count)
+        + max(0, missing_physical_acknowledgment_count)
+    )
+    if blocking_count > 0:
         return _result(
             "needs_information",
-            blocking_count=blocking_validation_count,
+            blocking_count=blocking_count,
         )
     if generated_report_count > 0:
         if not reports_reviewed:
             return _result("ready_to_review")
-        if (
-            required_digital_forms_complete
-            and missing_physical_acknowledgment_count <= 0
-        ):
+        if required_digital_forms_complete:
             return _result("ready_to_print")
-        return _result(
-            "awaiting_paperwork",
-            blocking_count=missing_physical_acknowledgment_count,
-        )
+        return _result("awaiting_paperwork")
     if facts_reviewed:
         return _result("ready_to_generate")
     if has_field_notes:

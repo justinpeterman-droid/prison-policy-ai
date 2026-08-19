@@ -65,7 +65,7 @@ def test_progress_marks_complete_packet_ready_to_print():
     ).code == "ready_to_print"
 
 
-def test_progress_waits_for_required_physical_paperwork():
+def test_progress_treats_required_physical_paperwork_as_blocking_information():
     result = progress(
         facts_reviewed=True,
         generated_report_count=2,
@@ -75,8 +75,8 @@ def test_progress_waits_for_required_physical_paperwork():
         has_field_notes=True,
     )
     assert result == WorkflowProgress(
-        code="awaiting_paperwork",
-        label="Awaiting paperwork",
+        code="needs_information",
+        label="Needs information",
         blocking_count=1,
     )
 
@@ -111,8 +111,18 @@ def test_progress_never_runs_backwards_once_reports_exist():
         for missing in (0, 2)
         for notes in (True, False)
     }
-    assert reached <= {"ready_to_review", "awaiting_paperwork", "ready_to_print"}
+    assert reached <= {
+        "ready_to_review", "awaiting_paperwork", "ready_to_print", "needs_information",
+    }
     assert "not_started" not in reached and "field_notes_started" not in reached
+
+
+def test_progress_combines_validation_and_physical_blockers():
+    result = progress(
+        blocking_validation_count=2,
+        missing_physical_acknowledgment_count=3,
+    )
+    assert result.blocking_count == 5
 
 
 def test_progress_distinguishes_started_and_not_started():
