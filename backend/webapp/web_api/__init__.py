@@ -84,6 +84,7 @@ def handle_unexpected_browser_error(error):
 
 from backend.webapp.web_api.account import account_bp  # noqa: E402
 from backend.webapp.web_api.admin_auth import admin_auth_bp  # noqa: E402
+from backend.webapp.web_api.admin_incidents import admin_incidents_bp  # noqa: E402
 from backend.webapp.web_api.admin_overview import admin_overview_bp  # noqa: E402
 from backend.webapp.web_api.auth import auth_bp  # noqa: E402
 from backend.webapp.web_api.forms import forms_bp  # noqa: E402
@@ -101,6 +102,7 @@ web_api_bp.register_blueprint(auth_bp, url_prefix="/auth")
 web_api_bp.register_blueprint(account_bp, url_prefix="/account")
 web_api_bp.register_blueprint(admin_auth_bp, url_prefix="/admin")
 web_api_bp.register_blueprint(admin_overview_bp, url_prefix="/admin")
+web_api_bp.register_blueprint(admin_incidents_bp, url_prefix="/admin")
 web_api_bp.register_blueprint(home_bp)
 web_api_bp.register_blueprint(incidents_bp, url_prefix="/incidents")
 web_api_bp.register_blueprint(incident_records_bp)
