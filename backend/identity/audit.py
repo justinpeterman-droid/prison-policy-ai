@@ -72,6 +72,16 @@ AUDIT_ACTION_FIELDS = {
         "incident_revision_number",
         "packet_item_id",
     },
+    # Operational paperwork. Content remains only in immutable paperwork
+    # revisions; audit rows carry identifiers, kinds, revision numbers, safe
+    # field paths, and output actions.
+    "paperwork.created": {"record_id", "kind", "revision_number"},
+    "paperwork.saved": {
+        "record_id", "kind", "revision_number", "changed_fields", "reason"},
+    "paperwork.restored": {
+        "record_id", "kind", "revision_number", "source_revision_number"},
+    "paperwork.action_recorded": {
+        "record_id", "kind", "revision_number", "paperwork_action"},
     "ai.job_submitted": {"job_id", "job_type", "incident_id"},
     "ai.job_succeeded": {"job_id", "job_type", "latency_ms"},
     "ai.job_failed": {"job_id", "job_type", "result_code"},
@@ -87,9 +97,12 @@ AUDIT_ACTION_FIELDS = {
 #: Detail fields that carry *names* of fields or filters. Bounded by pattern so
 #: a caller cannot smuggle report text through a list that reads as metadata.
 AUDIT_NAME_LIST_FIELDS = frozenset({"changed_fields", "filters"})
-AUDIT_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+AUDIT_NAME_PATTERN = re.compile(
+    r"^[a-z][a-z0-9_]{0,63}(?:\.[a-z][a-z0-9_]{0,63}){0,3}$"
+)
 AUDIT_SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 MAX_AUDIT_NAME_LIST = 100
+MAX_AUDIT_NAME_LENGTH = 128
 MAX_AUDIT_NUMBER = 1_000_000_000
 
 AUDIT_UUID_FIELDS = frozenset(
@@ -131,6 +144,12 @@ AUDIT_ENUM_FIELDS = {
     "document_action": frozenset({
         "preview", "print", "download_word", "download_pdf", "copy_text",
     }),
+    "kind": frozenset({
+        "count_sheet", "assignment_roster", "uniform_inspection",
+        "metal_detector_test", "perimeter_check", "random_search_log",
+        "detector_sign_out",
+    }),
+    "paperwork_action": frozenset({"preview", "print", "download_pdf"}),
 }
 AUDIT_CHANGED_FIELDS = {
     "incident.saved": frozenset({
@@ -167,6 +186,9 @@ AUDIT_CODE_VALUES = {
     }),
     ("report.saved", "reason"): frozenset({
         "autosave", "manual_save", "ai_result", "admin_edit",
+    }),
+    ("paperwork.saved", "reason"): frozenset({
+        "autosave", "manual_save", "recovery",
     }),
 }
 AUDIT_PURPOSES = frozenset({
@@ -215,7 +237,11 @@ def _validate_name_list(action: str, key: str, value: object) -> None:
     if not isinstance(value, list) or len(value) > MAX_AUDIT_NAME_LIST:
         raise ValueError("audit details are invalid")
     for name in value:
-        if not isinstance(name, str) or not AUDIT_NAME_PATTERN.fullmatch(name):
+        if (
+            not isinstance(name, str)
+            or len(name) > MAX_AUDIT_NAME_LENGTH
+            or not AUDIT_NAME_PATTERN.fullmatch(name)
+        ):
             raise ValueError("audit details are invalid")
     if len(set(value)) != len(value):
         raise ValueError("audit details are invalid")
