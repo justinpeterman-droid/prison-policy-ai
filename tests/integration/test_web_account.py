@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
@@ -99,16 +99,21 @@ def test_account_changes_pin_rotates_opaque_cookies_and_revokes_other_sessions(
     db_session,
     db_session_factory,
     fictional_staff_and_accounts,
-    fictional_owner_tokens,
-    identity_fixed_now,
     monkeypatch,
 ):
     account = fictional_staff_and_accounts.user
+    fixed_now = datetime.now(UTC)
+    current = issue_fictional_tokens(
+        db_session,
+        account=account,
+        device_id=CURRENT_DEVICE,
+        now=fixed_now,
+    )
     other = issue_fictional_tokens(
         db_session,
         account=account,
         device_id=OTHER_DEVICE,
-        now=identity_fixed_now + timedelta(minutes=1),
+        now=fixed_now + timedelta(minutes=1),
     )
     db_session.commit()
     _authenticate(
@@ -116,7 +121,7 @@ def test_account_changes_pin_rotates_opaque_cookies_and_revokes_other_sessions(
         api_client,
         db_session_factory,
         account,
-        fictional_owner_tokens,
+        current,
     )
 
     changed = api_client.post(
