@@ -1,0 +1,456 @@
+.officer-home-page {
+  display: grid;
+  gap: 20px;
+  padding: 0 0 28px;
+  color: var(--gow-ink, #10243d);
+}
+
+.officer-home-hero {
+  position: relative;
+  display: flex;
+  min-height: 180px;
+  overflow: hidden;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 30px 38px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.84) 45%, rgba(255, 255, 255, 0.08) 80%),
+    url("/static/web/operations-horizon.svg") center right / cover no-repeat,
+    #dbe8f1;
+  border: 1px solid rgba(165, 185, 201, 0.9);
+  border-radius: 24px 24px 0 0;
+  box-shadow: var(--gow-shadow-sm, 0 2px 5px rgba(16, 36, 61, 0.08));
+}
+
+.officer-home-hero p,
+.officer-home-hero h1 {
+  margin: 0;
+}
+
+.officer-home-hero h1 {
+  margin: 3px 0 6px;
+  color: var(--gow-navy-900, #0b2d50);
+  font-size: clamp(2rem, 4.2vw, 3.35rem);
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.officer-home-hero > div:first-child > p:first-child {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.officer-home-hero > div:first-child > span {
+  color: var(--gow-gold-700, #9b6610);
+  font-size: 0.8rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.officer-home-message {
+  margin-top: 12px !important;
+  color: #34495e;
+  font-size: 0.95rem;
+  font-weight: 550;
+}
+
+.officer-home-values {
+  align-self: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-shadow: 0 2px 7px rgba(0, 0, 0, 0.7);
+}
+
+.officer-home-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  padding: 0 10px;
+}
+
+.officer-home-action-card {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  gap: 9px;
+  padding: 20px;
+  overflow: hidden;
+  background: linear-gradient(150deg, #fff, #f4f8fb);
+  border: 1px solid var(--gow-border, #cbd7e1);
+  border-radius: 16px;
+  box-shadow: var(--gow-shadow-card, 0 10px 24px rgba(19, 53, 83, 0.08));
+  transition: transform 160ms var(--gow-ease, ease), box-shadow 180ms var(--gow-ease, ease);
+}
+
+.officer-home-action-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px rgba(19, 53, 83, 0.14);
+}
+
+.officer-home-action-number {
+  position: absolute;
+  top: 9px;
+  right: 12px;
+  color: rgba(18, 61, 102, 0.09);
+  font-size: 2.5rem;
+  font-weight: 900;
+  letter-spacing: -0.08em;
+}
+
+.officer-home-action-card h2 {
+  position: relative;
+  margin: 0;
+  color: var(--gow-navy-900, #0b2d50);
+  font-size: 1rem;
+}
+
+.officer-home-action-card p {
+  position: relative;
+  min-height: 58px;
+  margin: 0;
+  color: var(--gow-muted, #63758a);
+  font-size: 0.79rem;
+  line-height: 1.48;
+}
+
+.officer-home-action-link,
+.officer-home-continue-link,
+.officer-home-count-body a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 40px;
+  margin-top: auto;
+  padding: 0 15px;
+  color: #fff;
+  text-decoration: none;
+  background: linear-gradient(180deg, #176aa6, #0e4f83);
+  border: 1px solid #0b4675;
+  border-radius: 10px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 5px 12px rgba(13, 79, 131, 0.2);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.officer-home-action-link.primary,
+.officer-home-continue-link {
+  color: #fff;
+  background: linear-gradient(180deg, #e3b64f, #b97814);
+  border-color: #9b650e;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 -2px 0 rgba(103, 59, 1, 0.28) inset, 0 5px 12px rgba(132, 82, 9, 0.22);
+}
+
+.officer-home-state {
+  display: grid;
+  gap: 9px;
+  margin: 0 10px;
+  padding: 28px;
+  color: var(--gow-muted, #63758a);
+  text-align: center;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px dashed #b8c9d7;
+  border-radius: 15px;
+}
+
+.officer-home-state.error {
+  color: #7c2f2a;
+  background: #fff1ef;
+  border-style: solid;
+  border-color: #e1aaa5;
+}
+
+.officer-home-state button {
+  justify-self: center;
+  min-height: 40px;
+  padding: 0 15px;
+  color: #fff;
+  background: #0e568d;
+  border: 0;
+  border-radius: 9px;
+  font-weight: 800;
+}
+
+.officer-home-work-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(380px, 1.35fr) minmax(260px, 0.9fr);
+  gap: 16px;
+  padding: 0 10px;
+}
+
+.officer-home-panel {
+  min-width: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--gow-border, #cbd7e1);
+  border-radius: 16px;
+  box-shadow: var(--gow-shadow-card, 0 10px 24px rgba(19, 53, 83, 0.08));
+}
+
+.officer-home-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 17px;
+  border-bottom: 1px solid #dae3ea;
+  background: linear-gradient(180deg, #fff, #f6f9fb);
+}
+
+.officer-home-panel header p,
+.officer-home-panel header h2 {
+  margin: 0;
+}
+
+.officer-home-panel header p {
+  color: var(--gow-gold-700, #9b6610);
+  font-size: 0.63rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.officer-home-panel header h2 {
+  margin-top: 3px;
+  color: var(--gow-navy-900, #0b2d50);
+  font-size: 0.96rem;
+}
+
+.officer-home-panel header > a {
+  color: var(--gow-blue, #176aa6);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.officer-home-continue-card {
+  display: grid;
+  gap: 13px;
+  padding: 18px;
+}
+
+.officer-home-incident-identity {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.officer-home-incident-identity strong {
+  color: #075eae;
+  font-size: 0.93rem;
+}
+
+.officer-home-incident-identity span {
+  overflow: hidden;
+  color: var(--gow-ink, #10243d);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.officer-home-progress,
+.officer-home-count-state {
+  justify-self: start;
+  padding: 6px 9px;
+  color: #21623e;
+  background: #e5f5e9;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.officer-home-continue-card dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+.officer-home-continue-card dl > div {
+  display: grid;
+  gap: 3px;
+  padding: 9px;
+  background: #f1f5f8;
+  border: 1px solid #d7e0e7;
+  border-radius: 9px;
+}
+
+.officer-home-continue-card dt {
+  color: var(--gow-muted, #63758a);
+  font-size: 0.59rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.officer-home-continue-card dd {
+  margin: 0;
+  color: var(--gow-navy-900, #0b2d50);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.officer-home-incident-list,
+.officer-home-form-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.officer-home-incident-list li + li,
+.officer-home-form-list li + li {
+  border-top: 1px solid #e0e7ed;
+}
+
+.officer-home-incident-list a {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.4fr) auto auto auto;
+  gap: 11px;
+  align-items: center;
+  min-height: 62px;
+  padding: 10px 15px;
+  text-decoration: none;
+}
+
+.officer-home-incident-list time {
+  color: var(--gow-muted, #63758a);
+  font-size: 0.66rem;
+  white-space: nowrap;
+}
+
+.officer-home-form-list a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: center;
+  min-height: 58px;
+  padding: 10px 15px;
+  text-decoration: none;
+}
+
+.officer-home-form-list a > span:first-child {
+  overflow: hidden;
+  font-size: 0.79rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.officer-home-form-list small {
+  color: var(--gow-muted, #63758a);
+  font-size: 0.64rem;
+}
+
+.officer-home-form-list a > span:last-child {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  color: #176aa6;
+  font-size: 1.3rem;
+}
+
+.count-panel {
+  grid-column: 1 / -1;
+}
+
+.officer-home-count-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 15px;
+  align-items: center;
+  padding: 16px 18px;
+}
+
+.officer-home-count-body p {
+  margin: 0;
+  color: var(--gow-muted, #63758a);
+  font-size: 0.8rem;
+}
+
+.officer-home-count-state.new {
+  color: #805313;
+  background: #fff1d2;
+}
+
+.officer-home-empty {
+  display: grid;
+  gap: 5px;
+  min-height: 112px;
+  place-content: center;
+  padding: 22px;
+  color: var(--gow-muted, #63758a);
+  text-align: center;
+  font-size: 0.78rem;
+}
+
+.officer-home-empty strong {
+  color: var(--gow-navy-800, #123d66);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 1180px) {
+  .officer-home-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .officer-home-work-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .incidents-panel,
+  .count-panel {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .officer-home-hero {
+    min-height: 160px;
+    padding: 24px;
+  }
+
+  .officer-home-values {
+    display: none;
+  }
+
+  .officer-home-actions,
+  .officer-home-work-grid {
+    grid-template-columns: 1fr;
+    padding: 0;
+  }
+
+  .incidents-panel,
+  .count-panel {
+    grid-column: auto;
+  }
+
+  .officer-home-incident-list a,
+  .officer-home-count-body {
+    grid-template-columns: 1fr auto;
+  }
+
+  .officer-home-incident-list .officer-home-progress,
+  .officer-home-incident-list time {
+    grid-column: 1;
+  }
+
+  .officer-home-count-body p,
+  .officer-home-count-body a {
+    grid-column: 1 / -1;
+  }
+
+  .officer-home-continue-card dl {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .officer-home-action-card {
+    transition: none;
+  }
+}
