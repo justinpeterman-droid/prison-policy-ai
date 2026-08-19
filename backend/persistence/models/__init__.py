@@ -9,6 +9,7 @@ from backend.persistence.models.forms import (
     PhysicalPaperworkAcknowledgment,
 )
 from backend.persistence.models.identity import Account, StaffMember
+from backend.persistence.models.paperwork import PaperworkRecord, PaperworkRevision
 from backend.persistence.models.security import (
     AuditEvent,
     AuthRateLimit,
@@ -53,6 +54,8 @@ __all__ = [
     "IncidentPacketItem",
     "IncidentRevision",
     "IdempotencyRecord",
+    "PaperworkRecord",
+    "PaperworkRevision",
     "PhysicalPaperworkAcknowledgment",
     "Report",
     "ReportAccess",
