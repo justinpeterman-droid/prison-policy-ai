@@ -11,14 +11,17 @@ on:
       - "backend/webapp/web_api/**"
       - "frontend/web/**"
       - "migrations/versions/20260819_0009_operational_paperwork.py"
-      - "tests/unit/test_count_sheet_*"
-      - "tests/unit/test_forms_library_*"
-      - "tests/unit/test_ncu_count_*"
-      - "tests/unit/test_officer_home_*"
-      - "tests/unit/test_operational_paperwork_*"
-      - "tests/integration/test_forms_library_service.py"
+      - "openapi/web-v1.yaml"
+      - "tests/unit/test_account_web_routes.py"
+      - "tests/unit/test_count_sheet.py"
+      - "tests/unit/test_forms_library*.py"
+      - "tests/unit/test_officer_home*.py"
+      - "tests/unit/test_paperwork*.py"
+      - "tests/unit/test_policy_expert_web_routes.py"
+      - "tests/integration/test_forms_library*.py"
       - "tests/integration/test_officer_home_summary.py"
-      - "tests/integration/test_operational_paperwork_service.py"
+      - "tests/integration/test_paperwork*.py"
+      - "tests/contract/test_web_v1_openapi.py"
       - ".github/workflows/guided-operations-officer-utilities.yml"
   push:
     branches:
@@ -34,9 +37,9 @@ concurrency:
 
 jobs:
   backend:
-    name: Paperwork, Home, and Forms services
+    name: Paperwork, Home, Forms, Policy, and Account services
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17
@@ -69,21 +72,24 @@ jobs:
       - name: Run Officer Utilities unit contracts
         run: >-
           python -m pytest
-          tests/unit/test_operational_paperwork_contracts.py
-          tests/unit/test_operational_paperwork_model.py
-          tests/unit/test_operational_paperwork_migration.py
-          tests/unit/test_operational_paperwork_web_routes.py
-          tests/unit/test_ncu_count_engine.py
-          tests/unit/test_ncu_count_definition.py
-          tests/unit/test_count_sheet_web_routes.py
+          tests/unit/test_paperwork_models.py
+          tests/unit/test_paperwork_service.py
+          tests/unit/test_count_sheet.py
+          tests/unit/test_forms_library.py
           tests/unit/test_forms_library_web_routes.py
           tests/unit/test_officer_home_web_route.py
+          tests/unit/test_policy_expert_web_routes.py
+          tests/unit/test_account_web_routes.py
+          tests/contract/test_web_v1_openapi.py
           -q
       - name: Run Officer Utilities PostgreSQL integrations
         run: >-
           python -m pytest
-          tests/integration/test_operational_paperwork_service.py
+          tests/integration/test_paperwork_migration.py
+          tests/integration/test_paperwork_revisions.py
+          tests/integration/test_paperwork_api.py
           tests/integration/test_forms_library_service.py
+          tests/integration/test_forms_library_api.py
           tests/integration/test_officer_home_summary.py
           -q
       - name: Verify migration upgrade downgrade upgrade
@@ -95,7 +101,7 @@ jobs:
   frontend:
     name: Officer utility pages and production build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -112,9 +118,13 @@ jobs:
           src/features/dashboard/OfficerHomePage.test.tsx
           src/features/forms-library/api.test.ts
           src/features/forms-library/FormsLibraryPage.test.tsx
-          src/features/paperwork/counts.test.ts
-          src/features/paperwork/CountSheetGrid.test.tsx
-          src/features/paperwork/CountSheetPage.test.tsx
+          src/features/paperwork/count-sheet/calculations.test.ts
+          src/features/paperwork/count-sheet/CountSheetPage.test.tsx
+          src/features/policy/api.test.ts
+          src/features/policy/PolicyExpertPage.test.tsx
+          src/features/account/api.test.ts
+          src/features/account/ChangePinForm.test.tsx
+          src/features/account/AccountPage.test.tsx
           src/layout/OfficerWorkspaceLayout.test.tsx
       - name: Type-check frontend
         working-directory: frontend/web
