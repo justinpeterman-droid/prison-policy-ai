@@ -70,7 +70,26 @@ def test_form_instance_and_physical_acknowledgment_are_one_to_one():
     assert (
         "packet_item_id",
     ) in _unique_columns(PhysicalPaperworkAcknowledgment.__table__)
-    assert (
+
+
+def test_packet_items_support_global_and_per_officer_documents():
+    table = IncidentPacketItem.__table__
+    assert table.c.reporting_staff_member_id.nullable is True
+    indexes = {index.name: index for index in table.indexes}
+
+    global_index = indexes["uq_packet_items_global_template"]
+    assert global_index.unique is True
+    assert tuple(column.name for column in global_index.columns) == (
         "incident_id",
         "form_template_id",
-    ) in _unique_columns(IncidentPacketItem.__table__)
+    )
+    assert global_index.dialect_options["postgresql"]["where"] is not None
+
+    officer_index = indexes["uq_packet_items_officer_template"]
+    assert officer_index.unique is True
+    assert tuple(column.name for column in officer_index.columns) == (
+        "incident_id",
+        "form_template_id",
+        "reporting_staff_member_id",
+    )
+    assert officer_index.dialect_options["postgresql"]["where"] is not None
