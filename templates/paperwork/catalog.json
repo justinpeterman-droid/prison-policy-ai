@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "forms": [
+    {
+      "code": "form_005_409",
+      "name": "005/409 Incident Report",
+      "category": "incident_report",
+      "output_kind": "digital_document",
+      "revision_label": "005-template-v3",
+      "active": true,
+      "definition": {
+        "renderer": "docx_template",
+        "template_path": "templates/005_template_v3.docx",
+        "required_fields": [
+          "incident_number",
+          "incident_date",
+          "incident_time",
+          "location",
+          "reporting_officer",
+          "narrative"
+        ],
+        "review_fields": ["narrative"]
+      }
+    },
+    {
+      "code": "cover_letter",
+      "name": "Incident Cover Letter",
+      "category": "incident_report",
+      "output_kind": "digital_document",
+      "revision_label": "web-cover-letter-v1",
+      "active": true,
+      "definition": {
+        "renderer": "web_print",
+        "layout_code": "incident_cover_letter",
+        "required_fields": [
+          "incident_number",
+          "incident_date",
+          "category",
+          "reporting_officer"
+        ],
+        "review_fields": []
+      }
+    },
+    {
+      "code": "chain_of_custody_physical",
+      "name": "Chain of Custody Form",
+      "category": "evidence",
+      "output_kind": "physical_only",
+      "revision_label": "official carbon-copy form",
+      "active": true,
+      "definition": {
+        "obtain_from": "approved paperwork location",
+        "guidance_fields": [
+          "incident_number",
+          "incident_date",
+          "reporting_officer",
+          "evidence_description",
+          "recovery_location"
+        ]
+      }
+    },
+    {
+      "code": "medical_documentation_checklist",
+      "name": "Medical Documentation Checklist",
+      "category": "medical",
+      "output_kind": "digital_document",
+      "revision_label": "web-medical-checklist-v1",
+      "active": true,
+      "definition": {
+        "renderer": "web_print",
+        "layout_code": "medical_documentation_checklist",
+        "required_fields": [
+          "incident_number",
+          "incident_date",
+          "person_receiving_care"
+        ],
+        "review_fields": ["medical_treatment_summary"]
+      }
+    },
+    {
+      "code": "additional_officer_statement",
+      "name": "Additional Officer Statement",
+      "category": "incident_report",
+      "output_kind": "digital_document",
+      "revision_label": "web-officer-statement-v1",
+      "active": true,
+      "definition": {
+        "renderer": "web_print",
+        "layout_code": "additional_officer_statement",
+        "required_fields": [
+          "incident_number",
+          "incident_date",
+          "reporting_officer",
+          "narrative"
+        ],
+        "review_fields": ["narrative"]
+      }
+    }
+  ]
+}
