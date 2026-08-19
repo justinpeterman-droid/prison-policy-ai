@@ -30,7 +30,9 @@ def test_incident_packet_migration_upgrade_downgrade_and_reupgrade(db_engine):
     incident_columns = {item["name"] for item in inspector.get_columns("incidents")}
     assert {"incident_number", "incident_name"}.isdisjoint(incident_columns)
 
-    command.upgrade(config, "20260818_0007")
+    # The integration engine is session-scoped, so return it to the repository's
+    # full current schema rather than leaving later tests pinned to this revision.
+    command.upgrade(config, "head")
     inspector = inspect(db_engine)
     assert PACKET_TABLES <= set(inspector.get_table_names())
     incident_columns = {item["name"] for item in inspector.get_columns("incidents")}
