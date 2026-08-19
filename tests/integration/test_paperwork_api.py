@@ -42,6 +42,10 @@ def _save_body(*, value: int = 4, base_revision_number=None, reason="manual_save
     }
 
 
+def _assert_status(response, expected: int):
+    assert response.status_code == expected, response.get_json()
+
+
 def test_count_sheet_api_create_replay_save_history_restore_and_list(
     api_client,
     db_session,
@@ -50,8 +54,6 @@ def test_count_sheet_api_create_replay_save_history_restore_and_list(
     monkeypatch,
 ):
     accounts = fictional_staff_and_accounts
-    # Browser requests open an independent SQLAlchemy session. Persist the
-    # fictional actor first, matching every existing browser API integration.
     db_session.commit()
     authenticate_browser(monkeypatch, api_client, db_session_factory, accounts.user)
 
@@ -59,19 +61,19 @@ def test_count_sheet_api_create_replay_save_history_restore_and_list(
         "/api/web/v1/paperwork/count-sheets/structure",
         headers=browser_headers("request_count_structure"),
     )
-    assert structure.status_code == 200
+    _assert_status(structure, 200)
     assert structure.get_json()["data"]["columns"] == list(HOUSING_COLUMNS)
     assert structure.get_json()["data"]["areas"] == list(AREA_ROWS)
 
-    headers = browser_headers(
-        "request_count_create_0001",
-        idempotency_key="count-sheet-create-0001",
-    )
     created = api_client.post(
         "/api/web/v1/paperwork/count-sheets",
         json=_save_body(),
-        headers=headers,
+        headers=browser_headers(
+            "request_count_create_0001",
+            idempotency_key="count-sheet-create-0001",
+        ),
     )
+    _assert_status(created, 201)
     replayed = api_client.post(
         "/api/web/v1/paperwork/count-sheets",
         json=_save_body(),
@@ -80,9 +82,8 @@ def test_count_sheet_api_create_replay_save_history_restore_and_list(
             idempotency_key="count-sheet-create-0001",
         ),
     )
+    _assert_status(replayed, 201)
 
-    assert created.status_code == 201
-    assert replayed.status_code == 201
     record = created.get_json()["data"]
     assert replayed.get_json()["data"]["record_id"] == record["record_id"]
     assert record["kind"] == "count_sheet"
@@ -105,12 +106,10 @@ def test_count_sheet_api_create_replay_save_history_restore_and_list(
         "/api/web/v1/paperwork?kind=count_sheet",
         headers=browser_headers("request_count_list"),
     )
-    assert fetched.status_code == 200
+    _assert_status(fetched, 200)
+    _assert_status(listed, 200)
     assert fetched.get_json()["data"]["payload"] == record["payload"]
-    assert listed.status_code == 200
-    assert [item["record_id"] for item in listed.get_json()["data"]["items"]] == [
-        record_id
-    ]
+    assert [item["record_id"] for item in listed.get_json()["data"]["items"]] == [record_id]
 
     updated = api_client.patch(
         f"/api/web/v1/paperwork/count-sheets/{record_id}",
@@ -121,7 +120,7 @@ def test_count_sheet_api_create_replay_save_history_restore_and_list(
             if_match=1,
         ),
     )
-    assert updated.status_code == 200
+    _assert_status(updated, 200)
     assert updated.get_json()["data"]["current_revision_number"] == 2
     assert updated.get_json()["data"]["validation"]["difference"] == 0
 
@@ -134,22 +133,17 @@ def test_count_sheet_api_create_replay_save_history_restore_and_list(
             if_match=1,
         ),
     )
-    assert stale.status_code == 409
+    _assert_status(stale, 409)
     assert stale.get_json()["error"]["code"] == "revision_conflict"
-    assert stale.get_json()["error"]["details"] == {
-        "current_revision_number": 2
-    }
+    assert stale.get_json()["error"]["details"] == {"current_revision_number": 2}
     assert "local values" in stale.get_json()["error"]["message"].lower()
 
     revisions = api_client.get(
         f"/api/web/v1/paperwork/count-sheets/{record_id}/revisions",
         headers=browser_headers("request_count_revisions"),
     )
-    assert revisions.status_code == 200
-    assert [item["revision_number"] for item in revisions.get_json()["data"]["items"]] == [
-        1,
-        2,
-    ]
+    _assert_status(revisions, 200)
+    assert [item["revision_number"] for item in revisions.get_json()["data"]["items"]] == [1, 2]
     assert revisions.get_json()["data"]["items"][1]["changed_fields"] == [
         "payload.cells",
         "payload.operational",
@@ -163,7 +157,7 @@ def test_count_sheet_api_create_replay_save_history_restore_and_list(
             idempotency_key="count-sheet-restore-0004",
         ),
     )
-    assert restored.status_code == 200
+    _assert_status(restored, 200)
     assert restored.get_json()["data"]["current_revision_number"] == 3
     assert restored.get_json()["data"]["payload"]["cells"]["A/W Office"]["1"] == 4
 
@@ -190,7 +184,7 @@ def test_count_sheet_api_requires_session_csrf_and_authorized_relationship(
         "/api/web/v1/paperwork?kind=count_sheet",
         headers=browser_headers("request_count_unauthenticated"),
     )
-    assert unauthenticated.status_code == 401
+    _assert_status(unauthenticated, 401)
 
     authenticate_browser(monkeypatch, api_client, db_session_factory, accounts.user)
     headers = browser_headers(
@@ -203,7 +197,7 @@ def test_count_sheet_api_requires_session_csrf_and_authorized_relationship(
         json=_save_body(),
         headers=headers,
     )
-    assert csrf.status_code == 403
+    _assert_status(csrf, 403)
     assert csrf.get_json()["error"]["code"] == "csrf_validation_failed"
 
     created = api_client.post(
@@ -214,26 +208,22 @@ def test_count_sheet_api_requires_session_csrf_and_authorized_relationship(
             idempotency_key="count-sheet-access-0002",
         ),
     )
+    _assert_status(created, 201)
     record_id = created.get_json()["data"]["record_id"]
 
-    authenticate_browser(
-        monkeypatch,
-        api_client,
-        db_session_factory,
-        accounts.unrelated,
-    )
+    authenticate_browser(monkeypatch, api_client, db_session_factory, accounts.unrelated)
     concealed = api_client.get(
         f"/api/web/v1/paperwork/count-sheets/{record_id}",
         headers=browser_headers("request_count_unrelated"),
     )
-    assert concealed.status_code == 404
+    _assert_status(concealed, 404)
 
     authenticate_browser(monkeypatch, api_client, db_session_factory, accounts.admin)
     admin = api_client.get(
         f"/api/web/v1/paperwork/count-sheets/{record_id}",
         headers=browser_headers("request_count_admin"),
     )
-    assert admin.status_code == 200
+    _assert_status(admin, 200)
     assert admin.get_json()["data"]["record_id"] == record_id
 
 
@@ -255,6 +245,7 @@ def test_count_sheet_actions_are_closed_and_audited_without_payload_content(
             idempotency_key="count-sheet-action-create",
         ),
     )
+    _assert_status(created, 201)
     record_id = created.get_json()["data"]["record_id"]
 
     recorded = api_client.post(
@@ -282,8 +273,9 @@ def test_count_sheet_actions_are_closed_and_audited_without_payload_content(
         ),
     )
 
-    assert recorded.status_code == 200
-    assert replayed.status_code == 200
+    _assert_status(recorded, 200)
+    _assert_status(replayed, 200)
+    _assert_status(rejected, 400)
     assert replayed.get_json()["data"] == recorded.get_json()["data"]
     assert recorded.get_json()["data"] == {
         "recorded": True,
@@ -292,7 +284,6 @@ def test_count_sheet_actions_are_closed_and_audited_without_payload_content(
         "revision_number": 1,
         "action": "print",
     }
-    assert rejected.status_code == 400
 
     with db_session_factory() as session:
         events = list(session.scalars(
