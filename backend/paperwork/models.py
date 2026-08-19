@@ -49,6 +49,7 @@ class PaperworkRevisionPage:
 
 @dataclass(frozen=True)
 class PaperworkActionReceipt:
+    recorded: Literal[True]
     record_id: UUID
     kind: PaperworkKind
     revision_number: int
