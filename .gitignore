@@ -47,3 +47,10 @@ Thumbs.db
 
 # Policy-chat eval run output
 tests/eval/output/
+
+# Guided Operations web client — build output and deps, never committed.
+# `npm run build` writes the bundle into the Flask static tree; the Docker
+# web-build stage regenerates it, and tests/unit/test_web_app_routes.py asserts
+# the unbuilt state, so a stray local build must not become a tracked file.
+frontend/web/node_modules/
+backend/webapp/static/web/

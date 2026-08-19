@@ -1,5 +1,6 @@
 """Individual employee authentication for the Guided Operations browser client."""
 from datetime import UTC, datetime
+from hmac import compare_digest
 import re
 
 from flask import Blueprint, current_app, request
@@ -41,6 +42,16 @@ from backend.webapp.web_api.middleware import (
 auth_bp = Blueprint("web_auth", __name__)
 _PIN = re.compile(r"^[A-Za-z0-9]{4,8}$")
 _LOGIN_FIELDS = {"employee_number", "pin", "persistent"}
+
+# The identity credentials stay scoped to the API paths that consume them, so a
+# stray request to a legacy Jinja page never carries them. The CSRF value is the
+# exception: it is the readable half of a double-submit pair, so the client at
+# /workspace has to see it in document.cookie — and document.cookie only exposes
+# cookies whose Path is a prefix of the *page's* path, not the fetch target's.
+# Scoped to /api/web/v1 it is invisible to the SPA and every mutation 403s.
+CREDENTIAL_COOKIE_PATH = "/api/web/v1"
+RENEWAL_COOKIE_PATH = "/api/web/v1/auth"
+CSRF_COOKIE_PATH = "/"
 
 
 def _failure(code: str, message: str, status: int, *, retryable: bool = False):
@@ -100,7 +111,7 @@ def _write_session_cookies(response, cookies, device_id: str) -> None:
         httponly=True,
         secure=secure,
         samesite="Lax",
-        path="/api/web/v1",
+        path=CREDENTIAL_COOKIE_PATH,
     )
     response.set_cookie(
         RENEWAL_COOKIE,
@@ -109,7 +120,7 @@ def _write_session_cookies(response, cookies, device_id: str) -> None:
         httponly=True,
         secure=secure,
         samesite="Lax",
-        path="/api/web/v1/auth",
+        path=RENEWAL_COOKIE_PATH,
     )
     response.set_cookie(
         DEVICE_COOKIE,
@@ -118,7 +129,7 @@ def _write_session_cookies(response, cookies, device_id: str) -> None:
         httponly=True,
         secure=secure,
         samesite="Lax",
-        path="/api/web/v1/auth",
+        path=RENEWAL_COOKIE_PATH,
     )
     response.set_cookie(
         CSRF_COOKIE,
@@ -127,16 +138,16 @@ def _write_session_cookies(response, cookies, device_id: str) -> None:
         httponly=False,
         secure=secure,
         samesite="Lax",
-        path="/api/web/v1",
+        path=CSRF_COOKIE_PATH,
     )
 
 
 def _clear_session_cookies(response) -> None:
     for name, path, httponly in (
-        (ACCESS_COOKIE, "/api/web/v1", True),
-        (RENEWAL_COOKIE, "/api/web/v1/auth", True),
-        (DEVICE_COOKIE, "/api/web/v1/auth", True),
-        (CSRF_COOKIE, "/api/web/v1", False),
+        (ACCESS_COOKIE, CREDENTIAL_COOKIE_PATH, True),
+        (RENEWAL_COOKIE, RENEWAL_COOKIE_PATH, True),
+        (DEVICE_COOKIE, RENEWAL_COOKIE_PATH, True),
+        (CSRF_COOKIE, CSRF_COOKIE_PATH, False),
     ):
         response.delete_cookie(
             name,
@@ -236,7 +247,7 @@ def renew_route():
         validate_same_origin_request()
         header = request.headers.get("X-CSRF-Token", "")
         cookie = request.cookies.get(CSRF_COOKIE, "")
-        if not header or not cookie or header != cookie:
+        if not header or not cookie or not compare_digest(header, cookie):
             raise BrowserCsrfInvalid("CSRF confirmation is invalid.")
         renewal_token = request.cookies.get(RENEWAL_COOKIE, "")
         device_id = request.cookies.get(DEVICE_COOKIE, "")
