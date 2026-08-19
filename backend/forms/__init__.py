@@ -6,6 +6,13 @@ from backend.forms.catalog import (
     load_form_catalog,
     sync_form_catalog,
 )
+from backend.forms.output_events import (
+    DocumentActionNotAllowed,
+    allowed_form_actions,
+    allowed_report_actions,
+    validate_form_action,
+    validate_report_action,
+)
 from backend.forms.packets import (
     IncidentPacketItemView,
     PacketConfigurationError,
@@ -19,6 +26,13 @@ from backend.forms.packets import (
     mark_not_applicable,
     plan_incident_packet,
     remove_recommended_form,
+)
+from backend.forms.physical import (
+    PhysicalPaperworkAcknowledgmentView,
+    PhysicalPaperworkNotAllowed,
+    PhysicalPaperworkNotFound,
+    acknowledge_physical_paperwork,
+    clear_physical_acknowledgment,
 )
 from backend.forms.population import (
     FormCompleteness,
@@ -36,6 +50,7 @@ from backend.forms.population import (
 
 __all__ = [
     "CatalogConfigurationError",
+    "DocumentActionNotAllowed",
     "FormCompleteness",
     "FormInstanceView",
     "FormPopulationConfigurationError",
@@ -49,10 +64,17 @@ __all__ = [
     "PacketMutationNotAllowed",
     "PacketNotFound",
     "PacketRevisionConflict",
+    "PhysicalPaperworkAcknowledgmentView",
+    "PhysicalPaperworkNotAllowed",
+    "PhysicalPaperworkNotFound",
     "PlannedPacketItem",
+    "acknowledge_physical_paperwork",
     "add_additional_form",
+    "allowed_form_actions",
+    "allowed_report_actions",
     "build_incident_packet",
     "calculate_form_completeness",
+    "clear_physical_acknowledgment",
     "list_incident_packet",
     "load_form_catalog",
     "mark_not_applicable",
@@ -62,4 +84,6 @@ __all__ = [
     "render_form_preview",
     "resolve_form_fields",
     "sync_form_catalog",
+    "validate_form_action",
+    "validate_report_action",
 ]
