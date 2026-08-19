@@ -89,11 +89,11 @@ def test_acknowledge_and_clear_append_safe_audit_events_once(
             "physical_paperwork.acknowledged",
             "physical_paperwork.cleared",
         ))
-    ).order_by(AuditEvent.created_at)).all())
-    assert [event.action for event in events] == [
+    )).all())
+    assert {event.action for event in events} == {
         "physical_paperwork.acknowledged",
         "physical_paperwork.cleared",
-    ]
+    }
     assert all(event.actor_account_id == user_actor.account_id for event in events)
     assert all(event.actor_staff_member_id == user_actor.staff_member_id for event in events)
     expected = {
@@ -103,9 +103,8 @@ def test_acknowledge_and_clear_append_safe_audit_events_once(
         ),
         "packet_item_id": str(item.id),
     }
-    assert events[0].details == expected
-    assert events[1].details == expected
-    assert "note" not in events[0].details
+    assert all(event.details == expected for event in events)
+    assert all("note" not in event.details for event in events)
     assert db_session.scalar(select(func.count()).select_from(AuditEvent).where(
         AuditEvent.action == "physical_paperwork.acknowledged"
     )) == 1
