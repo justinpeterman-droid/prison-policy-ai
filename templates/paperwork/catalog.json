@@ -62,7 +62,7 @@
         "download_formats": ["print", "pdf"],
         "required_fields": ["incident_number", "incident_date", "reporting_officer", "medical_disposition"],
         "review_fields": [],
-        "optional_fields": ["injury_summary", "treatment_location"]
+        "optional_fields": ["location", "injury_summary", "treatment_location"]
       }
     },
     {
