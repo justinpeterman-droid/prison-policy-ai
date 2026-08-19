@@ -75,6 +75,24 @@ def test_row_out_of_housing_unit_and_operational_totals_reconcile():
     assert result.reconciled is True
 
 
+def test_serialized_time_values_are_validated_at_storage_and_api_boundaries():
+    payload = _blank_payload()
+    payload["count_started"] = "14:00:00"
+    payload["count_ended"] = "14:15:00"
+    payload["in_housing"]["1"] = 10
+    payload["operational"]["on_site"] = 10
+
+    result = calculate_count_totals(payload)
+
+    assert result.housing_total == 10
+    assert result.operational_total == 10
+    assert result.reconciled is True
+
+    payload["cells"]["A/W Office"]["1"] = "2"
+    with pytest.raises(ValidationError):
+        calculate_count_totals(payload)
+
+
 def test_reconciliation_difference_is_signed_and_never_balanced():
     payload = _blank_payload()
     payload["in_housing"]["1"] = 20
