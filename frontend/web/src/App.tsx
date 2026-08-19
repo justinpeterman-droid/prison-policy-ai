@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { SessionProfile } from "./features/auth/api";
 import "./guided-operations.css";
 
 type IconName =
@@ -27,6 +28,23 @@ type IconName =
 interface IconProps {
   name: IconName;
   className?: string;
+}
+
+interface AppProps {
+  profile: SessionProfile;
+}
+
+function profileInitials(displayName: string): string {
+  const parts = displayName.trim().split(/\s+/).filter(Boolean);
+  const initials = parts
+    .slice(-2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+  return initials || "U";
+}
+
+function formatShift(shift: string | null): string {
+  return shift ? `${shift} Shift` : "Shift not assigned";
 }
 
 function Icon({ name, className }: IconProps) {
@@ -170,7 +188,10 @@ function StatusBadge({ tone, children }: { tone?: string; children: ReactNode })
   return <span className={`gow-inline-status ${tone ?? ""}`.trim()}>{children}</span>;
 }
 
-export function App() {
+export function App({ profile }: AppProps) {
+  const initials = profileInitials(profile.displayName);
+  const shiftLabel = formatShift(profile.shift);
+
   return (
     <div className="gow-app">
       <aside className="gow-sidebar">
@@ -216,13 +237,14 @@ export function App() {
           <div className="gow-status-chip"><Icon name="cloud" /><span>Last synced 2 minutes ago</span></div>
           <div className="gow-status-chip"><Icon name="check" /><span>All changes saved</span></div>
           <div className="gow-notification" aria-label="2 notifications"><Icon name="bell" /><span className="gow-notification-badge">2</span></div>
-          <div className="gow-user-chip"><span className="gow-avatar">OP</span><span>Officer Peterman</span><Icon name="chevron" /></div>
+          <div className="gow-user-chip"><span className="gow-avatar">{initials}</span><span>{profile.displayName}</span><Icon name="chevron" /></div>
         </header>
 
         <section className="gow-hero" aria-labelledby="home-heading">
           <div className="gow-hero-copy">
             <p className="gow-greeting-small">Good afternoon,</p>
-            <h1 className="gow-greeting-name" id="home-heading">Officer Peterman</h1>
+            <h1 className="gow-greeting-name" id="home-heading">{profile.displayName}</h1>
+            <p className="gow-incident-meta">{shiftLabel}</p>
             <p className="gow-hero-message">Stay safe. Stay focused. You’re making a difference.</p>
           </div>
           <div className="gow-hero-values" aria-label="Professional values">
