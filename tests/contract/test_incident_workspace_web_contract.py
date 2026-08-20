@@ -34,13 +34,17 @@ REQUIRED_PATHS = {
     "/document-actions",
 }
 
+HTTP_METHODS = {"delete", "get", "head", "options", "patch", "post", "put", "trace"}
+
 
 def test_openapi_exposes_the_complete_cookie_authenticated_incident_workspace():
     document = yaml.safe_load(SPEC.read_text(encoding="utf-8"))
 
     assert REQUIRED_PATHS <= set(document["paths"])
     for path in REQUIRED_PATHS:
-        for operation in document["paths"][path].values():
+        for method, operation in document["paths"][path].items():
+            if method not in HTTP_METHODS:
+                continue
             assert isinstance(operation, dict)
             assert "operationId" in operation
 
