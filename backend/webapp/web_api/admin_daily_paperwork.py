@@ -42,6 +42,7 @@ from backend.paperwork.service import (
 )
 from backend.persistence.database import DatabaseUnavailable
 from backend.webapp.api_v1.errors import ApiError
+from backend.webapp.api_v1.pagination import InvalidCursor, decode_cursor, encode_cursor
 from backend.webapp.api_v1.responses import success
 from backend.webapp.web_api.common import (
     LOCK_CONFLICT_STATES,
@@ -96,6 +97,19 @@ def _require_elevation() -> None:
             "Administrator PIN confirmation is required.",
             status=403,
         ) from None
+
+
+def _cursor_key() -> str:
+    settings = current_app.config.get("IDENTITY_SETTINGS")
+    key = getattr(settings, "cursor_signing_key", None)
+    if not isinstance(key, str) or not key:
+        raise ApiError(
+            "dependency_unavailable",
+            "Daily paperwork pagination is temporarily unavailable.",
+            status=503,
+            retryable=True,
+        )
+    return key
 
 
 def _validation_fields(error: ValidationError) -> list[str]:
@@ -471,21 +485,25 @@ def save_daily_route(kind: str, record_id: UUID):
 @require_browser_session
 @require_browser_role("admin")
 def daily_revisions_route(kind: str, record_id: UUID):
-    if request.args:
+    if set(request.args) - {"cursor"}:
         raise ApiError("validation_failed", "The revision request is invalid.", status=400)
     _require_elevation()
     selected_kind = _kind(kind)
     try:
+        raw_cursor = request.args.get("cursor")
+        cursor = decode_cursor(raw_cursor, _cursor_key()) if raw_cursor else None
         _record_for_kind(selected_kind, record_id)
         page = list_paperwork_revisions(
-            current_browser_session(), current_browser_actor(), record_id, limit=100,
+            current_browser_session(), current_browser_actor(), record_id, limit=100, cursor=cursor,
         )
         return success({
             "items": [_revision_data(item) for item in page.items],
-            "next_cursor": None,
+            "next_cursor": encode_cursor(page.next_cursor, _cursor_key()) if page.next_cursor else None,
         })
     except PaperworkNotFound:
         raise ApiError("not_found", "Daily paperwork not found.", status=404) from None
+    except (InvalidCursor, ValueError):
+        raise ApiError("validation_failed", "Revision pagination is invalid.", status=400) from None
     except (DatabaseUnavailable, SQLAlchemyError, RuntimeError):
         raise ApiError(
             "dependency_unavailable", "Daily paperwork revisions are temporarily unavailable.", status=503, retryable=True,

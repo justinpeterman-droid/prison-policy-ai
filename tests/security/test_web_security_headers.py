@@ -12,6 +12,7 @@ def _client(tmp_path):
     web.mkdir(parents=True)
     (web / "index.html").write_text("<!doctype html><title>Workspace</title>")
     (web / "app-3f7ae12c.js").write_text("console.log('workspace')")
+    (web / "inter-variable-latin.woff2").write_bytes(b"fictional-font")
 
     app = Flask(__name__, static_folder=str(static))
     init_assets(app)
@@ -44,3 +45,9 @@ def test_vite_hashed_asset_is_immutable_but_spa_html_is_not(tmp_path):
 
     assert asset.headers["Cache-Control"] == "public, max-age=31536000, immutable"
     assert document.headers["Cache-Control"] == "no-store"
+
+
+def test_unversioned_hyphenated_asset_is_not_treated_as_a_vite_hash(tmp_path):
+    response = _client(tmp_path).get("/static/web/inter-variable-latin.woff2")
+
+    assert response.headers["Cache-Control"] == "public, max-age=3600"

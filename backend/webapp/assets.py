@@ -45,7 +45,11 @@ DEFAULT_STATIC_MAX_AGE = 3600  # 1 hour
 # Vite names production assets with a content hash (for example,
 # ``assets/index-3f7ae12c.js``). Unlike the legacy ``?v=`` convention, the
 # filename itself proves freshness, so it gets the same immutable policy.
-VITE_HASHED_ASSET = re.compile(r"(?:^|/)[^/]+-[A-Za-z0-9_-]{8,}\.[^/]+$")
+# Rollup's default Vite asset hash is an eight-character URL-safe token in the
+# final filename segment. Requiring exactly that final segment prevents an
+# ordinary hyphenated name such as ``inter-variable-latin.woff2`` from being
+# mistaken for content-addressed output.
+VITE_HASHED_ASSET = re.compile(r"(?:^|/)[^/]+-[A-Za-z0-9_-]{8}\.[^/.]+$")
 
 
 def _hash_file(path: Path) -> str:

@@ -183,9 +183,13 @@ describe("Daily Paperwork API", () => {
   });
 
   it("loads safe revision metadata and restores a selected revision", async () => {
-    request.mockResolvedValueOnce({ items: [{ revision_number: 2, reason: "manual_save", changed_fields: ["briefing_minutes"], editor_staff_member_id: "00000000-0000-4000-8000-000000000001", client_version: "0.1.0", created_at: "2026-08-20T14:00:00Z" }], next_cursor: null });
+    request
+      .mockResolvedValueOnce({ items: [{ revision_number: 1, reason: "autosave", changed_fields: ["roll_call_completed"], editor_staff_member_id: "00000000-0000-4000-8000-000000000001", client_version: "0.1.0", created_at: "2026-08-20T13:00:00Z" }], next_cursor: "signed cursor/+=" })
+      .mockResolvedValueOnce({ items: [{ revision_number: 2, reason: "manual_save", changed_fields: ["briefing_minutes"], editor_staff_member_id: "00000000-0000-4000-8000-000000000001", client_version: "0.1.0", created_at: "2026-08-20T14:00:00Z" }], next_cursor: null });
     const revisions = await fetchDailyRevisions("assignment_roster", "00000000-0000-4000-8000-000000000101");
-    expect(revisions[0]).toMatchObject({ revisionNumber: 2, changedFields: ["briefing_minutes"] });
+    expect(revisions).toHaveLength(2);
+    expect(revisions[1]).toMatchObject({ revisionNumber: 2, changedFields: ["briefing_minutes"] });
+    expect(request).toHaveBeenNthCalledWith(2, expect.stringMatching(/\?cursor=signed%20cursor%2F%2B%3D$/), undefined);
 
     request.mockResolvedValueOnce({ ...rawSummary(), payload: { schema_version: 1 }, template: { schema_version: 1, title: "Shift Assignment Roster", print_orientation: "landscape", definition: {} } });
     await restoreDailyRevision("assignment_roster", "00000000-0000-4000-8000-000000000101", 2);

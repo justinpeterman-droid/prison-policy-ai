@@ -157,6 +157,8 @@ jobs:
       - name: Run Officer Utilities browser workflows
         working-directory: frontend/web
         run: npm run test:e2e
+        env:
+          PLAYWRIGHT_SKIP_VISUAL_REGRESSION: "1"
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4

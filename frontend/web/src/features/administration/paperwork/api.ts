@@ -185,8 +185,18 @@ export async function fetchDailyTemplate(kind: DailyPaperworkKind): Promise<Dail
 }
 
 export async function fetchDailyRevisions(kind: DailyPaperworkKind, recordId: string): Promise<DailyRevision[]> {
-  const parsed = dailyRevisionPageSchema.parse(await webApiRequest<unknown>(`/admin/paperwork/daily/${kind}/${recordId}/revisions`));
-  return parsed.items.map((item) => ({ revisionNumber: item.revision_number, reason: item.reason, changedFields: item.changed_fields, editorStaffMemberId: item.editor_staff_member_id, clientVersion: item.client_version, createdAt: item.created_at }));
+  const revisions: DailyRevision[] = [];
+  let cursor: string | null = null;
+  do {
+    const suffix = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+    const parsed = dailyRevisionPageSchema.parse(
+      await webApiRequest<unknown>(`/admin/paperwork/daily/${kind}/${recordId}/revisions${suffix}`),
+    );
+    revisions.push(...parsed.items.map((item) => ({ revisionNumber: item.revision_number, reason: item.reason, changedFields: item.changed_fields, editorStaffMemberId: item.editor_staff_member_id, clientVersion: item.client_version, createdAt: item.created_at })));
+    if (parsed.next_cursor === cursor) throw new Error("Daily paperwork revision pagination did not advance.");
+    cursor = parsed.next_cursor;
+  } while (cursor);
+  return revisions;
 }
 
 export async function restoreDailyRevision(kind: DailyPaperworkKind, recordId: string, revisionNumber: number): Promise<DailyRecord> {

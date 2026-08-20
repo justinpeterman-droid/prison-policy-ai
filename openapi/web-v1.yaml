@@ -454,6 +454,11 @@ paths:
     - {$ref: '#/components/parameters/PaperworkRecordId'}
     get:
       operationId: listBrowserAdminDailyPaperworkRevisions
+      parameters:
+      - name: cursor
+        in: query
+        required: false
+        schema: {type: string, minLength: 1}
       responses:
         '200': {description: Daily paperwork revision history}
   /admin/paperwork/daily/{kind}/{record_id}/restore:

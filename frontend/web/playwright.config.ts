@@ -1,7 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const visualRegressionFile = /visual-regression\.spec\.ts/;
+const skipPlatformSpecificSnapshots = process.env.PLAYWRIGHT_SKIP_VISUAL_REGRESSION === "1";
+
 export default defineConfig({
   testDir: "./tests/e2e",
+  // Visual baselines are intentionally captured on the supported Windows
+  // workstation platform. Linux CI still runs every behavioral browser test;
+  // the dedicated Windows job below the officer-utilities gate owns pixels.
+  testIgnore: skipPlatformSpecificSnapshots ? visualRegressionFile : undefined,
   timeout: 30_000,
   expect: { timeout: 8_000 },
   fullyParallel: false,

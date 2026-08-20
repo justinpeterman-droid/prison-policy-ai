@@ -52,7 +52,7 @@ export const dailyRevisionPageSchema = z.object({
     client_version: z.string().nullable(),
     created_at: z.iso.datetime(),
   }).strict()).max(100),
-  next_cursor: z.null(),
+  next_cursor: z.string().min(1).nullable(),
 }).strict();
 
 const fullRecordBase = dailyRecordSummarySchema.extend({

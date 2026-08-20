@@ -103,3 +103,5 @@ jobs:
       - name: Run browser workflows
         working-directory: frontend/web
         run: npm run test:e2e
+        env:
+          PLAYWRIGHT_SKIP_VISUAL_REGRESSION: "1"
