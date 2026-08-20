@@ -390,6 +390,7 @@ def list_paperwork_records(
     actor,
     *,
     kind: PaperworkKind | str | None = None,
+    exclude_kind: PaperworkKind | str | None = None,
     work_date: date | None = None,
     shift: str | None = None,
     limit: int = 25,
@@ -404,6 +405,8 @@ def list_paperwork_records(
         )
     if kind is not None:
         statement = statement.where(PaperworkRecord.kind == _kind(kind).value)
+    if exclude_kind is not None:
+        statement = statement.where(PaperworkRecord.kind != _kind(exclude_kind).value)
     if work_date is not None:
         statement = statement.where(PaperworkRecord.work_date == work_date)
     if shift is not None:

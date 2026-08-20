@@ -1,5 +1,5 @@
-from datetime import UTC, datetime
-from uuid import UUID
+from datetime import UTC, datetime, timedelta
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
 
@@ -128,6 +128,62 @@ def test_daily_paperwork_requires_admin_elevation(
     )
     assert locked.status_code == 403
     assert locked.get_json()["error"]["code"] == "admin_elevation_required"
+
+
+def test_daily_paperwork_list_excludes_count_sheets_before_page_limit(
+    api_client,
+    db_session,
+    db_session_factory,
+    fictional_admin_account,
+    monkeypatch,
+):
+    _authenticate_admin(
+        monkeypatch,
+        api_client,
+        db_session,
+        db_session_factory,
+        fictional_admin_account,
+    )
+    _elevate(api_client)
+    created = api_client.post(
+        "/api/web/v1/admin/paperwork/daily/assignment_roster",
+        json=_save_body(),
+        headers=browser_headers(
+            "request-daily-page-limit-create",
+            idempotency_key="daily-page-limit-create",
+        ),
+    )
+    assert created.status_code == 201, created.get_json()
+    daily_record_id = created.get_json()["data"]["record_id"]
+
+    fixed = datetime.now(UTC) + timedelta(minutes=1)
+    with db_session_factory() as session:
+        for index in range(50):
+            session.add(PaperworkRecord(
+                id=uuid4(),
+                kind="count_sheet",
+                work_date=datetime(2026, 8, 20, tzinfo=UTC).date(),
+                shift="D",
+                current_revision_number=1,
+                current_payload={},
+                created_by_account_id=fictional_admin_account.id,
+                created_by_staff_member_id=fictional_admin_account.staff_member_id,
+                last_editor_account_id=fictional_admin_account.id,
+                last_editor_staff_member_id=fictional_admin_account.staff_member_id,
+                created_at=fixed + timedelta(seconds=index),
+                updated_at=fixed + timedelta(seconds=index),
+            ))
+        session.commit()
+
+    listed = api_client.get(
+        "/api/web/v1/admin/paperwork/daily?work_date=2026-08-20&shift=D",
+        headers=browser_headers("request-daily-page-limit-list"),
+    )
+
+    assert listed.status_code == 200, listed.get_json()
+    items = listed.get_json()["data"]["items"]
+    assert [item["record_id"] for item in items] == [daily_record_id]
+    assert all(item["kind"] != "count_sheet" for item in items)
 
 
 def test_daily_roster_create_save_reopen_revision_copy_derive_and_print_audit(

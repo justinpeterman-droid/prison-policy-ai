@@ -97,7 +97,7 @@ export function PaperworkCenterPage() {
       </section>
       {tab === "daily" ? <section className="paperwork-filters" aria-label="Daily paperwork search">
         <label>Work date<input aria-label="Work date" type="date" value={workDate} onChange={(event) => update({ work_date: event.target.value })} /></label>
-        <label>Shift<select aria-label="Shift" value={shift} onChange={(event) => update({ shift: event.target.value })}><option value="D">Day (D)</option><option value="N">Night (N)</option><option value="A">A</option><option value="B">B</option><option value="C">C</option></select></label>
+        <label>Shift<select aria-label="Shift" value={shift} onChange={(event) => update({ shift: event.target.value })}><option value="A">A — Day</option><option value="B">B — Day</option><option value="C">C — Night</option><option value="D">D — Night</option><option value="U">U — Utility</option><option value="F">F — Field</option></select></label>
       </section> : null}
       {tab === "daily" ? <DailyPaperworkTab workDate={workDate} shift={shift} records={records} loading={loading} error={error} /> : null}
       {tab === "weekly" ? <WeeklyPaperworkTab /> : null}

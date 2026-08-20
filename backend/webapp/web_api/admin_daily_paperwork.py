@@ -389,15 +389,12 @@ def list_daily_route():
             current_browser_session(),
             current_browser_actor(),
             kind=selected_kind.value if selected_kind else None,
+            exclude_kind=PaperworkKind.COUNT_SHEET,
             work_date=selected_date,
             shift=selected_shift,
             limit=50,
         )
-        items = [
-            daily_record_data(item, include_payload=False)
-            for item in page.items
-            if item.kind is not PaperworkKind.COUNT_SHEET
-        ]
+        items = [daily_record_data(item, include_payload=False) for item in page.items]
         return success({"items": items, "next_cursor": None})
     except (ValidationError, ValueError):
         raise ApiError("validation_failed", "The daily paperwork request is invalid.", status=400) from None

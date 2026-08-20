@@ -50,6 +50,14 @@ describe("Administrator Paperwork Center", () => {
     expect(screen.getByRole("tab", { name: "Daily" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Work date")).toHaveValue("2026-08-20");
     expect(screen.getByLabelText("Shift")).toHaveValue("D");
+    expect(within(screen.getByLabelText("Shift")).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "A — Day",
+      "B — Day",
+      "C — Night",
+      "D — Night",
+      "U — Utility",
+      "F — Field",
+    ]);
     await waitFor(() => expect(paperworkApi.fetchDailyPaperwork).toHaveBeenCalledWith("2026-08-20", "D"));
 
     const cards = screen.getByTestId("daily-record-grid");
@@ -82,9 +90,9 @@ describe("Administrator Paperwork Center", () => {
     await waitFor(() => expect(paperworkApi.fetchDailyPaperwork).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByLabelText("Work date"), { target: { value: "2026-08-21" } });
-    fireEvent.change(screen.getByLabelText("Shift"), { target: { value: "N" } });
+    fireEvent.change(screen.getByLabelText("Shift"), { target: { value: "U" } });
 
-    await waitFor(() => expect(paperworkApi.fetchDailyPaperwork).toHaveBeenLastCalledWith("2026-08-21", "N"));
+    await waitFor(() => expect(paperworkApi.fetchDailyPaperwork).toHaveBeenLastCalledWith("2026-08-21", "U"));
   });
 
   it("opens the fillable assignment roster workspace from a start URL", async () => {
