@@ -35,11 +35,12 @@ test("admin can move from all incidents into an attributed employee workspace", 
   await page.getByRole("link", { name: "All Incidents" }).click();
 
   await expect(page.getByRole("heading", { name: "All Incidents" })).toBeVisible();
-  await expect(page.getByText("2026-08-029")).toBeVisible();
-  await expect(page.getByText("Ready to review")).toBeVisible();
-  await expect(page.getByText("in progress")).toBeVisible();
+  const incidentRow = page.getByRole("link", { name: /2026-08-029 Fictional Training Incident/ });
+  await expect(incidentRow).toBeVisible();
+  await expect(incidentRow.getByText("Ready to review")).toBeVisible();
+  await expect(incidentRow.getByText("in progress")).toBeVisible();
 
-  await page.getByText("2026-08-029").click();
+  await incidentRow.click();
   await expect(page.getByRole("note", { name: "Administrator attribution notice" })).toContainText("every saved change");
 });
 
@@ -49,7 +50,7 @@ test("accounts audit and health remain distinct operational surfaces", async ({ 
 
   await nav.getByRole("link", { name: "Accounts & Staff" }).click();
   await expect(page.getByRole("heading", { name: "Accounts & Staff" })).toBeVisible();
-  await expect(page.getByText("Officer Casey Morgan")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Officer Casey Morgan" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Linked Account" })).toBeVisible();
 
   await nav.getByRole("link", { name: "Audit Log" }).click();
