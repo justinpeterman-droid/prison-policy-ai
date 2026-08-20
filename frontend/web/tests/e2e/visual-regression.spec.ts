@@ -2,6 +2,13 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { installAdminApi } from "./support/admin-mock-api";
 import { installOfficerApi, type OfficerApiState } from "./support/mock-api";
 
+test.beforeEach(() => {
+  test.skip(
+    process.platform !== "win32",
+    "The committed visual baselines target Chromium on Windows; CI verifies them on windows-latest.",
+  );
+});
+
 const HOME_VIEWPORTS = [
   { name: "1536x1024", width: 1536, height: 1024 },
   { name: "1366x768", width: 1366, height: 768 },
