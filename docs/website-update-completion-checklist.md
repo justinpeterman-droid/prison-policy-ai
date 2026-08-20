@@ -23,16 +23,16 @@ This checklist tracks the remaining work required to complete the Guided Operati
 
 ## 2. Documentation and Local Setup
 
-- [ ] Review PR #105.
-- [ ] Verify the documented PostgreSQL 17 requirement.
-- [ ] Verify the fictional local officer seeding instructions.
-- [ ] Clearly document which tests run with each command.
-- [ ] Correct the duplicated `lint` and `typecheck` documentation.
-- [ ] Document the Vertex Application Default Credentials requirement.
-- [ ] Document the behavior of an empty `ACCESS_CODE`.
-- [ ] Document `LEGACY_REPORT_MODE`.
-- [ ] Decide whether to create a real staff-provisioning command under `scripts/`.
-- [ ] Merge the corrected documentation into `main`.
+- [x] Review PR #105.
+- [x] Verify the documented PostgreSQL 17 requirement.
+- [x] Verify the fictional local officer seeding instructions.
+- [x] Clearly document which tests run with each command.
+- [x] Correct the duplicated `lint` and `typecheck` documentation.
+- [x] Document the Vertex Application Default Credentials requirement.
+- [x] Document the behavior of an empty `ACCESS_CODE`.
+- [x] Document `LEGACY_REPORT_MODE`.
+- [x] Decide whether to create a real staff-provisioning command under `scripts/`.
+- [x] Merge the corrected documentation into `main`.
 
 ## 3. Daily Paperwork Center
 
@@ -286,5 +286,5 @@ This checklist tracks the remaining work required to complete the Guided Operati
 - [ ] Fix the PR #104 Audit Log narrative-text failure.
 - [ ] Make all PR #104 component and browser tests green.
 - [ ] Merge PR #104.
-- [ ] Review and merge PR #105.
+- [x] Review and merge PR #105.
 - [ ] Start the Daily Paperwork Center milestone.
