@@ -4,6 +4,7 @@ import { createDailyRecord, fetchDailyTemplate, recordDailyAction, saveDailyReco
 import { StaffPicker } from "../roster/StaffPicker";
 import { DailyEditorHeader } from "../shared/DailyEditorHeader";
 import type { EditorSaveState } from "../shared/SaveState";
+import { useDailyAutosave } from "../shared/useDailyAutosave";
 import { createEmptyPerimeterPayload, parsePerimeterDefinition, parsePerimeterPayload, type PerimeterDefinition, type PerimeterPayload, type PerimeterResult } from "./model";
 import { PerimeterCheckPrint } from "./PerimeterCheckPrint";
 import "./perimeter.css";
@@ -38,6 +39,8 @@ export function PerimeterCheckEditor({ workDate, shift, record, onRecordChange, 
     return () => { active = false; };
   }, [definition, shift, workDate]);
 
+  useDailyAutosave({ enabled: Boolean(record), dirty: saveState === "unsaved", onSave: () => { void save("autosave"); } });
+
   if (!definition || !payload) return <div className="admin-loading-panel" aria-busy="true">Loading approved perimeter checks…</div>;
 
   const unchecked = payload.checks.filter((check) => check.result === null).length;
@@ -55,12 +58,12 @@ export function PerimeterCheckEditor({ workDate, shift, record, onRecordChange, 
     setSaveState("unsaved");
   }
 
-  async function save() {
+  async function save(reason: "manual_save" | "autosave" = "manual_save") {
     const submission = payload;
     if (!submission) return;
     setSaveState("saving"); setError(null);
     try {
-      const saved = record ? await saveDailyRecord({ kind: "perimeter_check", recordId: record.recordId, workDate, shift, revision: record.revision, payload: submission, reason: "manual_save" }) : await createDailyRecord({ kind: "perimeter_check", workDate, shift, payload: submission });
+      const saved = record ? await saveDailyRecord({ kind: "perimeter_check", recordId: record.recordId, workDate, shift, revision: record.revision, payload: submission, reason }) : await createDailyRecord({ kind: "perimeter_check", workDate, shift, payload: submission });
       setPayload(parsePerimeterPayload(saved.payload, definition!));
       setSaveState("saved"); onRecordChange(saved);
     } catch (reason) { setSaveState("failed"); setError(reason instanceof Error ? reason.message : "The perimeter check could not be saved."); }

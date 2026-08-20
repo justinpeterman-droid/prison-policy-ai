@@ -11,6 +11,7 @@ import {
 import { StaffPicker } from "../roster/StaffPicker";
 import { DailyEditorHeader } from "../shared/DailyEditorHeader";
 import type { EditorSaveState } from "../shared/SaveState";
+import { useDailyAutosave } from "../shared/useDailyAutosave";
 import {
   createEmptyUniformPayload,
   missingUniformComment,
@@ -71,7 +72,7 @@ export function UniformInspectionEditor({ workDate, shift, record, onRecordChang
     }
   }
 
-  async function save() {
+  async function save(reason: "manual_save" | "autosave" = "manual_save") {
     const missing = missingUniformComment(payload);
     if (missing) {
       setSaveState("failed");
@@ -82,7 +83,7 @@ export function UniformInspectionEditor({ workDate, shift, record, onRecordChang
     setSaveState("saving");
     try {
       const saved = record
-        ? await saveDailyRecord({ kind: "uniform_inspection", recordId: record.recordId, workDate, shift, revision: record.revision, payload, reason: "manual_save" })
+        ? await saveDailyRecord({ kind: "uniform_inspection", recordId: record.recordId, workDate, shift, revision: record.revision, payload, reason })
         : await createDailyRecord({ kind: "uniform_inspection", workDate, shift, payload });
       setPayload(parseUniformPayload(saved.payload));
       setSaveState("saved");
@@ -93,6 +94,8 @@ export function UniformInspectionEditor({ workDate, shift, record, onRecordChang
       setError(reason instanceof Error ? reason.message : "The Uniform Inspection could not be saved.");
     }
   }
+
+  useDailyAutosave({ enabled: Boolean(record), dirty: saveState === "unsaved", onSave: () => { void save("autosave"); } });
 
   async function preview() {
     if (record) await recordDailyAction("uniform_inspection", record.recordId, "preview");

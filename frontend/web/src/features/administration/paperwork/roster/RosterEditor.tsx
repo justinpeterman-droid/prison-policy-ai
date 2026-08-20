@@ -9,6 +9,7 @@ import {
 } from "../api";
 import { DailyEditorHeader } from "../shared/DailyEditorHeader";
 import type { EditorSaveState } from "../shared/SaveState";
+import { useDailyAutosave } from "../shared/useDailyAutosave";
 import { AssignmentRosterPrint } from "./AssignmentRosterPrint";
 import {
   createEmptyRosterPayload,
@@ -121,7 +122,7 @@ export function RosterEditor({ workDate, shift, record, onRecordChange, searchSt
     };
   }
 
-  async function save() {
+  async function save(reason: "manual_save" | "autosave" = "manual_save") {
     setError(null);
     setSaveState("saving");
     try {
@@ -134,7 +135,7 @@ export function RosterEditor({ workDate, shift, record, onRecordChange, searchSt
           shift,
           revision: record.revision,
           payload: nextPayload,
-          reason: "manual_save",
+          reason,
         })
         : await createDailyRecord({ kind: "assignment_roster", workDate, shift, payload: nextPayload });
       const savedPayload = parseRosterPayload(saved.payload);
@@ -149,6 +150,8 @@ export function RosterEditor({ workDate, shift, record, onRecordChange, searchSt
       setError(reason instanceof Error ? reason.message : "The roster could not be saved.");
     }
   }
+
+  useDailyAutosave({ enabled: Boolean(record), dirty: saveState === "unsaved", onSave: () => { void save("autosave"); } });
 
   async function copyPrevious() {
     setError(null);

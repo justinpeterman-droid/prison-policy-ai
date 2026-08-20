@@ -98,6 +98,19 @@ describe("Uniform Inspection editor", () => {
     expect(onRecordChange).toHaveBeenCalledWith(saved);
   });
 
+  it("autosaves a change to an existing inspection after the operator pauses entry", async () => {
+    const user = userEvent.setup();
+    const saved = record({ ...payload(), inspector: AVERY });
+    vi.mocked(paperworkApi.saveDailyRecord).mockResolvedValue(saved);
+    renderEditor(record());
+
+    await user.selectOptions(screen.getByLabelText("Officer Avery Cole Shirt"), "S");
+    await waitFor(() => expect(paperworkApi.saveDailyRecord).toHaveBeenCalledWith(expect.objectContaining({
+      reason: "autosave",
+      recordId: "00000000-0000-4000-8000-000000000501",
+    })), { timeout: 2_500 });
+  });
+
   it("imports unique staff from the saved assignment roster", async () => {
     const user = userEvent.setup();
     const derived = record();

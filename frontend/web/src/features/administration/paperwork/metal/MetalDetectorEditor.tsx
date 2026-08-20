@@ -4,6 +4,7 @@ import { createDailyRecord, recordDailyAction, saveDailyRecord, type DailyRecord
 import { StaffPicker } from "../roster/StaffPicker";
 import { DailyEditorHeader } from "../shared/DailyEditorHeader";
 import type { EditorSaveState } from "../shared/SaveState";
+import { useDailyAutosave } from "../shared/useDailyAutosave";
 import { MetalDetectorPrint } from "./MetalDetectorPrint";
 import { createEmptyMetalPayload, detectorMissingCorrectiveAction, DETECTOR_CODES, DETECTOR_POSITIONS, parseMetalPayload, type DetectorResult, type MetalPayload } from "./model";
 import "./metal.css";
@@ -47,7 +48,7 @@ export function MetalDetectorEditor({ workDate, shift, record, onRecordChange, s
     document.getElementById(`metal-cell-${nextDetector}-${nextPosition}`)?.focus();
   }
 
-  async function save() {
+  async function save(reason: "manual_save" | "autosave" = "manual_save") {
     const missing = detectorMissingCorrectiveAction(payload);
     if (missing) {
       setSaveState("failed");
@@ -58,7 +59,7 @@ export function MetalDetectorEditor({ workDate, shift, record, onRecordChange, s
     setError(null);
     setSaveState("saving");
     try {
-      const saved = record ? await saveDailyRecord({ kind: "metal_detector_test", recordId: record.recordId, workDate, shift, revision: record.revision, payload, reason: "manual_save" }) : await createDailyRecord({ kind: "metal_detector_test", workDate, shift, payload });
+      const saved = record ? await saveDailyRecord({ kind: "metal_detector_test", recordId: record.recordId, workDate, shift, revision: record.revision, payload, reason }) : await createDailyRecord({ kind: "metal_detector_test", workDate, shift, payload });
       setPayload(parseMetalPayload(saved.payload));
       setSaveState("saved");
       onRecordChange(saved);
@@ -67,6 +68,8 @@ export function MetalDetectorEditor({ workDate, shift, record, onRecordChange, s
       setError(reason instanceof Error ? reason.message : "The detector test could not be saved.");
     }
   }
+
+  useDailyAutosave({ enabled: Boolean(record), dirty: saveState === "unsaved", onSave: () => { void save("autosave"); } });
 
   async function preview() { if (record) await recordDailyAction("metal_detector_test", record.recordId, "preview"); setPreviewOpen(true); }
   async function print() { if (record) await recordDailyAction("metal_detector_test", record.recordId, "print"); window.print(); }
