@@ -22,6 +22,7 @@ PAPERWORK_PATHS = {
 DAILY_PAPERWORK_PATHS = {
     "/admin/paperwork/daily",
     "/admin/paperwork/daily/{kind}",
+    "/admin/paperwork/daily/{kind}/template",
     "/admin/paperwork/daily/{kind}/copy-previous",
     "/admin/paperwork/daily/{kind}/{record_id}",
     "/admin/paperwork/daily/{kind}/{record_id}/revisions",

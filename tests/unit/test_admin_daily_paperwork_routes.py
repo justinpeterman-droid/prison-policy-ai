@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from backend.paperwork.daily_templates import load_daily_template
 from backend.paperwork.models import PaperworkKind, PaperworkView
-from backend.webapp.web_api.admin_daily_paperwork import daily_record_data
+from backend.webapp.web_api.admin_daily_paperwork import daily_record_data, daily_template_data
 
 
 def _roster_payload():
@@ -94,3 +94,12 @@ def test_daily_record_summary_omits_payload_and_template_definition():
     assert "template" not in summary
     assert summary["warning_count"] == len(summary["validation"]["coverage_warnings"])
 
+
+def test_daily_template_response_exposes_only_the_sanitized_versioned_definition():
+    data = daily_template_data("perimeter_check")
+
+    assert set(data) == {"kind", "schema_version", "title", "print_orientation", "definition"}
+    assert data["kind"] == "perimeter_check"
+    assert data["schema_version"] == 1
+    assert len(data["definition"]["groups"]) == 3
+    assert "payload" not in data

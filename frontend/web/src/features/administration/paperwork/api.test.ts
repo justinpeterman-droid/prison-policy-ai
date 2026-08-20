@@ -4,6 +4,7 @@ import {
   createDailyRecord,
   deriveUniformInspection,
   fetchDailyPaperwork,
+  fetchDailyTemplate,
   parseDailyRecord,
 } from "./api";
 
@@ -156,5 +157,14 @@ describe("Daily Paperwork API", () => {
         body: JSON.stringify({ target_work_date: "2026-08-20", shift: "D" }),
       }),
     );
+  });
+
+  it("loads the sanitized template for an unstarted daily editor", async () => {
+    request.mockResolvedValue({ kind: "perimeter_check", schema_version: 1, title: "Perimeter Check List", print_orientation: "portrait", definition: { groups: [] } });
+
+    const template = await fetchDailyTemplate("perimeter_check");
+
+    expect(request).toHaveBeenCalledWith("/admin/paperwork/daily/perimeter_check/template", undefined);
+    expect(template).toMatchObject({ kind: "perimeter_check", schemaVersion: 1, printOrientation: "portrait" });
   });
 });

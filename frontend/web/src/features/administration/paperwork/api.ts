@@ -2,6 +2,7 @@ import { webApiRequest } from "../../../api/client";
 import {
   dailyRecordPageSchema,
   dailyRecordSchema,
+  dailyTemplateResponseSchema,
   dailyPaperworkKindSchema,
 } from "./schemas";
 import type { z } from "zod";
@@ -36,6 +37,14 @@ export interface DailyRecord extends DailyRecordSummary {
 export interface DailyRecordPage {
   items: DailyRecordSummary[];
   nextCursor: null;
+}
+
+export interface DailyTemplate {
+  kind: DailyPaperworkKind;
+  schemaVersion: 1;
+  title: string;
+  printOrientation: "portrait" | "landscape";
+  definition: Record<string, unknown>;
 }
 
 function summary(value: z.infer<typeof dailyRecordPageSchema>["items"][number]): DailyRecordSummary {
@@ -95,6 +104,20 @@ export async function fetchDailyRecord(
   return parseDailyRecord(
     await webApiRequest<unknown>(`/admin/paperwork/daily/${kind}/${recordId}`),
   );
+}
+
+export async function fetchDailyTemplate(kind: DailyPaperworkKind): Promise<DailyTemplate> {
+  const parsed = dailyTemplateResponseSchema.parse(
+    await webApiRequest<unknown>(`/admin/paperwork/daily/${kind}/template`),
+  );
+  if (parsed.kind !== kind) throw new Error("The daily paperwork template kind did not match the requested editor.");
+  return {
+    kind: parsed.kind,
+    schemaVersion: parsed.schema_version,
+    title: parsed.title,
+    printOrientation: parsed.print_orientation,
+    definition: parsed.definition,
+  };
 }
 
 function idempotencyKey(): string {

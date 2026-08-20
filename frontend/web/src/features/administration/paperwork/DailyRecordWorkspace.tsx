@@ -4,6 +4,8 @@ import type { DailyPaperworkKind, DailyRecord } from "./api";
 import { fetchDailyRecord } from "./api";
 import { DAILY_CARD_DEFINITIONS } from "./DailyPaperworkTab";
 import { RosterEditor } from "./roster/RosterEditor";
+import { MetalDetectorEditor } from "./metal/MetalDetectorEditor";
+import { PerimeterCheckEditor } from "./perimeter/PerimeterCheckEditor";
 import { DailyEditorHeader } from "./shared/DailyEditorHeader";
 import { UniformInspectionEditor } from "./uniform/UniformInspectionEditor";
 
@@ -56,6 +58,22 @@ export function DailyRecordWorkspace({ kind, recordId, workDate, shift }: DailyR
     return (
       <div className="admin-page daily-editor-page">
         <UniformInspectionEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
+      </div>
+    );
+  }
+
+  if (kind === "metal_detector_test" && (!recordId || record)) {
+    return (
+      <div className="admin-page daily-editor-page">
+        <MetalDetectorEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
+      </div>
+    );
+  }
+
+  if (kind === "perimeter_check" && (!recordId || record)) {
+    return (
+      <div className="admin-page daily-editor-page">
+        <PerimeterCheckEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
       </div>
     );
   }

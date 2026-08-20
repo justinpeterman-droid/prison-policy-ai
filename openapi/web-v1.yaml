@@ -372,6 +372,13 @@ paths:
             schema: {$ref: '#/components/schemas/SaveDailyPaperworkRequest'}
       responses:
         '201': {description: Daily paperwork created}
+  /admin/paperwork/daily/{kind}/template:
+    parameters:
+    - {$ref: '#/components/parameters/DailyPaperworkKind'}
+    get:
+      operationId: getBrowserAdminDailyPaperworkTemplate
+      responses:
+        '200': {description: Sanitized immutable daily paperwork template definition}
   /admin/paperwork/daily/{kind}/copy-previous:
     parameters:
     - {$ref: '#/components/parameters/DailyPaperworkKind'}

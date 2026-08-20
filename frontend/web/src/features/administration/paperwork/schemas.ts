@@ -32,11 +32,15 @@ export const dailyRecordPageSchema = z.object({
   next_cursor: z.null(),
 }).strict();
 
-const templateSchema = z.object({
+export const templateSchema = z.object({
   schema_version: z.literal(1),
   title: z.string().min(1).max(200),
   print_orientation: z.enum(["portrait", "landscape"]),
   definition: z.record(z.string(), z.unknown()),
+}).strict();
+
+export const dailyTemplateResponseSchema = templateSchema.extend({
+  kind: dailyPaperworkKindSchema,
 }).strict();
 
 const fullRecordBase = dailyRecordSummarySchema.extend({

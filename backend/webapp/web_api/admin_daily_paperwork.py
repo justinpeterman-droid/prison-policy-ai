@@ -223,6 +223,19 @@ def daily_record_data(
     return data
 
 
+def daily_template_data(kind: DailyPaperworkKind | str) -> dict[str, object]:
+    """Serialize one immutable sanitized definition for an editor start state."""
+    selected_kind = kind if isinstance(kind, DailyPaperworkKind) else DailyPaperworkKind(kind)
+    definition = load_daily_template(selected_kind)
+    return {
+        "kind": selected_kind.value,
+        "schema_version": definition.schema_version,
+        "title": definition.title,
+        "print_orientation": definition.print_orientation,
+        "definition": definition.definition,
+    }
+
+
 def _revision_data(row) -> dict[str, object]:
     return {
         "revision_number": row.revision_number,
@@ -401,6 +414,16 @@ def create_daily_route(kind: str):
         client_version=version,
         audit_writer=current_app.config["AUDIT_WRITER"],
     )), created=True)
+
+
+@admin_daily_paperwork_bp.get("/paperwork/daily/<kind>/template")
+@require_browser_session
+@require_browser_role("admin")
+def get_daily_template_route(kind: str):
+    if request.args:
+        raise ApiError("validation_failed", "The daily template request is invalid.", status=400)
+    _require_elevation()
+    return success(daily_template_data(_kind(kind)))
 
 
 @admin_daily_paperwork_bp.get("/paperwork/daily/<kind>/<uuid:record_id>")
