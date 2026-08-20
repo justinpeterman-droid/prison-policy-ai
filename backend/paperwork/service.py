@@ -1,5 +1,5 @@
 """Revisioned, idempotent operational-paperwork persistence services."""
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 import json
 from uuid import UUID, uuid4
 
@@ -43,6 +43,14 @@ class PaperworkRevisionConflict(ValueError):
     def __init__(self, current_revision_number: int):
         self.current_revision_number = current_revision_number
         super().__init__("The paperwork changed; reload before saving.")
+
+
+class PaperworkAlreadyExists(ValueError):
+    """A date/shift record already exists and should be reopened."""
+
+    def __init__(self, record_id: UUID):
+        self.record_id = record_id
+        super().__init__("Paperwork already exists for this date and shift.")
 
 
 def _kind(value: PaperworkKind | str) -> PaperworkKind:
@@ -280,6 +288,83 @@ def save_paperwork_record(
     )
     session.flush()
     return _view(record)
+
+
+def copy_previous_daily_record(
+    session: Session,
+    actor,
+    *,
+    kind: PaperworkKind | str,
+    target_work_date: date,
+    shift: str,
+    idempotency_key: str,
+    request_id: str,
+    client_version: str,
+    source_record_id: UUID | None = None,
+    now: datetime | None = None,
+    audit_writer: AuditWriter | None = None,
+) -> PaperworkView:
+    """Create a reset roster from the latest earlier record for the shift."""
+    from backend.paperwork.daily import prepare_copied_roster_payload
+
+    selected_kind = _kind(kind)
+    if selected_kind is not PaperworkKind.ASSIGNMENT_ROSTER:
+        raise ValueError("copy previous is supported only for assignment rosters")
+    if actor.role != "admin":
+        raise PaperworkNotFound("Paperwork record not found.")
+
+    normalized_shift = " ".join(shift.split())
+    if not normalized_shift or len(normalized_shift) > 32:
+        raise ValueError("shift is invalid")
+
+    existing = session.scalar(select(PaperworkRecord).where(
+        PaperworkRecord.kind == selected_kind.value,
+        PaperworkRecord.work_date == target_work_date,
+        PaperworkRecord.shift == normalized_shift,
+    ))
+    if existing is not None:
+        raise PaperworkAlreadyExists(existing.id)
+
+    source_statement = select(PaperworkRecord).where(
+        PaperworkRecord.kind == selected_kind.value,
+        PaperworkRecord.work_date < target_work_date,
+        PaperworkRecord.shift == normalized_shift,
+    )
+    if source_record_id is not None:
+        source_statement = source_statement.where(PaperworkRecord.id == source_record_id)
+    source = session.scalar(source_statement.order_by(
+        PaperworkRecord.work_date.desc(),
+        PaperworkRecord.updated_at.desc(),
+        PaperworkRecord.id.desc(),
+    ))
+    if source is None:
+        raise PaperworkNotFound("No earlier assignment roster was found.")
+
+    copied = prepare_copied_roster_payload(
+        dict(source.current_payload or {}),
+        target_work_date=target_work_date,
+        shift=normalized_shift,
+    )
+    request_model = SavePaperworkRequest(
+        schema_version=1,
+        work_date=target_work_date,
+        shift=normalized_shift,
+        payload=copied.model_dump(mode="json"),
+        base_revision_number=None,
+        reason="manual_save",
+    )
+    return save_paperwork_record(
+        session,
+        actor,
+        kind=selected_kind,
+        request_model=request_model,
+        idempotency_key=idempotency_key,
+        request_id=request_id,
+        client_version=client_version,
+        record_id=None,
+        now=now,
+        audit_writer=audit_writer,
+    )
 
 
 def list_paperwork_records(
