@@ -17,6 +17,7 @@ test("command center keeps operations readable and action-oriented at 1366x768",
   await page.setViewportSize({ width: 1366, height: 768 });
   await enterAdmin(page);
 
+  await expect(page.getByRole("heading", { name: /Good evening, Captain Blake/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Operational Command Center" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Today’s Paperwork" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Incidents Needing Attention" })).toBeVisible();
@@ -31,7 +32,7 @@ test("command center keeps operations readable and action-oriented at 1366x768",
   await page.screenshot({ path: "admin-overview-1366x768.png", fullPage: true });
 });
 
-test("admin can move from all incidents into an attributed employee workspace", async ({ page }) => {
+test("admin can move from all incidents into attributed controls and Document Studio", async ({ page }) => {
   await enterAdmin(page);
   await page.getByRole("link", { name: "All Incidents" }).click();
 
@@ -43,6 +44,10 @@ test("admin can move from all incidents into an attributed employee workspace", 
 
   await incidentRow.click();
   await expect(page.getByRole("note", { name: "Administrator attribution notice" })).toContainText("every saved change");
+  await expect(page.getByLabel("Administrator incident controls")).toBeVisible();
+  await expect(page.getByLabel("Records status")).toHaveValue("in_progress");
+  await expect(page.getByText("Revision 4")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Fictional Training Incident" }).last()).toBeVisible();
 });
 
 test("accounts audit and health remain distinct operational surfaces", async ({ page }) => {
@@ -53,6 +58,8 @@ test("accounts audit and health remain distinct operational surfaces", async ({ 
   await expect(page.getByRole("heading", { name: "Accounts & Staff" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Officer Casey Morgan" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Linked Account" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Active Sessions" })).toBeVisible();
+  await expect(page.getByText("Training laptop")).toBeVisible();
   await page.screenshot({ path: "admin-accounts-staff-1366x768.png", fullPage: true });
 
   await nav.getByRole("link", { name: "Audit Log" }).click();
