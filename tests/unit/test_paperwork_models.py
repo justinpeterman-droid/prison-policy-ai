@@ -91,6 +91,20 @@ def test_paperwork_record_indexes_support_kind_owner_and_recent_queries():
     )
     assert indexes["ix_paperwork_records_updated"] == ("updated_at", "id")
 
+    daily_unique = next(
+        index
+        for index in PaperworkRecord.__table__.indexes
+        if index.name == "uq_paperwork_records_daily_date_shift"
+    )
+    assert daily_unique.unique is True
+    assert tuple(column.name for column in daily_unique.columns) == (
+        "kind",
+        "work_date",
+        "shift",
+    )
+    predicate = str(daily_unique.dialect_options["postgresql"]["where"])
+    assert "count_sheet" in predicate
+
 
 def test_paperwork_revision_table_contract():
     table = PaperworkRevision.__table__

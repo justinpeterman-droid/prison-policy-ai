@@ -61,6 +61,14 @@ class PaperworkRecord(Base):
             "updated_at",
             "id",
         ),
+        Index(
+            "uq_paperwork_records_daily_date_shift",
+            "kind",
+            "work_date",
+            "shift",
+            unique=True,
+            postgresql_where=text("kind <> 'count_sheet'"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

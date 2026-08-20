@@ -372,6 +372,8 @@ def list_paperwork_records(
     actor,
     *,
     kind: PaperworkKind | str | None = None,
+    work_date: date | None = None,
+    shift: str | None = None,
     limit: int = 25,
     cursor: dict[str, str] | None = None,
 ) -> PaperworkPage:
@@ -384,6 +386,13 @@ def list_paperwork_records(
         )
     if kind is not None:
         statement = statement.where(PaperworkRecord.kind == _kind(kind).value)
+    if work_date is not None:
+        statement = statement.where(PaperworkRecord.work_date == work_date)
+    if shift is not None:
+        normalized_shift = " ".join(shift.split())
+        if not normalized_shift or len(normalized_shift) > 32:
+            raise ValueError("paperwork shift is invalid")
+        statement = statement.where(PaperworkRecord.shift == normalized_shift)
     if cursor:
         try:
             cursor_time = datetime.fromisoformat(

@@ -342,6 +342,111 @@ paths:
       operationId: getBrowserAdminOverview
       responses:
         '200': {description: Bounded operational command center summary}
+  /admin/paperwork/daily:
+    get:
+      operationId: listBrowserAdminDailyPaperwork
+      parameters:
+      - name: work_date
+        in: query
+        required: false
+        schema: {type: string, format: date}
+      - name: shift
+        in: query
+        required: false
+        schema: {type: string, minLength: 1, maxLength: 32}
+      - name: kind
+        in: query
+        required: false
+        schema: {$ref: '#/components/schemas/DailyPaperworkKind'}
+      responses:
+        '200': {description: Safe daily paperwork summaries}
+  /admin/paperwork/daily/{kind}:
+    parameters:
+    - {$ref: '#/components/parameters/DailyPaperworkKind'}
+    post:
+      operationId: createBrowserAdminDailyPaperwork
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SaveDailyPaperworkRequest'}
+      responses:
+        '201': {description: Daily paperwork created}
+  /admin/paperwork/daily/{kind}/copy-previous:
+    parameters:
+    - {$ref: '#/components/parameters/DailyPaperworkKind'}
+    post:
+      operationId: copyPreviousBrowserAdminDailyPaperwork
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CopyPreviousDailyRequest'}
+      responses:
+        '201': {description: Previous assignment roster copied with completion data reset}
+  /admin/paperwork/daily/{kind}/{record_id}:
+    parameters:
+    - {$ref: '#/components/parameters/DailyPaperworkKind'}
+    - {$ref: '#/components/parameters/PaperworkRecordId'}
+    get:
+      operationId: getBrowserAdminDailyPaperwork
+      responses:
+        '200': {description: Authorized daily paperwork record}
+    patch:
+      operationId: saveBrowserAdminDailyPaperwork
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SaveDailyPaperworkRequest'}
+      responses:
+        '200': {description: Daily paperwork revision saved}
+  /admin/paperwork/daily/{kind}/{record_id}/revisions:
+    parameters:
+    - {$ref: '#/components/parameters/DailyPaperworkKind'}
+    - {$ref: '#/components/parameters/PaperworkRecordId'}
+    get:
+      operationId: listBrowserAdminDailyPaperworkRevisions
+      responses:
+        '200': {description: Daily paperwork revision history}
+  /admin/paperwork/daily/{kind}/{record_id}/restore:
+    parameters:
+    - {$ref: '#/components/parameters/DailyPaperworkKind'}
+    - {$ref: '#/components/parameters/PaperworkRecordId'}
+    post:
+      operationId: restoreBrowserAdminDailyPaperwork
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PaperworkRestoreRequest'}
+      responses:
+        '200': {description: Historical daily paperwork restored as a new revision}
+  /admin/paperwork/daily/{kind}/{record_id}/actions:
+    parameters:
+    - {$ref: '#/components/parameters/DailyPaperworkKind'}
+    - {$ref: '#/components/parameters/PaperworkRecordId'}
+    post:
+      operationId: recordBrowserAdminDailyPaperworkAction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PaperworkActionRequest'}
+      responses:
+        '200': {description: Daily paperwork output action recorded}
+  /admin/paperwork/daily/assignment-roster/{record_id}/uniform-inspection:
+    parameters:
+    - {$ref: '#/components/parameters/PaperworkRecordId'}
+    post:
+      operationId: deriveBrowserAdminUniformInspection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DeriveUniformInspectionRequest'}
+      responses:
+        '201': {description: Uniform inspection created from assignment roster staff}
   /admin/incidents:
     get:
       operationId: listBrowserAdminIncidents
@@ -495,6 +600,11 @@ components:
       in: path
       required: true
       schema: {type: string, format: uuid}
+    DailyPaperworkKind:
+      name: kind
+      in: path
+      required: true
+      schema: {$ref: '#/components/schemas/DailyPaperworkKind'}
     StaffId:
       name: staff_id
       in: path
@@ -598,3 +708,38 @@ components:
       required: [action]
       properties:
         action: {type: string, enum: [preview, print, download_pdf]}
+    DailyPaperworkKind:
+      type: string
+      enum:
+      - assignment_roster
+      - uniform_inspection
+      - metal_detector_test
+      - perimeter_check
+      - random_search_log
+      - detector_sign_out
+    SaveDailyPaperworkRequest:
+      type: object
+      additionalProperties: false
+      required: [schema_version, work_date, shift, payload, base_revision_number, reason]
+      properties:
+        schema_version: {type: integer, const: 1}
+        work_date: {type: string, format: date}
+        shift: {type: string, minLength: 1, maxLength: 32}
+        payload: {type: object}
+        base_revision_number: {type: [integer, 'null'], minimum: 1}
+        reason: {type: string, enum: [autosave, manual_save, recovery]}
+    CopyPreviousDailyRequest:
+      type: object
+      additionalProperties: false
+      required: [target_work_date, shift]
+      properties:
+        target_work_date: {type: string, format: date}
+        shift: {type: string, minLength: 1, maxLength: 32}
+        source_record_id: {type: string, format: uuid}
+    DeriveUniformInspectionRequest:
+      type: object
+      additionalProperties: false
+      required: [target_work_date, shift]
+      properties:
+        target_work_date: {type: string, format: date}
+        shift: {type: string, minLength: 1, maxLength: 32}
