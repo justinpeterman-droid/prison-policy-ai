@@ -76,4 +76,3 @@ def test_metal_detector_rejects_unknown_fields_and_unbounded_identifiers():
     payload["detectors"][0]["equipment_identifier"] = "x" * 161
     with pytest.raises(ValidationError):
         MetalDetectorTestV1.model_validate(payload)
-

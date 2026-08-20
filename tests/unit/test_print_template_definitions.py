@@ -39,4 +39,3 @@ def test_monthly_prefill_is_normalized_and_rejects_unsupported_content():
 
     with pytest.raises(ValueError, match="unsupported field"):
         validate_print_prefill(template, {"staff_name": "Not allowed"})
-

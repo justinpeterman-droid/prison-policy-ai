@@ -22,4 +22,3 @@ def test_monthly_templates_are_sanitized_and_contraband_schedules_differ():
     assert "/users/" not in serialized
     assert "adc#" not in serialized
     assert "historical" not in serialized
-

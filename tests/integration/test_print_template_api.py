@@ -50,4 +50,3 @@ def test_print_template_library_is_authenticated_and_packet_is_read_only(
         "monthly_chemical_agents",
     ]
     assert packet.get_json()["data"]["prefill"] == {"month": "2026-08", "shift": "D"}
-

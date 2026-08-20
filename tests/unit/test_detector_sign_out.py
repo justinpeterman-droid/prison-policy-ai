@@ -58,4 +58,3 @@ def test_detector_sign_out_allows_incomplete_rows_but_rejects_bad_identity_and_e
     payload["units"][0]["unexpected"] = True
     with pytest.raises(ValidationError):
         DetectorSignOutV1.model_validate(payload)
-

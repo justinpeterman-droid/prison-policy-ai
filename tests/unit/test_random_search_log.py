@@ -72,4 +72,3 @@ def test_random_search_parses_nullable_date_time_and_rejects_long_or_unknown_val
     payload["sections"][0]["blocks"][0]["unexpected"] = True
     with pytest.raises(ValidationError):
         RandomSearchLogV1.model_validate(payload)
-

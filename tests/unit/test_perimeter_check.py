@@ -64,4 +64,3 @@ def test_perimeter_results_and_fields_are_closed_and_bounded():
         "display_name_snapshot": "Officer Avery Cole",
     }
     assert PerimeterCheckV1.model_validate(payload).perimeter_inspector is not None
-
