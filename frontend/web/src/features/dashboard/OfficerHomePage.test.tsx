@@ -74,7 +74,7 @@ describe("officer Home dashboard", () => {
     expect(screen.queryByText("Barracks 4 Fight")).not.toBeInTheDocument();
   });
 
-  it("keeps the four primary officer actions prominent", async () => {
+  it("keeps the four primary officer actions prominent and dimensional", async () => {
     render(
       <MemoryRouter>
         <OfficerHomePage profile={profile} today="2026-08-19" />
@@ -90,6 +90,7 @@ describe("officer Home dashboard", () => {
     ]) {
       expect(within(actions).getByRole("link", { name: label })).toBeInTheDocument();
     }
+    expect(within(actions).getAllByTestId("home-action-fixture")).toHaveLength(4);
   });
 
   it("renders honest empty states when the officer has no records", async () => {
