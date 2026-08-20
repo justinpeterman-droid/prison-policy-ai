@@ -38,6 +38,8 @@ _DETAIL_FIELDS = frozenset({
     "export_format", "job_id", "job_type", "latency_ms", "result_code",
     "question_sha256", "document_count", "filters", "result_count", "report_count",
     "event_count", "old_owner_staff_id", "new_owner_staff_id",
+    "incident_revision_number", "packet_item_id", "document_action",
+    "record_id", "kind", "paperwork_action",
 })
 
 
@@ -185,8 +187,8 @@ def list_events_route():
         cursor = decode_cursor(raw_cursor, _cursor_key()) if raw_cursor else None
         statement = _statement(filters)
         if cursor:
-            occurred = _parse_timestamp(str(cursor.get("occurred_at", "")))
-            event_id = _parse_uuid(str(cursor.get("event_id", "")))
+            occurred = _parse_timestamp(str(cursor.get("created_at", "")))
+            event_id = _parse_uuid(str(cursor.get("id", "")))
             statement = statement.where(
                 tuple_(AuditEvent.occurred_at, AuditEvent.id) > tuple_(occurred, event_id)
             )
@@ -205,8 +207,8 @@ def list_events_route():
     if len(rows) > limit and page:
         last = page[-1]
         next_cursor = encode_cursor({
-            "occurred_at": last.occurred_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
-            "event_id": str(last.id),
+            "created_at": last.occurred_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+            "id": str(last.id),
         }, _cursor_key())
     return success({"items": [_event(row) for row in page], "next_cursor": next_cursor})
 
