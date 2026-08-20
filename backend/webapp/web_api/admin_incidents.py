@@ -642,31 +642,62 @@ def incident_restore_route(incident_id: UUID):
     _consume_step_up("report_restore")
 
     def operation(db):
+        actor = current_browser_actor()
+        now = datetime.now(UTC)
+        key = request.headers.get("Idempotency-Key", "")
+        canonical = {
+            "incident_id": str(incident_id),
+            "revision_number": revision_number,
+            "reason": reason,
+        }
+        claim = claim_idempotency(
+            db,
+            actor,
+            key=key,
+            action="admin.incident_restore",
+            request_sha256=request_digest(canonical),
+            now=now,
+        )
+        if claim.replayed:
+            return _incident_detail(db, incident_id)
+
+        storage_key = f"admin-{request_digest({'key': key}).hex()}"
         view = restore_incident_record(
             db,
-            current_browser_actor(),
+            actor,
             incident_id,
             revision_number,
-            request.headers.get("Idempotency-Key", ""),
+            storage_key,
             request_id=request_id(),
             client_version=request.headers.get("X-Client-Version", "1.0.0"),
             audit_writer=current_app.config["AUDIT_WRITER"],
         )
-        current_app.config["AUDIT_WRITER"].append(db, AuditEventInput(
-            actor_account_id=current_browser_actor().account_id,
-            actor_staff_member_id=current_browser_actor().staff_member_id,
-            action="incident.restored",
-            result="success",
-            request_id=request_id(),
-            target_type="incident",
-            target_id=incident_id,
-            details={
+        revision = db.scalar(select(IncidentRevision).where(
+            IncidentRevision.incident_id == incident_id,
+            IncidentRevision.revision_number == view.revision_number,
+        ))
+        if revision is None:
+            raise IncidentRevisionNotFound("Incident revision not found.")
+        snapshot = deepcopy(revision.snapshot)
+        provenance = snapshot.get("provenance")
+        if not isinstance(provenance, dict):
+            provenance = {}
+        snapshot["provenance"] = {
+            **provenance,
+            "admin_restore_reason": reason,
+        }
+        revision.snapshot = snapshot
+        complete_idempotency(
+            db,
+            claim,
+            response_status=200,
+            response_reference={
                 "incident_id": str(incident_id),
                 "revision_number": view.revision_number or 0,
-                "source_revision_number": revision_number,
             },
-            client_version=request.headers.get("X-Client-Version"),
-        ))
+            now=now,
+        )
+        db.flush()
         return _incident_detail(db, incident_id)
 
     return _write(operation, clear_step_up=True)
