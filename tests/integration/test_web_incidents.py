@@ -1,4 +1,6 @@
 """PostgreSQL browser contracts for guided incident creation and revisions."""
+from datetime import date, time
+
 from tests.support.web_browser import authenticate_browser, browser_headers
 
 
@@ -22,6 +24,8 @@ def test_browser_incident_crud_history_restore_and_staff_search(
             "incident_number": "202608029",
             "incident_name": "  Barracks   4 Fight  ",
             "field_notes": "Fictional officer notes for the guided workflow.",
+            "incident_date": "2026-08-20",
+            "incident_time": "11:30",
             "facility": "Fictional Unit",
             "shift": "A",
             "location": "Barracks 4",
@@ -37,6 +41,8 @@ def test_browser_incident_crud_history_restore_and_staff_search(
     incident = created.get_json()["data"]
     assert incident["incident_number"] == "2026-08-029"
     assert incident["incident_name"] == "Barracks 4 Fight"
+    assert incident["incident_date"] == date(2026, 8, 20).isoformat()
+    assert incident["incident_time"] == time(11, 30).isoformat()
     assert incident["current_revision_number"] == 1
     assert incident["reporting_officers"][0]["staff_id"] == str(
         account.staff_member_id

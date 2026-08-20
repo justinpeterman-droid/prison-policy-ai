@@ -7,7 +7,10 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 1 : 0,
+  // The suite intentionally mutates a real database. Retrying without
+  // rebuilding that state would test the previous attempt rather than the
+  // seeded candidate, so failures remain single-attempt and reproducible.
+  retries: 0,
   workers: 1,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   outputDir: "test-results/prod-smoke",

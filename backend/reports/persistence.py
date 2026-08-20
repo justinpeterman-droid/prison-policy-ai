@@ -383,7 +383,9 @@ def create_incident(
     if validated.base_revision_number != 0:
         raise ValueError("A new incident must use base_revision_number 0.")
     selection = _normalize_selection(reporting_staff_ids)
-    content = _content_payload(validated)
+    content_model = IncidentSnapshotV1.model_validate(validated.model_dump(
+        exclude={"base_revision_number", "reason"}))
+    content = _content_payload(content_model)
     canonical = {
         "reporting_staff_ids": [str(value) for value in selection],
         "content": content,
@@ -406,7 +408,7 @@ def create_incident(
         created_at=fixed,
         updated_at=fixed,
     )
-    _apply_content(incident, IncidentSnapshotV1.model_validate(content), content)
+    _apply_content(incident, content_model, content)
     session.add(incident)
     revision = IncidentRevision(
         id=uuid4(),
