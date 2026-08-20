@@ -1,0 +1,25 @@
+{
+  "kind": "metal_detector_test",
+  "title": "Daily Walk-Through Metal Detector Testing",
+  "schema_version": 1,
+  "print_orientation": "landscape",
+  "definition": {
+    "header_fields": ["Date"],
+    "detectors": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"],
+    "positions": [
+      "Inner left leg, pointing down",
+      "Centered on front of body, pointing down",
+      "Left side of body, pointing down",
+      "Center of back, pointing down",
+      "Center of back, pointing left",
+      "Under left arm, pointing down",
+      "Centered on top of head, pointing forward"
+    ],
+    "values": ["P", "F"],
+    "value_labels": {"P": "Pass", "F": "Fail"},
+    "runtime_detector_fields": {"location": "", "equipment_identifier": ""},
+    "failure_requires_corrective_action": true,
+    "sign_off_fields": ["Tested by", "Comments, including Corrective Action Taken", "Reviewed By"],
+    "footer_fields": ["Distribution"]
+  }
+}

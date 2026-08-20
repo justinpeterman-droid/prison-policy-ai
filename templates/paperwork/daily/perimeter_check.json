@@ -1,0 +1,96 @@
+{
+  "kind": "perimeter_check",
+  "title": "Perimeter Check List",
+  "schema_version": 1,
+  "print_orientation": "portrait",
+  "definition": {
+    "values": ["S", "U"],
+    "value_labels": {"S": "Satisfactory", "U": "Unsatisfactory"},
+    "groups": [
+      {
+        "code": "doors",
+        "label": "Doors",
+        "items": [
+          {"code": "doors_01_isolation_nw_corridor_exit", "label": "Isolation NW Corridor Exit"},
+          {"code": "doors_02_isolation_sw_corridor_exit", "label": "Isolation SW Corridor Exit"},
+          {"code": "doors_03_isolation_to_exercise_yard", "label": "Isolation To Exercise Yard"},
+          {"code": "doors_04_1_barracks_exit_door", "label": "1 Barracks Exit Door"},
+          {"code": "doors_05_south_hall_exit_doors", "label": "South Hall Exit Doors"},
+          {"code": "doors_06_2_barracks_exit_door", "label": "2 Barracks Exit Door"},
+          {"code": "doors_07_3_barracks_exit_door", "label": "3 Barracks Exit Door"},
+          {"code": "doors_08_4_barracks_exit_door", "label": "4 Barracks Exit Door"},
+          {"code": "doors_09_5_barracks_exit_door", "label": "5 Barracks Exit Door"},
+          {"code": "doors_10_inf_meeting_room_exit_door", "label": "Inf. Meeting Room Exit Door"},
+          {"code": "doors_11_infirmary_ward_exit_door", "label": "Infirmary Ward Exit Door"},
+          {"code": "doors_12_visitation_east_exit_door", "label": "Visitation East Exit Door"},
+          {"code": "doors_13_visitation_north_exit_door", "label": "Visitation North Exit Door"},
+          {"code": "doors_14_gym_exit_east_door", "label": "Gym Exit East Door"},
+          {"code": "doors_15_6_barracks_exit_door", "label": "6 Barracks Exit Door"},
+          {"code": "doors_16_7_barracks_exit_door", "label": "7 Barracks Exit Door"},
+          {"code": "doors_17_8_barracks_exit_door", "label": "8 Barracks Exit Door"},
+          {"code": "doors_18_north_hall_exit_doors", "label": "North Hall Exit Doors"},
+          {"code": "doors_19_9_barracks_exit_door", "label": "9 Barracks Exit Door"},
+          {"code": "doors_20_10_barracks_exit_door", "label": "10 Barracks Exit Door"},
+          {"code": "doors_21_school_exit_west_door", "label": "School Exit West Door"},
+          {"code": "doors_22_odr_exit_door", "label": "ODR Exit Door"},
+          {"code": "doors_23_kitchen_to_dock", "label": "Kitchen To Dock"},
+          {"code": "doors_24_senstar_test", "label": "Senstar Test"},
+          {"code": "doors_25_pipe_chases", "label": "Pipe Chases"}
+        ]
+      },
+      {
+        "code": "outside_doors",
+        "label": "Outside Doors",
+        "items": [
+          {"code": "outside_01_1_barracks_mech_room", "label": "1 Barracks Mech Room"},
+          {"code": "outside_02_2_3_barracks_mech_room", "label": "2 & 3 Barracks Mech Room"},
+          {"code": "outside_03_4_5_barracks_mech_room", "label": "4 & 5 Barracks Mech Room"},
+          {"code": "outside_04_administration_mech_room", "label": "Administration Mech Room"},
+          {"code": "outside_05_visitation_mech_room", "label": "Visitation Mech Room"},
+          {"code": "outside_06_6_barracks_mech_room", "label": "6 Barracks Mech Room"},
+          {"code": "outside_07_7_8_barracks_mech_room", "label": "7 & 8 Barracks Mech Room"},
+          {"code": "outside_08_9_10_barracks_mech_room", "label": "9 & 10 Barracks Mech Room"},
+          {"code": "outside_09_maintenance_office", "label": "Maintenance Office"},
+          {"code": "outside_10_telephone_room", "label": "Telephone Room"},
+          {"code": "outside_11_kitchen_dock_storage_room", "label": "Kitchen Dock Storage Room"},
+          {"code": "outside_12_11_12_barracks_mech_room", "label": "11 & 12 Barracks Mech Room"},
+          {"code": "outside_13_13_14_barracks_mech_room", "label": "13 & 14 Barracks Mech Room"},
+          {"code": "outside_14_11_barracks_exit_door", "label": "11 Barracks Exit Door"},
+          {"code": "outside_15_12_barracks_exit_door", "label": "12 Barracks Exit Door"},
+          {"code": "outside_16_13_barracks_exit_door", "label": "13 Barracks Exit Door"},
+          {"code": "outside_17_14_barracks_exit_door", "label": "14 Barracks Exit Door"},
+          {"code": "outside_18_manholes", "label": "Manholes"},
+          {"code": "outside_19_metal_detector", "label": "Metal Detector"}
+        ]
+      },
+      {
+        "code": "fence_gates",
+        "label": "Fence & Gates",
+        "items": [
+          {"code": "fence_01_west_tower_bull_pen_inner_fence_gate", "label": "West Tower Bull Pen & Inner Fence Gate"},
+          {"code": "fence_02_sally_port_to_south_yard_gate", "label": "Sally Port To South Yard Gate"},
+          {"code": "fence_03_isolation_to_sally_port_gate", "label": "Isolation To Sally Port Gate"},
+          {"code": "fence_04_isolation_to_south_yard_gate", "label": "Isolation To South Yard Gate"},
+          {"code": "fence_05_south_yard_construction_gate", "label": "South Yard Construction Gate"},
+          {"code": "fence_06_south_tower_to_south_yard_drive_thru_gate", "label": "South Tower To South Yard Drive-Thru Gate"},
+          {"code": "fence_07_south_tower_to_south_yard_gate", "label": "South Tower To South Yard Gate"},
+          {"code": "fence_08_south_tower_outside_maintenance_gate", "label": "South Tower Outside Maintenance Gate"},
+          {"code": "fence_09_south_tower_to_s_e_yard_gate", "label": "South Tower To S.E. Yard Gate"},
+          {"code": "fence_10_south_tower_to_s_e_drive_thru_gate", "label": "South Tower To S.E. Drive-Thru Gate"},
+          {"code": "fence_11_front_entrance_to_s_e_yard_gate", "label": "Front Entrance To S.E. Yard Gate"},
+          {"code": "fence_12_east_tower_inner_fence", "label": "East Tower Inner Fence"},
+          {"code": "fence_13_front_entrance_inner_fence", "label": "Front Entrance Inner Fence"},
+          {"code": "fence_14_front_entrance_to_n_e_yard_gate", "label": "Front Entrance To N.E. Yard Gate"},
+          {"code": "fence_15_north_tower_to_n_e_yard_drive_thru_gate", "label": "North Tower To N.E. Yard Drive-Thru Gate"},
+          {"code": "fence_16_north_tower_to_n_e_yard_gate", "label": "North Tower To N.E. Yard Gate"},
+          {"code": "fence_17_north_tower_outside_maintenance_gate", "label": "North Tower Outside Maintenance Gate"},
+          {"code": "fence_18_north_tower_to_north_yard_gate", "label": "North Tower To North Yard Gate"},
+          {"code": "fence_19_north_tower_to_n_w_drive_thru_gate", "label": "North Tower To N.W. Drive-Thru Gate"},
+          {"code": "fence_20_sally_port_inner_fence_gate", "label": "Sally Port Inner Fence Gate"},
+          {"code": "fence_21_fence_and_alleyways", "label": "Fence And Alleyways"}
+        ]
+      }
+    ],
+    "sign_off_fields": ["Perimeter Inspected by", "Signature", "Date / Time", "Senstar Inspected by", "Shift Supervisor's Signature", "Date / Time"]
+  }
+}
