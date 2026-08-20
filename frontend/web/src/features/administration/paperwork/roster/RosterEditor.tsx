@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { InterfaceIcon } from "../../../../components/InterfaceIcon";
 import type { AdminStaffMember } from "../../api";
 import {
@@ -70,7 +70,36 @@ export function RosterEditor({ workDate, shift, record, onRecordChange, searchSt
   const [copyOpen, setCopyOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const dragged = useRef<{ zoneCode: string; postCode: string } | null>(null);
+  const currentRecord = useRef(record);
+  const draftVersion = useRef(0);
   const warningCount = coverageCount(payload);
+
+  useLayoutEffect(() => {
+    draftVersion.current += 1;
+  }, [extraAssignments, leaveEntries, payload]);
+
+  useEffect(() => {
+    const current = currentRecord.current;
+    if (record === null) {
+      if (current === null) return;
+      const empty = createEmptyRosterPayload(workDate, shift);
+      currentRecord.current = null;
+      setPayload(empty);
+      setLeaveEntries(empty.leave_entries);
+      setExtraAssignments(empty.extra_assignments);
+      setSaveState("unsaved");
+      setError(null);
+      return;
+    }
+    if (current?.recordId === record.recordId && current.revision === record.revision) return;
+    const loaded = parseRosterPayload(record.payload);
+    currentRecord.current = record;
+    setPayload(loaded);
+    setLeaveEntries(loaded.leave_entries);
+    setExtraAssignments(loaded.extra_assignments);
+    setSaveState("saved");
+    setError(null);
+  }, [record, shift, workDate]);
 
   function updateSelection(
     zoneCode: string,
@@ -126,28 +155,35 @@ export function RosterEditor({ workDate, shift, record, onRecordChange, searchSt
   async function save(reason: "manual_save" | "autosave" = "manual_save") {
     setError(null);
     setSaveState("saving");
+    const requestDraftVersion = draftVersion.current;
     try {
       const nextPayload = payloadForSave();
-      const saved = record
+      const saved = currentRecord.current
         ? await saveDailyRecord({
           kind: "assignment_roster",
-          recordId: record.recordId,
+          recordId: currentRecord.current.recordId,
           workDate,
           shift,
-          revision: record.revision,
+          revision: currentRecord.current.revision,
           payload: nextPayload,
           reason,
         })
         : await createDailyRecord({ kind: "assignment_roster", workDate, shift, payload: nextPayload });
-      const savedPayload = parseRosterPayload(saved.payload);
-      setPayload(savedPayload);
-      setLeaveEntries(savedPayload.leave_entries);
-      setExtraAssignments(savedPayload.extra_assignments);
-      setSaveState("saved");
-      setAnnouncement(`Roster saved as revision ${saved.revision}.`);
+      currentRecord.current = saved;
+      if (draftVersion.current === requestDraftVersion) {
+        const savedPayload = parseRosterPayload(saved.payload);
+        setPayload(savedPayload);
+        setLeaveEntries(savedPayload.leave_entries);
+        setExtraAssignments(savedPayload.extra_assignments);
+        setSaveState("saved");
+        setAnnouncement(`Roster saved as revision ${saved.revision}.`);
+      } else {
+        setSaveState("unsaved");
+        setAnnouncement(`Revision ${saved.revision} saved. Newer edits remain unsaved.`);
+      }
       onRecordChange(saved);
     } catch (reason) {
-      setSaveState("failed");
+      setSaveState(draftVersion.current === requestDraftVersion ? "failed" : "unsaved");
       setError(reason instanceof Error ? reason.message : "The roster could not be saved.");
     }
   }
@@ -159,6 +195,7 @@ export function RosterEditor({ workDate, shift, record, onRecordChange, searchSt
     try {
       const copied = await copyPreviousDailyRecord("assignment_roster", workDate, shift);
       const copiedPayload = parseRosterPayload(copied.payload);
+      currentRecord.current = copied;
       setPayload(copiedPayload);
       setLeaveEntries(copiedPayload.leave_entries);
       setExtraAssignments(copiedPayload.extra_assignments);

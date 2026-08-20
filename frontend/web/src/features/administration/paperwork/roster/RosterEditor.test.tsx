@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DailyRecord } from "../api";
 import * as paperworkApi from "../api";
 import { createEmptyRosterPayload, ROSTER_DEFINITION } from "./model";
@@ -41,6 +41,10 @@ function record(payload = createEmptyRosterPayload("2026-08-20", "D")): DailyRec
     },
   };
 }
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 
 describe("Shift Assignment Roster editor", () => {
@@ -111,6 +115,60 @@ describe("Shift Assignment Roster editor", () => {
     expect(call.payload.briefing_minutes).toBe("Keep north gate clear.");
     expect(call.payload.zones).toEqual(source.payload.zones);
     expect(onRecordChange).toHaveBeenCalledWith(saved);
+  });
+
+  it("preserves edits made during a pending save and uses the returned revision next", async () => {
+    const user = userEvent.setup();
+    const sourcePayload = createEmptyRosterPayload("2026-08-20", "D");
+    const source = record(sourcePayload);
+    const firstSaved = {
+      ...record({ ...sourcePayload, briefing_minutes: "Initial edit" }),
+      revision: 2,
+    };
+    let resolveFirst!: (value: DailyRecord) => void;
+    vi.mocked(paperworkApi.saveDailyRecord).mockReturnValueOnce(new Promise((resolve) => {
+      resolveFirst = resolve;
+    }));
+    const onRecordChange = vi.fn();
+    render(<MemoryRouter>
+      <RosterEditor
+        workDate="2026-08-20"
+        shift="D"
+        record={source}
+        onRecordChange={onRecordChange}
+        searchStaff={vi.fn().mockResolvedValue([])}
+      />
+    </MemoryRouter>);
+
+    const briefing = screen.getByLabelText("Shift briefing minutes");
+    await user.type(briefing, "Initial edit");
+    await user.click(screen.getByRole("button", { name: "Save roster" }));
+    await waitFor(() => expect(paperworkApi.saveDailyRecord).toHaveBeenCalledTimes(1));
+    await user.type(briefing, " plus newer work");
+
+    await act(async () => resolveFirst(firstSaved));
+
+    await waitFor(() => expect(onRecordChange).toHaveBeenCalledWith(firstSaved));
+    expect(briefing).toHaveValue("Initial edit plus newer work");
+    expect(screen.getByRole("status", { name: "Roster announcement" })).toHaveTextContent(
+      "Newer edits remain unsaved",
+    );
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+
+    const secondSaved = {
+      ...firstSaved,
+      revision: 3,
+      payload: { ...sourcePayload, briefing_minutes: "Initial edit plus newer work" },
+    };
+    vi.mocked(paperworkApi.saveDailyRecord).mockResolvedValueOnce(secondSaved);
+    await user.click(screen.getByRole("button", { name: "Save roster" }));
+
+    await waitFor(() => expect(paperworkApi.saveDailyRecord).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(paperworkApi.saveDailyRecord).mock.calls[1][0]).toMatchObject({
+      revision: 2,
+      payload: { briefing_minutes: "Initial edit plus newer work" },
+    });
+    await waitFor(() => expect(screen.getByText("Saved")).toBeInTheDocument());
   });
 
   it("confirms copy previous, explains reset fields, and returns the new record", async () => {

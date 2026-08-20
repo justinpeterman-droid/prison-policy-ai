@@ -53,7 +53,7 @@ export function DailyRecordWorkspace({ kind, recordId, workDate, shift }: DailyR
   if (kind === "assignment_roster" && (!recordId || record)) {
     return (
       <div className="admin-page daily-editor-page">
-        <Suspense fallback={<div className="admin-loading-panel" aria-busy="true">Loading Assignment Roster editor…</div>}><RosterEditor key={`${record?.recordId ?? "new"}-${record?.revision ?? 0}`} workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} /></Suspense>
+        <Suspense fallback={<div className="admin-loading-panel" aria-busy="true">Loading Assignment Roster editor…</div>}><RosterEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} /></Suspense>
         {record ? <DailyRevisionPanel record={record} onRestored={acceptRecord} /> : null}
       </div>
     );
