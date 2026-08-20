@@ -157,7 +157,7 @@ describe("NCU Days Count workspace", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Save Count Sheet" }));
-    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect(await screen.findByText("Saved to server")).toBeInTheDocument();
     expect(field).toHaveValue("4");
 
     fireEvent.click(screen.getByRole("button", { name: "Print Count Sheet" }));

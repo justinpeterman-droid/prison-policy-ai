@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { KeyboardEvent } from "react";
 import { WebApiError } from "../../../api/client";
+import { persistenceStatusLabel } from "../../../components/persistenceStatus";
 import type { SessionProfile } from "../../auth/api";
 import {
   getCountSheet,
@@ -74,13 +75,9 @@ function useMediaQuery(query: string): boolean {
 }
 
 function statusLabel(state: SaveState): string {
-  if (state === "loading") return "Loading";
-  if (state === "saving") return "Saving…";
-  if (state === "dirty") return "Unsaved changes";
-  if (state === "offline") return "Reconnecting — values preserved";
-  if (state === "conflict") return "Save conflict — values preserved";
-  if (state === "error") return "Save failed — values preserved";
-  return "Saved";
+  if (state === "dirty") return persistenceStatusLabel("unsaved");
+  if (state === "error") return persistenceStatusLabel("failed");
+  return persistenceStatusLabel(state);
 }
 
 function CountInput({
@@ -341,7 +338,7 @@ export function CountSheetPage({ profile }: CountSheetPageProps) {
           <h1 id="count-heading">NCU Days Count</h1>
           <p>Enter the count exactly as received. Totals calculate automatically; mismatches are never balanced for you.</p>
         </div>
-        <div className={`count-save-state count-save-state--${saveState}`} role="status">
+        <div className={`count-save-state count-save-state--${saveState}`} role="status" aria-live="polite" aria-atomic="true">
           <span aria-hidden="true">{saveState === "saved" ? "✓" : saveState === "saving" ? "↻" : "•"}</span>
           <span>{statusLabel(saveState)}</span>
           {record ? <small>Revision {record.current_revision_number}</small> : <small>New sheet</small>}

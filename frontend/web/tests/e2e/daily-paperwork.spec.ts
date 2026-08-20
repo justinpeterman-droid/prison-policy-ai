@@ -13,18 +13,36 @@ async function enterAdmin(page: Page) {
 test.beforeEach(async ({ page }) => { await installAdminApi(page); });
 
 
-test("daily paperwork saves, reopens, preserves a failed edit, and retries without data loss", async ({ page }) => {
+test("daily paperwork distinguishes reconnecting from server failure and retries without data loss", async ({ page }) => {
   await enterAdmin(page);
   await page.goto("./admin/paperwork?tab=daily&work_date=2026-08-20&shift=D&kind=detector_sign_out");
 
   const area = page.getByLabel("D1 area of assignment");
   await area.fill("North Hall");
   await page.getByRole("button", { name: "Save detector sign-out" }).click();
-  await expect(page.locator(".daily-save-state")).toHaveText("Saved");
+  await expect(page.locator(".daily-save-state")).toHaveText("Saved to server");
   await expect(page).toHaveURL(/record_id=00000000-0000-4000-8000-000000000971/);
 
   await page.reload();
   await expect(area).toHaveValue("North Hall");
+
+  await area.fill("North Hall West");
+  await page.route(
+    /\/api\/web\/v1\/admin\/paperwork\/daily\/detector_sign_out\/[^/]+$/,
+    async (route) => { await route.abort("failed"); },
+    { times: 1 },
+  );
+  await page.getByRole("button", { name: "Save detector sign-out" }).click();
+  await expect(page.locator(".daily-save-state")).toHaveText(
+    "Reconnecting — changes remain visible; server save not confirmed",
+  );
+  await expect(page.getByRole("alert")).toContainText("The service could not be reached");
+  await expect(area).toHaveValue("North Hall West");
+
+  await page.getByRole("button", { name: "Save detector sign-out" }).click();
+  await expect(page.locator(".daily-save-state")).toHaveText("Saved to server");
+  await page.reload();
+  await expect(area).toHaveValue("North Hall West");
 
   await area.fill("North Hall Annex");
   await page.route(
@@ -48,12 +66,12 @@ test("daily paperwork saves, reopens, preserves a failed edit, and retries witho
     { times: 1 },
   );
   await page.getByRole("button", { name: "Save detector sign-out" }).click();
-  await expect(page.locator(".daily-save-state")).toHaveText("Save failed—work preserved");
+  await expect(page.locator(".daily-save-state")).toHaveText("Save failed — changes remain visible; server save not confirmed");
   await expect(page.getByRole("alert")).toContainText("Fictional temporary save outage");
   await expect(area).toHaveValue("North Hall Annex");
 
   await page.getByRole("button", { name: "Save detector sign-out" }).click();
-  await expect(page.locator(".daily-save-state")).toHaveText("Saved");
+  await expect(page.locator(".daily-save-state")).toHaveText("Saved to server");
   await page.reload();
   await expect(area).toHaveValue("North Hall Annex");
 });

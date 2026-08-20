@@ -25,7 +25,7 @@ test("Count Sheet calculates, saves, reopens, and prints without balancing value
   await operational.fill("10");
   await expect(page.getByText("Housing and operational totals agree.", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Save Count Sheet", exact: true }).click();
-  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await expect(page.getByText("Saved to server", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(page.getByLabel("A/W Office, column 1", { exact: true })).toHaveValue("4");

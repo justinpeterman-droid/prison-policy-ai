@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Button, Field } from "../../design-system/Primitives";
+import { Button, Field, StatusMessage } from "../../design-system/Primitives";
 import { askPolicyQuestion, type PolicyAnswer } from "./api";
 import "./policy-expert.css";
 
@@ -67,9 +67,9 @@ export function PolicyExpertPage() {
         </p>
       </section>
 
-      {error ? <div className="policy-state error" role="alert">{error}</div> : null}
+      {error ? <StatusMessage className="policy-state error" tone="dependency-unavailable">{error}</StatusMessage> : null}
       {submitting ? (
-        <div className="policy-state" aria-busy="true">Searching approved policy sources…</div>
+        <StatusMessage className="policy-state" aria-busy="true">Searching approved policy sources…</StatusMessage>
       ) : null}
 
       {answer ? (

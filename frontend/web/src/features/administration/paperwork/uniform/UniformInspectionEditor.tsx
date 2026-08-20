@@ -11,6 +11,7 @@ import {
 import { StaffPicker } from "../roster/StaffPicker";
 import { DailyEditorHeader } from "../shared/DailyEditorHeader";
 import type { EditorSaveState } from "../shared/SaveState";
+import { saveStateForError } from "../shared/saveStateForError";
 import { useDailyAutosave } from "../shared/useDailyAutosave";
 import {
   createEmptyUniformPayload,
@@ -90,7 +91,7 @@ export function UniformInspectionEditor({ workDate, shift, record, onRecordChang
       setAnnouncement(`Uniform Inspection saved as revision ${saved.revision}.`);
       onRecordChange(saved);
     } catch (reason) {
-      setSaveState("failed");
+      setSaveState(saveStateForError(reason));
       setError(reason instanceof Error ? reason.message : "The Uniform Inspection could not be saved.");
     }
   }

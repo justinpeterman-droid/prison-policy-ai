@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Button, Field } from "../../design-system/Primitives";
+import { Button, Field, StatusMessage } from "../../design-system/Primitives";
 import { changePin } from "./api";
 
 interface ChangePinFormProps {
@@ -95,8 +95,8 @@ export function ChangePinForm({
       <p className="account-pin-guidance">
         Use 4 through 8 letters or numbers. Do not reuse the current PIN.
       </p>
-      {error ? <p className="account-form-message error" role="alert">{error}</p> : null}
-      {success ? <p className="account-form-message success" role="status">{success}</p> : null}
+      {error ? <StatusMessage as="p" className="account-form-message error" tone="destructive">{error}</StatusMessage> : null}
+      {success ? <StatusMessage as="p" className="account-form-message success" tone="success">{success}</StatusMessage> : null}
       <Button className="account-primary-button" variant="primary" type="submit" loading={submitting}>
         {submitting ? "Changing…" : submitLabel}
       </Button>

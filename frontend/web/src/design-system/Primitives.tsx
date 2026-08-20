@@ -12,6 +12,8 @@ import {
 
 type ButtonVariant = "primary" | "secondary" | "destructive" | "quiet" | "icon" | "segment";
 type SurfaceVariant = "action" | "information" | "list" | "inset" | "empty" | "warning" | "dialog";
+type ListRowVariant = "navigation" | "action";
+type MessageTone = "information" | "success" | "warning" | "destructive" | "dependency-unavailable";
 
 function classes(...values: Array<string | false | null | undefined>): string {
   return values.filter(Boolean).join(" ");
@@ -63,6 +65,56 @@ export function Surface({ as = "section", className, variant = "information", ..
   });
 }
 
+export interface PanelHeaderProps extends HTMLAttributes<HTMLElement> {
+  action?: ReactNode;
+  eyebrow?: ReactNode;
+  headingId?: string;
+  headingLevel?: 2 | 3;
+  heading: ReactNode;
+}
+
+export function PanelHeader({ action, children, className, eyebrow, heading, headingId, headingLevel = 2, ...props }: PanelHeaderProps) {
+  const Heading = `h${headingLevel}` as "h2" | "h3";
+  return (
+    <header {...props} className={classes("gow-panel-header", className)}>
+      <div>
+        {eyebrow ? <p className="gow-panel-header__eyebrow">{eyebrow}</p> : null}
+        <Heading id={headingId}>{heading}</Heading>
+        {children ? <div className="gow-panel-header__supporting">{children}</div> : null}
+      </div>
+      {action ? <div className="gow-panel-header__action">{action}</div> : null}
+    </header>
+  );
+}
+
+export function listRowClassName(variant: ListRowVariant, className?: string): string {
+  return classes("gow-list-row", `gow-list-row--${variant}`, className);
+}
+
+export interface ListRowProps extends HTMLAttributes<HTMLElement> {
+  as?: "div" | "li";
+  variant: ListRowVariant;
+}
+
+export function ListRow({ as = "div", className, variant, ...props }: ListRowProps) {
+  return createElement(as, { ...props, className: listRowClassName(variant, className) });
+}
+
+export interface StatusMessageProps extends HTMLAttributes<HTMLElement> {
+  as?: "div" | "p" | "section";
+  tone?: MessageTone;
+}
+
+export function StatusMessage({ as = "div", className, role, tone = "information", ...props }: StatusMessageProps) {
+  const assertive = tone === "destructive" || tone === "dependency-unavailable";
+  return createElement(as, {
+    ...props,
+    className: classes("gow-message", `gow-message--${tone}`, className),
+    role: role ?? (assertive ? "alert" : "status"),
+    "aria-live": props["aria-live"] ?? (assertive ? "assertive" : "polite"),
+  });
+}
+
 interface FieldControlProps {
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
@@ -76,10 +128,11 @@ export interface FieldProps {
   error?: ReactNode;
   hint?: ReactNode;
   label: ReactNode;
+  requirement?: "required" | "optional";
   required?: boolean;
 }
 
-export function Field({ children, className, error, hint, label, required = false }: FieldProps) {
+export function Field({ children, className, error, hint, label, requirement, required = false }: FieldProps) {
   const generatedId = useId();
   const controlId = children.props.id ?? `${generatedId}-control`;
   const hintId = hint ? `${generatedId}-hint` : undefined;
@@ -92,7 +145,8 @@ export function Field({ children, className, error, hint, label, required = fals
     <label className={classes("gow-field", Boolean(error) && "gow-field--invalid", className)} htmlFor={controlId}>
       <span className="gow-field__label">
         {label}
-        {required ? <span className="gow-visually-hidden"> (required)</span> : null}
+        {required || requirement === "required" ? <span className="gow-visually-hidden"> (required)</span> : null}
+        {requirement === "optional" ? <span className="gow-visually-hidden"> (optional)</span> : null}
       </span>
       {cloneElement(children, {
         id: controlId,

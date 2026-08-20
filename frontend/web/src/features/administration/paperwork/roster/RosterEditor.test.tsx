@@ -153,7 +153,7 @@ describe("Shift Assignment Roster editor", () => {
     expect(screen.getByRole("status", { name: "Roster announcement" })).toHaveTextContent(
       "Newer edits remain unsaved",
     );
-    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+    expect(screen.getByText("Unsaved changes — server save pending")).toBeInTheDocument();
 
     const secondSaved = {
       ...firstSaved,
@@ -168,7 +168,7 @@ describe("Shift Assignment Roster editor", () => {
       revision: 2,
       payload: { briefing_minutes: "Initial edit plus newer work" },
     });
-    await waitFor(() => expect(screen.getByText("Saved")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Saved to server")).toBeInTheDocument());
   });
 
   it("confirms copy previous, explains reset fields, and returns the new record", async () => {

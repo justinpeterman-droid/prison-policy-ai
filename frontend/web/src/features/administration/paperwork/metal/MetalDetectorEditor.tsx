@@ -4,6 +4,7 @@ import { createDailyRecord, recordDailyAction, saveDailyRecord, type DailyRecord
 import { StaffPicker } from "../roster/StaffPicker";
 import { DailyEditorHeader } from "../shared/DailyEditorHeader";
 import type { EditorSaveState } from "../shared/SaveState";
+import { saveStateForError } from "../shared/saveStateForError";
 import { useDailyAutosave } from "../shared/useDailyAutosave";
 import { MetalDetectorPrint } from "./MetalDetectorPrint";
 import { createEmptyMetalPayload, detectorMissingCorrectiveAction, DETECTOR_CODES, DETECTOR_POSITIONS, parseMetalPayload, type DetectorResult, type MetalPayload } from "./model";
@@ -64,7 +65,7 @@ export function MetalDetectorEditor({ workDate, shift, record, onRecordChange, s
       setSaveState("saved");
       onRecordChange(saved);
     } catch (reason) {
-      setSaveState("failed");
+      setSaveState(saveStateForError(reason));
       setError(reason instanceof Error ? reason.message : "The detector test could not be saved.");
     }
   }

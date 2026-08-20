@@ -10,6 +10,7 @@ import {
 } from "../api";
 import { DailyEditorHeader } from "../shared/DailyEditorHeader";
 import type { EditorSaveState } from "../shared/SaveState";
+import { saveStateForError } from "../shared/saveStateForError";
 import { useDailyAutosave } from "../shared/useDailyAutosave";
 import { AssignmentRosterPrint } from "./AssignmentRosterPrint";
 import {
@@ -183,7 +184,7 @@ export function RosterEditor({ workDate, shift, record, onRecordChange, searchSt
       }
       onRecordChange(saved);
     } catch (reason) {
-      setSaveState(draftVersion.current === requestDraftVersion ? "failed" : "unsaved");
+      setSaveState(draftVersion.current === requestDraftVersion ? saveStateForError(reason) : "unsaved");
       setError(reason instanceof Error ? reason.message : "The roster could not be saved.");
     }
   }

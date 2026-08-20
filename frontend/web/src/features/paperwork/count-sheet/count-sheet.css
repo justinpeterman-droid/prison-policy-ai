@@ -64,6 +64,12 @@
   color: #758697;
 }
 
+.count-save-state > span:nth-child(2) {
+  min-width: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .count-save-state--dirty > span:first-child,
 .count-save-state--conflict > span:first-child,
 .count-save-state--error > span:first-child,

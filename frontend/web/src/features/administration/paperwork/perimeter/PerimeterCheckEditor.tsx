@@ -4,6 +4,7 @@ import { createDailyRecord, fetchDailyTemplate, recordDailyAction, saveDailyReco
 import { StaffPicker } from "../roster/StaffPicker";
 import { DailyEditorHeader } from "../shared/DailyEditorHeader";
 import type { EditorSaveState } from "../shared/SaveState";
+import { saveStateForError } from "../shared/saveStateForError";
 import { useDailyAutosave } from "../shared/useDailyAutosave";
 import { createEmptyPerimeterPayload, parsePerimeterDefinition, parsePerimeterPayload, type PerimeterDefinition, type PerimeterPayload, type PerimeterResult } from "./model";
 import { PerimeterCheckPrint } from "./PerimeterCheckPrint";
@@ -66,7 +67,7 @@ export function PerimeterCheckEditor({ workDate, shift, record, onRecordChange, 
       const saved = record ? await saveDailyRecord({ kind: "perimeter_check", recordId: record.recordId, workDate, shift, revision: record.revision, payload: submission, reason }) : await createDailyRecord({ kind: "perimeter_check", workDate, shift, payload: submission });
       setPayload(parsePerimeterPayload(saved.payload, definition!));
       setSaveState("saved"); onRecordChange(saved);
-    } catch (reason) { setSaveState("failed"); setError(reason instanceof Error ? reason.message : "The perimeter check could not be saved."); }
+    } catch (reason) { setSaveState(saveStateForError(reason)); setError(reason instanceof Error ? reason.message : "The perimeter check could not be saved."); }
   }
 
   async function showPreview() { if (record) await recordDailyAction("perimeter_check", record.recordId, "preview"); setWarningOpen(false); setPreviewOpen(true); }

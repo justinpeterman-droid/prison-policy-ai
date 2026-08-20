@@ -23,7 +23,7 @@
 .daily-editor-header h1 { margin: 6px 0 3px; color: var(--admin-navy); font-size: 30px; }
 .daily-editor-header p { margin: 0; color: var(--admin-muted); font-size: 11px; }
 .daily-editor-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
-.daily-save-state { padding: 6px 9px; border-radius: 999px; background: #eef2f4; color: #5f7180; font-size: 9px; font-weight: 800; }
+.daily-save-state { max-width: 280px; padding: 6px 9px; border-radius: 10px; background: #eef2f4; color: #5f7180; font-size: 9px; font-weight: 800; line-height: 1.35; text-align: center; overflow-wrap: anywhere; }
 .daily-save-state.saved { background: #e8f2ec; color: #2e6a4d; }
 .daily-save-state.failed { background: #f7e9e7; color: #884940; }
 .daily-revision-panel { margin-top: 16px; padding-top: 13px; border-top: 1px solid var(--admin-border); }

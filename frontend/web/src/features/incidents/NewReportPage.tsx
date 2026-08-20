@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { WebApiError } from "../../api/client";
+import { persistenceStatusLabel } from "../../components/persistenceStatus";
 import type { SessionProfile } from "../auth/api";
 import {
   createIncident,
@@ -25,16 +26,6 @@ const STEPS = [
 ] as const;
 
 type SaveState = "saved" | "saving" | "unsaved" | "reconnecting" | "failed";
-
-function saveStateLabel(value: SaveState): string {
-  return {
-    saved: "All changes saved",
-    saving: "Saving…",
-    unsaved: "Unsaved changes",
-    reconnecting: "Reconnecting — work preserved",
-    failed: "Save failed — work preserved",
-  }[value];
-}
 
 function normalizeNumber(value: string): string {
   const digits = value.replace(/\D/g, "");
@@ -256,9 +247,9 @@ export function NewReportPage({ profile }: NewReportPageProps) {
           <h1 id="new-report-heading">New Report</h1>
           <p>Complete one guided incident package without hunting through disconnected forms.</p>
         </div>
-        <div className={`iw-save-state iw-save-${saveState}`} role="status" aria-live="polite">
+        <div className={`iw-save-state iw-save-${saveState}`} role="status" aria-live="polite" aria-atomic="true">
           <span aria-hidden="true" />
-          {saveStateLabel(saveState)}
+          {persistenceStatusLabel(saveState)}
         </div>
       </header>
 

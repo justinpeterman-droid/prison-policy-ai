@@ -154,6 +154,6 @@ describe("Six-step New Report workflow", () => {
       await screen.findByText(/local text has been preserved/i),
     ).toBeInTheDocument();
     expect(notes).toHaveValue("Fictional text that must remain visible.");
-    await waitFor(() => expect(screen.getByText("Unsaved changes")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Unsaved changes — server save pending")).toBeInTheDocument());
   });
 });

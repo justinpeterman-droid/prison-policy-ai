@@ -451,6 +451,7 @@
 
 .iw-save-state {
   display: flex;
+  max-width: min(100%, 390px);
   align-items: center;
   gap: 9px;
   padding: 10px 13px;
@@ -460,6 +461,8 @@
   background: #edf8f1;
   font-size: .76rem;
   font-weight: 750;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .iw-save-state span {
