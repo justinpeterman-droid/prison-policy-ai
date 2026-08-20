@@ -71,30 +71,38 @@ def _paperwork_state(
 
 
 def _incident_attention(session: Session, actor) -> list[dict[str, object]]:
-    page = list_incident_summaries(
-        session,
-        actor,
-        filters=IncidentLibraryFilters(relationship="all"),
-        limit=10,
-        cursor=None,
-    )
-    return [
-        {
-            "incident_id": str(item.incident_id),
-            "incident_number": item.incident_number,
-            "incident_name": item.incident_name,
-            "progress": {
-                "code": item.progress.code,
-                "label": item.progress.label,
-                "blocking_count": item.progress.blocking_count,
-            },
-            "report_count": item.officer_report_count,
-            "required_paperwork_count": item.required_paperwork_count,
-            "updated_at": _timestamp(item.updated_at),
-        }
-        for item in page.items
-        if item.progress.code != "printed_or_exported"
-    ][:10]
+    items: list[dict[str, object]] = []
+    cursor = None
+    while len(items) < 10:
+        page = list_incident_summaries(
+            session,
+            actor,
+            filters=IncidentLibraryFilters(relationship="all"),
+            limit=50,
+            cursor=cursor,
+        )
+        for item in page.items:
+            if item.progress.code == "printed_or_exported":
+                continue
+            items.append({
+                "incident_id": str(item.incident_id),
+                "incident_number": item.incident_number,
+                "incident_name": item.incident_name,
+                "progress": {
+                    "code": item.progress.code,
+                    "label": item.progress.label,
+                    "blocking_count": item.progress.blocking_count,
+                },
+                "report_count": item.officer_report_count,
+                "required_paperwork_count": item.required_paperwork_count,
+                "updated_at": _timestamp(item.updated_at),
+            })
+            if len(items) == 10:
+                break
+        if len(items) == 10 or page.next_cursor is None:
+            break
+        cursor = page.next_cursor
+    return items
 
 
 def _account_conditions(session: Session) -> dict[str, int]:
