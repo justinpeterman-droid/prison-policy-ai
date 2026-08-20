@@ -5,6 +5,7 @@ import { fetchDailyRecord } from "./api";
 import { DAILY_CARD_DEFINITIONS } from "./DailyPaperworkTab";
 import { RosterEditor } from "./roster/RosterEditor";
 import { DailyEditorHeader } from "./shared/DailyEditorHeader";
+import { UniformInspectionEditor } from "./uniform/UniformInspectionEditor";
 
 
 interface DailyRecordWorkspaceProps {
@@ -47,6 +48,14 @@ export function DailyRecordWorkspace({ kind, recordId, workDate, shift }: DailyR
     return (
       <div className="admin-page daily-editor-page">
         <RosterEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
+      </div>
+    );
+  }
+
+  if (kind === "uniform_inspection" && (!recordId || record)) {
+    return (
+      <div className="admin-page daily-editor-page">
+        <UniformInspectionEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
       </div>
     );
   }

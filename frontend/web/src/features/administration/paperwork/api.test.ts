@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   copyPreviousDailyRecord,
   createDailyRecord,
+  deriveUniformInspection,
   fetchDailyPaperwork,
   parseDailyRecord,
 } from "./api";
@@ -124,6 +125,35 @@ describe("Daily Paperwork API", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ target_work_date: "2026-08-21", shift: "N" }),
+      }),
+    );
+  });
+
+  it("derives a uniform inspection from a saved roster revision", async () => {
+    request.mockResolvedValue({
+      ...rawSummary(),
+      kind: "uniform_inspection",
+      title: "Uniform Inspection Log",
+      payload: { schema_version: 1 },
+      template: {
+        schema_version: 1,
+        title: "Uniform Inspection Log",
+        print_orientation: "landscape",
+        definition: {},
+      },
+    });
+
+    await deriveUniformInspection(
+      "00000000-0000-4000-8000-000000000101",
+      "2026-08-20",
+      "D",
+    );
+
+    expect(request).toHaveBeenCalledWith(
+      "/admin/paperwork/daily/assignment-roster/00000000-0000-4000-8000-000000000101/uniform-inspection",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ target_work_date: "2026-08-20", shift: "D" }),
       }),
     );
   });

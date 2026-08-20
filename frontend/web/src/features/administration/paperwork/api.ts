@@ -147,6 +147,21 @@ export async function copyPreviousDailyRecord(
   ));
 }
 
+export async function deriveUniformInspection(
+  rosterRecordId: string,
+  targetWorkDate: string,
+  shift: string,
+): Promise<DailyRecord> {
+  return parseDailyRecord(await webApiRequest<unknown>(
+    `/admin/paperwork/daily/assignment-roster/${rosterRecordId}/uniform-inspection`,
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey() },
+      body: JSON.stringify({ target_work_date: targetWorkDate, shift }),
+    },
+  ));
+}
+
 export async function saveDailyRecord(input: {
   kind: DailyPaperworkKind;
   recordId: string;
