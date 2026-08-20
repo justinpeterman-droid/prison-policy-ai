@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { StatusMessage } from "../../design-system/Primitives";
 import type { SessionProfile } from "../auth/api";
 import { ChangePinForm } from "./ChangePinForm";
 import {
@@ -171,15 +172,19 @@ export function AccountPage({
           </div>
         </header>
 
-        {actionError ? <p className="account-form-message error" role="alert">{actionError}</p> : null}
+        {actionError ? (
+          <StatusMessage as="p" className="account-form-message error" tone="destructive" unstyled aria-atomic="true">
+            {actionError}
+          </StatusMessage>
+        ) : null}
         {loading ? <div className="account-state" aria-busy="true">Loading active sessions…</div> : null}
         {sessionError ? (
-          <div className="account-state error" role="alert">
+          <StatusMessage className="account-state error" tone="dependency-unavailable" unstyled aria-atomic="true">
             <span>{sessionError}</span>
             <button type="button" onClick={() => setReloadToken((value) => value + 1)}>
               Try sessions again
             </button>
-          </div>
+          </StatusMessage>
         ) : null}
         {!loading && !sessionError && sessions.length === 0 ? (
           <div className="account-state">No active sessions are available.</div>

@@ -103,13 +103,14 @@ export function ListRow({ as = "div", className, variant, ...props }: ListRowPro
 export interface StatusMessageProps extends HTMLAttributes<HTMLElement> {
   as?: "div" | "p" | "section";
   tone?: MessageTone;
+  unstyled?: boolean;
 }
 
-export function StatusMessage({ as = "div", className, role, tone = "information", ...props }: StatusMessageProps) {
+export function StatusMessage({ as = "div", className, role, tone = "information", unstyled = false, ...props }: StatusMessageProps) {
   const assertive = tone === "destructive" || tone === "dependency-unavailable";
   return createElement(as, {
     ...props,
-    className: classes("gow-message", `gow-message--${tone}`, className),
+    className: unstyled ? className : classes("gow-message", `gow-message--${tone}`, className),
     role: role ?? (assertive ? "alert" : "status"),
     "aria-live": props["aria-live"] ?? (assertive ? "assertive" : "polite"),
   });

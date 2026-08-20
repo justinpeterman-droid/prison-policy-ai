@@ -87,3 +87,24 @@ test("mobile admin navigation stays usable and reduced motion removes travel", a
   const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
   expect(horizontalOverflow).toBe(false);
 });
+
+test("mobile staff active checkbox keeps a 44px target and logical keyboard order", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await enterAdmin(page, "./admin/accounts-staff");
+
+  await page.getByRole("button", { name: "Edit staff profile" }).click();
+  const activeCheckbox = page.getByRole("checkbox", { name: "Active staff member" });
+  const activeTarget = page.locator("label.admin-checkbox-field");
+  const targetBox = await activeTarget.boundingBox();
+  const checkboxBox = await activeCheckbox.boundingBox();
+
+  expect(targetBox?.height).toBeGreaterThanOrEqual(44);
+  expect(targetBox?.width).toBeGreaterThanOrEqual(44);
+  expect(checkboxBox?.height).toBeGreaterThanOrEqual(20);
+  expect(checkboxBox?.width).toBeGreaterThanOrEqual(20);
+
+  const shift = page.getByLabel("Shift", { exact: true });
+  await shift.focus();
+  await shift.press("Tab");
+  await expect(activeCheckbox).toBeFocused();
+});

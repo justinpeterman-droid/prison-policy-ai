@@ -4,12 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LoginPage } from "./LoginPage";
 
 const signIn = vi.fn();
+let authMessage: string | null = null;
 
 vi.mock("./AuthProvider", () => ({
   useAuth: () => ({
     status: "unauthenticated",
     profile: null,
-    message: null,
+    message: authMessage,
     signIn,
     signOut: vi.fn(),
     refresh: vi.fn(),
@@ -17,6 +18,7 @@ vi.mock("./AuthProvider", () => ({
 }));
 
 beforeEach(() => {
+  authMessage = null;
   signIn.mockReset();
   signIn.mockResolvedValue(undefined);
 });
@@ -46,5 +48,16 @@ describe("LoginPage", () => {
       pin: "0123",
       persistent: true,
     });
+  });
+
+  it("announces the approved safe error without changing its feature appearance", () => {
+    authMessage = "Employee number or PIN was not accepted.";
+    render(<LoginPage />);
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Employee number or PIN was not accepted.");
+    expect(alert.className).toBe("login-error");
+    expect(alert).toHaveAttribute("aria-live", "assertive");
+    expect(alert).toHaveAttribute("aria-atomic", "true");
   });
 });

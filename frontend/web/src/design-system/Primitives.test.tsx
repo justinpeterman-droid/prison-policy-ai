@@ -47,6 +47,13 @@ describe("shared visual primitives", () => {
     expect(screen.getByRole("alert")).toHaveAttribute("aria-live", "assertive");
   });
 
+  it("can preserve an established feature appearance while sharing message semantics", () => {
+    render(<StatusMessage className="legacy-error" tone="destructive" unstyled>Could not sign in</StatusMessage>);
+    const alert = screen.getByRole("alert");
+    expect(alert.className).toBe("legacy-error");
+    expect(alert).toHaveAttribute("aria-live", "assertive");
+  });
+
   it("keeps a visible label and wires required, hint, and invalid messaging to its control", () => {
     render(<Field label="Employee number" required hint="Use the roster number." error="Check this value."><input /></Field>);
     const input = screen.getByRole("textbox", { name: /Employee number/ });
