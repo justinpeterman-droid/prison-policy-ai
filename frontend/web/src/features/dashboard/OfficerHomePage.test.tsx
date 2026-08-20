@@ -90,7 +90,9 @@ describe("officer Home dashboard", () => {
     ]) {
       expect(within(actions).getByRole("link", { name: label })).toBeInTheDocument();
     }
-    expect(within(actions).getAllByTestId("home-action-fixture")).toHaveLength(4);
+    for (const fixture of ["01", "02", "03", "04"]) {
+      expect(within(actions).getByText(fixture)).toBeInTheDocument();
+    }
   });
 
   it("renders honest empty states when the officer has no records", async () => {
