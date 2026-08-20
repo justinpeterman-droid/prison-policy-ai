@@ -131,6 +131,15 @@
     grid-template-columns: 1fr;
   }
 
+  .admin-checkbox-field {
+    min-height: 44px;
+  }
+
+  .admin-checkbox-field input {
+    width: 20px;
+    height: 20px;
+  }
+
   .admin-session-list article {
     grid-template-columns: 38px 1fr;
   }

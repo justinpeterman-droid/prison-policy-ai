@@ -83,16 +83,51 @@ describe("officer Home dashboard", () => {
     await screen.findByRole("heading", { name: "Officer Casey Morgan" });
     const actions = screen.getByRole("region", { name: "Primary actions" });
     for (const label of [
-      "Start New Incident",
+      "New Incident Report",
       "Open Count Sheet",
       "Ask a Policy Question",
       "Open Forms Library",
     ]) {
       expect(within(actions).getByRole("link", { name: label })).toBeInTheDocument();
     }
-    for (const fixture of ["01", "02", "03", "04"]) {
-      expect(within(actions).getByText(fixture)).toBeInTheDocument();
-    }
+    expect(within(actions).queryByText("01")).not.toBeInTheDocument();
+    expect(within(actions).getByText("Saved · Revision 2")).toBeInTheDocument();
+    expect(document.querySelector(".officer-home-continue-card dl")).toBeNull();
+    expect(document.querySelector(".count-panel")).toBeNull();
+  });
+
+  it("preloads only responsive Home hero candidates while Home is mounted", async () => {
+    const view = render(
+      <MemoryRouter>
+        <OfficerHomePage profile={profile} today="2026-08-19" />
+      </MemoryRouter>,
+    );
+    await screen.findByRole("heading", { name: "Officer Casey Morgan" });
+
+    const preloads = document.head.querySelectorAll('link[data-gow-home-hero-preload="true"]');
+    expect(preloads).toHaveLength(3);
+    expect(Array.from(preloads).map((link) => link.getAttribute("media"))).toEqual([
+      "(min-width: 1440px)",
+      "(min-width: 761px) and (max-width: 1439px)",
+      "(max-width: 760px)",
+    ]);
+    expect(Array.from(preloads).every((link) => link.getAttribute("fetchpriority") === "high")).toBe(true);
+
+    view.unmount();
+    expect(document.head.querySelectorAll('link[data-gow-home-hero-preload="true"]')).toHaveLength(0);
+  });
+
+  it("renders a long authorized display name in full without substituting or truncating it", async () => {
+    const longName = "Officer Alexandria Montgomery-Washington the Third";
+    render(
+      <MemoryRouter>
+        <OfficerHomePage profile={{ ...profile, displayName: longName }} today="2026-08-19" />
+      </MemoryRouter>,
+    );
+
+    const heading = await screen.findByRole("heading", { name: longName });
+    expect(heading).toHaveTextContent(longName);
+    expect(heading).not.toHaveAttribute("title");
   });
 
   it("renders honest empty states when the officer has no records", async () => {

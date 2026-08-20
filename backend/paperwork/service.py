@@ -1,5 +1,5 @@
 """Revisioned, idempotent operational-paperwork persistence services."""
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 import json
 from uuid import UUID, uuid4
 
@@ -45,6 +45,14 @@ class PaperworkRevisionConflict(ValueError):
         super().__init__("The paperwork changed; reload before saving.")
 
 
+class PaperworkAlreadyExists(ValueError):
+    """A date/shift record already exists and should be reopened."""
+
+    def __init__(self, record_id: UUID):
+        self.record_id = record_id
+        super().__init__("Paperwork already exists for this date and shift.")
+
+
 def _kind(value: PaperworkKind | str) -> PaperworkKind:
     try:
         return value if isinstance(value, PaperworkKind) else PaperworkKind(value)
@@ -80,12 +88,13 @@ def _locked_record(
     session: Session,
     actor,
     record_id: UUID,
+    *,
+    expected_kind: PaperworkKind | str | None = None,
 ) -> PaperworkRecord:
-    record = session.scalar(
-        select(PaperworkRecord)
-        .where(PaperworkRecord.id == record_id)
-        .with_for_update()
-    )
+    statement = select(PaperworkRecord).where(PaperworkRecord.id == record_id)
+    if expected_kind is not None:
+        statement = statement.where(PaperworkRecord.kind == _kind(expected_kind).value)
+    record = session.scalar(statement.with_for_update())
     if record is None or not can_edit_paperwork(actor, record):
         raise PaperworkNotFound("Paperwork record not found.")
     return record
@@ -95,8 +104,13 @@ def get_paperwork_record(
     session: Session,
     actor,
     record_id: UUID,
+    *,
+    expected_kind: PaperworkKind | str | None = None,
 ) -> PaperworkView:
-    record = session.get(PaperworkRecord, record_id)
+    statement = select(PaperworkRecord).where(PaperworkRecord.id == record_id)
+    if expected_kind is not None:
+        statement = statement.where(PaperworkRecord.kind == _kind(expected_kind).value)
+    record = session.scalar(statement)
     if record is None or not can_read_paperwork(actor, record):
         raise PaperworkNotFound("Paperwork record not found.")
     return _view(record)
@@ -106,13 +120,20 @@ def _view_from_reference(
     session: Session,
     actor,
     reference: dict[str, object],
+    *,
+    expected_kind: PaperworkKind | str | None = None,
 ) -> PaperworkView:
     try:
         record_id = UUID(str(reference["record_id"]))
         revision_number = int(reference["revision_number"])
     except (KeyError, TypeError, ValueError):
         raise RuntimeError("paperwork idempotency reference is invalid") from None
-    view = get_paperwork_record(session, actor, record_id)
+    view = get_paperwork_record(
+        session,
+        actor,
+        record_id,
+        expected_kind=expected_kind,
+    )
     if revision_number < 1 or view.current_revision_number < revision_number:
         raise RuntimeError("paperwork idempotency reference is invalid")
     return view
@@ -181,7 +202,12 @@ def save_paperwork_record(
     else:
         if validated.base_revision_number is None:
             raise ValueError("Existing paperwork requires a base revision.")
-        record = _locked_record(session, actor, record_id)
+        record = _locked_record(
+            session,
+            actor,
+            record_id,
+            expected_kind=selected_kind,
+        )
         if record.kind != selected_kind.value:
             raise ValueError("paperwork kind does not match the record")
         if record.current_revision_number != validated.base_revision_number:
@@ -282,11 +308,91 @@ def save_paperwork_record(
     return _view(record)
 
 
+def copy_previous_daily_record(
+    session: Session,
+    actor,
+    *,
+    kind: PaperworkKind | str,
+    target_work_date: date,
+    shift: str,
+    idempotency_key: str,
+    request_id: str,
+    client_version: str,
+    source_record_id: UUID | None = None,
+    now: datetime | None = None,
+    audit_writer: AuditWriter | None = None,
+) -> PaperworkView:
+    """Create a reset roster from the latest earlier record for the shift."""
+    from backend.paperwork.daily import prepare_copied_roster_payload
+
+    selected_kind = _kind(kind)
+    if selected_kind is not PaperworkKind.ASSIGNMENT_ROSTER:
+        raise ValueError("copy previous is supported only for assignment rosters")
+    if actor.role != "admin":
+        raise PaperworkNotFound("Paperwork record not found.")
+
+    normalized_shift = " ".join(shift.split())
+    if not normalized_shift or len(normalized_shift) > 32:
+        raise ValueError("shift is invalid")
+
+    existing = session.scalar(select(PaperworkRecord).where(
+        PaperworkRecord.kind == selected_kind.value,
+        PaperworkRecord.work_date == target_work_date,
+        PaperworkRecord.shift == normalized_shift,
+    ))
+    if existing is not None:
+        raise PaperworkAlreadyExists(existing.id)
+
+    source_statement = select(PaperworkRecord).where(
+        PaperworkRecord.kind == selected_kind.value,
+        PaperworkRecord.work_date < target_work_date,
+        PaperworkRecord.shift == normalized_shift,
+    )
+    if source_record_id is not None:
+        source_statement = source_statement.where(PaperworkRecord.id == source_record_id)
+    source = session.scalar(source_statement.order_by(
+        PaperworkRecord.work_date.desc(),
+        PaperworkRecord.updated_at.desc(),
+        PaperworkRecord.id.desc(),
+    ))
+    if source is None:
+        raise PaperworkNotFound("No earlier assignment roster was found.")
+
+    copied = prepare_copied_roster_payload(
+        dict(source.current_payload or {}),
+        target_work_date=target_work_date,
+        shift=normalized_shift,
+    )
+    request_model = SavePaperworkRequest(
+        schema_version=1,
+        work_date=target_work_date,
+        shift=normalized_shift,
+        payload=copied.model_dump(mode="json"),
+        base_revision_number=None,
+        reason="manual_save",
+    )
+    return save_paperwork_record(
+        session,
+        actor,
+        kind=selected_kind,
+        request_model=request_model,
+        idempotency_key=idempotency_key,
+        request_id=request_id,
+        client_version=client_version,
+        record_id=None,
+        now=now,
+        audit_writer=audit_writer,
+    )
+
+
 def list_paperwork_records(
     session: Session,
     actor,
     *,
     kind: PaperworkKind | str | None = None,
+    exclude_kind: PaperworkKind | str | None = None,
+    work_date: date | None = None,
+    shift: str | None = None,
     limit: int = 25,
     cursor: dict[str, str] | None = None,
 ) -> PaperworkPage:
@@ -299,6 +405,15 @@ def list_paperwork_records(
         )
     if kind is not None:
         statement = statement.where(PaperworkRecord.kind == _kind(kind).value)
+    if exclude_kind is not None:
+        statement = statement.where(PaperworkRecord.kind != _kind(exclude_kind).value)
+    if work_date is not None:
+        statement = statement.where(PaperworkRecord.work_date == work_date)
+    if shift is not None:
+        normalized_shift = " ".join(shift.split())
+        if not normalized_shift or len(normalized_shift) > 32:
+            raise ValueError("paperwork shift is invalid")
+        statement = statement.where(PaperworkRecord.shift == normalized_shift)
     if cursor:
         try:
             cursor_time = datetime.fromisoformat(
@@ -338,8 +453,14 @@ def list_paperwork_revisions(
     *,
     limit: int = 25,
     cursor: dict[str, str] | None = None,
+    expected_kind: PaperworkKind | str | None = None,
 ) -> PaperworkRevisionPage:
-    get_paperwork_record(session, actor, record_id)
+    get_paperwork_record(
+        session,
+        actor,
+        record_id,
+        expected_kind=expected_kind,
+    )
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 100:
         raise ValueError("paperwork revision page size is invalid")
     statement = select(PaperworkRevision).where(
@@ -400,6 +521,7 @@ def restore_paperwork_record(
     idempotency_key: str,
     request_id: str,
     client_version: str,
+    expected_kind: PaperworkKind | str | None = None,
     now: datetime | None = None,
     audit_writer: AuditWriter | None = None,
 ) -> PaperworkView:
@@ -410,7 +532,12 @@ def restore_paperwork_record(
     ):
         raise ValueError("source revision is invalid")
     fixed = now or datetime.now(UTC)
-    record = _locked_record(session, actor, record_id)
+    record = _locked_record(
+        session,
+        actor,
+        record_id,
+        expected_kind=expected_kind,
+    )
     source = session.scalar(select(PaperworkRevision).where(
         PaperworkRevision.record_id == record_id,
         PaperworkRevision.revision_number == source_revision_number,
@@ -430,11 +557,18 @@ def restore_paperwork_record(
         now=fixed,
     )
     if claim.replayed:
-        return _view_from_reference(session, actor, claim.response_reference or {})
+        return _view_from_reference(
+            session,
+            actor,
+            claim.response_reference or {},
+            expected_kind=expected_kind,
+        )
 
     source_snapshot_model = PaperworkSnapshotV1.model_validate_json(
         json.dumps(source.snapshot, ensure_ascii=False, allow_nan=False)
     )
+    if expected_kind is not None and source_snapshot_model.kind != _kind(expected_kind).value:
+        raise PaperworkNotFound("Paperwork record not found.")
     source_snapshot = source_snapshot_model.model_dump(mode="json")
     previous_snapshot = _record_snapshot(record)
     revision_number = record.current_revision_number + 1

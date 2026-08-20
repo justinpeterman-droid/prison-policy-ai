@@ -1,0 +1,58 @@
+.uniform-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
+.uniform-toolbar > span { color: var(--admin-muted); font-size: 9px; font-weight: 800; }
+.uniform-inspector-card, .uniform-matrix-card { border: 1px solid var(--admin-border); border-radius: 13px; background: #fff; box-shadow: var(--admin-soft-shadow); }
+.uniform-inspector-card { display: grid; grid-template-columns: 1fr minmax(260px, 390px); align-items: center; gap: 18px; padding: 15px; margin-bottom: 13px; }
+.uniform-inspector-card p, .uniform-inspector-card h2, .uniform-bulk-bar p, .uniform-bulk-bar h2 { margin: 0; }
+.uniform-inspector-card p, .uniform-bulk-bar p { color: #81909b; font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.uniform-inspector-card h2, .uniform-bulk-bar h2 { color: var(--admin-navy); font-size: 14px; }
+.uniform-bulk-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px; border-bottom: 1px solid var(--admin-border); background: #f7f9fa; border-radius: 13px 13px 0 0; }
+.uniform-bulk-bar > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.uniform-bulk-bar button { min-height: 30px; padding: 5px 7px; border: 1px solid #cdd8df; border-radius: 7px; background: #fff; color: #455d6d; font-size: 8px; font-weight: 800; cursor: pointer; }
+.uniform-empty { padding: 34px; text-align: center; color: var(--admin-muted); }
+.uniform-empty strong { color: var(--admin-navy); }
+.uniform-empty p { margin: 5px auto 0; max-width: 580px; font-size: 10px; }
+.uniform-table-wrap { overflow-x: auto; }
+.uniform-matrix { width: 100%; min-width: 1120px; border-collapse: collapse; }
+.uniform-matrix th, .uniform-matrix td { padding: 7px 5px; border-bottom: 1px solid #e0e7eb; text-align: left; }
+.uniform-matrix thead th { background: #fbfcfc; color: #667986; font-size: 8px; letter-spacing: .05em; text-transform: uppercase; }
+.uniform-matrix tbody th { min-width: 185px; padding-left: 12px; color: #314b5d; font-size: 10px; }
+.uniform-matrix tbody td { width: 70px; }
+.uniform-matrix tbody td:last-child { width: 270px; }
+.uniform-matrix select, .uniform-matrix textarea { width: 100%; min-height: 34px; padding: 6px; border: 1px solid #ccd7de; border-radius: 6px; background: #fff; color: #294559; font: inherit; font-size: 9px; }
+.uniform-matrix textarea { min-height: 42px; resize: vertical; }
+.uniform-matrix tr.needs-comment { background: #fff6e7; box-shadow: inset 3px 0 #b67a23; }
+.uniform-inspection-print { display: none; }
+.uniform-preview-overlay { position: fixed; z-index: 100; inset: 0; display: block; overflow: auto; padding: 24px; background: #66747d; }
+.uniform-preview-overlay > button { position: sticky; z-index: 2; top: 0; margin-bottom: 12px; padding: 8px 12px; }
+.uniform-preview-overlay .uniform-inspection-print { display: block; width: 11in; min-height: 8.5in; margin: 0 auto; padding: .35in; background: #fff; color: #111; }
+
+@media (max-width: 760px) {
+  .uniform-toolbar, .uniform-bulk-bar { align-items: stretch; flex-direction: column; }
+  .uniform-inspector-card { grid-template-columns: 1fr; }
+  .uniform-bulk-bar > div:last-child { justify-content: flex-start; }
+  .uniform-matrix, .uniform-matrix tbody, .uniform-matrix tr, .uniform-matrix th, .uniform-matrix td { display: block; min-width: 0; width: 100%; }
+  .uniform-matrix thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .uniform-matrix tr { padding: 10px; border-bottom: 1px solid #dbe4e8; }
+  .uniform-matrix tbody th, .uniform-matrix tbody td, .uniform-matrix tbody td:last-child { width: 100%; padding: 4px 0; border: 0; }
+  .uniform-matrix td::before { display: block; margin-bottom: 2px; color: #73838e; font-size: 8px; font-weight: 800; }
+}
+
+@media print {
+  @page uniform-inspection { size: landscape; margin: .3in; }
+  .uniform-workspace > :not(.uniform-inspection-print) { display: none !important; }
+  .uniform-inspection-print { display: block; page: uniform-inspection; color: #000; font-family: Arial, sans-serif; font-size: 8pt; }
+  .uniform-inspection-print header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 12px; padding-bottom: 6px; border-bottom: 2px solid #000; }
+  .uniform-inspection-print header > div { display: grid; }
+  .uniform-inspection-print h1 { margin: 0; font-size: 15pt; }
+  .uniform-inspection-print header dl { display: flex; justify-content: flex-end; gap: 12px; margin: 0; }
+  .uniform-inspection-print header dl div { display: flex; gap: 4px; }
+  .uniform-inspection-print header dd { margin: 0; font-weight: 700; }
+  .uniform-inspection-print table { width: 100%; margin-top: 8px; border-collapse: collapse; table-layout: fixed; }
+  .uniform-inspection-print th, .uniform-inspection-print td { padding: 3px; border: 1px solid #000; vertical-align: top; text-align: center; }
+  .uniform-inspection-print th:first-child { width: 1.65in; text-align: left; }
+  .uniform-inspection-print th:last-child { width: 2.5in; }
+  .uniform-inspection-print td:last-child { overflow-wrap: anywhere; text-align: left; }
+  .uniform-print-legend, .uniform-print-signoff { display: flex; flex-wrap: wrap; gap: 12px; padding: 6px; border: 1px solid #000; border-top: 0; }
+  .uniform-print-signoff { justify-content: space-between; margin-top: 10px; border: 1px solid #000; }
+  .uniform-inspection-print footer { margin-top: 8px; border-top: 1px solid #000; padding-top: 4px; }
+}

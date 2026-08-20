@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { InterfaceIcon } from "../../../components/InterfaceIcon";
+import { listRowClassName } from "../../../design-system/Primitives";
 import { listAdminIncidents, type AdminIncidentSummary } from "../api";
 
 export function AdminIncidentsPage() {
@@ -48,13 +50,13 @@ export function AdminIncidentsPage() {
         <section className="admin-table-shell" aria-label="Administrator incident results">
           <div className="admin-table-header admin-incidents-grid"><span>Incident</span><span>Officer progress</span><span>Records status</span><span>Officers</span><span>Paperwork</span><span aria-hidden="true" /></div>
           {items.length ? items.map((incident) => (
-            <Link className="admin-table-row admin-incidents-grid" key={incident.incidentId} to={`/admin/incidents/${incident.incidentId}`}>
+            <Link className={listRowClassName("navigation", "admin-table-row admin-incidents-grid")} key={incident.incidentId} to={`/admin/incidents/${incident.incidentId}`}>
               <span className="admin-cell-primary"><strong>{incident.incidentNumber ?? "Unnumbered Incident"}</strong><small>{incident.incidentName ?? "Incident name not entered"}</small><small>{[incident.category, incident.location].filter(Boolean).join(" · ") || "Details pending"}</small></span>
               <span><em className="admin-soft-status">{incident.progress.label}</em></span>
               <span><em className={`admin-records-status ${incident.recordsStatus}`}>{incident.recordsStatus.replaceAll("_", " ")}</em></span>
               <span>{incident.reportingOfficers.map((person) => person.displayName).join(", ") || "Not assigned"}</span>
               <span>{incident.officerReportCount} reports · {incident.requiredPaperworkCount} required</span>
-              <span className="admin-row-arrow" aria-hidden="true">›</span>
+              <span className="admin-row-arrow"><InterfaceIcon name="chevron-right" /></span>
             </Link>
           )) : <div className="admin-empty-row"><strong>No matching incidents</strong><span>Try a broader search or remove the records-status filter.</span></div>}
         </section>

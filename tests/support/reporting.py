@@ -91,6 +91,7 @@ def make_incident(
     now: datetime | None = None,
     *,
     reporting_staff_ids: tuple[UUID, ...] | None = None,
+    incident_id: UUID | None = None,
 ) -> Incident:
     fixed = now or datetime(2026, 8, 12, 15, 0, tzinfo=UTC)
     snapshot: dict[str, object] = {
@@ -102,6 +103,7 @@ def make_incident(
             "reporting_staff_ids": [str(staff_id) for staff_id in reporting_staff_ids],
         }
     incident = Incident(
+        **({"id": incident_id} if incident_id is not None else {}),
         created_by_account_id=account.id,
         created_by_staff_member_id=account.staff_member_id,
         status="in_progress", current_revision_number=1,
@@ -128,11 +130,12 @@ def make_incident(
 
 def make_report(
     session, *, incident: Incident, owner: Account, preparer: Account,
-    now: datetime | None = None,
+    now: datetime | None = None, report_id: UUID | None = None,
 ) -> Report:
     fixed = now or datetime(2026, 8, 12, 15, 0, tzinfo=UTC)
     content = fictional_report_content("Fictional initial report narrative.")
     report = Report(
+        **({"id": report_id} if report_id is not None else {}),
         incident_id=incident.id, report_type=ReportType.FIRST_PERSON,
         reporting_staff_member_id=owner.staff_member_id,
         prepared_by_staff_member_id=preparer.staff_member_id,

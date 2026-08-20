@@ -8,6 +8,7 @@ import {
   adminStaffPageSchema,
   reviewLabHandoffSchema,
 } from "./schemas";
+import type { z } from "zod";
 
 export type AdminPurpose =
   | "staff_write"
@@ -27,7 +28,11 @@ export interface AdminElevationState {
 
 export interface AdminPaperworkState {
   status: string;
+  state?: "not_started" | "saved" | "needs_attention";
   recordId: string | null;
+  revision?: number | null;
+  warningCount?: number;
+  shift?: string | null;
   updatedAt: string | null;
 }
 
@@ -129,9 +134,13 @@ export async function requestAdminStepUp(pin: string, purpose: AdminPurpose): Pr
 
 export async function getAdminOverview(): Promise<AdminOverview> {
   const value = adminOverviewSchema.parse(await webApiRequest<unknown>("/admin/overview"));
-  const mapPaperwork = (item: { status: string; record_id: string | null; updated_at: string | null }) => ({
+  const mapPaperwork = (item: z.infer<typeof adminOverviewSchema>["todays_paperwork"]["assignment_roster"]) => ({
     status: item.status,
+    state: item.state,
     recordId: item.record_id,
+    revision: item.revision,
+    warningCount: item.warning_count,
+    shift: item.shift,
     updatedAt: item.updated_at,
   });
   return {

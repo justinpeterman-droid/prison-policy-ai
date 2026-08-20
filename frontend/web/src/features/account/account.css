@@ -1,6 +1,7 @@
 .account-page {
   display: grid;
   gap: 20px;
+  padding-bottom: 36px;
   color: var(--gow-ink, #10243d);
 }
 
@@ -93,7 +94,7 @@
 
 .account-identity-list dt {
   color: var(--gow-muted, #63758a);
-  font-size: 0.64rem;
+  font-size: 0.72rem;
   font-weight: 750;
   text-transform: uppercase;
 }
@@ -155,7 +156,7 @@
 .account-session-actions button,
 .account-session-card > button,
 .account-state button {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 14px;
   border-radius: 9px;
   font-size: 0.74rem;
@@ -246,7 +247,7 @@
   color: #226744;
   background: #e5f5e9;
   border-radius: 999px;
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   font-weight: 800;
 }
 
@@ -264,7 +265,7 @@
 
 .account-session-card dt {
   color: var(--gow-muted, #63758a);
-  font-size: 0.58rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -290,9 +291,25 @@
   color: #7d302a;
 }
 
-button:disabled {
+.account-page button:disabled {
   cursor: not-allowed;
-  opacity: 0.58;
+  color: var(--gow-disabled, #70808f);
+  background: #e7ecef;
+  border-color: #c7d0d7;
+  box-shadow: none;
+  opacity: 1;
+}
+
+.account-page button:focus-visible,
+.account-page input:focus-visible {
+  outline: 3px solid var(--gow-focus, #075fae);
+  outline-offset: 2px;
+}
+
+.account-page button:active:not(:disabled) { transform: translateY(1px); }
+
+@media (hover: hover) {
+  .account-page button:hover:not(:disabled) { filter: brightness(1.03); }
 }
 
 @media (max-width: 920px) {
@@ -302,6 +319,24 @@ button:disabled {
 }
 
 @media (max-width: 680px) {
+  .account-page,
+  .account-page > *,
+  .account-grid,
+  .account-panel,
+  .account-panel > header,
+  .account-pin-form,
+  .account-field-grid,
+  .account-field-grid input {
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .account-heading,
+  .account-panel,
+  .account-panel > header {
+    overflow-wrap: anywhere;
+  }
+
   .account-field-grid,
   .account-identity-list {
     grid-template-columns: 1fr;
@@ -318,6 +353,9 @@ button:disabled {
   .account-primary-button {
     width: 100%;
   }
+
+  .account-page input,
+  .account-page button { min-height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

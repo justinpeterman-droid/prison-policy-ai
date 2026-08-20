@@ -21,3 +21,20 @@ def test_docker_context_includes_web_source_and_runtime_dispatcher():
     assert "!frontend/web/**" in dockerignore
     assert "scripts/*" in dockerignore
     assert "!scripts/dispatch_outbox.py" in dockerignore
+
+
+def test_ci_runs_the_complete_guided_operations_browser_gate():
+    workflow = Path(".github/workflows/tests.yml").read_text(encoding="utf-8")
+
+    for required in (
+        "actions/setup-node@v4",
+        "npm install --legacy-peer-deps --no-audit --no-fund",
+        "npm run lint",
+        "npm run typecheck",
+        "npm run test",
+        "npx playwright install --with-deps chromium",
+        "npm run test:e2e",
+        "python scripts/check_print_templates.py",
+        "python -m pytest tests/contract tests/security -q",
+    ):
+        assert required in workflow

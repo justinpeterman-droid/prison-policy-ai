@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { Button, Field, StatusMessage } from "../../design-system/Primitives";
 import { changePin } from "./api";
+
+const PIN_MISMATCH_MESSAGE = "The new PIN values do not match.";
 
 interface ChangePinFormProps {
   onChanged?: () => void;
@@ -23,7 +26,7 @@ export function ChangePinForm({
     setError(null);
     setSuccess(null);
     if (newPin !== confirmation) {
-      setError("The new PIN values do not match.");
+      setError(PIN_MISMATCH_MESSAGE);
       return;
     }
     setSubmitting(true);
@@ -45,11 +48,12 @@ export function ChangePinForm({
     }
   }
 
+  const confirmationMismatch = error === PIN_MISMATCH_MESSAGE;
+
   return (
     <form className="account-pin-form" onSubmit={submit}>
       <div className="account-field-grid">
-        <label>
-          <span>Current PIN</span>
+        <Field label="Current PIN" required>
           <input
             aria-label="Current PIN"
             type="password"
@@ -62,9 +66,8 @@ export function ChangePinForm({
             value={currentPin}
             onChange={(event) => setCurrentPin(event.currentTarget.value)}
           />
-        </label>
-        <label>
-          <span>New PIN</span>
+        </Field>
+        <Field label="New PIN" required>
           <input
             aria-label="New PIN"
             type="password"
@@ -77,9 +80,8 @@ export function ChangePinForm({
             value={newPin}
             onChange={(event) => setNewPin(event.currentTarget.value)}
           />
-        </label>
-        <label>
-          <span>Confirm new PIN</span>
+        </Field>
+        <Field label="Confirm new PIN" required>
           <input
             aria-label="Confirm new PIN"
             type="password"
@@ -89,19 +91,21 @@ export function ChangePinForm({
             maxLength={8}
             pattern="[A-Za-z0-9]{4,8}"
             required
+            aria-invalid={confirmationMismatch || undefined}
+            aria-errormessage={confirmationMismatch ? "account-pin-error" : undefined}
             value={confirmation}
             onChange={(event) => setConfirmation(event.currentTarget.value)}
           />
-        </label>
+        </Field>
       </div>
       <p className="account-pin-guidance">
         Use 4 through 8 letters or numbers. Do not reuse the current PIN.
       </p>
-      {error ? <p className="account-form-message error" role="alert">{error}</p> : null}
-      {success ? <p className="account-form-message success" role="status">{success}</p> : null}
-      <button className="account-primary-button" type="submit" disabled={submitting}>
+      {error ? <StatusMessage as="p" id="account-pin-error" className="account-form-message error" tone="destructive">{error}</StatusMessage> : null}
+      {success ? <StatusMessage as="p" className="account-form-message success" tone="success">{success}</StatusMessage> : null}
+      <Button className="account-primary-button" variant="primary" type="submit" loading={submitting}>
         {submitting ? "Changing…" : submitLabel}
-      </button>
+      </Button>
     </form>
   );
 }

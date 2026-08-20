@@ -56,3 +56,36 @@ def test_templates_forbid_real_operational_records_in_git():
     for filename in REQUIRED:
         text = (OPERATIONS / filename).read_text(encoding="utf-8")
         assert "Store completed records in the agency-approved system of record." in text
+
+
+def test_guided_operations_release_and_pilot_guidance_is_present():
+    required_documents = {
+        ROOT / "docs" / "operations" / "guided-operations-release-gates.md": {
+            "all automated suites pass twice",
+            "WEB_APP_MODE remains preview until explicit primary approval",
+            "no source workbook or real identity exists in the image or repository",
+        },
+        ROOT / "docs" / "runbooks" / "guided-operations-web-pilot.md": {
+            "WEB_APP_MODE=preview",
+            "explicit go/no-go review for `primary`",
+            "An agent does not perform production steps.",
+        },
+        ROOT / "docs" / "runbooks" / "guided-operations-web-rollback.md": {
+            "set WEB_APP_MODE=preview",
+            "No database downgrade is part of routine UI rollback.",
+        },
+        ROOT / "docs" / "user-guides" / "guided-operations-officer-quick-start.md": {
+            "individual sign-in",
+            "physical Chain of Custody reminder",
+            "safe sign-out",
+        },
+        ROOT / "docs" / "user-guides" / "guided-operations-admin-quick-start.md": {
+            "Paperwork Center Daily/Weekly/Monthly",
+            "one-time PIN handling",
+            "sensitive step-up prompts",
+        },
+    }
+
+    for path, phrases in required_documents.items():
+        text = path.read_text(encoding="utf-8")
+        assert all(phrase in text for phrase in phrases)

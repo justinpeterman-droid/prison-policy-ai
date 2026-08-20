@@ -42,7 +42,11 @@ describe("Policy Expert", () => {
     render(<PolicyExpertPage />);
     fireEvent.click(screen.getByRole("button", { name: "Ask Policy Expert" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Enter a policy question");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Enter a policy question");
+    const question = screen.getByLabelText("Policy question");
+    expect(question).toHaveAttribute("aria-invalid", "true");
+    expect(question).toHaveAttribute("aria-errormessage", alert.id);
     expect(mockedAsk).not.toHaveBeenCalled();
   });
 

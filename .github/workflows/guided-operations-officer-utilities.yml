@@ -157,11 +157,40 @@ jobs:
       - name: Run Officer Utilities browser workflows
         working-directory: frontend/web
         run: npm run test:e2e
+        env:
+          PLAYWRIGHT_SKIP_VISUAL_REGRESSION: "1"
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: officer-utilities-playwright-report
+          path: frontend/web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+  visual-regression-windows:
+    name: Windows visual regression baselines
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install frontend dependencies
+        working-directory: frontend/web
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+      - name: Install Chromium
+        working-directory: frontend/web
+        run: npx playwright install chromium
+      - name: Verify committed Windows visual baselines
+        working-directory: frontend/web
+        run: npm run test:e2e -- visual-regression.spec.ts --workers=1
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-visual-regression-playwright-report
           path: frontend/web/playwright-report
           if-no-files-found: ignore
           retention-days: 7

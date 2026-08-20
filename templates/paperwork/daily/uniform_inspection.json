@@ -1,0 +1,22 @@
+{
+  "kind": "uniform_inspection",
+  "title": "Uniform Inspection Log",
+  "schema_version": 1,
+  "print_orientation": "landscape",
+  "definition": {
+    "facility_label": "North Central Unit",
+    "header_fields": ["Date", "Shift"],
+    "columns": ["shirt", "pants", "shoes", "cap", "coat", "id", "hair", "nails"],
+    "column_labels": ["Shirt", "Pants", "Shoes", "Cap", "Coat", "I.D.", "Hair", "Nails"],
+    "values": ["S", "N/I", "U", "NONE"],
+    "value_labels": {
+      "S": "Satisfactory",
+      "N/I": "Needs Improvement",
+      "U": "Unsatisfactory",
+      "NONE": "Item not used or not applicable during this inspection"
+    },
+    "comment_required_for": ["U"],
+    "sign_off_fields": ["Staff Conducting Inspection"],
+    "footer_fields": ["Distribution"]
+  }
+}

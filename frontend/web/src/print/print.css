@@ -1,0 +1,11 @@
+.print-preview { margin-top: 18px; overflow: auto; border: 1px solid #c8d3da; border-radius: 12px; background: #eef2f4; }
+.print-preview__tools { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; color: #42566a; font-size: 11px; }
+.print-preview__canvas { width: max-content; min-width: 100%; padding: 16px; transform: scale(var(--print-zoom)); transform-origin: top left; }
+.print-document { width: 11in; min-height: 8.5in; padding: .35in; background: #fff; color: #111; font-family: Arial, sans-serif; }
+.print-document__header { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 14px; border-bottom: 1.5px solid #111; }
+.print-document h1 { margin: 0 0 9px; font-size: 18px; } .print-document h2 { font-size: 12px; }
+.print-document dl { display: flex; gap: 16px; margin: 0; } .print-document dt { font-size: 9px; font-weight: 700; text-transform: uppercase; } .print-document dd { min-width: 75px; margin: 3px 0 0; border-bottom: 1px solid #111; font-size: 12px; }
+.paper-log-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9px; } .paper-log-table th, .paper-log-table td { height: 18px; padding: 3px; border: 1px solid #222; text-align: left; vertical-align: middle; } .paper-log-table thead th { background: #e9e9e9; font-weight: 700; }
+.paper-log-note { margin: 9px 0; font-size: 10px; font-weight: 700; } .paper-comments { margin-top: 10px; } .paper-comments h2 { margin: 0 0 4px; } .paper-comments div { height: 48px; border: 1px solid #222; } .paper-review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; } .paper-review-grid p { min-height: 32px; margin: 0; border-bottom: 1px solid #111; }
+.print-packet > .print-document { break-after: page; page-break-after: always; } .print-packet > .print-document:last-child { break-after: auto; page-break-after: auto; }
+@media print { .monthly-paperwork > :not(.print-preview):not(.print-packet-builder) { display: none !important; } .print-document { position: static; width: 11in; min-height: 8.5in; margin: 0; } .print-preview__tools, .print-packet-builder > h2, .print-packet-builder > p, .print-packet-builder > ol { display: none !important; } @page { size: letter landscape; margin: .35in; } }

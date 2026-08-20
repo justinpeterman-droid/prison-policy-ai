@@ -1,0 +1,14 @@
+{
+  "code": "monthly_contraband_standard",
+  "title": "Contraband Search Log — Standard Area Rotation",
+  "period": "monthly",
+  "category": "security_checks",
+  "schema_version": 1,
+  "page_size": "letter",
+  "orientation": "landscape",
+  "definition": {
+    "prefill_fields": ["month", "shift"],
+    "columns": ["Date/Time", "Area Searched", "Contraband Found", "Searching Officers", "Disposition of Contraband", "Additional Comments"],
+    "schedule": ["Gym", "School", "Front Office / Barber Shop", "Boiler Room", "Kitchen and ODR", "Laundry Press Area / Main Showers", "Gym", "School", "Front Office / Barber Shop", "Boiler Room", "Kitchen and ODR", "Laundry Press Area / Main Showers"]
+  }
+}

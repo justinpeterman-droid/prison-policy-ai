@@ -1,0 +1,11 @@
+{
+  "kind": "detector_sign_out",
+  "title": "Handheld Metal Detector Sign-Out",
+  "schema_version": 1,
+  "print_orientation": "portrait",
+  "definition": {
+    "units": ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9"],
+    "fields": ["staff_id", "area_of_assignment", "shift_supervisor_staff_id", "date"],
+    "field_labels": ["Staff Member", "Area of Assignment", "Shift Supervisor", "Date"]
+  }
+}

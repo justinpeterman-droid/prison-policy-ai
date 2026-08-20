@@ -17,7 +17,7 @@ test("command center keeps operations readable and action-oriented at 1366x768",
   await page.setViewportSize({ width: 1366, height: 768 });
   await enterAdmin(page);
 
-  await expect(page.getByRole("heading", { name: /Good evening, Captain Blake/ })).toBeVisible();
+  await expect(page.getByText(/Good evening, Captain Blake/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Operational Command Center" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Today’s Paperwork" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Incidents Needing Attention" })).toBeVisible();
@@ -86,4 +86,43 @@ test("mobile admin navigation stays usable and reduced motion removes travel", a
 
   const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
   expect(horizontalOverflow).toBe(false);
+});
+
+test("mobile staff active checkbox keeps a 44px target and logical keyboard order", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await enterAdmin(page, "./admin/accounts-staff");
+
+  await page.getByRole("button", { name: "Edit staff profile" }).click();
+  const activeCheckbox = page.getByRole("checkbox", { name: "Active staff member" });
+  const activeTarget = page.locator("label.admin-checkbox-field");
+  const targetBox = await activeTarget.boundingBox();
+  const checkboxBox = await activeCheckbox.boundingBox();
+
+  expect(targetBox?.height).toBeGreaterThanOrEqual(44);
+  expect(targetBox?.width).toBeGreaterThanOrEqual(44);
+  expect(checkboxBox?.height).toBeGreaterThanOrEqual(20);
+  expect(checkboxBox?.width).toBeGreaterThanOrEqual(20);
+
+  const shift = page.getByLabel("Shift", { exact: true });
+  await shift.focus();
+  await shift.press("Tab");
+  await expect(activeCheckbox).toBeFocused();
+});
+
+test("mobile staff search keeps a 44px target and follows its input in keyboard order", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await enterAdmin(page, "./admin/accounts-staff");
+
+  const input = page.getByRole("searchbox", { name: "Search staff" });
+  const submit = page.getByRole("button", { name: "Search staff" });
+  const submitBox = await submit.boundingBox();
+  expect(submitBox?.height).toBeGreaterThanOrEqual(44);
+  expect(submitBox?.width).toBeGreaterThanOrEqual(44);
+
+  await input.fill("Casey");
+  await input.focus();
+  await input.press("Tab");
+  await expect(submit).toBeFocused();
+  await submit.press("Enter");
+  await expect(page.getByRole("heading", { name: "Officer Casey Morgan" })).toBeVisible();
 });

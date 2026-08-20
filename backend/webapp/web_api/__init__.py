@@ -88,6 +88,7 @@ from backend.webapp.web_api.admin_audit import admin_audit_bp  # noqa: E402
 from backend.webapp.web_api.admin_auth import admin_auth_bp  # noqa: E402
 from backend.webapp.web_api.admin_health import admin_health_bp  # noqa: E402
 from backend.webapp.web_api.admin_incidents import admin_incidents_bp  # noqa: E402
+from backend.webapp.web_api.admin_daily_paperwork import admin_daily_paperwork_bp  # noqa: E402
 from backend.webapp.web_api.admin_overview import admin_overview_bp  # noqa: E402
 from backend.webapp.web_api.admin_review_lab import admin_review_lab_bp  # noqa: E402
 from backend.webapp.web_api.auth import auth_bp  # noqa: E402
@@ -98,6 +99,7 @@ from backend.webapp.web_api.incident_records import incident_records_bp  # noqa:
 from backend.webapp.web_api.incidents import incidents_bp  # noqa: E402
 from backend.webapp.web_api.jobs import jobs_bp  # noqa: E402
 from backend.webapp.web_api.paperwork import paperwork_bp  # noqa: E402
+from backend.webapp.web_api.print_templates import print_templates_bp  # noqa: E402
 from backend.webapp.web_api.policy import policy_bp  # noqa: E402
 from backend.webapp.web_api.reports import reports_bp  # noqa: E402
 from backend.webapp.web_api.staff import staff_bp  # noqa: E402
@@ -107,6 +109,7 @@ web_api_bp.register_blueprint(account_bp, url_prefix="/account")
 web_api_bp.register_blueprint(admin_auth_bp, url_prefix="/admin")
 web_api_bp.register_blueprint(admin_overview_bp, url_prefix="/admin")
 web_api_bp.register_blueprint(admin_incidents_bp, url_prefix="/admin")
+web_api_bp.register_blueprint(admin_daily_paperwork_bp, url_prefix="/admin")
 web_api_bp.register_blueprint(admin_accounts_bp, url_prefix="/admin")
 web_api_bp.register_blueprint(admin_audit_bp, url_prefix="/admin")
 web_api_bp.register_blueprint(admin_health_bp, url_prefix="/admin")
@@ -119,6 +122,7 @@ web_api_bp.register_blueprint(jobs_bp)
 web_api_bp.register_blueprint(forms_bp)
 web_api_bp.register_blueprint(forms_library_bp)
 web_api_bp.register_blueprint(paperwork_bp)
+web_api_bp.register_blueprint(print_templates_bp)
 web_api_bp.register_blueprint(policy_bp, url_prefix="/policy")
 web_api_bp.register_blueprint(staff_bp)
 

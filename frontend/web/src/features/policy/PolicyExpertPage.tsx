@@ -1,7 +1,10 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { Button, Field, StatusMessage } from "../../design-system/Primitives";
 import { askPolicyQuestion, type PolicyAnswer } from "./api";
 import "./policy-expert.css";
+
+const EMPTY_QUESTION_MESSAGE = "Enter a policy question before submitting.";
 
 export function PolicyExpertPage() {
   const [question, setQuestion] = useState("");
@@ -15,7 +18,7 @@ export function PolicyExpertPage() {
     setAnswer(null);
     const cleaned = question.trim();
     if (!cleaned) {
-      setError("Enter a policy question before submitting.");
+      setError(EMPTY_QUESTION_MESSAGE);
       return;
     }
     setSubmitting(true);
@@ -32,6 +35,8 @@ export function PolicyExpertPage() {
     }
   }
 
+  const questionInvalid = error === EMPTY_QUESTION_MESSAGE;
+
   return (
     <section className="policy-page" aria-labelledby="policy-heading">
       <header className="policy-heading">
@@ -43,23 +48,24 @@ export function PolicyExpertPage() {
       </header>
 
       <section className="policy-question-panel">
-        <form onSubmit={submit}>
-          <label>
-            <span>Policy question</span>
+        <form noValidate onSubmit={submit}>
+          <Field label="Policy question" required>
             <textarea
               aria-label="Policy question"
+              aria-invalid={questionInvalid || undefined}
+              aria-errormessage={questionInvalid ? "policy-question-error" : undefined}
               value={question}
               maxLength={2_000}
               rows={5}
               onChange={(event) => setQuestion(event.currentTarget.value)}
               placeholder="Example: What documentation is required after a use-of-force incident?"
             />
-          </label>
+          </Field>
           <div className="policy-form-footer">
             <span>{question.length.toLocaleString()} / 2,000</span>
-            <button type="submit" disabled={submitting}>
+            <Button variant="primary" type="submit" loading={submitting}>
               {submitting ? "Searching policy…" : "Ask Policy Expert"}
-            </button>
+            </Button>
           </div>
         </form>
         <p className="policy-boundary-note">
@@ -67,9 +73,9 @@ export function PolicyExpertPage() {
         </p>
       </section>
 
-      {error ? <div className="policy-state error" role="alert">{error}</div> : null}
+      {error ? <StatusMessage id="policy-question-error" className="policy-state error" tone={questionInvalid ? "destructive" : "dependency-unavailable"}>{error}</StatusMessage> : null}
       {submitting ? (
-        <div className="policy-state" aria-busy="true">Searching approved policy sources…</div>
+        <StatusMessage className="policy-state" aria-busy="true">Searching approved policy sources…</StatusMessage>
       ) : null}
 
       {answer ? (

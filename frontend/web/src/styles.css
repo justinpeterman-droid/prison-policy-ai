@@ -1,18 +1,2 @@
-@import "./home-refinement.css";
 @import "./features/administration/incidents/admin-incident-controls.css";
 @import "./features/administration/accounts/accounts-refinement.css";
-@import "./sidebar-scenery.css";
-
-:root {
-  font-family: Inter, system-ui, sans-serif;
-  color: #17212d;
-  background: #f4f6f5;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-}

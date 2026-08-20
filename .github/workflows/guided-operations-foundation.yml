@@ -90,3 +90,88 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build production image
         run: docker build --tag prison-policy-ai:guided-operations .
+
+  production-smoke:
+    name: Production bundle and real-session smoke
+    needs: [frontend, backend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: access_beta_smoke
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d access_beta_smoke"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      ACCESS_API_ENABLED: "true"
+      ACCESS_CODE: fictional-beta-access
+      ADMIN_CODE: fictional-beta-admin
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/access_beta_smoke
+      IDENTITY_HASH_PEPPER: beta-smoke-identity-pepper-000000000000
+      CURSOR_SIGNING_KEY: beta-smoke-cursor-signing-key-0000000000
+      PUBLIC_BASE_URL: https://127.0.0.1:8080
+      LEGACY_REPORT_MODE: pilot_fallback
+      RELEASE_NOTES: Fictional controlled-beta smoke candidate.
+      GUIDED_OPERATIONS_SMOKE_BASE_URL: http://127.0.0.1:8080
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install backend dependencies
+        run: python -m pip install -r requirements.txt pytest
+      - name: Install browser dependencies
+        working-directory: frontend/web
+        run: |
+          npm install --legacy-peer-deps --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Download reviewed production assets
+        uses: actions/download-artifact@v4
+        with:
+          name: guided-operations-web-preview
+          path: backend/webapp/static/web
+      - name: Prepare fictional PostgreSQL state
+        run: |
+          python -m alembic upgrade head
+          python scripts/seed_fictional_accounts.py
+          python tests/prod-smoke/seed_fictional_beta_smoke.py
+      - name: Start production-style application
+        run: |
+          gunicorn --bind 127.0.0.1:8080 --workers 1 --threads 8 --timeout 300 "backend.webapp.app:create_app()" > /tmp/guided-operations-smoke.log 2>&1 &
+          echo $! > /tmp/guided-operations-smoke.pid
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8080/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/guided-operations-smoke.log
+          exit 1
+      - name: Run production-bundle browser smoke
+        working-directory: frontend/web
+        run: npm run test:e2e:prod
+      - name: Show server log after failure
+        if: failure()
+        run: cat /tmp/guided-operations-smoke.log
+      - name: Upload production-smoke traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guided-operations-production-smoke-traces
+          path: |
+            frontend/web/test-results/prod-smoke
+            frontend/web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7

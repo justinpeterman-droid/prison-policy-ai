@@ -1,0 +1,22 @@
+.search-section-nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-section-nav a:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .search-section-nav {
+    padding: 5px;
+    scroll-padding-inline: 5px;
+  }
+
+  .search-section-nav a {
+    flex: 0 0 auto;
+    min-height: 44px;
+  }
+}

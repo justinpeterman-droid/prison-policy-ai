@@ -1,0 +1,12 @@
+{
+  "kind": "random_search_log",
+  "title": "Random Searches Log",
+  "schema_version": 1,
+  "print_orientation": "landscape",
+  "definition": {
+    "sections": ["North 1", "North 2", "South 1", "South 2"],
+    "blocks_per_section": 4,
+    "fields": ["officer_staff_id", "date", "time", "individual_last_name", "individual_number", "barracks_rack", "contraband_disposition"],
+    "field_labels": ["Officer", "Date", "Time", "Individual Last Name", "Individual Number", "Barracks / Rack", "Contraband Found and Disposition"]
+  }
+}

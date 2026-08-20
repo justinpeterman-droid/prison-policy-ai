@@ -16,8 +16,8 @@
   inset: 0;
   opacity: 0.78;
   background:
-    linear-gradient(90deg, rgba(7, 31, 56, 0.98) 0%, rgba(8, 42, 75, 0.88) 26%, rgba(255, 255, 255, 0) 65%),
-    url("/static/web/operations-horizon.svg") center / cover no-repeat;
+    radial-gradient(circle at 18% 18%, rgba(231, 189, 90, 0.22), transparent 17rem),
+    linear-gradient(145deg, #123f6a 0%, #082a4c 58%, #061d35 100%);
   clip-path: polygon(0 0, 62% 0, 47% 100%, 0 100%);
 }
 
@@ -153,12 +153,13 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: var(--gow-control-height, 44px);
   color: #495e72;
 }
 
 .login-remember input {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   accent-color: #b77d1c;
 }
 
@@ -168,8 +169,8 @@
 
 .login-submit {
   min-height: 49px;
-  color: #fffdf7;
-  background: linear-gradient(180deg, #e8bd5d 0%, #c88d23 52%, #a6690d 100%);
+  color: var(--gow-button-gold-ink, #0b2d50);
+  background: linear-gradient(180deg, #e8bd5d 0%, #c88d23 52%, #b97814 100%);
   border: 1px solid #a56d14;
   border-radius: 11px;
   box-shadow:
@@ -214,9 +215,7 @@
   .login-backdrop {
     clip-path: none;
     opacity: 0.3;
-    background:
-      linear-gradient(rgba(5, 31, 55, 0.58), rgba(5, 31, 55, 0.58)),
-      url("/static/web/operations-horizon.svg") center / cover no-repeat;
+    background: linear-gradient(145deg, #123f6a 0%, #061d35 100%);
   }
 
   .login-card {

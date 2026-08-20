@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { InterfaceIcon } from "../../../components/InterfaceIcon";
 import { listAdminAudit, type AdminAuditEvent } from "../api";
 
 function labelAction(value: string): string {
@@ -44,7 +45,7 @@ export function AuditLogPage() {
             <div className="admin-table-header admin-audit-grid"><span>Time</span><span>Action</span><span>Result</span><span>Target</span><span aria-hidden="true" /></div>
             {events.map((event) => (
               <button className={`admin-table-row admin-audit-grid ${event.eventId === selectedId ? "is-selected" : ""}`} type="button" key={event.eventId} onClick={() => setSelectedId(event.eventId)}>
-                <span>{new Date(event.occurredAt).toLocaleString()}</span><span className="admin-cell-primary"><strong>{labelAction(event.action)}</strong><small>Request {event.requestId}</small></span><span><em className={`admin-records-status ${event.result}`}>{event.result}</em></span><span>{event.targetType ?? "—"}</span><span className="admin-row-arrow" aria-hidden="true">›</span>
+                <span>{new Date(event.occurredAt).toLocaleString()}</span><span className="admin-cell-primary"><strong>{labelAction(event.action)}</strong><small>Request {event.requestId}</small></span><span><em className={`admin-records-status ${event.result}`}>{event.result}</em></span><span>{event.targetType ?? "—"}</span><span className="admin-row-arrow"><InterfaceIcon name="chevron-right" /></span>
               </button>
             ))}
             {!events.length ? <div className="admin-empty-row">No audit events match these filters.</div> : null}

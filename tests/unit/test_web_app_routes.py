@@ -2,6 +2,7 @@ from contextlib import contextmanager
 
 from backend.webapp import app as app_mod
 from backend.webapp.api_v1.errors import ApiError
+from backend.webapp.routes import web_app
 from backend.webapp.web_api import auth as web_auth
 
 
@@ -18,7 +19,8 @@ def configured_app(monkeypatch):
     return app_mod.create_app()
 
 
-def test_workspace_route_bypasses_legacy_shared_code_gate(monkeypatch):
+def test_workspace_route_bypasses_legacy_shared_code_gate(monkeypatch, tmp_path):
+    monkeypatch.setattr(web_app, "_web_root", lambda: tmp_path / "missing-web")
     response = configured_app(monkeypatch).test_client().get("/workspace")
 
     assert response.status_code == 503
@@ -27,7 +29,8 @@ def test_workspace_route_bypasses_legacy_shared_code_gate(monkeypatch):
     )
 
 
-def test_workspace_client_route_returns_spa_fallback(monkeypatch):
+def test_workspace_client_route_returns_spa_fallback(monkeypatch, tmp_path):
+    monkeypatch.setattr(web_app, "_web_root", lambda: tmp_path / "missing-web")
     response = configured_app(monkeypatch).test_client().get(
         "/workspace/reports/00000000-0000-4000-8000-000000000001"
     )

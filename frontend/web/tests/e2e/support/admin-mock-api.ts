@@ -1,4 +1,5 @@
 import type { Page, Route } from "@playwright/test";
+import perimeterTemplate from "../../../../../templates/paperwork/daily/perimeter_check.json" with { type: "json" };
 
 const ADMIN = {
   account_id: "00000000-0000-4000-8000-000000000901",
@@ -60,6 +61,61 @@ const REPORT = {
   preparer: PREPARER,
   updated_at: "2026-08-19T19:00:00Z",
 } as const;
+
+type DailyKind =
+  | "assignment_roster"
+  | "uniform_inspection"
+  | "metal_detector_test"
+  | "perimeter_check"
+  | "random_search_log"
+  | "detector_sign_out";
+
+interface MockDailyRecord {
+  record_id: string;
+  kind: DailyKind;
+  title: string;
+  work_date: string;
+  shift: string;
+  revision: number;
+  current_revision_number: number;
+  state: "saved" | "needs_attention";
+  warning_count: number;
+  validation: Record<string, unknown>;
+  created_by_staff_member_id: string;
+  last_editor_staff_member_id: string;
+  created_at: string;
+  updated_at: string;
+  payload: Record<string, unknown>;
+  template: {
+    schema_version: 1;
+    title: string;
+    print_orientation: "portrait" | "landscape";
+    definition: Record<string, unknown>;
+  };
+}
+
+const DAILY_PRESENTATION: Record<DailyKind, { title: string; orientation: "portrait" | "landscape" }> = {
+  assignment_roster: { title: "Shift Assignment Roster", orientation: "landscape" },
+  uniform_inspection: { title: "Uniform Inspection Log", orientation: "landscape" },
+  metal_detector_test: { title: "Daily Walk-Through Metal Detector Testing", orientation: "landscape" },
+  perimeter_check: { title: "Perimeter Check List", orientation: "portrait" },
+  random_search_log: { title: "Random Searches Log", orientation: "landscape" },
+  detector_sign_out: { title: "Handheld Metal Detector Sign-Out", orientation: "portrait" },
+};
+
+const DAILY_KIND_PATTERN = "assignment_roster|uniform_inspection|metal_detector_test|perimeter_check|random_search_log|detector_sign_out";
+
+const MONTHLY_PRINT_TEMPLATES = [
+  { code: "monthly_windows_bars_doors", title: "Windows, Bars & Doors Check Log", period: "monthly", category: "security_checks", schema_version: 1, page_size: "letter", orientation: "landscape", definition: { columns: ["Date", "Exterior Bks. Windows", "All Inmate Housing Windows", "Housing Doors", "All Cell Bars", "Officer's Signature"], footer_note: "All bars will be checked with a rubber mallet." } },
+  { code: "monthly_chemical_agents", title: "Use of Chemical Agents Log", period: "monthly", category: "security_checks", schema_version: 1, page_size: "letter", orientation: "landscape", definition: { columns: ["Date", "Staff", "Inmate Name / #", "Conforms To Policy", "Medical Attention", "Supervisor"] } },
+  { code: "monthly_contraband_standard", title: "Contraband Search Log — Standard Area Rotation", period: "monthly", category: "security_checks", schema_version: 1, page_size: "letter", orientation: "landscape", definition: { columns: ["Date/Time", "Area Searched", "Contraband Found", "Searching Officers", "Disposition of Contraband"], schedule: ["Gym", "School", "Front Office / Barber Shop", "Boiler Room", "Kitchen and ODR", "Laundry Press Area / Main Showers"] } },
+  { code: "monthly_contraband_expanded", title: "Contraband Search Log — Expanded Area Rotation", period: "monthly", category: "security_checks", schema_version: 1, page_size: "letter", orientation: "landscape", definition: { columns: ["Date/Time", "Area Searched", "Contraband Found", "Searching Officers", "Disposition of Contraband"], schedule: ["Gym", "Chapel", "Entrance Building", "School", "Front Office / Barbershop", "Boiler Room", "Kitchen / ODR", "Laundry", "Inmate Barbershop", "Inside Maintenance"] } },
+] as const;
+
+function dailySummary(record: MockDailyRecord): Omit<MockDailyRecord, "payload" | "template"> {
+  const { payload: _payload, template: _template, ...summary } = record;
+  return summary;
+}
 
 function incidentRecord() {
   return {
@@ -136,6 +192,8 @@ async function fulfill(route: Route, data: unknown, status = 200): Promise<void>
 
 export async function installAdminApi(page: Page): Promise<void> {
   let elevated = false;
+  const dailyRecords = new Map<string, MockDailyRecord>();
+  let dailySequence = 970;
 
   await page.context().addCookies([{
     name: "slut_web_csrf",
@@ -170,8 +228,8 @@ export async function installAdminApi(page: Page): Promise<void> {
     if (path === "/admin/overview" && method === "GET") {
       await fulfill(route, {
         todays_paperwork: {
-          assignment_roster: { status: "not_started", record_id: null, updated_at: null },
-          uniform_inspection: { status: "saved", record_id: "00000000-0000-4000-8000-000000000930", updated_at: "2026-08-19T18:30:00Z" },
+          assignment_roster: { status: "not_started", state: "not_started", record_id: null, revision: null, warning_count: 0, shift: null, updated_at: null },
+          uniform_inspection: { status: "saved", state: "saved", record_id: "00000000-0000-4000-8000-000000000930", revision: 1, warning_count: 0, shift: "A", updated_at: "2026-08-19T18:30:00Z" },
         },
         incidents_needing_attention: [{
           incident_id: INCIDENT.incident_id,
@@ -190,6 +248,111 @@ export async function installAdminApi(page: Page): Promise<void> {
     }
     if (path === "/admin/incidents" && method === "GET") {
       await fulfill(route, { items: [INCIDENT], next_cursor: null });
+      return;
+    }
+    if (path === "/print-templates" && method === "GET") {
+      await fulfill(route, { items: url.searchParams.get("period") === "monthly" ? MONTHLY_PRINT_TEMPLATES : [] });
+      return;
+    }
+    if (path === "/print-templates/actions" && method === "POST") {
+      await fulfill(route, { recorded: true });
+      return;
+    }
+    if (path === "/admin/paperwork/daily" && method === "GET") {
+      const workDate = url.searchParams.get("work_date");
+      const shift = url.searchParams.get("shift");
+      const items = [...dailyRecords.values()]
+        .filter((record) => record.work_date === workDate && record.shift === shift)
+        .map(dailySummary);
+      await fulfill(route, { items, next_cursor: null });
+      return;
+    }
+    if (path === "/admin/paperwork/daily/perimeter_check/template" && method === "GET") {
+      await fulfill(route, perimeterTemplate);
+      return;
+    }
+    const dailyCreateMatch = path.match(new RegExp(`^/admin/paperwork/daily/(${DAILY_KIND_PATTERN})$`));
+    if (dailyCreateMatch && method === "POST") {
+      const kind = dailyCreateMatch[1] as DailyKind;
+      const body = JSON.parse(request.postData() ?? "{}") as {
+        work_date?: string;
+        shift?: string;
+        payload?: Record<string, unknown>;
+      };
+      dailySequence += 1;
+      const recordId = `00000000-0000-4000-8000-${String(dailySequence).padStart(12, "0")}`;
+      const presentation = DAILY_PRESENTATION[kind];
+      const now = "2026-08-20T15:00:00Z";
+      const record: MockDailyRecord = {
+        record_id: recordId,
+        kind,
+        title: presentation.title,
+        work_date: body.work_date ?? "2026-08-20",
+        shift: body.shift ?? "D",
+        revision: 1,
+        current_revision_number: 1,
+        state: "saved",
+        warning_count: 0,
+        validation: {},
+        created_by_staff_member_id: ADMIN.staff_id,
+        last_editor_staff_member_id: ADMIN.staff_id,
+        created_at: now,
+        updated_at: now,
+        payload: body.payload ?? {},
+        template: {
+          schema_version: 1,
+          title: presentation.title,
+          print_orientation: presentation.orientation,
+          definition: {},
+        },
+      };
+      dailyRecords.set(recordId, record);
+      await fulfill(route, record, 201);
+      return;
+    }
+    const dailyActionMatch = path.match(new RegExp(`^/admin/paperwork/daily/(${DAILY_KIND_PATTERN})/([^/]+)/(actions|revisions)$`));
+    if (dailyActionMatch && dailyActionMatch[3] === "actions" && method === "POST") {
+      await fulfill(route, { recorded: true });
+      return;
+    }
+    if (dailyActionMatch && dailyActionMatch[3] === "revisions" && method === "GET") {
+      const record = dailyRecords.get(dailyActionMatch[2]);
+      await fulfill(route, {
+        items: record ? [{
+          revision_number: record.revision,
+          reason: "manual_save",
+          changed_fields: ["payload"],
+          editor_staff_member_id: ADMIN.staff_id,
+          client_version: "0.1.0-e2e",
+          created_at: record.updated_at,
+        }] : [],
+        next_cursor: null,
+      });
+      return;
+    }
+    const dailyRecordMatch = path.match(new RegExp(`^/admin/paperwork/daily/(${DAILY_KIND_PATTERN})/([^/]+)$`));
+    if (dailyRecordMatch && method === "GET") {
+      const record = dailyRecords.get(dailyRecordMatch[2]);
+      await fulfill(route, record ?? {}, record ? 200 : 404);
+      return;
+    }
+    if (dailyRecordMatch && method === "PATCH") {
+      const record = dailyRecords.get(dailyRecordMatch[2]);
+      if (!record) {
+        await fulfill(route, {}, 404);
+        return;
+      }
+      const body = JSON.parse(request.postData() ?? "{}") as { payload?: Record<string, unknown> };
+      const revision = record.revision + 1;
+      const saved: MockDailyRecord = {
+        ...record,
+        revision,
+        current_revision_number: revision,
+        payload: body.payload ?? record.payload,
+        updated_at: "2026-08-20T15:05:00Z",
+      };
+      dailyRecords.set(saved.record_id, saved);
+      await fulfill(route, saved);
       return;
     }
     if (path === `/admin/incidents/${INCIDENT.incident_id}` && method === "GET") {

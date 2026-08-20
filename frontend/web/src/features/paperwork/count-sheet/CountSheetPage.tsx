@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { KeyboardEvent } from "react";
 import { WebApiError } from "../../../api/client";
+import { persistenceStateForError, persistenceStatusLabel } from "../../../components/persistenceStatus";
 import type { SessionProfile } from "../../auth/api";
 import {
   getCountSheet,
@@ -38,6 +39,7 @@ type SaveState =
   | "saved"
   | "dirty"
   | "saving"
+  | "reconnecting"
   | "offline"
   | "conflict"
   | "error";
@@ -74,13 +76,9 @@ function useMediaQuery(query: string): boolean {
 }
 
 function statusLabel(state: SaveState): string {
-  if (state === "loading") return "Loading";
-  if (state === "saving") return "Saving…";
-  if (state === "dirty") return "Unsaved changes";
-  if (state === "offline") return "Reconnecting — values preserved";
-  if (state === "conflict") return "Save conflict — values preserved";
-  if (state === "error") return "Save failed — values preserved";
-  return "Saved";
+  if (state === "dirty") return persistenceStatusLabel("unsaved");
+  if (state === "error") return persistenceStatusLabel("failed");
+  return persistenceStatusLabel(state);
 }
 
 function CountInput({
@@ -238,13 +236,8 @@ export function CountSheetPage({ profile }: CountSheetPageProps) {
       setAnnouncement(`Count Sheet revision ${saved.current_revision_number} saved.`);
       return saved;
     } catch (error) {
-      if (error instanceof WebApiError && error.code === "revision_conflict") {
-        setSaveState("conflict");
-      } else if (error instanceof WebApiError && error.status === 0) {
-        setSaveState("offline");
-      } else {
-        setSaveState("error");
-      }
+      const state = persistenceStateForError(error);
+      setSaveState(state === "failed" ? "error" : state);
       setMessage(error instanceof Error ? error.message : "The Count Sheet could not be saved.");
       return null;
     }
@@ -341,7 +334,7 @@ export function CountSheetPage({ profile }: CountSheetPageProps) {
           <h1 id="count-heading">NCU Days Count</h1>
           <p>Enter the count exactly as received. Totals calculate automatically; mismatches are never balanced for you.</p>
         </div>
-        <div className={`count-save-state count-save-state--${saveState}`} role="status">
+        <div className={`count-save-state count-save-state--${saveState}`} role="status" aria-live="polite" aria-atomic="true">
           <span aria-hidden="true">{saveState === "saved" ? "✓" : saveState === "saving" ? "↻" : "•"}</span>
           <span>{statusLabel(saveState)}</span>
           {record ? <small>Revision {record.current_revision_number}</small> : <small>New sheet</small>}
@@ -410,7 +403,7 @@ export function CountSheetPage({ profile }: CountSheetPageProps) {
           ))}
         </div>
       ) : (
-        <div className="count-grid-wrap">
+        <div className="count-grid-wrap" role="region" aria-label="Count Sheet entry grid" tabIndex={0}>
           <table className="count-grid">
             <thead>
               <tr>

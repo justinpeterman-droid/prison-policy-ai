@@ -4,11 +4,14 @@ import { installOfficerApi } from "./support/mock-api";
 test.beforeEach(async ({ page }) => {
   await installOfficerApi(page);
   await page.goto("./");
-  await page.getByRole("link", { name: "Open Count Sheet", exact: true }).click();
+  await page.getByRole("region", { name: "Primary actions" })
+    .getByRole("link", { name: "Open Count Sheet", exact: true })
+    .click();
   await expect(page.getByRole("heading", { name: "NCU Days Count", exact: true })).toBeVisible();
 });
 
 test("Count Sheet calculates, saves, reopens, and prints without balancing values", async ({ page }) => {
+  await expect(page.getByRole("region", { name: "Count Sheet entry grid" })).toBeVisible();
   const area = page.getByLabel("A/W Office, column 1", { exact: true });
   const inHousing = page.getByLabel("In housing, column 1", { exact: true });
   const operational = page.getByLabel("Operational total: on site", { exact: true });
@@ -22,7 +25,7 @@ test("Count Sheet calculates, saves, reopens, and prints without balancing value
   await operational.fill("10");
   await expect(page.getByText("Housing and operational totals agree.", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Save Count Sheet", exact: true }).click();
-  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await expect(page.getByText("Saved to server", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(page.getByLabel("A/W Office, column 1", { exact: true })).toHaveValue("4");

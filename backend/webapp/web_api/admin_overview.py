@@ -14,6 +14,7 @@ from backend.persistence.models.identity import Account
 from backend.persistence.models.jobs import TaskOutbox
 from backend.persistence.models.paperwork import PaperworkRecord
 from backend.persistence.models.security import AuditEvent
+from backend.paperwork.models import PaperworkKind, PaperworkView
 from backend.reports.incident_library import (
     IncidentLibraryFilters,
     list_incident_summaries,
@@ -26,6 +27,7 @@ from backend.webapp.web_api.middleware import (
     require_browser_role,
     require_browser_session,
 )
+from backend.webapp.web_api.admin_daily_paperwork import daily_record_data
 
 
 admin_overview_bp = Blueprint("web_admin_overview", __name__)
@@ -51,21 +53,48 @@ def _paperwork_state(
     *,
     kind: str,
     work_date: date,
+    shift: str | None = None,
 ) -> dict[str, object]:
+    statement = select(PaperworkRecord).where(
+        PaperworkRecord.kind == kind,
+        PaperworkRecord.work_date == work_date,
+    )
+    if shift is not None:
+        statement = statement.where(PaperworkRecord.shift == shift)
     row = session.scalar(
-        select(PaperworkRecord)
-        .where(
-            PaperworkRecord.kind == kind,
-            PaperworkRecord.work_date == work_date,
-        )
+        statement
         .order_by(PaperworkRecord.updated_at.desc(), PaperworkRecord.id.desc())
         .limit(1)
     )
     if row is None:
-        return {"status": "not_started", "record_id": None, "updated_at": None}
+        return {
+            "status": "not_started",
+            "state": "not_started",
+            "record_id": None,
+            "revision": None,
+            "warning_count": 0,
+            "shift": shift,
+            "updated_at": None,
+        }
+    summary = daily_record_data(PaperworkView(
+        record_id=row.id,
+        kind=PaperworkKind(row.kind),
+        work_date=row.work_date,
+        shift=row.shift,
+        current_revision_number=row.current_revision_number,
+        payload=dict(row.current_payload or {}),
+        created_by_staff_member_id=row.created_by_staff_member_id,
+        last_editor_staff_member_id=row.last_editor_staff_member_id,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    ), include_payload=False)
     return {
         "status": "saved",
         "record_id": str(row.id),
+        "revision": summary["revision"],
+        "state": summary["state"],
+        "warning_count": summary["warning_count"],
+        "shift": row.shift,
         "updated_at": _timestamp(row.updated_at),
     }
 
@@ -167,14 +196,21 @@ def get_admin_overview(
     actor,
     *,
     work_date: date,
+    shift: str | None = None,
 ) -> AdminOverview:
     return AdminOverview(
         todays_paperwork={
             "assignment_roster": _paperwork_state(
-                session, kind="assignment_roster", work_date=work_date
+                session,
+                kind="assignment_roster",
+                work_date=work_date,
+                shift=shift,
             ),
             "uniform_inspection": _paperwork_state(
-                session, kind="uniform_inspection", work_date=work_date
+                session,
+                kind="uniform_inspection",
+                work_date=work_date,
+                shift=shift,
             ),
         },
         incidents_needing_attention=_incident_attention(session, actor),
@@ -188,7 +224,7 @@ def get_admin_overview(
 @require_browser_session
 @require_browser_role("admin")
 def overview_route():
-    if request.args:
+    if set(request.args) - {"shift"} or len(request.args.getlist("shift")) > 1:
         raise ApiError(
             "validation_failed",
             "The administrator overview request is invalid.",
@@ -197,9 +233,18 @@ def overview_route():
     db = current_browser_session()
     actor = current_browser_actor()
     now = datetime.now(UTC)
+    shift = request.args.get("shift")
+    if shift is not None:
+        shift = " ".join(shift.split())
+        if not shift or len(shift) > 32:
+            raise ApiError(
+                "validation_failed",
+                "The administrator overview request is invalid.",
+                status=400,
+            )
     try:
         require_browser_admin_elevation(db, actor=actor, now=now)
-        overview = get_admin_overview(db, actor, work_date=now.date())
+        overview = get_admin_overview(db, actor, work_date=now.date(), shift=shift)
     except AdminElevationRequired:
         raise ApiError(
             "admin_elevation_required",

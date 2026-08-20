@@ -1,0 +1,96 @@
+{
+  "kind": "assignment_roster",
+  "title": "Shift Assignment Roster",
+  "schema_version": 1,
+  "print_orientation": "landscape",
+  "definition": {
+    "facility_label": "North Central Unit",
+    "zones": [
+      {
+        "code": "zone_1",
+        "label": "Zone 1",
+        "area": "Bks 8-14 Hallway and Service Area",
+        "supervisor_label": "South Hall Sergeant",
+        "posts": [
+          {"code": "bks_8_control", "label": "Bks 8 Control Booth", "priority": "P1"},
+          {"code": "bks_9_10_control", "label": "Bks 9-10 Control Booth", "priority": "P1"},
+          {"code": "bks_9_10_desk", "label": "Bks 9-10 Desk", "priority": "P2"},
+          {"code": "bks_11_12_control", "label": "Bks 11-12 Control Booth", "priority": "P1"},
+          {"code": "bks_13_14_control", "label": "Bks 13-14 Control Booth", "priority": "P1"},
+          {"code": "south_tower", "label": "South Tower Officer", "priority": "P1"},
+          {"code": "east_tower", "label": "East Tower Officer", "priority": "P1"},
+          {"code": "south_hall_rover", "label": "South Hall Rover", "priority": "P2"}
+        ]
+      },
+      {
+        "code": "zone_2",
+        "label": "Zone 2",
+        "area": "Bks 1-7 Hallway and Service Area",
+        "supervisor_label": "North Hall Sergeant",
+        "posts": [
+          {"code": "bks_1_control", "label": "Bks 1 Control Booth", "priority": "P1"},
+          {"code": "bks_2_3_control", "label": "Bks 2-3 Control Booth", "priority": "P1"},
+          {"code": "bks_4_5_control", "label": "Bks 4-5 Control Booth", "priority": "P1"},
+          {"code": "bks_4_5_desk", "label": "Bks 4-5 Desk", "priority": "P2"},
+          {"code": "bks_6_7_control", "label": "Bks 6-7 Control Booth", "priority": "P1"},
+          {"code": "north_tower", "label": "North Tower Officer", "priority": "P1"},
+          {"code": "west_tower", "label": "West Tower Officer", "priority": "P1"},
+          {"code": "school_security", "label": "School Security Officer", "priority": "P1"},
+          {"code": "north_hall_rover", "label": "North Hall Rover", "priority": "P2"}
+        ]
+      },
+      {
+        "code": "zone_3",
+        "label": "Zone 3",
+        "area": "Isolation and Service Area",
+        "supervisor_label": "Isolation Sergeant",
+        "posts": [
+          {"code": "isolation_1", "label": "Isolation Officer #1", "priority": "P1"},
+          {"code": "isolation_2", "label": "Isolation Officer #2", "priority": "P1"},
+          {"code": "isolation_rover", "label": "Rover", "priority": "P2"}
+        ]
+      },
+      {
+        "code": "zone_4",
+        "label": "Zone 4",
+        "area": "Front Entrance and Service Area",
+        "supervisor_label": "Front Entrance Sergeant",
+        "posts": [
+          {"code": "master_control_1", "label": "Master Control #1", "priority": "P1"},
+          {"code": "master_control_2", "label": "Master Control #2", "priority": "P2"},
+          {"code": "infirmary_officer", "label": "Infirmary Officer", "priority": "P1"},
+          {"code": "outside_rover", "label": "Outside Rover", "priority": "P1"},
+          {"code": "biometrics_lobby", "label": "Biometrics Officer Lobby", "priority": "P2"},
+          {"code": "front_rover", "label": "Rover", "priority": "P2"}
+        ]
+      },
+      {
+        "code": "zone_5",
+        "label": "Zone 5",
+        "area": "Sally Port and Service Area",
+        "supervisor_label": "Sergeant",
+        "posts": [
+          {"code": "boiler_room", "label": "Boiler Room", "priority": "P1"}
+        ]
+      }
+    ],
+    "assignment_states": ["unassigned", "assigned", "no_officer_available"],
+    "assignment_columns": ["Initial Officer", "Rotation Officer"],
+    "operational_fields": [
+      "Leave Time (Type of Leave)",
+      "Extra Assignments",
+      "Alternate Shift Supervisor",
+      "Shift Briefing Minutes",
+      "Roll Call",
+      "Uniform Inspection",
+      "Assigned to post and dismissed",
+      "Security Equipment Accounted For",
+      "Guests at Shift Briefing"
+    ],
+    "security_equipment": ["Digital Camera", "Video Camera (Go PRO)", "9 Metal Detector Wands"],
+    "sign_off_fields": ["Captain", "Lieutenant", "Duty Warden", "Lieutenant Signature", "Date"],
+    "priority_one_warning": "P1 posts must be staffed in accordance with unit policy or post orders unless otherwise directed by the Warden or Duty Warden; deviations require notification of the Duty Warden.",
+    "notes": ["NOA = No Officer Available", "CGPS = Cross Gender Pat Searches"],
+    "distribution": ["Assistant Warden", "Major", "Building Captain", "Control Center", "Human Resources", "Training Officer", "Shift Supervisor", "File"]
+  }
+}

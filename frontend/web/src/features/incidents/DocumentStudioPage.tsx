@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { InterfaceIcon } from "../../components/InterfaceIcon";
+import {
+  persistenceFailureGuidance,
+  persistenceStateForError,
+  persistenceStatusLabel,
+  type PersistenceFailureState,
+  type PersistenceStatusState,
+} from "../../components/persistenceStatus";
 import { WebApiError } from "../../api/client";
 import {
   acknowledgePhysical,
@@ -35,6 +43,20 @@ const TABS = [
 ] as const;
 
 type Tab = (typeof TABS)[number];
+type ReportSaveState = Extract<
+  PersistenceStatusState,
+  "saved" | "saving" | "unsaved" | "reconnecting" | "conflict" | "failed"
+>;
+
+function SaveFailureAlert({ detail, state }: { detail: string | null; state: ReportSaveState }) {
+  if (!(["reconnecting", "conflict", "failed"] as ReportSaveState[]).includes(state)) return null;
+  return (
+    <p className="iw-inline-error" role="alert" aria-live="assertive" aria-atomic="true">
+      {detail ? <><strong>{detail}</strong>{" "}</> : null}
+      {persistenceFailureGuidance(state as PersistenceFailureState)}
+    </p>
+  );
+}
 
 function titleCase(value: string): string {
   return value
@@ -64,19 +86,27 @@ function CopyReportCard({
   onSaved: (next: ReportDetail) => void;
 }) {
   const [text, setText] = useState(report.content.narrative);
-  const [state, setState] = useState<"idle" | "saving" | "copied" | "error">("idle");
+  const [saveState, setSaveState] = useState<ReportSaveState>("saved");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const label = titleCase(report.report_type);
 
-  useEffect(() => setText(report.content.narrative), [report]);
+  useEffect(() => {
+    setText(report.content.narrative);
+    setSaveState("saved");
+    setSaveError(null);
+  }, [report]);
 
   async function save() {
-    setState("saving");
+    setSaveState("saving");
+    setSaveError(null);
     try {
       const next = await saveReport(report, text);
       onSaved(next);
-      setState("idle");
-    } catch {
-      setState("error");
+      setSaveState("saved");
+    } catch (reason) {
+      setSaveState(persistenceStateForError(reason));
+      setSaveError(reason instanceof Error ? reason.message : "The text could not be saved.");
     }
   }
 
@@ -89,10 +119,10 @@ function CopyReportCard({
         report_id: report.report_id,
         action: "copy_text",
       });
-      setState("copied");
-      window.setTimeout(() => setState("idle"), 1800);
+      setCopyState("copied");
+      window.setTimeout(() => setCopyState("idle"), 1800);
     } catch {
-      setState("error");
+      setCopyState("error");
     }
   }
 
@@ -108,12 +138,25 @@ function CopyReportCard({
       <textarea
         aria-label={`${label} text`}
         value={text}
-        onChange={(event) => setText(event.target.value)}
+        onChange={(event) => {
+          setText(event.target.value);
+          setSaveState("unsaved");
+          setSaveError(null);
+        }}
         rows={12}
       />
+      <div className={`iw-save-state iw-save-${saveState}`} role="status" aria-live="polite" aria-atomic="true">
+        {persistenceStatusLabel(saveState)}
+      </div>
       <div className="iw-document-actions">
-        <button className="iw-button iw-button-secondary" type="button" onClick={() => void save()}>
-          {state === "saving" ? "Saving…" : "Save Text"}
+        <button className="iw-button iw-button-secondary" type="button" disabled={saveState === "saving" || saveState === "conflict"} onClick={() => void save()}>
+          {saveState === "saving"
+            ? "Saving…"
+            : saveState === "conflict"
+              ? "Save Blocked by Conflict"
+              : ["reconnecting", "failed"].includes(saveState)
+              ? "Retry Save"
+              : "Save Text"}
         </button>
         <button
           className="iw-button iw-button-gold"
@@ -121,10 +164,11 @@ function CopyReportCard({
           aria-label={`Copy ${label}`}
           onClick={() => void copy()}
         >
-          {state === "copied" ? "Copied" : "Copy"}
+          {copyState === "copied" ? "Copied" : "Copy"}
         </button>
       </div>
-      {state === "error" ? <p className="iw-inline-error" role="alert">The text could not be saved or copied. It remains visible.</p> : null}
+      <SaveFailureAlert detail={saveError} state={saveState} />
+      {copyState === "error" ? <p className="iw-inline-error" role="alert">The text could not be copied. It remains visible.</p> : null}
     </article>
   );
 }
@@ -264,6 +308,8 @@ export function DocumentStudioPage() {
   const [copyDetails, setCopyDetails] = useState<Record<string, ReportDetail>>({});
   const [selectedReport, setSelectedReport] = useState<ReportDetail | null>(null);
   const [reportText, setReportText] = useState("");
+  const [reportSaveState, setReportSaveState] = useState<ReportSaveState>("saved");
+  const [reportSaveError, setReportSaveError] = useState<string | null>(null);
   const [preview, setPreview] = useState<FormPreview | null>(null);
   const [physical, setPhysical] = useState<PhysicalGuidance | null>(null);
   const [history, setHistory] = useState<{
@@ -356,6 +402,8 @@ export function DocumentStudioPage() {
       const detail = await getReport(report.report_id);
       setSelectedReport(detail);
       setReportText(detail.content.narrative);
+      setReportSaveState("saved");
+      setReportSaveError(null);
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "The report could not be opened.");
     }
@@ -363,13 +411,16 @@ export function DocumentStudioPage() {
 
   async function saveSelectedReport() {
     if (!selectedReport) return;
+    setReportSaveState("saving");
+    setReportSaveError(null);
     try {
       const saved = await saveReport(selectedReport, reportText);
       setSelectedReport(saved);
       setReportText(saved.content.narrative);
-      setNotice("Report saved.");
+      setReportSaveState("saved");
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "The report could not be saved. Text remains visible.");
+      setReportSaveState(persistenceStateForError(reason));
+      setReportSaveError(reason instanceof Error ? reason.message : "The report could not be saved.");
     }
   }
 
@@ -418,7 +469,7 @@ export function DocumentStudioPage() {
     <section className="iw-page iw-studio" aria-labelledby="studio-heading">
       <header className="iw-studio-header">
         <div>
-          <Link className="iw-back-link" to="/reports">← Reports</Link>
+          <Link className="iw-back-link" to="/reports"><InterfaceIcon name="arrow-left" /> Reports</Link>
           <p className="iw-number">{incident.incident_number || "Unnumbered Incident"}</p>
           <h1 id="studio-heading">{incident.incident_name || "Incident name not assigned"}</h1>
           <p>{incident.location || "Location not entered"} · {incident.category ? titleCase(incident.category) : "Not classified"} · Revision {incident.current_revision_number}</p>
@@ -429,7 +480,7 @@ export function DocumentStudioPage() {
         </div>
       </header>
 
-      {notice ? <div className="iw-notice" role="status"><span>{notice}</span><button type="button" aria-label="Dismiss notice" onClick={() => setNotice(null)}>×</button></div> : null}
+      {notice ? <div className="iw-notice" role="status"><span>{notice}</span><button type="button" aria-label="Dismiss notice" title="Dismiss notice" onClick={() => setNotice(null)}><InterfaceIcon name="close" /></button></div> : null}
 
       <div className="iw-tabs" role="tablist" aria-label="Incident document areas">
         {TABS.map((label) => (
@@ -464,7 +515,7 @@ export function DocumentStudioPage() {
               {!documentReports.length ? <p>No officer reports have been generated.</p> : null}
             </aside>
             <div className="iw-editor-panel">
-              {selectedReport ? <><div className="iw-editor-header"><div><span>{titleCase(selectedReport.report_type)}</span><strong>{selectedReport.reporting_officer.display_name}</strong></div><span>Revision {selectedReport.current_revision_number}</span></div><textarea aria-label={`${titleCase(selectedReport.report_type)} narrative`} rows={22} value={reportText} onChange={(event) => setReportText(event.target.value)} /><div className="iw-document-actions"><button className="iw-button iw-button-secondary" type="button" onClick={() => void saveSelectedReport()}>Save Report</button>{selectedReport.allowed_actions.includes("print") ? <button className="iw-button iw-button-primary" type="button" onClick={() => void printReport(selectedReport)}>Print</button> : null}{selectedReport.allowed_actions.includes("download_word") ? <button className="iw-button iw-button-gold" type="button" onClick={() => void downloadReportDocx(selectedReport)}>Download Word</button> : null}</div></> : <div className="iw-empty-inline"><strong>Select an officer report</strong><p>The report will open here without leaving the incident.</p></div>}
+              {selectedReport ? <><div className="iw-editor-header"><div><span>{titleCase(selectedReport.report_type)}</span><strong>{selectedReport.reporting_officer.display_name}</strong></div><span>Revision {selectedReport.current_revision_number}</span></div><textarea aria-label={`${titleCase(selectedReport.report_type)} narrative`} rows={22} value={reportText} onChange={(event) => { setReportText(event.target.value); setReportSaveState("unsaved"); setReportSaveError(null); }} /><div className={`iw-save-state iw-save-${reportSaveState}`} role="status" aria-live="polite" aria-atomic="true">{persistenceStatusLabel(reportSaveState)}</div><div className="iw-document-actions"><button className="iw-button iw-button-secondary" type="button" disabled={reportSaveState === "saving" || reportSaveState === "conflict"} onClick={() => void saveSelectedReport()}>{reportSaveState === "saving" ? "Saving…" : reportSaveState === "conflict" ? "Save Blocked by Conflict" : ["reconnecting", "failed"].includes(reportSaveState) ? "Retry Save" : "Save Report"}</button>{selectedReport.allowed_actions.includes("print") ? <button className="iw-button iw-button-primary" type="button" onClick={() => void printReport(selectedReport)}>Print</button> : null}{selectedReport.allowed_actions.includes("download_word") ? <button className="iw-button iw-button-gold" type="button" onClick={() => void downloadReportDocx(selectedReport)}>Download Word</button> : null}</div><SaveFailureAlert detail={reportSaveError} state={reportSaveState} /></> : <div className="iw-empty-inline"><strong>Select an officer report</strong><p>The report will open here without leaving the incident.</p></div>}
             </div>
           </div>
         ) : null}
@@ -488,7 +539,7 @@ export function DocumentStudioPage() {
               })}
             </div>
             <aside className="iw-inspector" aria-label="Paperwork inspector">
-              {physical ? <div className="iw-physical-guidance"><span className="iw-physical-warning">{physical.warning}</span><h2>{physical.name}</h2><p>{physical.description}</p><dl><div><dt>Obtain from</dt><dd>{physical.obtain_from}</dd></div>{physical.guidance_fields.map((field) => <div key={field}><dt>{titleCase(field)}</dt><dd>{display(physical.guidance_values[field])}</dd></div>)}</dl>{physical.acknowledgment ? <div className="iw-complete-callout"><strong>Physical form completion recorded</strong><p>{physical.acknowledgment.note}</p></div> : <button className="iw-button iw-button-gold" type="button" onClick={() => void markPhysicalComplete()}>Mark Physical Form Completed</button>}<button className="iw-text-button" type="button" onClick={() => setPhysical(null)}>Close guidance</button></div> : preview ? <div className="iw-form-preview"><div className="iw-preview-toolbar"><div><span>Document preview</span><h2>{preview.template_name}</h2></div><button type="button" aria-label="Close form preview" onClick={() => setPreview(null)}>×</button></div><div className="iw-paper-sheet">{Object.entries(preview.fields).map(([key, value]) => <div className="iw-preview-field" key={key}><span>{titleCase(key)}</span><strong>{display(value)}</strong></div>)}</div><div className={`iw-completeness-panel iw-completeness-${statusTone(preview.completeness.state)}`}><strong>{titleCase(preview.completeness.state)}</strong>{preview.completeness.missing_fields.length ? <p>Missing: {preview.completeness.missing_fields.map(titleCase).join(", ")}</p> : <p>Required information is present.</p>}</div></div> : <div className="iw-inspector-empty"><span aria-hidden="true">▤</span><h2>Paperwork inspector</h2><p>Preview a populated form or open physical-form guidance here.</p></div>}
+              {physical ? <div className="iw-physical-guidance"><span className="iw-physical-warning">{physical.warning}</span><h2>{physical.name}</h2><p>{physical.description}</p><dl><div><dt>Obtain from</dt><dd>{physical.obtain_from}</dd></div>{physical.guidance_fields.map((field) => <div key={field}><dt>{titleCase(field)}</dt><dd>{display(physical.guidance_values[field])}</dd></div>)}</dl>{physical.acknowledgment ? <div className="iw-complete-callout"><strong>Physical form completion recorded</strong><p>{physical.acknowledgment.note}</p></div> : <button className="iw-button iw-button-gold" type="button" onClick={() => void markPhysicalComplete()}>Mark Physical Form Completed</button>}<button className="iw-text-button" type="button" onClick={() => setPhysical(null)}>Close guidance</button></div> : preview ? <div className="iw-form-preview"><div className="iw-preview-toolbar"><div><span>Document preview</span><h2>{preview.template_name}</h2></div><button type="button" aria-label="Close form preview" title="Close form preview" onClick={() => setPreview(null)}><InterfaceIcon name="close" /></button></div><div className="iw-paper-sheet">{Object.entries(preview.fields).map(([key, value]) => <div className="iw-preview-field" key={key}><span>{titleCase(key)}</span><strong>{display(value)}</strong></div>)}</div><div className={`iw-completeness-panel iw-completeness-${statusTone(preview.completeness.state)}`}><strong>{titleCase(preview.completeness.state)}</strong>{preview.completeness.missing_fields.length ? <p>Missing: {preview.completeness.missing_fields.map(titleCase).join(", ")}</p> : <p>Required information is present.</p>}</div></div> : <div className="iw-inspector-empty"><span><InterfaceIcon name="paperwork" /></span><h2>Paperwork inspector</h2><p>Preview a populated form or open physical-form guidance here.</p></div>}
             </aside>
           </div>
         ) : null}

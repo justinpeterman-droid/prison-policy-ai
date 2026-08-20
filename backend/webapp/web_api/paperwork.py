@@ -171,6 +171,7 @@ def _revision_cursor(record_id: UUID, raw: str | None) -> dict[str, str] | None:
         current_browser_session(),
         current_browser_actor(),
         record_id,
+        expected_kind=PaperworkKind.COUNT_SHEET,
     )
     decoded = decode_cursor(raw, _settings_key())
     try:
@@ -383,7 +384,10 @@ def create_route():
 def get_route(record_id: UUID):
     try:
         return success(_record_data(get_paperwork_record(
-            current_browser_session(), current_browser_actor(), record_id,
+            current_browser_session(),
+            current_browser_actor(),
+            record_id,
+            expected_kind=PaperworkKind.COUNT_SHEET,
         )))
     except PaperworkNotFound:
         raise ApiError("not_found", "Count Sheet not found.", status=404) from None
@@ -438,6 +442,7 @@ def revisions_route(record_id: UUID):
             record_id,
             limit=_limit(),
             cursor=_revision_cursor(record_id, _single_arg("cursor")),
+            expected_kind=PaperworkKind.COUNT_SHEET,
         )
         return success({
             "items": [_revision_data(item) for item in page.items],
@@ -475,6 +480,7 @@ def restore_route(record_id: UUID):
         idempotency_key=require_idempotency_key(),
         request_id=req_id,
         client_version=version,
+        expected_kind=PaperworkKind.COUNT_SHEET,
         audit_writer=current_app.config["AUDIT_WRITER"],
     )))
 
@@ -496,5 +502,6 @@ def action_route(record_id: UUID):
         idempotency_key=require_idempotency_key(),
         request_id=req_id,
         client_version=version,
+        expected_kind=PaperworkKind.COUNT_SHEET,
         audit_writer=current_app.config["AUDIT_WRITER"],
     ))

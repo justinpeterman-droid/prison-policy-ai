@@ -75,6 +75,9 @@ describe("Account page", () => {
     expect(within(identity).queryByRole("textbox")).not.toBeInTheDocument();
     expect(await screen.findByText("Current browser")).toBeInTheDocument();
     expect(screen.getByText("Other browser")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("2 active browser sessions loaded.");
+    expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
+    expect(screen.getByRole("status")).toHaveAttribute("aria-atomic", "true");
   });
 
   it("revokes another session but not through the current-session row", async () => {
@@ -107,7 +110,12 @@ describe("Account page", () => {
     vi.mocked(fetchAccountSessions).mockRejectedValueOnce(new Error("Session service unavailable."));
     render(<AccountPage profile={profile} onAuthenticationChanged={reload} />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Session service unavailable");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Session service unavailable");
+    expect(alert.className).toBe("account-state error");
+    expect(alert).toHaveAttribute("aria-live", "assertive");
+    expect(alert).toHaveAttribute("aria-atomic", "true");
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
     expect(screen.getByRole("button", { name: "Try sessions again" })).toBeInTheDocument();
   });
 });

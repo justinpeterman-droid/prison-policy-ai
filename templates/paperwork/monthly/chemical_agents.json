@@ -1,0 +1,15 @@
+{
+  "code": "monthly_chemical_agents",
+  "title": "Use of Chemical Agents Log",
+  "period": "monthly",
+  "category": "security_checks",
+  "schema_version": 1,
+  "page_size": "letter",
+  "orientation": "landscape",
+  "definition": {
+    "prefill_fields": ["month", "shift_supervisor"],
+    "rows": 20,
+    "columns": ["Date", "Staff", "Inmate Name / #", "Conforms To Policy", "Medical Attention", "Supervisor"],
+    "sign_off_fields": ["COS Review / Date", "Warden Review / Date"]
+  }
+}

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { StatusMessage } from "../../design-system/Primitives";
 import { useAuth } from "./AuthProvider";
 import "./login.css";
 
@@ -41,7 +42,11 @@ export function LoginPage() {
           <p>Use your employee number and individual PIN.</p>
         </div>
 
-        {message ? <div className="login-error" role="alert">{message}</div> : null}
+        {message ? (
+          <StatusMessage className="login-error" tone="destructive" unstyled aria-atomic="true">
+            {message}
+          </StatusMessage>
+        ) : null}
 
         <form className="login-form" onSubmit={submit}>
           <label>
@@ -52,6 +57,7 @@ export function LoginPage() {
               maxLength={64}
               onChange={(event) => setEmployeeNumber(event.target.value)}
               required
+              type="text"
               value={employeeNumber}
             />
           </label>

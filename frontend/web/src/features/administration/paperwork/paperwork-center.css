@@ -1,0 +1,67 @@
+.paperwork-filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; padding: 14px; border: 1px solid var(--admin-border); border-radius: 12px; background: #fff; box-shadow: var(--admin-soft-shadow); }
+.paperwork-filters label { display: grid; gap: 5px; color: var(--admin-muted); font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.paperwork-filters input, .paperwork-filters select { min-width: 170px; min-height: 40px; padding: 8px 10px; border: 1px solid #cfd9e0; border-radius: 8px; background: #fff; color: var(--admin-navy); font: inherit; font-size: 12px; text-transform: none; }
+.daily-record-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.daily-record-card { display: grid; grid-template-columns: 45px minmax(0, 1fr) auto; align-items: start; gap: 13px; padding: 17px; border: 1px solid #d7dfe4; border-radius: 13px; background: #fff; box-shadow: var(--admin-soft-shadow); }
+.daily-record-card.needs-attention { border-color: #dfc58e; box-shadow: inset 3px 0 #b78838, var(--admin-soft-shadow); }
+.daily-record-icon { width: 43px; height: 43px; display: grid; place-items: center; border-radius: 11px; background: linear-gradient(145deg, #eef2f4, #d3dee5); color: var(--admin-navy); font-size: 18px; }
+.daily-record-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 9px; }
+.daily-record-card h2 { margin: 0; color: var(--admin-navy); font-size: 14px; }
+.daily-record-card p { margin: 5px 0 0; color: var(--admin-muted); font-size: 10px; line-height: 1.5; }
+.daily-record-card dl { display: flex; flex-wrap: wrap; gap: 13px; margin: 11px 0 0; }
+.daily-record-card dl div { display: flex; gap: 4px; }
+.daily-record-card dt { color: #81909b; font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.daily-record-card dd { margin: 0; color: #42566a; font-size: 9px; font-weight: 720; }
+.daily-record-state { flex: 0 0 auto; padding: 4px 7px; border-radius: 999px; background: #eef2f4; color: #657584; font-size: 8px; font-weight: 800; }
+.daily-record-state.saved { background: #e8f2ec; color: #2e6a4d; }
+.daily-record-state.needs_attention { background: #fbf0d8; color: #805a1d; }
+.daily-record-warning { color: #805a1d !important; font-weight: 800; }
+.paperwork-period-placeholder, .daily-editor-empty { padding: 28px; border: 1px dashed #c8d3da; border-radius: 13px; background: #f8fafb; text-align: center; }
+.paperwork-period-placeholder h2, .daily-editor-empty h2 { margin: 0 0 7px; color: var(--admin-navy); }
+.paperwork-period-placeholder p, .daily-editor-empty p { max-width: 640px; margin: 0 auto; color: var(--admin-muted); font-size: 11px; line-height: 1.55; }
+.daily-editor-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+.daily-editor-header h1 { margin: 6px 0 3px; color: var(--admin-navy); font-size: 30px; }
+.daily-editor-header p { margin: 0; color: var(--admin-muted); font-size: 11px; }
+.daily-editor-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.daily-save-state { max-width: 280px; padding: 6px 9px; border-radius: 10px; background: #eef2f4; color: #5f7180; font-size: 9px; font-weight: 800; line-height: 1.35; text-align: center; overflow-wrap: anywhere; }
+.daily-save-state.saved { background: #e8f2ec; color: #2e6a4d; }
+.daily-save-state.failed { background: #f7e9e7; color: #884940; }
+.daily-revision-panel { margin-top: 16px; padding-top: 13px; border-top: 1px solid var(--admin-border); }
+.daily-revision-panel > div { margin-top: 10px; padding: 14px; border: 1px solid var(--admin-border); border-radius: 12px; background: #fff; box-shadow: var(--admin-soft-shadow); }
+.daily-revision-panel h2 { margin: 0 0 9px; color: var(--admin-navy); font-size: 14px; }
+.daily-revision-panel ol { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.daily-revision-panel li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px; border: 1px solid #e0e7eb; border-radius: 8px; }
+.daily-revision-panel li div { display: grid; gap: 2px; }
+.daily-revision-panel li strong { color: #334d5e; font-size: 10px; }
+.daily-revision-panel li span, .daily-revision-panel li small { color: var(--admin-muted); font-size: 8px; }
+.daily-revision-panel li button { border: 0; background: transparent; color: #3f6176; font-size: 9px; font-weight: 800; text-decoration: underline; }
+.daily-revision-panel li em { color: #2e6a4d; font-size: 8px; font-style: normal; font-weight: 800; }
+.monthly-template-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.print-template-card { display: grid; gap: 10px; padding: 17px; border: 1px solid #d7dfe4; border-radius: 13px; background: #fff; box-shadow: var(--admin-soft-shadow); }
+.print-template-card label { color: #5f7180; font-size: 9px; font-weight: 800; text-transform: uppercase; } .print-template-card h2 { margin: 0; color: var(--admin-navy); font-size: 14px; } .print-template-card p { margin: 0; color: var(--admin-muted); font-size: 10px; line-height: 1.5; } .print-template-card div { display: flex; flex-wrap: wrap; gap: 8px; }
+.monthly-selection-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.print-packet-builder { margin-top: 18px; } .print-packet-builder h2 { margin-bottom: 4px; color: var(--admin-navy); } .print-packet-builder > p { color: var(--admin-muted); font-size: 11px; } .print-packet-builder ol { display: grid; gap: 6px; max-width: 700px; padding: 0; list-style: none; } .print-packet-builder li { display: flex; align-items: center; gap: 7px; padding: 8px; border: 1px solid #d7dfe4; border-radius: 7px; background: #fff; font-size: 11px; } .print-packet-builder li span { flex: 1; }
+
+@media (max-width: 980px) {
+  .daily-record-grid { grid-template-columns: 1fr; }
+  .monthly-template-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .paperwork-filters { display: grid; }
+  .paperwork-filters input, .paperwork-filters select { width: 100%; }
+  .print-template-card label { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+  .print-template-card label input[type="checkbox"] { flex: 0 0 auto; width: 20px; height: 20px; margin: 0; }
+  .daily-record-card { grid-template-columns: 42px minmax(0, 1fr); }
+  .daily-record-card > .admin-secondary-button { grid-column: 1 / -1; width: 100%; text-align: center; }
+  .daily-record-title-row { display: block; }
+  .daily-record-state { display: inline-block; margin-top: 6px; }
+  .daily-editor-header { align-items: stretch; flex-direction: column; }
+  .daily-editor-actions { justify-content: stretch; }
+  .daily-editor-actions button { flex: 1 1 120px; }
+}
+
+@media print {
+  .admin-scene-header, .admin-context-bar, .admin-subnav, .gow-sidebar, .gow-topbar, .daily-editor-actions { display: none !important; }
+  .admin-layout-grid, .admin-content, .admin-page { display: block; width: 100%; margin: 0; padding: 0; }
+}

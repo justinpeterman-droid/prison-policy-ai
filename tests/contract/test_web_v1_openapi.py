@@ -19,6 +19,23 @@ PAPERWORK_PATHS = {
     "/paperwork/count-sheets/{record_id}/restore",
     "/paperwork/count-sheets/{record_id}/actions",
 }
+DAILY_PAPERWORK_PATHS = {
+    "/admin/paperwork/daily",
+    "/admin/paperwork/daily/{kind}",
+    "/admin/paperwork/daily/{kind}/template",
+    "/admin/paperwork/daily/{kind}/copy-previous",
+    "/admin/paperwork/daily/{kind}/{record_id}",
+    "/admin/paperwork/daily/{kind}/{record_id}/revisions",
+    "/admin/paperwork/daily/{kind}/{record_id}/restore",
+    "/admin/paperwork/daily/{kind}/{record_id}/actions",
+    "/admin/paperwork/daily/assignment-roster/{record_id}/uniform-inspection",
+}
+PRINT_TEMPLATE_PATHS = {
+    "/print-templates",
+    "/print-templates/{template_code}",
+    "/print-templates/packet",
+    "/print-templates/actions",
+}
 
 
 def _spec():
@@ -66,6 +83,35 @@ def test_web_openapi_exposes_closed_revisioned_count_sheet_surface():
     assert "delete" not in document["paths"][
         "/paperwork/count-sheets/{record_id}"
     ]
+
+
+def test_web_openapi_exposes_closed_administrator_daily_paperwork_surface():
+    document = _spec()
+
+    assert DAILY_PAPERWORK_PATHS <= set(document["paths"])
+    request_schema = document["components"]["schemas"]["SaveDailyPaperworkRequest"]
+    assert request_schema["additionalProperties"] is False
+    assert set(request_schema["required"]) == {
+        "schema_version",
+        "work_date",
+        "shift",
+        "payload",
+        "base_revision_number",
+        "reason",
+    }
+    copy_schema = document["components"]["schemas"]["CopyPreviousDailyRequest"]
+    assert copy_schema["additionalProperties"] is False
+    assert set(copy_schema["required"]) == {"target_work_date", "shift"}
+
+
+def test_web_openapi_exposes_read_only_print_template_library_surface():
+    document = _spec()
+
+    assert PRINT_TEMPLATE_PATHS <= set(document["paths"])
+    packet = document["components"]["schemas"]["PrintTemplatePacketRequest"]
+    assert packet["additionalProperties"] is False
+    assert set(packet["required"]) == {"period", "template_codes", "prefill"}
+    assert set(packet["properties"]) == set(packet["required"])
 
 
 def test_web_session_responses_never_define_readable_identity_credentials():

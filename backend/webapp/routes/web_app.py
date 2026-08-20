@@ -1,10 +1,21 @@
 """Serve the Guided Operations single-page application during pilot rollout."""
 from pathlib import Path
 
-from flask import Blueprint, current_app, send_from_directory
+from flask import Blueprint, current_app, make_response, send_from_directory
 
 
 web_app_bp = Blueprint("web_app", __name__)
+
+WORKSPACE_SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; base-uri 'self'; object-src 'none'; "
+        "frame-ancestors 'none'; form-action 'self'; script-src 'self'; "
+        "style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'"
+    ),
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+}
 
 
 def _web_root() -> Path:
@@ -22,4 +33,7 @@ def workspace(client_path: str | None = None):
     root = _web_root()
     if not (root / "index.html").is_file():
         return "Guided Operations preview has not been built.", 503
-    return send_from_directory(root, "index.html")
+    response = make_response(send_from_directory(root, "index.html"))
+    response.headers["Cache-Control"] = "no-store"
+    response.headers.update(WORKSPACE_SECURITY_HEADERS)
+    return response
