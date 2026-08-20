@@ -175,6 +175,8 @@ run "production_environment_contract" {
     github_repository                 = "example.invalid/agency/prison-policy-ai"
     github_ref_pattern                = "refs/heads/main"
     enable_access_release_identity    = true
+    storage_log_bucket_name           = "access-production-fixture-audit-logs"
+    artifact_registry_kms_key_name    = "projects/fixture-project/locations/us-central1/keyRings/fixture-key-ring/cryptoKeys/fixture-artifact-key"
     labels                            = { data_class = "fictional" }
     image_digest                      = "example.invalid/access/production@sha256:1111111111111111111111111111111111111111111111111111111111111111"
     source_commit                     = "1111111111111111111111111111111111111111"

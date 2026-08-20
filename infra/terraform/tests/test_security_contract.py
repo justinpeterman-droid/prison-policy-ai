@@ -4,6 +4,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 MODULE = ROOT / "infra" / "terraform" / "modules" / "access_platform"
+PRODUCTION_ROOT = ROOT / "infra" / "terraform" / "environments" / "production"
+TEST_ROOT = ROOT / "infra" / "terraform" / "environments" / "test"
 
 
 def read(name: str) -> str:
@@ -63,6 +65,28 @@ def test_sql_is_postgres_17_private_and_protected():
     assert 'deletion_protection = var.environment == "production"' in sql
     assert "point_in_time_recovery_enabled = true" in sql
     assert "disk_autoresize = true" in sql
+    assert 'name  = "cloudsql.enable_pgaudit"' in sql
+    assert 'name  = "pgaudit.log"' in sql
+    assert 'value = "ddl,role,write"' in sql
+
+
+def test_network_has_flow_logs_and_explicit_default_deny():
+    network = read("network.tf")
+    assert 'metadata             = "INCLUDE_ALL_METADATA"' in network
+    assert 'resource "google_compute_firewall" "default_deny_ingress"' in network
+    assert 'direction = "INGRESS"' in network
+    assert re.search(r'deny\s*\{\s*protocol\s*=\s*"all"', network, re.DOTALL)
+
+
+def test_artifact_repository_uses_external_cmek():
+    serverless = read("serverless.tf")
+    assert "kms_key_name  = var.artifact_registry_kms_key_name" in serverless
+
+
+def test_state_recovery_does_not_block_backend_rewrites():
+    bootstrap = (ROOT / "infra" / "terraform" / "bootstrap" / "state" / "main.tf").read_text(encoding="utf-8")
+    assert "soft_delete_policy" in bootstrap
+    assert "retention_policy" not in bootstrap
 
 
 def test_terraform_never_manages_secret_values_or_keys():
@@ -96,7 +120,11 @@ def test_workflow_identities_have_distinct_wif_and_secret_boundaries():
     ))
     for identity in ("terraform_plan", "terraform_apply", "deploy", "rollback", "admin_bootstrap", "access_release"):
         assert f"google_service_account.{identity}.member" not in secret_bindings
-    assert 'role = "roles/viewer"' in identities
+    assert 'role = "roles/viewer"' not in identities
+    assert 'role = "roles/iam.serviceAccountAdmin"' not in identities
+    assert 'resource "google_project_iam_custom_role" "terraform_plan_readonly"' in identities
+    assert 'resource "google_project_iam_custom_role" "terraform_apply_service_accounts"' in identities
+    assert "assertion.sub == 'repo:${var.github_repository}:environment:${var.wif_trust[each.key].github_environment}'" in identities
     assert 'role = google_project_iam_custom_role.rollback_traffic.name' in identities
 
 
