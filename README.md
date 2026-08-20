@@ -160,35 +160,22 @@ Apply migrations:
 python -m alembic upgrade head
 ```
 
-The application does not ship a default employee login, and there is no
-account-provisioning command yet. Until one exists, seed a fictional officer by
-reusing the integration test fixture. Run from the repository root with the
-environment above exported:
+The application does not ship a default employee login. Seed the standard
+fictional Officer and Administrator accounts with the development command, run
+from the repository root with the environment above exported:
 
 ```bash
-PYTHONPATH=. python - <<'PY'
-import os
-from datetime import datetime, UTC
-
-from backend.identity.config import IdentitySettings
-from backend.persistence.database import init_database, session_scope
-from tests.integration.identity_fixtures import seed_fictional_account
-
-init_database(IdentitySettings.from_env(os.environ))
-with session_scope() as session:
-    seed_fictional_account(
-        session, employee_number="TEST-1001", role="user",
-        pin="Z9Y8X7", now=datetime.now(UTC),
-    )
-    seed_fictional_account(
-        session, employee_number="TEST-9001", role="admin",
-        pin="Q7W9E2", now=datetime.now(UTC),
-    )
-PY
+python scripts/seed_fictional_accounts.py
 ```
 
-Sign in at `/workspace` with employee number `TEST-1001` and PIN `Z9Y8X7`. Use
-fictional values only, and never seed real staff names or employee numbers.
+It refuses to run unless `DATABASE_URL` points at a loopback PostgreSQL host,
+and it is safe to rerun — existing fictional rows are refreshed rather than
+duplicated. See `docs/local-fictional-accounts.md` for the full description and
+the local credentials.
+
+Sign in at `/workspace` with employee number `TEST-1001` and PIN `Z9Y8X7`. These
+are development-only fixtures: never reuse them outside local development, and
+never commit real staff names or employee numbers.
 
 ### Build and run the workspace
 
