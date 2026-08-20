@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { InterfaceIcon } from "../../components/InterfaceIcon";
 import { WebApiError } from "../../api/client";
 import {
   acknowledgePhysical,
@@ -418,7 +419,7 @@ export function DocumentStudioPage() {
     <section className="iw-page iw-studio" aria-labelledby="studio-heading">
       <header className="iw-studio-header">
         <div>
-          <Link className="iw-back-link" to="/reports">← Reports</Link>
+          <Link className="iw-back-link" to="/reports"><InterfaceIcon name="arrow-left" /> Reports</Link>
           <p className="iw-number">{incident.incident_number || "Unnumbered Incident"}</p>
           <h1 id="studio-heading">{incident.incident_name || "Incident name not assigned"}</h1>
           <p>{incident.location || "Location not entered"} · {incident.category ? titleCase(incident.category) : "Not classified"} · Revision {incident.current_revision_number}</p>
@@ -429,7 +430,7 @@ export function DocumentStudioPage() {
         </div>
       </header>
 
-      {notice ? <div className="iw-notice" role="status"><span>{notice}</span><button type="button" aria-label="Dismiss notice" onClick={() => setNotice(null)}>×</button></div> : null}
+      {notice ? <div className="iw-notice" role="status"><span>{notice}</span><button type="button" aria-label="Dismiss notice" onClick={() => setNotice(null)}><InterfaceIcon name="close" /></button></div> : null}
 
       <div className="iw-tabs" role="tablist" aria-label="Incident document areas">
         {TABS.map((label) => (
@@ -488,7 +489,7 @@ export function DocumentStudioPage() {
               })}
             </div>
             <aside className="iw-inspector" aria-label="Paperwork inspector">
-              {physical ? <div className="iw-physical-guidance"><span className="iw-physical-warning">{physical.warning}</span><h2>{physical.name}</h2><p>{physical.description}</p><dl><div><dt>Obtain from</dt><dd>{physical.obtain_from}</dd></div>{physical.guidance_fields.map((field) => <div key={field}><dt>{titleCase(field)}</dt><dd>{display(physical.guidance_values[field])}</dd></div>)}</dl>{physical.acknowledgment ? <div className="iw-complete-callout"><strong>Physical form completion recorded</strong><p>{physical.acknowledgment.note}</p></div> : <button className="iw-button iw-button-gold" type="button" onClick={() => void markPhysicalComplete()}>Mark Physical Form Completed</button>}<button className="iw-text-button" type="button" onClick={() => setPhysical(null)}>Close guidance</button></div> : preview ? <div className="iw-form-preview"><div className="iw-preview-toolbar"><div><span>Document preview</span><h2>{preview.template_name}</h2></div><button type="button" aria-label="Close form preview" onClick={() => setPreview(null)}>×</button></div><div className="iw-paper-sheet">{Object.entries(preview.fields).map(([key, value]) => <div className="iw-preview-field" key={key}><span>{titleCase(key)}</span><strong>{display(value)}</strong></div>)}</div><div className={`iw-completeness-panel iw-completeness-${statusTone(preview.completeness.state)}`}><strong>{titleCase(preview.completeness.state)}</strong>{preview.completeness.missing_fields.length ? <p>Missing: {preview.completeness.missing_fields.map(titleCase).join(", ")}</p> : <p>Required information is present.</p>}</div></div> : <div className="iw-inspector-empty"><span aria-hidden="true">▤</span><h2>Paperwork inspector</h2><p>Preview a populated form or open physical-form guidance here.</p></div>}
+              {physical ? <div className="iw-physical-guidance"><span className="iw-physical-warning">{physical.warning}</span><h2>{physical.name}</h2><p>{physical.description}</p><dl><div><dt>Obtain from</dt><dd>{physical.obtain_from}</dd></div>{physical.guidance_fields.map((field) => <div key={field}><dt>{titleCase(field)}</dt><dd>{display(physical.guidance_values[field])}</dd></div>)}</dl>{physical.acknowledgment ? <div className="iw-complete-callout"><strong>Physical form completion recorded</strong><p>{physical.acknowledgment.note}</p></div> : <button className="iw-button iw-button-gold" type="button" onClick={() => void markPhysicalComplete()}>Mark Physical Form Completed</button>}<button className="iw-text-button" type="button" onClick={() => setPhysical(null)}>Close guidance</button></div> : preview ? <div className="iw-form-preview"><div className="iw-preview-toolbar"><div><span>Document preview</span><h2>{preview.template_name}</h2></div><button type="button" aria-label="Close form preview" onClick={() => setPreview(null)}><InterfaceIcon name="close" /></button></div><div className="iw-paper-sheet">{Object.entries(preview.fields).map(([key, value]) => <div className="iw-preview-field" key={key}><span>{titleCase(key)}</span><strong>{display(value)}</strong></div>)}</div><div className={`iw-completeness-panel iw-completeness-${statusTone(preview.completeness.state)}`}><strong>{titleCase(preview.completeness.state)}</strong>{preview.completeness.missing_fields.length ? <p>Missing: {preview.completeness.missing_fields.map(titleCase).join(", ")}</p> : <p>Required information is present.</p>}</div></div> : <div className="iw-inspector-empty"><span><InterfaceIcon name="paperwork" /></span><h2>Paperwork inspector</h2><p>Preview a populated form or open physical-form guidance here.</p></div>}
             </aside>
           </div>
         ) : null}

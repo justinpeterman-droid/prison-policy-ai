@@ -43,7 +43,7 @@ This checklist tracks the remaining work required to complete the Guided Operati
 - [x] Add date and shift selection.
 - [x] Add saved-record search and reopen behavior.
 - [x] Add revision-safe saving.
-- [ ] Add autosave and manual-save states.
+- [x] Add autosave and manual-save states.
 - [x] Add print-preview support.
 - [x] Add administrator attribution and audit events.
 - [x] Add desktop, tablet, and mobile layouts.
@@ -131,6 +131,12 @@ This checklist tracks the remaining work required to complete the Guided Operati
 - The assembled frontend suite passes 117 component tests, TypeScript checking, and a production build with route- and editor-level code splitting.
 - Chromium coverage passes for all six Daily print surfaces plus Weekly/Monthly navigation, desktop/mobile overflow checks, keyboard navigation, save/reopen/failure/retry recovery, and a four-form Monthly packet using fictional data.
 - Focused template, contract, delivery-security, and release-gate checks pass (37 tests). PostgreSQL-backed integration tests remain a CI/target-environment release gate.
+
+### Local PostgreSQL Release-Gate Check — 2026-08-20
+
+- `TEST_DATABASE_URL` is not configured in this worktree environment.
+- A local `psql` client is not installed, Docker is unavailable, and the active Python installation does not include pytest.
+- PostgreSQL 17 integration and migration lifecycle checks were therefore not run locally. Per the repository test policy, no substitute database or guessed connection was used; these remain required CI/target-environment gates.
 
 ## 4. Weekly Paperwork Library
 

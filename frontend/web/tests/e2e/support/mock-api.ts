@@ -36,6 +36,58 @@ const INCIDENT = {
   updated_at: "2026-08-19T19:00:00Z",
 } as const;
 
+const INCIDENT_REPORT = {
+  report_id: "00000000-0000-4000-8000-000000000011",
+  incident_id: INCIDENT.incident_id,
+  report_type: "officer_report",
+  presentation: "document",
+  allowed_actions: ["edit", "print", "download_docx"],
+  status: "draft",
+  current_revision_number: 2,
+  reporting_officer: {
+    staff_id: PROFILE.staff_id,
+    employee_number: PROFILE.employee_number,
+    display_name: PROFILE.display_name,
+    rank: PROFILE.rank,
+    shift: PROFILE.shift,
+  },
+  preparer: {
+    staff_id: PROFILE.staff_id,
+    employee_number: PROFILE.employee_number,
+    display_name: PROFILE.display_name,
+    rank: PROFILE.rank,
+    shift: PROFILE.shift,
+  },
+  updated_at: "2026-08-19T19:00:00Z",
+} as const;
+
+function incidentDetail() {
+  return {
+    incident_id: INCIDENT.incident_id,
+    incident_number: INCIDENT.incident_number,
+    incident_name: INCIDENT.incident_name,
+    status: "in_progress",
+    current_revision_number: 4,
+    reporting_staff_ids: [PROFILE.staff_id],
+    reporting_officers: [INCIDENT_REPORT.reporting_officer],
+    field_notes: "Fictional training notes used only for browser verification.",
+    incident_date: INCIDENT.incident_date,
+    incident_time: "18:20:00",
+    facility: "North Central Unit",
+    shift: PROFILE.shift,
+    location: INCIDENT.location,
+    category: INCIDENT.category,
+    classification: { category: INCIDENT.category },
+    extracted_facts: { location: INCIDENT.location },
+    gap_answers: {},
+    charges: [],
+    validation: {},
+    warnings: [],
+    created_at: "2026-08-19T16:00:00Z",
+    updated_at: INCIDENT.updated_at,
+  };
+}
+
 const DIGITAL_FORM = {
   template_id: "00000000-0000-4000-8000-000000000020",
   code: "medical_documentation_checklist",
@@ -108,6 +160,9 @@ interface CountRecord {
 
 export interface OfficerApiState {
   countRecord: CountRecord | null;
+  homeDelayMs: number;
+  homeEmpty: boolean;
+  homeFailuresRemaining: number;
   policyQuestions: string[];
   sessions: Array<{
     session_id: string;
@@ -191,6 +246,9 @@ async function fail(
 export async function installOfficerApi(page: Page): Promise<OfficerApiState> {
   const state: OfficerApiState = {
     countRecord: null,
+    homeDelayMs: 0,
+    homeEmpty: false,
+    homeFailuresRemaining: 0,
     policyQuestions: [],
     sessions: [
       {
@@ -239,10 +297,18 @@ export async function installOfficerApi(page: Page): Promise<OfficerApiState> {
       return;
     }
     if (path === "/home" && method === "GET") {
+      if (state.homeDelayMs > 0) {
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, state.homeDelayMs));
+      }
+      if (state.homeFailuresRemaining > 0) {
+        state.homeFailuresRemaining -= 1;
+        await fail(route, "temporarily_unavailable", "Fictional training outage.", 503);
+        return;
+      }
       await fulfill(route, {
-        continue_incident: INCIDENT,
-        recent_incidents: [INCIDENT],
-        quick_forms: [
+        continue_incident: state.homeEmpty ? null : INCIDENT,
+        recent_incidents: state.homeEmpty ? [] : [INCIDENT],
+        quick_forms: state.homeEmpty ? [] : [
           {
             template_id: DIGITAL_FORM.template_id,
             code: DIGITAL_FORM.code,
@@ -256,7 +322,7 @@ export async function installOfficerApi(page: Page): Promise<OfficerApiState> {
             output_kind: PHYSICAL_FORM.output_kind,
           },
         ],
-        count_sheet: state.countRecord
+        count_sheet: !state.homeEmpty && state.countRecord
           ? {
               record_id: state.countRecord.record_id,
               current_revision_number: state.countRecord.current_revision_number,
@@ -264,6 +330,18 @@ export async function installOfficerApi(page: Page): Promise<OfficerApiState> {
             }
           : null,
       });
+      return;
+    }
+    if (path === `/incidents/${INCIDENT.incident_id}` && method === "GET") {
+      await fulfill(route, incidentDetail());
+      return;
+    }
+    if (path === `/incidents/${INCIDENT.incident_id}/reports` && method === "GET") {
+      await fulfill(route, { items: [INCIDENT_REPORT] });
+      return;
+    }
+    if (path === `/incidents/${INCIDENT.incident_id}/packet` && method === "GET") {
+      await fulfill(route, { items: [] });
       return;
     }
     if (path === "/paperwork/count-sheets/structure" && method === "GET") {

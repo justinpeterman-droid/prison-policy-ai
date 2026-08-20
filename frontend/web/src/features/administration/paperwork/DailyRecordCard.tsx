@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { InterfaceIcon, type InterfaceIconName } from "../../../components/InterfaceIcon";
 import type { DailyPaperworkKind, DailyRecordSummary } from "./api";
 
 
@@ -6,7 +7,7 @@ export interface DailyCardDefinition {
   kind: DailyPaperworkKind | "count_sheet";
   title: string;
   description: string;
-  icon: string;
+  icon: InterfaceIconName;
 }
 
 
@@ -34,7 +35,7 @@ export function DailyRecordCard({ definition, record, workDate, shift }: DailyRe
 
   return (
     <article className={`daily-record-card ${record?.state === "needs_attention" ? "needs-attention" : ""}`}>
-      <span className="daily-record-icon" aria-hidden="true">{definition.icon}</span>
+      <span className="daily-record-icon"><InterfaceIcon name={definition.icon} /></span>
       <div className="daily-record-copy">
         <div className="daily-record-title-row">
           <h2>{definition.title}</h2>

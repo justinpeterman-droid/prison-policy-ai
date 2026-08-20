@@ -17,7 +17,7 @@ test("command center keeps operations readable and action-oriented at 1366x768",
   await page.setViewportSize({ width: 1366, height: 768 });
   await enterAdmin(page);
 
-  await expect(page.getByRole("heading", { name: /Good evening, Captain Blake/ })).toBeVisible();
+  await expect(page.getByText(/Good evening, Captain Blake/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Operational Command Center" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Today’s Paperwork" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Incidents Needing Attention" })).toBeVisible();

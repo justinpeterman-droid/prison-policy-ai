@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { InterfaceIcon } from "../../components/InterfaceIcon";
 import {
   fetchFormsLibrary,
   prepareFormDownload,
@@ -157,7 +158,7 @@ function SelectionInspector({
           <p>Selected packet</p>
           <h2>{preview ? "Preview selected forms" : "Review download options"}</h2>
         </div>
-        <button type="button" aria-label="Close selected forms review" onClick={onClose}>×</button>
+        <button type="button" aria-label="Close selected forms review" onClick={onClose}><InterfaceIcon name="close" /></button>
       </header>
       <ol>
         {items.map((item) => (

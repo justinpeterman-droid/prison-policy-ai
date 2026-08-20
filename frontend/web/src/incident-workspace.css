@@ -73,7 +73,6 @@
 
 .iw-button:hover:not(:disabled) {
   filter: brightness(1.02);
-  transform: translateY(-1px);
   box-shadow:
     0 1px 0 rgba(255,255,255,.96) inset,
     0 -2px 0 rgba(79,105,126,.12) inset,
@@ -85,15 +84,39 @@
 }
 
 .iw-button:disabled {
-  opacity: .56;
-  cursor: wait;
+  color: var(--gow-disabled, #70808f);
+  background: #e7ecef;
+  border-color: #c7d0d7;
+  box-shadow: none;
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
 }
 
-.iw-button-primary {
+.iw-button-primary,
+.iw-button--primary {
   color: #fff;
   border-color: #0b365d;
   background: linear-gradient(180deg, #1d6198, #0a365e);
   box-shadow: 0 1px 0 rgba(255,255,255,.24) inset, 0 -2px 0 rgba(0,0,0,.25) inset, 0 7px 15px rgba(7,43,75,.22);
+}
+
+.iw-button:focus-visible,
+.iw-tabs button:focus-visible,
+.iw-page input:focus-visible,
+.iw-page select:focus-visible,
+.iw-page textarea:focus-visible,
+.iw-studio-content input:focus-visible,
+.iw-studio-content select:focus-visible,
+.iw-studio-content textarea:focus-visible {
+  outline: 3px solid var(--gow-focus, #075fae);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .iw-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
 }
 
 .iw-button-gold {
@@ -295,7 +318,7 @@
 .iw-physical-guidance dt,
 .iw-facts-panel dt {
   color: var(--gow-muted);
-  font-size: .68rem;
+  font-size: .72rem;
   font-weight: 800;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -631,7 +654,7 @@
 .iw-mini-document { display: grid; gap: 7px; }
 .iw-mini-document span,
 .iw-packet-summary span,
-.iw-overview-card > span { color: var(--gow-gold-700); font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.iw-overview-card > span { color: var(--gow-gold-700); font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .iw-mini-document small,
 .iw-packet-summary small,
 .iw-overview-card p { color: var(--gow-muted); }
@@ -782,7 +805,7 @@
 .iw-paperwork-groups { display: grid; gap: 18px; }
 .iw-paperwork-group { overflow: hidden; }
 .iw-group-heading { padding: 15px 18px; border-bottom: 1px solid #d6e1e9; background: #f4f8fb; }
-.iw-group-heading span { color: var(--gow-gold-700); font-size: .68rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+.iw-group-heading span { color: var(--gow-gold-700); font-size: .72rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
 .iw-group-heading h2 { margin: 3px 0 0; font-size: 1.15rem; }
 .iw-group-heading > strong { display: grid; place-items: center; width: 34px; height: 34px; color: #fff; border-radius: 50%; background: var(--gow-navy-800); }
 .iw-paperwork-grid { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); padding: 16px; }
@@ -817,12 +840,12 @@
 .iw-preview-toolbar h2 { font-size: 1.15rem; }
 .iw-paper-sheet { margin: 16px 0; padding: 24px; color: #101820; border: 1px solid #b8b8b8; background: #fff; box-shadow: 0 8px 22px rgba(0,0,0,.12); }
 .iw-preview-field { display: grid; grid-template-columns: minmax(100px, .75fr) minmax(0, 1.25fr); gap: 12px; padding: 8px 0; border-bottom: 1px solid #d4d4d4; }
-.iw-preview-field span { color: #4f5960; font-size: .68rem; text-transform: uppercase; }
+.iw-preview-field span { color: #4f5960; font-size: .72rem; text-transform: uppercase; }
 .iw-completeness-panel { padding: 12px; border: 1px solid #bad5c4; border-radius: 10px; background: #edf8f1; }
 .iw-completeness-panel p { margin: 4px 0 0; }
 
 .iw-facts-layout { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.iw-facts-panel > span { color: var(--gow-gold-700); font-size: .68rem; font-weight: 800; text-transform: uppercase; }
+.iw-facts-panel > span { color: var(--gow-gold-700); font-size: .72rem; font-weight: 800; text-transform: uppercase; }
 .iw-facts-panel h2 { margin: 5px 0 15px; }
 .iw-facts-panel pre { margin: 0; white-space: pre-wrap; font: inherit; line-height: 1.6; }
 .iw-facts-panel dl { display: grid; gap: 11px; }
@@ -835,10 +858,6 @@
 .iw-history-list span { color: var(--gow-navy-800); font-weight: 800; }
 .iw-history-list small { color: var(--gow-muted); }
 
-.gow-mobile-menu-trigger,
-.gow-mobile-menu-button,
-.gow-mobile-scrim { display: none; }
-
 @media (max-width: 1180px) {
   .iw-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .iw-paperwork-layout { grid-template-columns: 1fr; }
@@ -848,26 +867,6 @@
 }
 
 @media (max-width: 900px) {
-  .gow-app { grid-template-columns: 1fr; }
-  .gow-sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    z-index: 60;
-    width: min(86vw, 300px);
-    transform: translateX(-105%);
-    transition: transform 220ms var(--gow-ease);
-  }
-  .gow-sidebar.is-open { transform: translateX(0); }
-  .gow-mobile-scrim { position: fixed; inset: 0; z-index: 50; display: block; border: 0; background: rgba(3,19,34,.48); }
-  .gow-mobile-menu-trigger { display: grid; place-items: center; width: 40px; height: 40px; margin-right: auto; border: 1px solid var(--gow-border); border-radius: 10px; background: #fff; }
-  .gow-mobile-menu-button { display: grid; place-items: center; grid-column: 3; width: 34px; height: 34px; color: #fff; border: 1px solid rgba(255,255,255,.2); border-radius: 9px; background: rgba(0,0,0,.15); }
-  .gow-brand { grid-template-columns: 58px 1fr auto; }
-  .gow-workspace { padding: 0 12px 16px; }
-  .gow-topbar { gap: 8px; }
-  .gow-status-chip:nth-of-type(2),
-  .gow-status-chip:nth-of-type(3),
-  .gow-user-chip > span:nth-child(2) { display: none; }
   .iw-page-header,
   .iw-studio-header { align-items: flex-start; flex-direction: column; padding: 23px; }
   .iw-filter-bar { grid-template-columns: 1fr; }
@@ -886,7 +885,6 @@
 }
 
 @media (max-width: 620px) {
-  .gow-topbar .gow-notification { display: none; }
   .iw-page-header h1,
   .iw-studio-header h1 { font-size: 2rem; }
   .iw-page-header,
@@ -911,11 +909,18 @@
   .iw-tabs button { min-width: 135px; }
   .iw-preview-field { grid-template-columns: 1fr; }
   .iw-history-list li { grid-template-columns: 1fr; }
+  .iw-page .iw-button,
+  .iw-studio-content .iw-button,
+  .iw-page input:not([type="checkbox"]):not([type="radio"]),
+  .iw-page select,
+  .iw-page textarea,
+  .iw-studio-content input:not([type="checkbox"]):not([type="radio"]),
+  .iw-studio-content select,
+  .iw-studio-content textarea,
+  .iw-tabs button { min-height: 44px; }
 }
 
 @media print {
-  .gow-sidebar,
-  .gow-topbar,
   .iw-tabs,
   .iw-studio-header,
   .iw-document-actions,
@@ -924,8 +929,6 @@
   .iw-physical-guidance,
   .iw-page-header,
   .iw-filter-bar { display: none !important; }
-  .gow-app,
-  .gow-workspace,
   .iw-page,
   .iw-studio-content,
   .iw-inspector { display: block; margin: 0; padding: 0; min-height: auto; border: 0; box-shadow: none; background: #fff; }
@@ -935,4 +938,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  .iw-button:hover,
+  .iw-button:active { transform: none; }
 }

@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { InterfaceIcon } from "../../../components/InterfaceIcon";
 import { listAdminStaff, type AdminStaffMember } from "../api";
 import {
   createAccount,
@@ -232,7 +233,7 @@ export function AccountsStaffPage() {
                     <AccountSessionsPanel accountId={selected.account.accountId} />
                   </>
                 ) : (
-                  <div className="admin-account-empty"><div aria-hidden="true">◇</div><strong>No individual account</strong><p>This staff identity can appear on rosters without having web access.</p><button className="admin-primary-button" type="button" onClick={queueCreateAccount}>Create individual account</button></div>
+                  <div className="admin-account-empty"><div><InterfaceIcon name="grid" /></div><strong>No individual account</strong><p>This staff identity can appear on rosters without having web access.</p><button className="admin-primary-button" type="button" onClick={queueCreateAccount}>Create individual account</button></div>
                 )}
               </section>
             </>

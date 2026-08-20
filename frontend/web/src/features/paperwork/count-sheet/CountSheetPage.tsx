@@ -410,7 +410,7 @@ export function CountSheetPage({ profile }: CountSheetPageProps) {
           ))}
         </div>
       ) : (
-        <div className="count-grid-wrap">
+        <div className="count-grid-wrap" role="region" aria-label="Count Sheet entry grid" tabIndex={0}>
           <table className="count-grid">
             <thead>
               <tr>

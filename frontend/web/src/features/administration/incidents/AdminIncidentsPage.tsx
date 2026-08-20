@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { InterfaceIcon } from "../../../components/InterfaceIcon";
 import { listAdminIncidents, type AdminIncidentSummary } from "../api";
 
 export function AdminIncidentsPage() {
@@ -54,7 +55,7 @@ export function AdminIncidentsPage() {
               <span><em className={`admin-records-status ${incident.recordsStatus}`}>{incident.recordsStatus.replaceAll("_", " ")}</em></span>
               <span>{incident.reportingOfficers.map((person) => person.displayName).join(", ") || "Not assigned"}</span>
               <span>{incident.officerReportCount} reports · {incident.requiredPaperworkCount} required</span>
-              <span className="admin-row-arrow" aria-hidden="true">›</span>
+              <span className="admin-row-arrow"><InterfaceIcon name="chevron-right" /></span>
             </Link>
           )) : <div className="admin-empty-row"><strong>No matching incidents</strong><span>Try a broader search or remove the records-status filter.</span></div>}
         </section>

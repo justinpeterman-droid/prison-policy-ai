@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { InterfaceIcon } from "../../../../components/InterfaceIcon";
 import { SaveState, type EditorSaveState } from "./SaveState";
 
 
@@ -18,7 +19,7 @@ export function DailyEditorHeader(props: DailyEditorHeaderProps) {
   return (
     <header className="daily-editor-header">
       <div>
-        <Link className="admin-back-link" to={`/admin/paperwork?tab=daily&work_date=${props.workDate}&shift=${props.shift}`}>← Back to Daily Paperwork</Link>
+        <Link className="admin-back-link" to={`/admin/paperwork?tab=daily&work_date=${props.workDate}&shift=${props.shift}`}><InterfaceIcon name="arrow-left" /> Back to Daily Paperwork</Link>
         <p className="admin-kicker">Daily operational paperwork</p>
         <h1>{props.title}</h1>
         <p>{props.workDate} · {props.shift} Shift</p>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { InterfaceIcon } from "../../../components/InterfaceIcon";
 import { DocumentStudioPage } from "../../incidents/DocumentStudioPage";
 import { listAdminStaff, type AdminStaffMember } from "../api";
 import { AdminStepUpDialog } from "../AdminStepUpDialog";
@@ -149,7 +150,7 @@ export function AdminIncidentWorkspace() {
   return (
     <div className="admin-incident-workspace">
       <div className="admin-incident-toolbar">
-        <Link to="/admin/incidents" className="admin-back-link">← All Incidents</Link>
+        <Link to="/admin/incidents" className="admin-back-link"><InterfaceIcon name="arrow-left" /> All Incidents</Link>
         <span>Administrator review context</span>
       </div>
       <AdminAttributionBanner />

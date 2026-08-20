@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { InterfaceIcon } from "../../../components/InterfaceIcon";
 import { getAdminOverview, type AdminOverview } from "../api";
 
 function formatTime(value: string | null): string {
@@ -61,7 +62,7 @@ export function AdminOverviewPage() {
           <section className="admin-section" aria-labelledby="todays-paperwork-heading">
             <div className="admin-section-heading">
               <div><p>Current shift</p><h2 id="todays-paperwork-heading">Today’s Paperwork</h2></div>
-              <Link to="/admin/paperwork">Open Paperwork Center <span aria-hidden="true">→</span></Link>
+              <Link to="/admin/paperwork">Open Paperwork Center <InterfaceIcon name="arrow-right" /></Link>
             </div>
             <div className="admin-paperwork-strip">
               {[
@@ -71,7 +72,7 @@ export function AdminOverviewPage() {
                 const record = item as AdminOverview["todaysPaperwork"]["assignmentRoster"];
                 return (
                   <article className="admin-paperwork-fixture" key={label as string}>
-                    <div className="admin-paperwork-icon" aria-hidden="true">▤</div>
+                    <div className="admin-paperwork-icon"><InterfaceIcon name="paperwork" /></div>
                     <div><h3>{label as string}</h3><p>{record.status === "saved" ? `Saved ${formatTime(record.updatedAt)}` : "Not started"}</p></div>
                     <StatusMark value={record.status === "saved" ? "Saved" : "Not started"} />
                   </article>
@@ -91,7 +92,7 @@ export function AdminOverviewPage() {
                         <div className="admin-incident-identity"><strong>{incident.incidentNumber ?? "Unnumbered Incident"}</strong><span>{incident.incidentName ?? "Incident name not entered"}</span></div>
                         <StatusMark value={incident.progress.label} />
                         <div className="admin-row-counts"><span>{incident.reportCount} reports</span><span>{incident.requiredPaperworkCount} required forms</span></div>
-                        <span className="admin-row-arrow" aria-hidden="true">›</span>
+                        <span className="admin-row-arrow"><InterfaceIcon name="chevron-right" /></span>
                       </Link>
                     </li>
                   ))}

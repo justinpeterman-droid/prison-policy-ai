@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { InterfaceIcon, type InterfaceIconName } from "../../components/InterfaceIcon";
 import type { SessionProfile } from "../auth/api";
 import { AccountsStaffPage } from "./accounts/AccountsStaffPage";
 import { AuditLogPage } from "./audit/AuditLogPage";
@@ -10,6 +11,7 @@ import { AdminOverviewPage } from "./overview/AdminOverviewPage";
 import { ReviewLabLaunch } from "./review-lab/ReviewLabLaunch";
 import "./admin.css";
 import "./admin-entry.css";
+import "../../refinement.css";
 
 const PaperworkCenterPage = lazy(() => import("./paperwork/PaperworkCenterPage").then((module) => ({ default: module.PaperworkCenterPage })));
 
@@ -17,15 +19,15 @@ interface AdminLayoutProps {
   profile: SessionProfile;
 }
 
-const adminNavigation = [
-  ["Overview", "/admin/overview", "⌂"],
-  ["All Incidents", "/admin/incidents", "▤"],
-  ["Paperwork Center", "/admin/paperwork", "▦"],
-  ["Accounts & Staff", "/admin/accounts-staff", "♙"],
-  ["Audit Log", "/admin/audit", "◫"],
-  ["System Health", "/admin/health", "◇"],
-  ["Review Lab", "/admin/review-lab", "↗"],
-] as const;
+const adminNavigation: ReadonlyArray<readonly [string, string, InterfaceIconName]> = [
+  ["Overview", "/admin/overview", "grid"],
+  ["All Incidents", "/admin/incidents", "document"],
+  ["Paperwork Center", "/admin/paperwork", "paperwork"],
+  ["Accounts & Staff", "/admin/accounts-staff", "grid"],
+  ["Audit Log", "/admin/audit", "document"],
+  ["System Health", "/admin/health", "health"],
+  ["Review Lab", "/admin/review-lab", "external-link"],
+];
 
 function firstName(displayName: string): string {
   const parts = displayName.trim().split(/\s+/).filter(Boolean);
@@ -38,7 +40,7 @@ export function AdminLayout({ profile }: AdminLayoutProps) {
       <section className="admin-scene-header" aria-label="Administrator workspace header">
         <div className="admin-scene-copy">
           <p>Operational command</p>
-          <h1>Good evening, {profile.rank ? `${profile.rank} ` : ""}{firstName(profile.displayName)}</h1>
+          <div className="admin-scene-greeting">Good evening, {profile.rank ? `${profile.rank} ` : ""}{firstName(profile.displayName)}</div>
           <span>Keep the facility picture clear, the records accountable, and the next action obvious.</span>
         </div>
         <div className="admin-scene-values" aria-label="Professional values">
@@ -56,7 +58,7 @@ export function AdminLayout({ profile }: AdminLayoutProps) {
           <nav aria-label="Administration navigation">
             {adminNavigation.map(([label, to, icon]) => (
               <NavLink key={to} to={to} className={({ isActive }) => isActive ? "is-active" : ""}>
-                <span aria-hidden="true">{icon}</span><span>{label}</span>
+                <span><InterfaceIcon name={icon} /></span><span>{label}</span>
               </NavLink>
             ))}
           </nav>

@@ -1,10 +1,10 @@
 .count-page {
-  --count-navy: #0d3156;
-  --count-navy-2: #164e7c;
-  --count-gold: #c58b22;
+  --count-navy: var(--gow-navy-900, #0d3156);
+  --count-navy-2: var(--gow-navy-800, #164e7c);
+  --count-gold: var(--gow-gold-500, #c58b22);
   --count-gold-soft: #fff4d7;
-  --count-line: #c8d5df;
-  --count-paper: #fff;
+  --count-line: var(--gow-border, #c8d5df);
+  --count-paper: var(--gow-surface, #fff);
   padding-bottom: 6rem;
 }
 
@@ -199,6 +199,11 @@
   box-shadow: 0 14px 34px rgba(18, 52, 83, .11), inset 0 1px #fff;
 }
 
+.count-grid-wrap:focus-visible {
+  outline: 3px solid var(--gow-focus);
+  outline-offset: 3px;
+}
+
 .count-grid {
   width: max(100%, 1260px);
   border-collapse: separate;
@@ -294,6 +299,14 @@
   border-color: #ba8018;
   background: #fff9e9;
   box-shadow: 0 0 0 3px rgba(197,139,34,.23), inset 0 1px 2px rgba(40,50,60,.08);
+}
+
+.count-page input:focus-visible,
+.count-page select:focus-visible,
+.count-page textarea:focus-visible,
+.count-page button:focus-visible {
+  outline: 3px solid var(--gow-focus, #075fae);
+  outline-offset: 2px;
 }
 
 .count-grid__summary-row th,
@@ -572,6 +585,11 @@
     display: grid;
     grid-template-columns: 1fr;
   }
+
+  .count-toolbar input,
+  .count-mobile input,
+  .count-operational input,
+  .count-page button { min-height: 44px; }
 
   .count-grid-wrap {
     display: none;

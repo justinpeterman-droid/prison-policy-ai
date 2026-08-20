@@ -7,7 +7,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("Forms Library previews a mixed selection without digitizing physical paperwork", async ({ page }) => {
-  await page.getByRole("link", { name: "Open Forms Library", exact: true }).click();
+  await page.getByRole("region", { name: "Primary actions" })
+    .getByRole("link", { name: "Open Forms Library", exact: true })
+    .click();
   await expect(page.getByRole("heading", { name: "Forms Library", exact: true })).toBeVisible();
 
   await page.getByLabel("Select Medical Documentation Checklist", { exact: true }).check();

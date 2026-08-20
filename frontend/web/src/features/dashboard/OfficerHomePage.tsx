@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import heroMobile from "../../assets/operations-horizon-v4-mobile.webp";
+import heroTablet from "../../assets/operations-horizon-v4-tablet.webp";
+import heroDesktop from "../../assets/operations-horizon-v4.webp";
 import type { SessionProfile } from "../auth/api";
 import {
   fetchOfficerHomeSummary,
@@ -12,6 +15,12 @@ interface OfficerHomePageProps {
   profile: SessionProfile;
   today?: string;
 }
+
+const HOME_HERO_PRELOADS = [
+  { href: heroDesktop, media: "(min-width: 1440px)" },
+  { href: heroTablet, media: "(min-width: 761px) and (max-width: 1439px)" },
+  { href: heroMobile, media: "(max-width: 760px)" },
+] as const;
 
 function localIsoDate(): string {
   const now = new Date();
@@ -44,7 +53,7 @@ function IncidentIdentity({ incident }: { incident: IncidentHomeSummary }) {
 
 const PRIMARY_ACTIONS = [
   {
-    title: "Start New Incident",
+    title: "New Incident Report",
     description: "Create a guided report and required paperwork packet.",
     href: "/new-report",
     action: "Start",
@@ -69,6 +78,27 @@ const PRIMARY_ACTIONS = [
   },
 ] as const;
 
+type ActionIconName = "report" | "count" | "policy" | "forms";
+
+function ActionIcon({ name }: { name: ActionIconName }) {
+  const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
+  if (name === "report") return <svg {...common}><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h5M9 13h6M12 10v6"/></svg>;
+  if (name === "count") return <svg {...common}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18M15 9v12M9 15h12"/></svg>;
+  if (name === "policy") return <svg {...common}><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6z"/><path d="M9.6 10a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.4M12 17h.01"/></svg>;
+  return <svg {...common}><path d="M3 6.5h6l2 2h10v10.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg>;
+}
+
+function ChevronRight() {
+  return <svg className="officer-home-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>;
+}
+
+function greetingForNow(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning,";
+  if (hour < 18) return "Good afternoon,";
+  return "Good evening,";
+}
+
 export function OfficerHomePage({
   profile,
   today = localIsoDate(),
@@ -78,6 +108,22 @@ export function OfficerHomePage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    const links = HOME_HERO_PRELOADS.map(({ href, media }) => {
+      const link = document.createElement("link");
+      link.rel = "preload";
+      link.as = "image";
+      link.type = "image/webp";
+      link.href = href;
+      link.media = media;
+      link.setAttribute("fetchpriority", "high");
+      link.dataset.gowHomeHeroPreload = "true";
+      document.head.append(link);
+      return link;
+    });
+    return () => links.forEach((link) => link.remove());
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -126,7 +172,7 @@ export function OfficerHomePage({
     <div className="officer-home-page">
       <section className="officer-home-hero" aria-labelledby="officer-home-heading">
         <div>
-          <p>Good afternoon,</p>
+          <p>{greetingForNow()}</p>
           <h1 id="officer-home-heading">{profile.displayName}</h1>
           <span>{shift ? `${shift} Shift` : "Shift not assigned"}</span>
           <p className="officer-home-message">Stay safe. Stay focused. Your work stays organized here.</p>
@@ -136,25 +182,39 @@ export function OfficerHomePage({
         </div>
       </section>
 
+      <div className="officer-home-layout">
+        <div className="officer-home-main-column">
       <section className="officer-home-actions" aria-label="Primary actions">
         {PRIMARY_ACTIONS.map((item, index) => (
           <article className="officer-home-action-card" key={item.title}>
-            <div className="officer-home-action-number" aria-hidden="true">0{index + 1}</div>
+            <div className="officer-home-action-icon" aria-hidden="true"><ActionIcon name={("report count policy forms".split(" ") as ActionIconName[])[index]} /></div>
             <h2>{item.title}</h2>
-            <p>{item.description}</p>
+            <p>
+              {item.description}
+              {index === 1 && !loading && !error && summary ? (
+                <span className="officer-home-action-state">
+                  {summary.countSheet ? `Saved · Revision ${summary.countSheet.revision}` : "Not started"}
+                </span>
+              ) : null}
+            </p>
             <Link
               className={index === 0 ? "officer-home-action-link primary" : "officer-home-action-link"}
               to={item.href}
               aria-label={item.title}
             >
-              {item.action}<span aria-hidden="true">→</span>
+              {item.action}<ChevronRight />
             </Link>
           </article>
         ))}
       </section>
 
       {loading ? (
-        <section className="officer-home-state" aria-busy="true">Loading your authorized work…</section>
+        <section className="officer-home-state loading" aria-busy="true" aria-label="Loading your authorized work">
+          <span className="officer-home-visually-hidden">Loading your authorized work…</span>
+          <div className="officer-home-skeleton" aria-hidden="true">
+            <span /><span /><span /><span />
+          </div>
+        </section>
       ) : null}
       {error ? (
         <section className="officer-home-state error" role="alert">
@@ -188,14 +248,14 @@ export function OfficerHomePage({
                   </div>
                   <div>
                     <dt>Updated</dt>
-                    <dd>{formatRelative(summary.continueIncident.updatedAt)}</dd>
+                    <dd><time dateTime={summary.continueIncident.updatedAt}>{formatRelative(summary.continueIncident.updatedAt)}</time></dd>
                   </div>
                 </dl>
                 <Link
                   className="officer-home-continue-link"
                   to={`/reports/${summary.continueIncident.incidentId}`}
                 >
-                  Continue incident <span aria-hidden="true">→</span>
+                  Continue incident <ChevronRight />
                 </Link>
               </div>
             ) : (
@@ -222,7 +282,7 @@ export function OfficerHomePage({
                       <IncidentIdentity incident={incident} />
                       <span className="officer-home-progress">{incident.progress.label}</span>
                       <time dateTime={incident.updatedAt}>{formatRelative(incident.updatedAt)}</time>
-                      <span aria-hidden="true">›</span>
+                      <ChevronRight />
                     </Link>
                   </li>
                 ))}
@@ -247,7 +307,7 @@ export function OfficerHomePage({
                     <Link to={`/forms?form=${encodeURIComponent(form.code)}`}>
                       <span>{form.name}</span>
                       <small>{form.outputKind === "physical_only" ? "Physical form guidance" : "Digital form"}</small>
-                      <span aria-hidden="true">›</span>
+                      <ChevronRight />
                     </Link>
                   </li>
                 ))}
@@ -268,7 +328,7 @@ export function OfficerHomePage({
               {summary.countSheet ? (
                 <>
                   <span className="officer-home-count-state">Revision {summary.countSheet.revision}</span>
-                  <p>Last saved {formatRelative(summary.countSheet.updatedAt)}.</p>
+                  <p>Last saved <time dateTime={summary.countSheet.updatedAt}>{formatRelative(summary.countSheet.updatedAt)}</time>.</p>
                   <Link to="/count-sheet">Open today’s Count Sheet</Link>
                 </>
               ) : (
@@ -282,6 +342,20 @@ export function OfficerHomePage({
           </section>
         </div>
       ) : null}
+        </div>
+
+        <aside className="officer-home-utility" aria-label="Quick access">
+          <section className="officer-home-utility-panel">
+            <h2>Quick Access</h2>
+            <nav aria-label="Home shortcuts">
+              <Link to="/reports"><ActionIcon name="report" /><span>View My Reports</span><ChevronRight /></Link>
+              <Link to="/forms"><ActionIcon name="forms" /><span>Open Forms Library</span><ChevronRight /></Link>
+              <Link to="/policy-expert"><ActionIcon name="policy" /><span>Policy Expert</span><ChevronRight /></Link>
+              <Link to="/count-sheet"><ActionIcon name="count" /><span>Open Count Sheet</span><ChevronRight /></Link>
+            </nav>
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }
