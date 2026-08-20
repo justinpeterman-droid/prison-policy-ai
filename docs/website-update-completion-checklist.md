@@ -180,6 +180,8 @@ Search, preview, download, multi-select, and packet actions are intentionally un
 
 ## 6. Site-Wide Visual Polish
 
+Detailed implementation and acceptance checklist: [Guided Operations Site-Wide Visual Polish Checklist](design/guided-operations/site-wide-visual-polish-checklist.md).
+
 - [ ] Review every officer page against the approved visual system.
 - [ ] Review every administrator page against the same visual system.
 - [ ] Standardize sidebar spacing, icons, selection states, and section headings.
