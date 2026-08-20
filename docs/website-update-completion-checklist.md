@@ -128,7 +128,7 @@ This checklist tracks the remaining work required to complete the Guided Operati
 ### Daily Milestone Verification Snapshot — 2026-08-20
 
 - Daily editors now autosave server-backed records after a short quiet interval. First saves remain explicit; failed writes preserve the visible draft for a retry.
-- The assembled frontend suite passes 169 component tests, TypeScript checking, and a production build with route- and editor-level code splitting.
+- The assembled frontend suite passes 173 component tests, TypeScript checking, and a production build with route- and editor-level code splitting.
 - Chromium coverage passes for all six Daily print surfaces plus Weekly/Monthly navigation, desktop/mobile overflow checks, keyboard navigation, save/reopen/failure/retry recovery, and a four-form Monthly packet using fictional data.
 - Focused contract and security checks pass (41 tests). PostgreSQL-backed integration and migration lifecycle checks pass in the candidate's Python 3.12 and 3.14 CI jobs; the actual beta environment remains an external release gate.
 
@@ -362,7 +362,7 @@ Detailed implementation and acceptance checklist: [Guided Operations Site-Wide V
 - [x] Review failed-test screenshots, videos, and traces.
 - [x] Confirm no real staff or historical operational information appears in fixtures.
 - [x] Confirm no secrets, PINs, session tokens, narratives, or unsafe infrastructure details are exposed.
-- [x] Require all repository and third-party release-gate checks to pass before merging each milestone; predecessor `2249940` passed every PR check, and follow-on source candidate `435dfd3` is locally verified pending the exact final PR gate.
+- [x] Require all repository and third-party release-gate checks to pass before merging each milestone; predecessor `2249940` passed every PR check, and follow-on source candidate `d00e63f` is locally verified pending the exact final PR gate.
 
 ## 9. Deployment and Pilot
 
