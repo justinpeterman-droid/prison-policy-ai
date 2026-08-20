@@ -6,6 +6,7 @@ from urllib.parse import urlsplit
 
 import pytest
 
+import scripts.seed_fictional_accounts as seed_module
 from scripts.seed_fictional_accounts import is_safe_local_database_url
 
 
@@ -61,3 +62,18 @@ def test_direct_cli_invocation_loads_repo_and_rejects_unsafe_database(tmp_path):
     assert result.returncode == 2
     assert "Refusing to seed fictional accounts" in result.stderr
     assert "ModuleNotFoundError" not in result.stderr
+
+
+def test_success_output_never_logs_fictional_pins(monkeypatch, capsys):
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql+psycopg://postgres:postgres@localhost:5432/prison_policy",
+    )
+    monkeypatch.setattr(seed_module, "seed_fictional_accounts", lambda _url: None)
+
+    assert seed_module.main() == 0
+    captured = capsys.readouterr()
+
+    for spec in seed_module.FICTIONAL_ACCOUNTS:
+        assert spec["employee_number"] in captured.out
+        assert spec["pin"] not in captured.out
