@@ -362,7 +362,7 @@ Detailed implementation and acceptance checklist: [Guided Operations Site-Wide V
 - [x] Review failed-test screenshots, videos, and traces.
 - [x] Confirm no real staff or historical operational information appears in fixtures.
 - [x] Confirm no secrets, PINs, session tokens, narratives, or unsafe infrastructure details are exposed.
-- [x] Require all repository and third-party release-gate checks to pass before merging each milestone; predecessor `2249940` passed every PR check, and follow-on source candidate `d00e63f` is locally verified pending the exact final PR gate.
+- [x] Require all repository and third-party release-gate checks to pass before merging each milestone; predecessor `2249940` passed every PR check, and follow-on source candidate `f6f23c1` is locally verified pending the exact final PR gate.
 
 ## 9. Deployment and Pilot
 
