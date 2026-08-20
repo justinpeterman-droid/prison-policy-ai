@@ -1,0 +1,16 @@
+{
+  "code": "monthly_windows_bars_doors",
+  "title": "Windows, Bars & Doors Check Log",
+  "period": "monthly",
+  "category": "security_checks",
+  "schema_version": 1,
+  "page_size": "letter",
+  "orientation": "landscape",
+  "definition": {
+    "prefill_fields": ["month", "shift"],
+    "days": 31,
+    "columns": ["Date", "Exterior Bks. Windows", "All Inmate Housing Windows", "Housing Doors", "All Cell Bars", "Officer's Signature"],
+    "footer_note": "All bars will be checked with a rubber mallet.",
+    "comments_label": "Comments"
+  }
+}
