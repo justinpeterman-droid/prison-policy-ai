@@ -405,6 +405,20 @@ resource "google_cloud_run_v2_service_iam_member" "deploy_services" {
   member   = google_service_account.workflow["deploy"].member
 }
 
+# Creating a new revision requires actAs on the service's existing runtime
+# identity. Keep that authority on only the API and worker service accounts;
+# the deploy workflow receives no project-wide service-account role.
+resource "google_service_account_iam_member" "deploy_runtime_user" {
+  for_each = {
+    api    = google_service_account.api.name
+    worker = google_service_account.worker.name
+  }
+
+  service_account_id = each.value
+  role               = "roles/iam.serviceAccountUser"
+  member             = google_service_account.workflow["deploy"].member
+}
+
 resource "google_cloud_run_v2_service_iam_member" "rollback_services" {
   for_each = { api = google_cloud_run_v2_service.api.name, worker = google_cloud_run_v2_service.worker.name }
   project  = var.project_id

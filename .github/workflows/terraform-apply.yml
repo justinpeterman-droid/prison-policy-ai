@@ -161,7 +161,10 @@ jobs:
         env:
           TF_IN_AUTOMATION: "true"
           TF_INPUT: "false"
+          TF_STATE_BUCKET: ${{ vars.TERRAFORM_STATE_BUCKET }}
         run: |
           set -euo pipefail
-          terraform -chdir="${{ inputs.terraform_root }}" init -input=false
+          test -n "${TF_STATE_BUCKET}"
+          if test "${{ inputs.environment }}" = "production"; then state_prefix="access/production"; else state_prefix="access/test"; fi
+          terraform -chdir="${{ inputs.terraform_root }}" init -input=false -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="prefix=${state_prefix}"
           terraform -chdir="${{ inputs.terraform_root }}" apply -input=false -auto-approve "${GITHUB_WORKSPACE}/plan-artifact/reviewed.tfplan"

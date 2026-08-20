@@ -1,8 +1,21 @@
+import json
+import re
+import subprocess
+import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
+CONTROLLED_WORKFLOWS = (
+    "terraform-plan.yml",
+    "terraform-apply.yml",
+    "deploy-test.yml",
+    "rollback-test.yml",
+    "deploy-production.yml",
+    "rollback-production.yml",
+    "bootstrap-first-admin.yml",
+)
 
 
 def workflow(name: str) -> str:
@@ -20,6 +33,9 @@ def test_production_is_manual_protected_and_digest_only():
     assert "RELEASE_VERSION" in text
     assert "MINIMUM_SERVER_VERSION" in text
     assert "RELEASE_NOTES" in text
+    assert "EXPECTED_TEST_COMMIT" in text
+    assert ".test_workflow_run" in text
+    assert ".creator_workflow" in text
 
 
 def test_production_uses_staged_traffic_and_rolls_back_on_failed_smoke():
@@ -27,6 +43,9 @@ def test_production_uses_staged_traffic_and_rolls_back_on_failed_smoke():
     for allocation in ["1", "10", "50", "100"]:
         assert f"candidate={allocation}" in text
     assert "rollback-production.yml" in text or "prior_api_revision" in text
+    assert text.count("--max-error-rate") == 4
+    assert text.count("--max-p95-latency-ms") == 4
+    assert "PRODUCTION_CANARY_OBSERVATION_SECONDS" in text
 
 
 def test_old_bypass_deployers_are_removed():
@@ -88,8 +107,84 @@ def test_version_registry_is_the_only_projection_source():
 
 
 def test_no_workflow_uses_long_lived_keys_or_destructive_commands():
-    combined = "\n".join(path.read_text(encoding="utf-8") for path in WORKFLOWS.glob("*.yml"))
+    combined = "\n".join(workflow(name) for name in CONTROLLED_WORKFLOWS)
     for forbidden in ["GCP_SA_KEY", "service_account_key", "terraform destroy", "alembic downgrade", "git push", "git merge"]:
+        assert forbidden not in combined
+
+
+def test_controlled_workflows_have_no_ordinary_push_trigger_and_pin_every_action():
+    for name in CONTROLLED_WORKFLOWS:
+        text = workflow(name)
+        assert "\n  push:" not in text
+        for action in re.findall(r"^\s*uses:\s*([^\s#]+)", text, re.MULTILINE):
+            assert re.fullmatch(r"[^@\s]+@[0-9a-f]{40}", action)
+
+
+def test_plan_and_apply_permissions_and_artifact_authority_are_closed():
+    plan = workflow("terraform-plan.yml")
+    apply = workflow("terraform-apply.yml")
+    for permission in ("contents: read", "actions: read", "id-token: write", "deployments: write"):
+        assert permission in plan
+    for permission in ("contents: read", "actions: read", "deployments: read", "id-token: write"):
+        assert permission in apply
+    assert "workflow_dispatch:" not in apply
+    assert "actions/artifacts/${PLAN_ARTIFACT_ID}" in apply
+    assert "workflow_run.id" in apply
+    assert "expired" in apply
+    assert "is_symlink" in apply
+    assert "terraform -chdir=\"${{ inputs.terraform_root }}\" apply" in apply
+    assert "terraform plan" not in apply
+    assert "raw-plan.json" in plan
+    assert "resource_change_count" in plan
+    assert "rm raw-plan.txt raw-plan.json" in plan
+
+
+def test_registry_and_descriptor_schemas_are_closed_and_exact():
+    registry_schema = json.loads((ROOT / "release" / "version.schema.json").read_text(encoding="utf-8"))
+    descriptor_schema = json.loads((ROOT / "release" / "backend-release.schema.json").read_text(encoding="utf-8"))
+    registry = json.loads((ROOT / "release" / "version.json").read_text(encoding="utf-8"))
+    assert registry_schema["additionalProperties"] is False
+    assert descriptor_schema["additionalProperties"] is False
+    assert set(registry_schema["required"]) == set(registry)
+    assert registry["backend_version"] == "0.0.0-development"
+    assert registry["channel"] == "development"
+    assert set(descriptor_schema["required"]) == set(descriptor_schema["properties"])
+
+
+def test_production_validation_rejects_checked_in_development_registry():
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "deploy" / "validate_release_descriptor.py"),
+            "version",
+            "--registry",
+            str(ROOT / "release" / "version.json"),
+            "--production",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert "production rejects development" in result.stderr
+
+
+def test_bootstrap_has_exact_inputs_and_static_environment_jobs():
+    text = workflow("bootstrap-first-admin.yml")
+    dispatch = text.split("jobs:", 1)[0]
+    assert set(re.findall(r"^      ([a-z0-9_]+):\s*$", dispatch, re.MULTILINE)) == {
+        "target_environment",
+        "request_uri",
+        "expected_sha256",
+    }
+    assert text.count("gcloud run jobs execute access-test-bootstrap-admin") == 1
+    assert text.count("gcloud run jobs execute access-production-bootstrap-admin") == 1
+    assert "gcloud run jobs describe" not in text
+    assert "gcloud logging" not in text
+
+
+def test_rollback_workflows_do_not_build_apply_or_invoke_jobs():
+    combined = workflow("rollback-test.yml") + workflow("rollback-production.yml")
+    for forbidden in ("docker build", "terraform apply", "run jobs execute", "secrets versions", "--source"):
         assert forbidden not in combined
 
 
