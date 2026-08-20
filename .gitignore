@@ -45,6 +45,12 @@ Thumbs.db
 .cloudbuild/
 .gcloudignore
 
+# Terraform local caches and state must never enter the repository.
+.terraform/
+*.tfstate*
+*.tfplan
+infra/terraform/bootstrap/state/.terraform.lock.hcl
+
 # Policy-chat eval run output
 tests/eval/output/
 

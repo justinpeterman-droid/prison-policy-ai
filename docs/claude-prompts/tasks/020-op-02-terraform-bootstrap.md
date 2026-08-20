@@ -64,7 +64,7 @@ Do not modify or delete any other file. Provider/plugin download caches and Terr
 - Environment inputs include exactly `project_id`, `environment`, `region`, `source_repository`, and `labels`.
 - Test remote-state prefix is exactly `access/test`; production is exactly `access/production`. The GCS bucket name is supplied externally during human initialization and must not be committed.
 - Test validates `environment == "test"`; production validates `environment == "production"` and `region == "us-central1"`.
-- The state bucket uses uniform bucket-level access, public-access prevention, versioning, 30-day retention, noncurrent-version retention for 90 days, `prevent_destroy = true`, and grants only `var.authorized_member` `roles/storage.objectAdmin`.
+- The state bucket uses uniform bucket-level access, public-access prevention, versioning, a 30-day soft-delete policy that does not block state rewrites or lock deletion, noncurrent-version retention for 90 days, `prevent_destroy = true`, and grants only `var.authorized_member` `roles/storage.objectAdmin`. A bucket retention policy is prohibited.
 - Create no project, credential, secret version, state object, or real cloud identifier.
 - Both environment lock files select Google provider `7.40.0` and include Linux AMD64 and Windows AMD64 hashes.
 

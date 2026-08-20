@@ -429,7 +429,7 @@ terraform {
 
 - [ ] **Step 4: Implement protected state bootstrap resources**
 
-In `infra/terraform/bootstrap/state/main.tf`, define one `google_storage_bucket` using `var.state_bucket_name`, `var.project_id`, and `var.region`; enable uniform bucket-level access, public-access prevention, versioning, a 30-day retention policy, and a lifecycle rule that retains noncurrent versions for 90 days. Bind only `var.authorized_member` as `roles/storage.objectAdmin`. Add `lifecycle { prevent_destroy = true }` to the bucket. Do not create credentials or secret versions.
+In `infra/terraform/bootstrap/state/main.tf`, define one `google_storage_bucket` using `var.state_bucket_name`, `var.project_id`, and `var.region`; enable uniform bucket-level access, public-access prevention, versioning, a 30-day soft-delete policy that preserves deleted and overwritten objects without blocking backend rewrites or lock deletion, and a lifecycle rule that retains noncurrent versions for 90 days. Do not configure a bucket retention policy. Bind only `var.authorized_member` as `roles/storage.objectAdmin`. Add `lifecycle { prevent_destroy = true }` to the bucket. Do not create credentials or secret versions.
 
 - [ ] **Step 5: Implement backend and environment variable contracts**
 

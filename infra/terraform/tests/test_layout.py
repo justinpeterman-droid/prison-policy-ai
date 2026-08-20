@@ -20,6 +20,21 @@ def test_environment_backends_are_distinct():
     assert test_backend != production_backend
 
 
+def test_state_bucket_uses_soft_delete_without_write_blocking_retention():
+    state = (TF / "bootstrap" / "state" / "main.tf").read_text(encoding="utf-8")
+    assert "soft_delete_policy" in state
+    assert "retention_duration_seconds = 2592000" in state
+    assert "retention_policy" not in state
+
+
+def test_terraform_local_state_and_provider_cache_are_ignored():
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    assert ".terraform/" in gitignore
+    assert "*.tfstate*" in gitignore
+    assert "*.tfplan" in gitignore
+    assert "infra/terraform/bootstrap/state/.terraform.lock.hcl" in gitignore
+
+
 def test_lock_files_include_both_runner_platforms():
     for environment in ["test", "production"]:
         lock = (TF / "environments" / environment / ".terraform.lock.hcl").read_text(encoding="utf-8")

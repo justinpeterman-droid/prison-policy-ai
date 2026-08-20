@@ -36,7 +36,7 @@ Read `AGENTS.md`; the approved deployment-rollout design; the roadmap's global c
 
 ## Exact allowed files
 
-Create only:
+Create or modify only:
 
 - `infra/terraform/modules/access_platform/project_services.tf`
 - `infra/terraform/modules/access_platform/network.tf`
@@ -53,7 +53,7 @@ Create only:
 - `infra/terraform/tests/test_security_contract.py`
 - `docs/runbooks/secret-population-and-rotation.md`
 
-Do not modify or delete any other path. OP-02 files are consume-only except the two new `main.tf` files listed here.
+Do not modify or delete any other path. OP-02 files are consume-only except the two environment `main.tf` and `variables.tf` files listed here.
 
 ## Locked interfaces
 
@@ -146,6 +146,8 @@ $allowed = @(
     'infra/terraform/modules/access_platform/outputs.tf'
     'infra/terraform/environments/test/main.tf'
     'infra/terraform/environments/production/main.tf'
+    'infra/terraform/environments/test/variables.tf'
+    'infra/terraform/environments/production/variables.tf'
     'infra/terraform/tests/access_platform.tftest.hcl'
     'infra/terraform/tests/test_security_contract.py'
     'docs/runbooks/secret-population-and-rotation.md'
