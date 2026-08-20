@@ -108,3 +108,21 @@ test("mobile staff active checkbox keeps a 44px target and logical keyboard orde
   await shift.press("Tab");
   await expect(activeCheckbox).toBeFocused();
 });
+
+test("mobile staff search keeps a 44px target and follows its input in keyboard order", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await enterAdmin(page, "./admin/accounts-staff");
+
+  const input = page.getByRole("searchbox", { name: "Search staff" });
+  const submit = page.getByRole("button", { name: "Search staff" });
+  const submitBox = await submit.boundingBox();
+  expect(submitBox?.height).toBeGreaterThanOrEqual(44);
+  expect(submitBox?.width).toBeGreaterThanOrEqual(44);
+
+  await input.fill("Casey");
+  await input.focus();
+  await input.press("Tab");
+  await expect(submit).toBeFocused();
+  await submit.press("Enter");
+  await expect(page.getByRole("heading", { name: "Officer Casey Morgan" })).toBeVisible();
+});

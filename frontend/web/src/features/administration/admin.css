@@ -405,6 +405,7 @@
   .admin-attention-list .admin-row-counts { grid-column: 1 / -1; }
   .admin-split-workspace { display: block; min-height: 0; }
   .admin-staff-rail { max-height: 330px; overflow: auto; border-right: 0; border-bottom: 1px solid #dce3e8; }
+  .admin-rail-search button { flex: 0 0 44px; width: 44px; }
   .admin-staff-detail { padding: 17px; }
   .admin-detail-hero { grid-template-columns: 50px 1fr; }
   .admin-detail-avatar { width: 48px; height: 48px; }
