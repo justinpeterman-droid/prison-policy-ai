@@ -178,26 +178,135 @@ This checklist tracks the remaining work required to complete the Guided Operati
 
 ## 6. Site-Wide Visual Polish
 
+### Visual Contract and Frontend Consolidation
+
+- [ ] Treat the richer officer Home/dashboard reference as the visual target for Home and shared application-shell polish.
+- [ ] Reconcile target-specific additions with the approved design and security documentation, including the crest, hero wording, service-status wording, quote, version label, and avatar behavior.
+- [ ] Update the visible-copy inventory and visual specification before implementation so future work does not revert the approved target.
+- [ ] Keep the data-driven `OfficerHomePage` and its authorization-scoped API response as the production source of truth.
+- [ ] Migrate useful layout and component ideas from the dormant `HomePage.tsx` into the active Home page without carrying over static demonstration data.
+- [ ] Migrate reusable target styling from the dormant `App.css` into the active scoped shell and Home styles.
+- [ ] Remove or retire the duplicate Home implementation and dead global CSS after migration.
+- [ ] Preserve honest loading, empty, reconnecting, unsaved, and error states; never substitute sample incidents, forms, activity, dates, or statuses in production.
+
+### Application Shell, Sidebar, Branding, and Utilities
+
+- [ ] Recompose the wide desktop Home screen as a dense main dashboard plus a permanent right utility rail.
+- [ ] Add a centered maximum-width dashboard container and disciplined gutters so wide screens do not end in a large unused canvas.
+- [ ] Rebuild the brand header with the target curved or angled lower-right shape and gold separator rule.
+- [ ] Replace the CSS placeholder shield with a detailed, privacy-safe S.L.U.T crest asset while keeping the brand name and subtitle code-native.
+- [ ] Add a lower-sidebar scenic landscape asset with a dark text-safe fade and optimized production formats.
+- [ ] Move detailed service health out of the sidebar and retain a compact brand tagline near the bottom.
+- [ ] Display a version label only when it is populated from actual package or build metadata.
+- [ ] Preserve exactly the six officer navigation destinations: Home, New Report, Reports, Policy Expert, Forms Library, and Account.
+- [ ] Replace mixed thin-outline and text-glyph navigation symbols with one coherent filled or duotone SVG icon family.
+- [ ] Standardize navigation spacing, optical icon size, selected state, hover state, pressed state, and keyboard focus state.
+- [ ] Integrate the top utility controls with the hero/top edge instead of leaving a visually detached empty status bar.
+- [ ] Separate the meaning of **Online** from **Last refreshed/synced** and prevent contradictory status text.
+- [ ] Add an accessible notifications button with a real actionable count and a usable zero-count state.
+- [ ] Convert the profile chip into a real keyboard-operable menu with Account, role/shift context, session status, and Sign Out.
+- [ ] Support an optional employee avatar only when a legitimate source exists, with initials as the privacy-safe fallback.
+- [ ] Keep Home-only utility-rail content off report, document, and editor routes where it would reduce working space.
+
+### Officer Home Hero and Primary Actions
+
+- [ ] Replace or supplement the simple horizon illustration with a high-fidelity, non-identifying sunrise, watchtower, and perimeter scene.
+- [ ] Use an edge fade or text-safe composition rather than a heavy color wash that obscures the hero artwork.
+- [ ] Confirm the scenic facility artwork loads from the production static-asset path and has an optimized fallback.
+- [ ] Preserve the signed-in employee’s dynamic display name and never hardcode the officer shown in the reference image.
+- [ ] Decide and document whether shift information remains in the hero, moves to the profile menu, or appears as smaller metadata.
+- [ ] Match the approved greeting hierarchy, tighter name typography, supporting message, and Professionalism/Accountability/Integrity placement.
+- [ ] Rebuild the four primary action cards to match the target density and dimensional hierarchy.
+- [ ] Remove the pale `01` through `04` watermark numbers.
+- [ ] Add distinct dimensional fixtures for New Incident Report, Count Sheet, Policy Question, and Forms Library.
+- [ ] Keep all action labels, descriptions, buttons, and destinations code-native and accessible.
+- [ ] Reconcile the shorter target action copy with the current citation, reconciliation, and approved-form trust language.
+- [ ] Standardize gold primary and blue secondary action buttons with a top highlight, darker lower edge, contact shadow, SVG arrow, and 2-pixel pressed travel.
+- [ ] Add hover, focus, active, loading, disabled, and reduced-motion behavior for every primary action.
+- [ ] Surface Count Sheet state inside its action or checklist entry instead of relying on a separate oversized Home panel.
+
+### Home Dashboard Panels and Right Utility Rail
+
+- [ ] Add the **Quick Access** panel with View My Reports, Open Forms Library, Policy Expert, Open Count Sheet, and Daily Paperwork.
+- [ ] Give Daily Paperwork a real destination or an honest filtered library route; do not add a dead link.
+- [ ] Add the **System Status** panel using a safe summarized health contract for API Services, AI Services, Database, and Policy Search.
+- [ ] Limit service states to useful summaries such as Operational, Degraded, Unavailable, and Unknown without exposing infrastructure details.
+- [ ] Add the **Need Help?** panel with a working Policy Expert or approved support destination.
+- [ ] Restyle **Continue Your Work** with the target icon-led header, active-incident count, inset incident card, relative update time, compact status, and gold Continue control.
+- [ ] Remove the current three-stat block from Continue Your Work unless it is intentionally retained elsewhere.
+- [ ] Restyle **Recent Incidents** as compact, fully clickable rows with official number first, incident name, semantic progress chip, relative time, and chevron.
+- [ ] Standardize progress variants for Ready to review, Needs information, Complete, and other calculated workflow states.
+- [ ] Rename or redesign **Quick Forms** as **Frequently Used Forms** only after defining whether the list is truly usage-ranked or intentionally curated.
+- [ ] Show form print actions only when the form capability allows printing; retain honest guidance for physical-only forms.
+- [ ] Add **Your Daily Checklist** using real date-, shift-, role-, and officer-scoped task data.
+- [ ] Treat checklist circles as derived status indicators unless the employee is explicitly allowed to mark a task complete.
+- [ ] Add **Quick Links** for Forms Library, Policy Expert, My Account, and a real Help & Support destination.
+- [ ] Add **Recent Activity** using safe personal event summaries and authorized destinations.
+- [ ] Exclude narrative excerpts, policy prompts, form values, credentials, raw audit payloads, and other employees’ unauthorized activity from Home activity data.
+- [ ] Remove or relocate the current full-width NCU Days Count panel so the primary action, checklist, and Quick Access surfaces do not compete with a fourth equally prominent shortcut.
+- [ ] Add the footer trust strip with approved quote copy, Security, Service, Teamwork, Excellence, and locale-aware current date/time.
+- [ ] Simplify or rearrange the trust strip on narrow screens rather than compressing every item into an unreadable row.
+- [ ] Add target-quality skeleton, loading, empty, reconnecting, and recoverable-error presentations for each panel.
+
+### Shared Visual System Across All Pages
+
 - [ ] Review every officer page against the approved visual system.
 - [ ] Review every administrator page against the same visual system.
-- [ ] Standardize sidebar spacing, icons, selection states, and section headings.
-- [ ] Standardize navy, blue, gold, warning, success, and error treatments.
-- [ ] Standardize card radius, borders, shadows, and internal padding.
-- [ ] Standardize primary, secondary, destructive, and text-button hierarchy.
-- [ ] Standardize page headings and typography.
-- [ ] Standardize tables, filters, tabs, drawers, and form fields.
-- [ ] Standardize loading, empty, reconnecting, unsaved, and error states.
-- [ ] Confirm the scenic facility artwork loads correctly in production.
-- [ ] Use decorative imagery only where it improves hierarchy.
+- [ ] Standardize the light canvas, white/raised surfaces, medium-navy structure, muted gold accents, and semantic colors.
+- [ ] Standardize navy, blue, gold, warning, success, error, neutral, and completed-state treatments.
+- [ ] Define shared elevation tokens for controls, cards, and feature fixtures.
+- [ ] Standardize card radius, borders, shadows, internal padding, and section spacing.
+- [ ] Use dimensional effects selectively for primary controls, selected navigation, tabs, document fixtures, and important empty states rather than every data surface.
+- [ ] Standardize primary, secondary, destructive, icon-only, and text-button hierarchy.
+- [ ] Standardize page headings, panel headings, body copy, metadata, labels, and control typography.
+- [ ] Standardize tables, filters, tabs, drawers, menus, alerts, modals, form fields, status chips, and list rows.
+- [ ] Standardize loading, empty, reconnecting, unsaved, conflict, success, warning, and error states.
+- [ ] Use one coherent interface icon family and reserve custom dimensional artwork for major feature fixtures.
+- [ ] Replace plain text chevrons and arrows with accessible SVG icons.
 - [ ] Keep labels and functional interface elements code-native.
-- [ ] Check 1366×768 desktop behavior.
+- [ ] Use decorative imagery only where it improves hierarchy, orientation, or confidence.
+- [ ] Avoid unnecessary nested cards, decorative metrics, technical jargon, or competing primary actions on officer pages.
+
+### Assets, Data-Backed UI, and Production Integrity
+
+- [ ] Add and optimize the crest, hero scene, sidebar landscape, four primary-action fixtures, and any approved empty-state illustrations.
+- [ ] Provide stable dimensions, high-density variants, appropriate transparent backgrounds, and WebP/AVIF or SVG delivery where suitable.
+- [ ] Confirm assets blend naturally with their surrounding backgrounds and do not obscure text or controls.
+- [ ] Do not use real facilities, staff portraits, employee numbers, signatures, historical operational content, license plates, or identifying signage in visual assets or fixtures.
+- [ ] Extend the Home summary contract for daily checklist, recent activity, notification count, and a trustworthy generated/refreshed timestamp.
+- [ ] Keep summarized service health in a separate endpoint with appropriate authorization, caching, and redaction.
+- [ ] Add optional avatar metadata only after defining its legitimate source and privacy behavior.
+- [ ] Preserve authorization-scoped incident and form retrieval and honest empty states.
+- [ ] Preserve the anti-fabrication rule: target sample rows may appear in tests and screenshots but not as production fallbacks.
+- [ ] Ensure health, activity, notifications, and profile menus never expose secrets, PINs, session tokens, narratives, raw logs, model configuration, database hosts, or unsafe infrastructure details.
+- [ ] Update unit, integration, contract, and browser fixtures for the expanded Home response without introducing real staff or operational information.
+
+### Responsive Layout, Accessibility, and Motion
+
+- [ ] Match and review the Home target at its approximately 1536×1024 reference size.
+- [ ] Check 1366×768 desktop behavior without clipped cards, hidden actions, or excessive empty space.
 - [ ] Check Windows scaling at 100%, 125%, and 150%.
-- [ ] Check tablet layouts.
-- [ ] Check mobile layouts.
-- [ ] Verify minimum touch-target sizes.
-- [ ] Verify keyboard focus styling.
-- [ ] Verify reduced-motion behavior.
-- [ ] Verify WCAG 2.2 AA contrast and interaction requirements.
+- [ ] At medium desktop widths, convert the four actions to a 2×2 grid and reposition the right rail without compressing labels.
+- [ ] Check tablet layouts with a compact rail or drawer and purpose-built panel rearrangement.
+- [ ] Check approximately 390-pixel mobile layouts with a drawer, one-column actions, no horizontal overflow, and Count Sheet still immediately reachable.
+- [ ] Ensure daily tasks, activity, and support remain reachable on mobile rather than disappearing only to simplify the layout.
+- [ ] Verify minimum 44-pixel touch targets and comfortable spacing around adjacent controls.
+- [ ] Verify complete keyboard navigation, logical focus order, visible focus styling, and Escape behavior for menus/drawers.
+- [ ] Verify screen-reader names for notification counts, print controls, status indicators, menus, and icon-only actions.
+- [ ] Add restrained page, panel, navigation, and button motion that clarifies state without delaying interaction.
+- [ ] Verify reduced-motion behavior removes travel and retains immediate opacity/state feedback.
+- [ ] Verify WCAG 2.2 AA contrast, reflow, target-size, focus, status-message, and interaction requirements.
+
+### Visual QA and Acceptance
+
+- [ ] Capture the active Home implementation at the target reference size and compare it directly with the approved reference.
+- [ ] Inspect copy, shell proportions, hero treatment, typography, card density, right-rail placement, icons, shadows, spacing, and footer composition side by side.
+- [ ] Add populated, loading, empty, error, reconnecting, and reduced-motion screenshot states.
+- [ ] Confirm visual polish does not regress Reports, Document Studio, Policy Expert, Forms Library, Count Sheet, Account, Administration, or Paperwork Center working space.
+- [ ] Verify all generated and static assets load correctly in the production build.
+- [ ] Run frontend type-checking, component tests, production build, and the relevant desktop/mobile Playwright paths after each visual milestone.
+- [ ] Record intentional deviations from the reference with a product, accessibility, security, or data-integrity reason.
+- [ ] Mark Site-Wide Visual Polish complete only after no material, fixable reference mismatch remains.
 
 ## 7. Print and Visual Regression
 
