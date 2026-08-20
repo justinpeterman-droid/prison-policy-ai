@@ -20,9 +20,10 @@ resource "google_storage_bucket" "terraform_state" {
     enabled = true
   }
 
-  # 30-day minimum retention on the live object generation.
-  retention_policy {
-    retention_period = 2592000
+  # Preserve deleted or overwritten state objects for 30 days without blocking
+  # the backend's normal state rewrites or lock-object deletion.
+  soft_delete_policy {
+    retention_duration_seconds = 2592000
   }
 
   # Retain superseded state generations for 90 days, then delete them.

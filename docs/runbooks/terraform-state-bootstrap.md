@@ -99,37 +99,23 @@ until all of them pass.
 | Uniform bucket-level access | Enabled |
 | Public access prevention | `enforced` |
 | Object versioning | Enabled |
-| Retention policy | 30 days (2592000 seconds), unlocked |
+| Soft-delete policy | 30 days (2592000 seconds) |
 | Noncurrent-version lifecycle | Delete 90 days after an object becomes noncurrent |
 | IAM | Exactly one grant: `authorized_member` → `roles/storage.objectAdmin` |
 | Terraform lifecycle | `prevent_destroy = true` in the bucket resource |
 
-> **Known conflict — the 30-day retention policy blocks state rewrites.**
-> A GCS bucket retention policy means an object "cannot be deleted or replaced"
-> until it is older than the retention period. The Terraform GCS backend rewrites
-> `<prefix>/default.tfstate` on every write and deletes `<prefix>/default.tflock`
-> when it releases a lock. With a 30-day retention policy in force, the **second**
-> write to a given environment's state — and every lock release after the first —
-> is expected to fail with a retention-policy error until the existing object
-> ages out.
->
-> This retention setting is required by the approved OP-02 specification, so it is
-> implemented as specified and **must not be removed by an agent**. Operators
-> must expect the failure mode, and it must be resolved by an approved
-> specification change (for example, moving the 30-day requirement to a
-> `soft_delete_policy`, which preserves overwritten and deleted generations for
-> the same window without blocking writes) **before** any environment root is
-> driven through repeated applies. Do not work around it by unlocking, shortening,
-> or hand-editing the policy on a live bucket, and do not delete state or lock
-> objects to clear the error. Escalate under
-> `docs/operations/ownership-and-escalation.md`.
+The 30-day protection is a bucket soft-delete policy rather than an object
+retention policy. It preserves overwritten and deleted generations for recovery
+while allowing the Terraform backend to rewrite `default.tfstate` and delete its
+short-lived `default.tflock`. Do not add a bucket retention policy to this state
+bucket: doing so would block those normal backend operations.
 
 Verify with the operator's approved tooling, for example:
 
 ```powershell
 # HUMAN OPERATOR ONLY - reads cloud resources.
 gcloud storage buckets describe gs://<state_bucket_name> `
-  --format="yaml(uniformBucketLevelAccess,publicAccessPrevention,versioning,retentionPolicy,lifecycle)"
+  --format="yaml(uniformBucketLevelAccess,publicAccessPrevention,versioning,softDeletePolicy,lifecycle)"
 gcloud storage buckets get-iam-policy gs://<state_bucket_name>
 ```
 
@@ -205,10 +191,9 @@ Once the remote object is verified:
   Do not delete state to "clean up".
 - **A control in section 5 is missing.** Correct it in Terraform and re-apply;
   never patch the bucket by hand, or the next plan will revert it.
-- **A write fails with a retention-policy error.** This is the conflict called
-  out in section 5, not a transient fault. Stop; do not retry, unlock the policy,
-  or remove the state or lock object. Escalate for a specification change to the
-  bucket's retention control.
+- **A write fails with a retention-policy error.** Stop; do not retry, unlock a
+  policy, or remove the state or lock object. The bucket does not match this
+  specification. Escalate and reconcile it to the reviewed soft-delete policy.
 
 ## 10. What must never happen
 
