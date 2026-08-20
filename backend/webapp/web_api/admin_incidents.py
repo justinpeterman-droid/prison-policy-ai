@@ -30,6 +30,7 @@ from backend.reports.admin_incidents import (
     AdminIncidentSummary,
     list_admin_incident_summaries,
 )
+from backend.reports.admin_restore_provenance import queue_admin_restore_reason
 from backend.reports.persistence import (
     IncidentNotFound,
     IncidentRevisionNotFound,
@@ -662,6 +663,7 @@ def incident_restore_route(incident_id: UUID):
             return _incident_detail(db, incident_id)
 
         storage_key = f"admin-{request_digest({'key': key}).hex()}"
+        queue_admin_restore_reason(db, incident_id=incident_id, reason=reason)
         view = restore_incident_record(
             db,
             actor,
@@ -672,21 +674,6 @@ def incident_restore_route(incident_id: UUID):
             client_version=request.headers.get("X-Client-Version", "1.0.0"),
             audit_writer=current_app.config["AUDIT_WRITER"],
         )
-        revision = db.scalar(select(IncidentRevision).where(
-            IncidentRevision.incident_id == incident_id,
-            IncidentRevision.revision_number == view.revision_number,
-        ))
-        if revision is None:
-            raise IncidentRevisionNotFound("Incident revision not found.")
-        snapshot = deepcopy(revision.snapshot)
-        provenance = snapshot.get("provenance")
-        if not isinstance(provenance, dict):
-            provenance = {}
-        snapshot["provenance"] = {
-            **provenance,
-            "admin_restore_reason": reason,
-        }
-        revision.snapshot = snapshot
         complete_idempotency(
             db,
             claim,
