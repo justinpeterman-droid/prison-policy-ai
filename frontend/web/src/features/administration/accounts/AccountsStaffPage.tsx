@@ -9,6 +9,8 @@ import {
   updateAccount,
 } from "../mutations";
 import { AdminStepUpDialog } from "../AdminStepUpDialog";
+import { AccountSessionsPanel } from "./AccountSessionsPanel";
+import { StaffProfileEditor } from "./StaffProfileEditor";
 import { TemporaryPinDialog } from "./TemporaryPinDialog";
 
 interface PendingAction {
@@ -207,6 +209,10 @@ export function AccountsStaffPage() {
                 <span className={`admin-status-mark ${selected.isActive ? "operational" : "unavailable"}`}>{selected.isActive ? "Active staff" : "Inactive staff"}</span>
               </div>
 
+              <div className="admin-staff-profile-actions">
+                <StaffProfileEditor staff={selected} onSaved={() => setReload((value) => value + 1)} />
+              </div>
+
               <section className="admin-account-card" aria-labelledby="linked-account-heading">
                 <div className="admin-panel-heading"><div><p>Individual sign-in</p><h3 id="linked-account-heading">Linked Account</h3></div></div>
                 {selected.account ? (
@@ -219,10 +225,11 @@ export function AccountsStaffPage() {
                     <div className="admin-action-cluster">
                       <button className="admin-secondary-button" type="button" onClick={queueResetPin}>Reset PIN</button>
                       {selected.account.status === "locked" ? <button className="admin-secondary-button" type="button" onClick={queueUnlock}>Unlock</button> : null}
-                      <button className="admin-secondary-button" type="button" onClick={queueRevokeSessions}>Revoke sessions</button>
+                      <button className="admin-secondary-button" type="button" onClick={queueRevokeSessions}>Revoke all sessions</button>
                       <button className="admin-secondary-button" type="button" onClick={() => queueAccountChange(selected.account!.role === "admin" ? "user" : "admin", selected.account!.status)}>{selected.account.role === "admin" ? "Change to officer" : "Make administrator"}</button>
                       <button className="admin-danger-button" type="button" onClick={() => queueAccountChange(selected.account!.role, selected.account!.status === "deactivated" ? "active" : "deactivated")}>{selected.account.status === "deactivated" ? "Reactivate" : "Deactivate"}</button>
                     </div>
+                    <AccountSessionsPanel accountId={selected.account.accountId} />
                   </>
                 ) : (
                   <div className="admin-account-empty"><div aria-hidden="true">◇</div><strong>No individual account</strong><p>This staff identity can appear on rosters without having web access.</p><button className="admin-primary-button" type="button" onClick={queueCreateAccount}>Create individual account</button></div>
