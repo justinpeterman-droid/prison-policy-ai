@@ -99,6 +99,7 @@ from backend.webapp.web_api.incident_records import incident_records_bp  # noqa:
 from backend.webapp.web_api.incidents import incidents_bp  # noqa: E402
 from backend.webapp.web_api.jobs import jobs_bp  # noqa: E402
 from backend.webapp.web_api.paperwork import paperwork_bp  # noqa: E402
+from backend.webapp.web_api.print_templates import print_templates_bp  # noqa: E402
 from backend.webapp.web_api.policy import policy_bp  # noqa: E402
 from backend.webapp.web_api.reports import reports_bp  # noqa: E402
 from backend.webapp.web_api.staff import staff_bp  # noqa: E402
@@ -121,6 +122,7 @@ web_api_bp.register_blueprint(jobs_bp)
 web_api_bp.register_blueprint(forms_bp)
 web_api_bp.register_blueprint(forms_library_bp)
 web_api_bp.register_blueprint(paperwork_bp)
+web_api_bp.register_blueprint(print_templates_bp)
 web_api_bp.register_blueprint(policy_bp, url_prefix="/policy")
 web_api_bp.register_blueprint(staff_bp)
 

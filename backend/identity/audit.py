@@ -82,6 +82,8 @@ AUDIT_ACTION_FIELDS = {
         "record_id", "kind", "revision_number", "source_revision_number"},
     "paperwork.action_recorded": {
         "record_id", "kind", "revision_number", "paperwork_action"},
+    "print_template.action_recorded": {
+        "template_codes", "print_template_action"},
     "ai.job_submitted": {"job_id", "job_type", "incident_id"},
     "ai.job_succeeded": {"job_id", "job_type", "latency_ms"},
     "ai.job_failed": {"job_id", "job_type", "result_code"},
@@ -96,7 +98,7 @@ AUDIT_ACTION_FIELDS = {
 
 #: Detail fields that carry *names* of fields or filters. Bounded by pattern so
 #: a caller cannot smuggle report text through a list that reads as metadata.
-AUDIT_NAME_LIST_FIELDS = frozenset({"changed_fields", "filters"})
+AUDIT_NAME_LIST_FIELDS = frozenset({"changed_fields", "filters", "template_codes"})
 AUDIT_NAME_PATTERN = re.compile(
     r"^[a-z][a-z0-9_]{0,63}(?:\.[a-z][a-z0-9_]{0,63}){0,3}$"
 )
@@ -150,7 +152,12 @@ AUDIT_ENUM_FIELDS = {
         "detector_sign_out",
     }),
     "paperwork_action": frozenset({"preview", "print", "download_pdf"}),
+    "print_template_action": frozenset({"preview", "print"}),
 }
+AUDIT_PRINT_TEMPLATE_CODES = frozenset({
+    "monthly_windows_bars_doors", "monthly_chemical_agents",
+    "monthly_contraband_standard", "monthly_contraband_expanded",
+})
 AUDIT_CHANGED_FIELDS = {
     "incident.saved": frozenset({
         "incident_number", "incident_name", "field_notes", "incident_date",
@@ -250,6 +257,10 @@ def _validate_name_list(action: str, key: str, value: object) -> None:
         if allowed is not None and not set(value) <= allowed:
             raise ValueError("audit details are invalid")
     elif key == "filters" and not set(value) <= AUDIT_FILTER_FIELDS:
+        raise ValueError("audit details are invalid")
+    elif key == "template_codes" and (
+        not 1 <= len(value) <= 20 or not set(value) <= AUDIT_PRINT_TEMPLATE_CODES
+    ):
         raise ValueError("audit details are invalid")
 
 

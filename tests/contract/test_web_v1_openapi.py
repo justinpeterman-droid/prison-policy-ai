@@ -30,6 +30,12 @@ DAILY_PAPERWORK_PATHS = {
     "/admin/paperwork/daily/{kind}/{record_id}/actions",
     "/admin/paperwork/daily/assignment-roster/{record_id}/uniform-inspection",
 }
+PRINT_TEMPLATE_PATHS = {
+    "/print-templates",
+    "/print-templates/{template_code}",
+    "/print-templates/packet",
+    "/print-templates/actions",
+}
 
 
 def _spec():
@@ -96,6 +102,16 @@ def test_web_openapi_exposes_closed_administrator_daily_paperwork_surface():
     copy_schema = document["components"]["schemas"]["CopyPreviousDailyRequest"]
     assert copy_schema["additionalProperties"] is False
     assert set(copy_schema["required"]) == {"target_work_date", "shift"}
+
+
+def test_web_openapi_exposes_read_only_print_template_library_surface():
+    document = _spec()
+
+    assert PRINT_TEMPLATE_PATHS <= set(document["paths"])
+    packet = document["components"]["schemas"]["PrintTemplatePacketRequest"]
+    assert packet["additionalProperties"] is False
+    assert set(packet["required"]) == {"period", "template_codes", "prefill"}
+    assert set(packet["properties"]) == set(packet["required"])
 
 
 def test_web_session_responses_never_define_readable_identity_credentials():
