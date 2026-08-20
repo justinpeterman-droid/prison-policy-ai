@@ -36,9 +36,15 @@
 .daily-revision-panel li span, .daily-revision-panel li small { color: var(--admin-muted); font-size: 8px; }
 .daily-revision-panel li button { border: 0; background: transparent; color: #3f6176; font-size: 9px; font-weight: 800; text-decoration: underline; }
 .daily-revision-panel li em { color: #2e6a4d; font-size: 8px; font-style: normal; font-weight: 800; }
+.monthly-template-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.print-template-card { display: grid; gap: 10px; padding: 17px; border: 1px solid #d7dfe4; border-radius: 13px; background: #fff; box-shadow: var(--admin-soft-shadow); }
+.print-template-card label { color: #5f7180; font-size: 9px; font-weight: 800; text-transform: uppercase; } .print-template-card h2 { margin: 0; color: var(--admin-navy); font-size: 14px; } .print-template-card p { margin: 0; color: var(--admin-muted); font-size: 10px; line-height: 1.5; } .print-template-card div { display: flex; flex-wrap: wrap; gap: 8px; }
+.monthly-selection-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.print-packet-builder { margin-top: 18px; } .print-packet-builder h2 { margin-bottom: 4px; color: var(--admin-navy); } .print-packet-builder > p { color: var(--admin-muted); font-size: 11px; } .print-packet-builder ol { display: grid; gap: 6px; max-width: 700px; padding: 0; list-style: none; } .print-packet-builder li { display: flex; align-items: center; gap: 7px; padding: 8px; border: 1px solid #d7dfe4; border-radius: 7px; background: #fff; font-size: 11px; } .print-packet-builder li span { flex: 1; }
 
 @media (max-width: 980px) {
   .daily-record-grid { grid-template-columns: 1fr; }
+  .monthly-template-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 680px) {

@@ -4,6 +4,8 @@ import { DailyPaperworkTab } from "./DailyPaperworkTab";
 import { DailyRecordWorkspace } from "./DailyRecordWorkspace";
 import { dailyPaperworkKindSchema } from "./schemas";
 import { fetchDailyPaperwork, type DailyRecordSummary } from "./api";
+import { MonthlyPaperworkTab } from "./MonthlyPaperworkTab";
+import { WeeklyPaperworkTab } from "./WeeklyPaperworkTab";
 import "./paperwork-center.css";
 
 
@@ -93,13 +95,13 @@ export function PaperworkCenterPage() {
           >{period[0].toUpperCase() + period.slice(1)}</button>
         ))}
       </section>
-      <section className="paperwork-filters" aria-label="Daily paperwork search">
+      {tab === "daily" ? <section className="paperwork-filters" aria-label="Daily paperwork search">
         <label>Work date<input aria-label="Work date" type="date" value={workDate} onChange={(event) => update({ work_date: event.target.value })} /></label>
         <label>Shift<select aria-label="Shift" value={shift} onChange={(event) => update({ shift: event.target.value })}><option value="D">Day (D)</option><option value="N">Night (N)</option><option value="A">A</option><option value="B">B</option><option value="C">C</option></select></label>
-      </section>
+      </section> : null}
       {tab === "daily" ? <DailyPaperworkTab workDate={workDate} shift={shift} records={records} loading={loading} error={error} /> : null}
-      {tab === "weekly" ? <section id="paperwork-panel-weekly" role="tabpanel" aria-labelledby="paperwork-tab-weekly" className="paperwork-period-placeholder"><h2>Weekly Paperwork Library</h2><p>The approved weekly form catalog will appear here without creating digital completion records unless a form requires one.</p></section> : null}
-      {tab === "monthly" ? <section id="paperwork-panel-monthly" role="tabpanel" aria-labelledby="paperwork-tab-monthly" className="paperwork-period-placeholder"><h2>Monthly Paperwork Library</h2><p>Monthly previews and packet printing will appear here as the approved templates are published.</p></section> : null}
+      {tab === "weekly" ? <WeeklyPaperworkTab /> : null}
+      {tab === "monthly" ? <MonthlyPaperworkTab /> : null}
     </div>
   );
 }
