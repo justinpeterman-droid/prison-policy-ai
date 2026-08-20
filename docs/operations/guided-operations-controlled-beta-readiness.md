@@ -2,7 +2,7 @@
 
 **Status:** Repository candidate ready for external beta qualification; rollout is not authorized by this document.
 **Evidence date:** 2026-08-20
-**Candidate:** PR #108, `feat/daily-paperwork-center`; source candidate `f16e654` is locally verified and remains subject to the exact final PR gate. Capture the final reviewed commit or merge SHA in the external approval record.
+**Candidate:** PR #108, `feat/daily-paperwork-center`; source candidate `435dfd3` is locally verified and remains subject to the exact final PR gate. Capture the final reviewed commit or merge SHA in the external approval record.
 
 ## Proven in the repository
 
@@ -10,12 +10,12 @@
 - The production React build is served through the Cloud Run image's same-origin static path. CI builds the image without pushing or deploying it.
 - PostgreSQL 17 integration and migration upgrade/downgrade/upgrade checks pass in both supported Python release-gate jobs.
 - Local backend evidence is 1,440 passing tests with 30 intentional skips, plus 41 explicit contract/security tests.
-- Local frontend evidence is 166 passing component tests, TypeScript, the production Vite build, and 120 passing Chromium workflows with one feature-detected skip.
+- Local frontend evidence is 169 passing component tests, TypeScript, the production Vite build, and 121 passing Chromium workflows with one feature-detected skip.
 - Forty-eight committed Windows baselines cover Home states and viewports, every primary officer route on desktop and mobile, every administrator route on desktop, mobile administrator navigation, display scaling, and the missing count/monthly/incident print references.
 - Print references use fictional data only. The incident form keeps an unknown value visibly `Not entered`, and print CSS removes application navigation and preview controls.
 - The count-sheet API kind boundary is enforced on reads, saves, revisions, restores, actions, and idempotent replays; PostgreSQL integration coverage proves a non-elevated administrator cannot use count-sheet routes to access a daily record.
 - Legacy browser and Microsoft Access fallback behavior remains available. This milestone does not retire, redirect, or mutate either legacy surface.
-- Predecessor `2384056` passed the complete PR check set, including PostgreSQL, browser, Windows visual, container, CodeQL, Codacy, and independent security-review jobs. Follow-on source candidate `f16e654` must pass the exact final PR gate before merge or beta qualification.
+- Predecessor `2249940` passed the complete PR check set, including PostgreSQL, browser, Windows visual, container, CodeQL, Codacy, and independent security-review jobs. Follow-on source candidate `435dfd3` must pass the exact final PR gate before merge or beta qualification.
 
 ## External stop gates
 
