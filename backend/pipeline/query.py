@@ -227,9 +227,14 @@ def _http_error_hint(code: int) -> str:
 
 
 def log_search_config() -> None:
-    """Log the resolved search config once, so the active values are visible in
-    logs without shell access to the container."""
-    logger.info("Policy search config: %s", search_config_summary())
+    """Log configuration readiness without exposing infrastructure identifiers."""
+    summary = search_config_summary()
+    logger.info(
+        "Policy search configuration loaded "
+        "(agent_builder_configured=%s, model_tiers_configured=%s)",
+        bool(summary["serving_config_path"]),
+        bool(summary["fast_model"] and summary["pro_model"]),
+    )
 
 
 _token_cache = {"token": None, "expiry": 0}

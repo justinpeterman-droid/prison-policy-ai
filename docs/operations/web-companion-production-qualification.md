@@ -26,9 +26,12 @@ run for these immutable identifiers.
 
 ## Repository qualification evidence
 
-The isolated readiness worktree was based on `origin/main` commit
-`82f923680521d53112321e464962c6ea462a0f5b` on 2026-08-20. All records used
-fictional data and loopback-only PostgreSQL 17.10.
+The isolated readiness worktree is based on `origin/main` commit
+`9ece2f5` on 2026-08-20. Application verification began on its direct parent
+`82f923680521d53112321e464962c6ea462a0f5b`; after PR #110 added the controlled
+beta Terraform foundation, the branch was rebased and all 10 Terraform tests
+plus the build-contract tests passed. All records used fictional data and
+loopback-only PostgreSQL 17.10.
 
 | Check | Result |
 | --- | --- |
@@ -46,6 +49,9 @@ fictional data and loopback-only PostgreSQL 17.10.
 The frontend dependency graph is committed in `frontend/web/package-lock.json`.
 Docker, CI, and documented clean installs use `npm ci`, and direct frontend
 dependencies are pinned to the versions exercised by this evidence.
+The Cloud Run Python graph is committed in `backend/requirements.lock`, is
+generated inside Python 3.14 Linux with pinned `pip-tools`, and is installed by
+the production image with `pip --require-hashes`.
 
 ## Protected target-environment gates
 

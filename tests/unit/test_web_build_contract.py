@@ -9,10 +9,23 @@ def test_dockerfile_builds_and_copies_guided_operations_assets():
     assert "COPY frontend/web/package.json frontend/web/package-lock.json" in dockerfile
     assert "npm ci --legacy-peer-deps --no-audit --no-fund" in dockerfile
     assert "npm run build" in dockerfile
+    assert "COPY backend/requirements.lock ." in dockerfile
+    assert "pip install --no-cache-dir --require-hashes -r requirements.lock" in dockerfile
+    assert 'CMD ["sh", "-c", "exec gunicorn --bind :${PORT:-8080}' in dockerfile
     assert (
         "COPY --from=web-build /src/backend/webapp/static/web/ "
         "/app/backend/webapp/static/web/"
     ) in dockerfile
+
+
+def test_cloud_run_dependencies_are_hash_locked():
+    requirements = Path("backend/requirements.lock").read_text(encoding="utf-8")
+
+    assert "pip-compile with Python 3.14" in requirements
+    assert "powershell -File scripts/compile_backend_requirements.ps1" in requirements
+    assert "--hash=sha256:" in requirements
+    assert "google-cloud-aiplatform==" in requirements
+    assert "gunicorn==" in requirements
 
 
 def test_docker_context_includes_web_source_and_runtime_dispatcher():
