@@ -1,0 +1,120 @@
+name: Guided Operations Administrator Command Center
+
+on:
+  pull_request:
+    paths:
+      - "backend/identity/browser_admin.py"
+      - "backend/reports/admin_incidents.py"
+      - "backend/webapp/web_api/admin_*.py"
+      - "backend/webapp/web_api/__init__.py"
+      - "frontend/web/src/features/administration/**"
+      - "frontend/web/src/App.tsx"
+      - "frontend/web/tests/e2e/admin-*.spec.ts"
+      - "frontend/web/tests/e2e/support/admin-mock-api.ts"
+      - "openapi/web-v1.yaml"
+      - "tests/contract/test_web_admin_openapi.py"
+      - "tests/integration/test_web_admin_*.py"
+      - "tests/unit/test_admin_incident_summary.py"
+      - "tests/unit/test_browser_admin.py"
+      - ".github/workflows/guided-operations-admin-command-center.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guided-operations-admin-command-center-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Admin authorization and service contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: access_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d access_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/access_test
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/access_test
+      ACCESS_API_ENABLED: "true"
+      IDENTITY_HASH_PEPPER: admin-command-center-ci-pepper-000000
+      CURSOR_SIGNING_KEY: admin-command-center-ci-cursor-000000
+      PUBLIC_BASE_URL: https://review.example.gov
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt pytest
+      - name: Run administrator unit and contract tests
+        run: >-
+          python -m pytest
+          tests/unit/test_browser_admin.py
+          tests/unit/test_admin_incident_summary.py
+          tests/contract/test_web_admin_openapi.py
+          -q
+      - name: Run administrator PostgreSQL integrations
+        run: python -m pytest tests/integration/test_web_admin_*.py -q
+
+  frontend:
+    name: Admin React workspace and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install frontend dependencies
+        working-directory: frontend/web
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+      - name: Run administrator component tests
+        working-directory: frontend/web
+        run: npm test -- src/features/administration/AdminGate.test.tsx
+      - name: Type-check frontend
+        working-directory: frontend/web
+        run: npm run typecheck
+      - name: Build production assets
+        working-directory: frontend/web
+        run: npm run build
+
+  e2e:
+    name: Admin browser authorization and command-center workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install frontend dependencies
+        working-directory: frontend/web
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+      - name: Install Chromium
+        working-directory: frontend/web
+        run: npx playwright install --with-deps chromium
+      - name: Run administrator browser workflows
+        working-directory: frontend/web
+        run: npx playwright test tests/e2e/admin-command-center.spec.ts tests/e2e/admin-authorization.spec.ts
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-command-center-playwright-report
+          path: frontend/web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
