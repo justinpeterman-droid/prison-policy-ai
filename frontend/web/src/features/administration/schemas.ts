@@ -9,7 +9,11 @@ export const adminElevationSchema = z.object({
 
 const paperworkStateSchema = z.object({
   status: z.enum(["not_started", "saved", "needs_attention"]).or(z.string()),
+  state: z.enum(["not_started", "saved", "needs_attention"]),
   record_id: z.string().nullable(),
+  revision: z.number().int().positive().nullable(),
+  warning_count: z.number().int().nonnegative(),
+  shift: z.string().nullable(),
   updated_at: z.string().nullable(),
 }).strict();
 
