@@ -105,6 +105,13 @@ const DAILY_PRESENTATION: Record<DailyKind, { title: string; orientation: "portr
 
 const DAILY_KIND_PATTERN = "assignment_roster|uniform_inspection|metal_detector_test|perimeter_check|random_search_log|detector_sign_out";
 
+const MONTHLY_PRINT_TEMPLATES = [
+  { code: "monthly_windows_bars_doors", title: "Windows, Bars & Doors Check Log", period: "monthly", category: "security_checks", schema_version: 1, page_size: "letter", orientation: "landscape", definition: { columns: ["Date", "Exterior Bks. Windows", "All Inmate Housing Windows", "Housing Doors", "All Cell Bars", "Officer's Signature"], footer_note: "All bars will be checked with a rubber mallet." } },
+  { code: "monthly_chemical_agents", title: "Use of Chemical Agents Log", period: "monthly", category: "security_checks", schema_version: 1, page_size: "letter", orientation: "landscape", definition: { columns: ["Date", "Staff", "Inmate Name / #", "Conforms To Policy", "Medical Attention", "Supervisor"] } },
+  { code: "monthly_contraband_standard", title: "Contraband Search Log — Standard Area Rotation", period: "monthly", category: "security_checks", schema_version: 1, page_size: "letter", orientation: "landscape", definition: { columns: ["Date/Time", "Area Searched", "Contraband Found", "Searching Officers", "Disposition of Contraband"], schedule: ["Gym", "School", "Front Office / Barber Shop", "Boiler Room", "Kitchen and ODR", "Laundry Press Area / Main Showers"] } },
+  { code: "monthly_contraband_expanded", title: "Contraband Search Log — Expanded Area Rotation", period: "monthly", category: "security_checks", schema_version: 1, page_size: "letter", orientation: "landscape", definition: { columns: ["Date/Time", "Area Searched", "Contraband Found", "Searching Officers", "Disposition of Contraband"], schedule: ["Gym", "Chapel", "Entrance Building", "School", "Front Office / Barbershop", "Boiler Room", "Kitchen / ODR", "Laundry", "Inmate Barbershop", "Inside Maintenance"] } },
+] as const;
+
 function dailySummary(record: MockDailyRecord): Omit<MockDailyRecord, "payload" | "template"> {
   const { payload: _payload, template: _template, ...summary } = record;
   return summary;
@@ -241,6 +248,14 @@ export async function installAdminApi(page: Page): Promise<void> {
     }
     if (path === "/admin/incidents" && method === "GET") {
       await fulfill(route, { items: [INCIDENT], next_cursor: null });
+      return;
+    }
+    if (path === "/print-templates" && method === "GET") {
+      await fulfill(route, { items: url.searchParams.get("period") === "monthly" ? MONTHLY_PRINT_TEMPLATES : [] });
+      return;
+    }
+    if (path === "/print-templates/actions" && method === "POST") {
+      await fulfill(route, { recorded: true });
       return;
     }
     if (path === "/admin/paperwork/daily" && method === "GET") {
