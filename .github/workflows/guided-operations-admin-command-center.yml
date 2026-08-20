@@ -110,16 +110,6 @@ jobs:
       - name: Run administrator browser workflows
         working-directory: frontend/web
         run: npx playwright test tests/e2e/admin-command-center.spec.ts tests/e2e/admin-authorization.spec.ts
-      - name: Upload temporary visual QA captures
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: admin-command-center-visual-qa
-          path: |
-            frontend/web/admin-overview-1366x768.png
-            frontend/web/admin-accounts-staff-1366x768.png
-          if-no-files-found: ignore
-          retention-days: 2
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
