@@ -6,6 +6,8 @@ import { DAILY_CARD_DEFINITIONS } from "./DailyPaperworkTab";
 import { RosterEditor } from "./roster/RosterEditor";
 import { MetalDetectorEditor } from "./metal/MetalDetectorEditor";
 import { PerimeterCheckEditor } from "./perimeter/PerimeterCheckEditor";
+import { RandomSearchesEditor } from "./searches/RandomSearchesEditor";
+import { DetectorSignOutEditor } from "./signout/DetectorSignOutEditor";
 import { DailyEditorHeader } from "./shared/DailyEditorHeader";
 import { UniformInspectionEditor } from "./uniform/UniformInspectionEditor";
 
@@ -76,6 +78,14 @@ export function DailyRecordWorkspace({ kind, recordId, workDate, shift }: DailyR
         <PerimeterCheckEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
       </div>
     );
+  }
+
+  if (kind === "random_search_log" && (!recordId || record)) {
+    return <div className="admin-page daily-editor-page"><RandomSearchesEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} /></div>;
+  }
+
+  if (kind === "detector_sign_out" && (!recordId || record)) {
+    return <div className="admin-page daily-editor-page"><DetectorSignOutEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} /></div>;
   }
 
   return (

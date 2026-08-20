@@ -1,0 +1,8 @@
+import { z } from "zod";
+export const SEARCH_SECTIONS = [{ code: "north_1", label: "North 1" }, { code: "north_2", label: "North 2" }, { code: "south_1", label: "South 1" }, { code: "south_2", label: "South 2" }] as const;
+const staff = z.object({ staff_id: z.string().uuid(), display_name_snapshot: z.string().trim().min(1).max(160) }).strict();
+const block = z.object({ officer: staff.nullable(), search_date: z.string().nullable(), search_time: z.string().nullable(), individual_last_name: z.string().max(160), individual_number: z.string().max(64), barracks_rack: z.string().max(160), contraband_disposition: z.string().max(2000) }).strict();
+export const randomSearchPayloadSchema = z.object({ schema_version: z.literal(1), work_date: z.iso.date(), shift: z.string().min(1).max(32), sections: z.array(z.object({ section_code: z.string(), blocks: z.array(block).length(4) }).strict()).length(4) }).strict();
+export type RandomSearchPayload = z.infer<typeof randomSearchPayloadSchema>;
+export function createEmptyRandomSearchPayload(work_date: string, shift: string): RandomSearchPayload { return { schema_version: 1, work_date, shift, sections: SEARCH_SECTIONS.map(({ code }) => ({ section_code: code, blocks: Array.from({ length: 4 }, () => ({ officer: null, search_date: null, search_time: null, individual_last_name: "", individual_number: "", barracks_rack: "", contraband_disposition: "" })) })) }; }
+export function parseRandomSearchPayload(value: unknown): RandomSearchPayload { const parsed = randomSearchPayloadSchema.parse(value); if (parsed.sections.some((section, index) => section.section_code !== SEARCH_SECTIONS[index].code)) throw new Error("Random-search sections do not match the approved order."); return parsed; }
