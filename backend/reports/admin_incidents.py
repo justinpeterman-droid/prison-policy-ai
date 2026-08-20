@@ -253,7 +253,7 @@ def list_admin_incident_summaries(
 
     if cursor:
         try:
-            cursor_time = _cursor_timestamp(cursor["updated_at"])
+            cursor_time = _cursor_timestamp(cursor["created_at"])
             cursor_id = UUID(cursor["id"])
         except (KeyError, TypeError, ValueError):
             raise ValueError("admin incident cursor is invalid") from None
@@ -319,8 +319,7 @@ def list_admin_incident_summaries(
     } if packet_item_ids else {}
     acknowledged_items = set(session.scalars(
         select(PhysicalPaperworkAcknowledgment.packet_item_id).where(
-            PhysicalPaperworkAcknowledgment.packet_item_id.in_(packet_item_ids)
-        )
+            PhysicalPaperworkAcknowledgment.packet_item_id.in_(packet_item_ids))
     ).all()) if packet_item_ids else set()
 
     output_incidents = set(session.scalars(
@@ -424,7 +423,7 @@ def list_admin_incident_summaries(
     if len(rows) > limit:
         last = incidents[-1]
         next_cursor = {
-            "updated_at": last.updated_at.astimezone(UTC).isoformat(),
+            "created_at": last.updated_at.astimezone(UTC).isoformat(),
             "id": str(last.id),
         }
     return AdminIncidentSummaryPage(tuple(summaries), next_cursor)
