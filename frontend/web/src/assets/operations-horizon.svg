@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 320" role="img" aria-labelledby="title desc">
+  <title id="title">Secure facility horizon at sunrise</title>
+  <desc id="desc">A stylized, non-identifying watchtower and perimeter fence beneath a bright morning sky.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a8d4ee"/>
+      <stop offset="0.48" stop-color="#e9d8b2"/>
+      <stop offset="1" stop-color="#d3e2ea"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="69%" cy="25%" r="42%">
+      <stop offset="0" stop-color="#fffbdc" stop-opacity=".96"/>
+      <stop offset=".18" stop-color="#ffe9a1" stop-opacity=".68"/>
+      <stop offset=".7" stop-color="#ffe2a0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#527088"/>
+      <stop offset="1" stop-color="#17354d"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+  </defs>
+  <rect width="1400" height="320" fill="url(#sky)"/>
+  <rect width="1400" height="320" fill="url(#sun)"/>
+  <g fill="#fff" opacity=".54" filter="url(#soft)">
+    <ellipse cx="350" cy="76" rx="230" ry="32"/>
+    <ellipse cx="820" cy="52" rx="175" ry="25"/>
+    <ellipse cx="1130" cy="92" rx="220" ry="30"/>
+  </g>
+  <path d="M0 225 C210 192 350 210 520 193 C740 171 900 204 1080 182 C1240 163 1320 177 1400 165 L1400 320 L0 320 Z" fill="#71899a" opacity=".44"/>
+  <path d="M0 252 C210 214 360 234 590 215 C810 197 1020 228 1400 202 L1400 320 L0 320 Z" fill="url(#ground)"/>
+  <g stroke="#153146" stroke-width="5" opacity=".92">
+    <path d="M630 185 L630 287 M730 181 L730 287 M830 177 L830 287 M930 173 L930 287 M1030 169 L1030 287 M1130 165 L1130 287 M1230 161 L1230 287 M1330 157 L1330 287"/>
+    <path d="M610 202 L1400 160 M610 224 L1400 182 M610 246 L1400 204" stroke-width="3"/>
+    <path d="M610 195 L625 181 L640 196 L655 179 L670 193 L685 177 L700 190 L715 175 L730 188 L745 173 L760 187 L775 171 L790 185 L805 169 L820 183 L835 167 L850 181 L865 165 L880 179 L895 163 L910 177 L925 161 L940 175 L955 159 L970 173 L985 157 L1000 171 L1015 155 L1030 169 L1045 153 L1060 167 L1075 151 L1090 165 L1105 149 L1120 163 L1135 147 L1150 161 L1165 145 L1180 159 L1195 143 L1210 157 L1225 141 L1240 155 L1255 139 L1270 153 L1285 137 L1300 151 L1315 135 L1330 149 L1345 133 L1360 147 L1375 131 L1390 145" stroke-width="2.4" fill="none"/>
+  </g>
+  <g transform="translate(890 62)" fill="#263f50" stroke="#183043" stroke-width="4">
+    <path d="M45 96 L57 222 L141 222 L153 96 Z" fill="#667d8b"/>
+    <path d="M55 98 L36 73 L162 73 L143 98 Z" fill="#294759"/>
+    <rect x="47" y="40" width="104" height="48" rx="3" fill="#e8eef0"/>
+    <rect x="56" y="48" width="24" height="28" fill="#3b5f73"/>
+    <rect x="87" y="48" width="24" height="28" fill="#3b5f73"/>
+    <rect x="118" y="48" width="24" height="28" fill="#3b5f73"/>
+    <path d="M33 42 L52 18 L145 18 L165 42 Z" fill="#244253"/>
+    <path d="M70 222 L128 222 L142 253 L56 253 Z" fill="#203b4d"/>
+  </g>
+  <path d="M0 278 H1400" stroke="#d5b05b" stroke-width="3" opacity=".62"/>
+</svg>
