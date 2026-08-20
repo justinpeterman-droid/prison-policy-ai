@@ -9,6 +9,7 @@ import { AdminOverviewPage } from "./overview/AdminOverviewPage";
 import { PaperworkCenterPage } from "./paperwork/PaperworkCenterPage";
 import { ReviewLabLaunch } from "./review-lab/ReviewLabLaunch";
 import "./admin.css";
+import "./admin-entry.css";
 
 interface AdminLayoutProps {
   profile: SessionProfile;
