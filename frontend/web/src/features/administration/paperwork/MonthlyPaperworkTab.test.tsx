@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MonthlyPaperworkTab } from "./MonthlyPaperworkTab";
 import * as paperworkApi from "./api";
 
@@ -11,6 +11,10 @@ const templates = [
   { code: "monthly_contraband_standard", title: "Contraband Search Log — Standard Area Rotation", description: "Standard", pageSize: "letter", orientation: "landscape", definition: { columns: ["Date/Time", "Area Searched", "Contraband Found", "Searching Officers", "Disposition of Contraband"], schedule: ["Gym"] } },
   { code: "monthly_contraband_expanded", title: "Contraband Search Log — Expanded Area Rotation", description: "Expanded", pageSize: "letter", orientation: "landscape", definition: { columns: ["Date/Time", "Area Searched", "Contraband Found", "Searching Officers", "Disposition of Contraband"], schedule: ["Gym", "Inside Maintenance"] } },
 ] as const;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("MonthlyPaperworkTab", () => {
   it("offers exactly the supplied monthly forms and keeps selections while previewing", async () => {
@@ -32,5 +36,42 @@ describe("MonthlyPaperworkTab", () => {
     expect(screen.getAllByRole("heading", { name: "Use of Chemical Agents Log" })).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Preview Monthly Packet (1)" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Clear selection" })).toBeEnabled();
+  });
+
+  it("mounts the requested document before invoking individual and packet print", async () => {
+    vi.mocked(paperworkApi.fetchMonthlyPrintTemplates).mockResolvedValue([...templates]);
+    vi.mocked(paperworkApi.recordPrintTemplateAction).mockResolvedValue();
+    const printedHeadings: string[][] = [];
+    const onPrint = vi.fn(() => {
+      printedHeadings.push(screen.getAllByRole("heading").map((heading) => heading.textContent ?? ""));
+    });
+    render(<MonthlyPaperworkTab onPrint={onPrint} />);
+
+    const cards = await screen.findAllByTestId("monthly-template-card");
+    const chemicalCard = cards.find((card) => within(card).queryByText("Use of Chemical Agents Log"));
+    expect(chemicalCard).toBeDefined();
+    fireEvent.click(within(chemicalCard!).getByRole("button", { name: "Print" }));
+
+    await waitFor(() => expect(onPrint).toHaveBeenCalledTimes(1));
+    expect(paperworkApi.recordPrintTemplateAction).toHaveBeenNthCalledWith(
+      1,
+      ["monthly_chemical_agents"],
+      "print",
+    );
+    expect(printedHeadings[0].filter((heading) => heading === "Use of Chemical Agents Log")).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /windows, bars/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /chemical agents/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Print Monthly Packet" }));
+
+    await waitFor(() => expect(onPrint).toHaveBeenCalledTimes(2));
+    expect(paperworkApi.recordPrintTemplateAction).toHaveBeenNthCalledWith(
+      2,
+      ["monthly_windows_bars_doors", "monthly_chemical_agents"],
+      "print",
+    );
+    expect(printedHeadings[1]).toContain("Monthly packet");
+    expect(printedHeadings[1]).toContain("Windows, Bars & Doors Check Log");
+    expect(printedHeadings[1]).toContain("Use of Chemical Agents Log");
   });
 });
