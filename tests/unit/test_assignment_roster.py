@@ -75,6 +75,22 @@ def test_assignment_roster_accepts_each_approved_zone_and_post_exactly_once():
     ]
 
 
+def test_assignment_roster_accepts_equipment_keys_after_json_reordering():
+    payload = _payload()
+    payload["equipment"] = {
+        key: payload["equipment"][key]
+        for key in sorted(payload["equipment"])
+    }
+
+    model = AssignmentRosterV1.model_validate(payload)
+
+    assert set(model.equipment) == {
+        "digital_camera",
+        "video_camera_go_pro",
+        "metal_detector_wands",
+    }
+
+
 def test_assignment_roster_preserves_reordered_posts_within_their_zone():
     payload = _payload()
     payload["zones"][0]["posts"][0], payload["zones"][0]["posts"][1] = (

@@ -166,8 +166,8 @@ class AssignmentRosterV1(DailyPayloadBase):
                 raise ValueError(
                     f"posts for {zone.zone_code} must contain each approved post exactly once"
                 )
-        if tuple(self.equipment) != SECURITY_EQUIPMENT_KEYS:
-            raise ValueError("equipment keys must match the approved template order")
+        if set(self.equipment) != set(SECURITY_EQUIPMENT_KEYS):
+            raise ValueError("equipment keys must match the approved template")
         return self
 
 
