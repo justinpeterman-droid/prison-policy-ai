@@ -658,7 +658,10 @@ def account_revoke_sessions_route(account_id: UUID):
             "revoked_session_ids": [str(value) for value in revoked],
             "revoked_count": len(revoked),
         }
-        return data, data
+        return data, {
+            "account_id": str(account_id),
+            "revoked_count": len(revoked),
+        }
 
     return _mutation(
         action="admin.account_revoke_sessions",
