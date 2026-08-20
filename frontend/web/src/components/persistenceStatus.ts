@@ -40,9 +40,9 @@ export function persistenceStateForError(
 }
 
 const PERSISTENCE_FAILURE_GUIDANCE: Record<PersistenceFailureState, string> = {
-  reconnecting: "Visible work remains on this device. Server save not confirmed. Retry Save when the connection returns.",
-  conflict: "Visible work remains on this device. Copy it, then reopen the latest server version before editing again.",
-  failed: "Visible work remains on this device. Server save not confirmed. Use Retry Save when the issue is resolved.",
+  reconnecting: "Entered work remains visible on this page. Server save not confirmed. Retry Save when the connection returns.",
+  conflict: "Entered work remains visible on this page. Copy it, then reopen the latest server version before editing again.",
+  failed: "Entered work remains visible on this page. Server save not confirmed. Use Retry Save when the issue is resolved.",
 };
 
 export function persistenceFailureGuidance(state: PersistenceFailureState): string {

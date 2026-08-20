@@ -46,7 +46,7 @@ describe("persistence status language", () => {
     ["failed", "Use Retry Save when the issue is resolved"],
   ] as const)("gives %s a truthful recovery instruction", (state, instruction) => {
     const guidance = persistenceFailureGuidance(state);
-    expect(guidance).toContain("Visible work remains on this device");
+    expect(guidance).toContain("Entered work remains visible on this page");
     expect(guidance).toContain(instruction);
   });
 });

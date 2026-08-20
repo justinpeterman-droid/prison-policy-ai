@@ -307,7 +307,7 @@ describe("Incident Document Studio", () => {
     expect(alert).toHaveAttribute("aria-live", "assertive");
     expect(alert).toHaveAttribute("aria-atomic", "true");
     expect(alert).toHaveTextContent("The report changed on the server");
-    expect(alert).toHaveTextContent("Visible work remains on this device");
+    expect(alert).toHaveTextContent("Entered work remains visible on this page");
     expect(alert).toHaveTextContent("reopen the latest server version");
     expect(narrative).toHaveValue("Fictional revised text remains visible.");
   });

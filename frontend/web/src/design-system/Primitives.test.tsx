@@ -66,9 +66,10 @@ describe("shared visual primitives", () => {
   });
 
   it("preserves consumer-provided validation semantics when a shared inline error is not present", () => {
-    render(<Field label="Confirmation"><input aria-invalid="true" aria-errormessage="confirmation-error" /></Field>);
-    const input = screen.getByRole("textbox", { name: "Confirmation" });
+    render(<Field label="Confirmation"><input aria-invalid="true" aria-errormessage="confirmation-error" aria-required="true" /></Field>);
+    const input = screen.getByRole("textbox", { name: /Confirmation/ });
     expect(input).toHaveAttribute("aria-invalid", "true");
     expect(input).toHaveAttribute("aria-errormessage", "confirmation-error");
+    expect(input).toHaveAttribute("aria-required", "true");
   });
 });

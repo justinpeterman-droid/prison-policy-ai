@@ -141,7 +141,7 @@ export function Field({ children, className, error, hint, label, requirement, re
   const hintId = hint ? `${generatedId}-hint` : undefined;
   const errorId = error ? `${generatedId}-error` : undefined;
   const describedBy = [children.props["aria-describedby"], hintId, errorId].filter(Boolean).join(" ") || undefined;
-  const isRequired = required || requirement === "required" || Boolean(children.props.required);
+  const isRequired = required || requirement === "required" || Boolean(children.props.required) || Boolean(children.props["aria-required"]);
 
   if (!isValidElement(children)) throw new Error("Field requires one form control child.");
 
@@ -158,7 +158,7 @@ export function Field({ children, className, error, hint, label, requirement, re
         "aria-describedby": describedBy,
         "aria-errormessage": errorId ?? children.props["aria-errormessage"],
         "aria-invalid": Boolean(error) || children.props["aria-invalid"] || undefined,
-        "aria-required": isRequired || undefined,
+        "aria-required": isRequired || children.props["aria-required"] || undefined,
         required: isRequired || undefined,
       })}
       {hint ? <span className="gow-field__hint" id={hintId}>{hint}</span> : null}
