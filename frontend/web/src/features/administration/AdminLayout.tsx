@@ -25,9 +25,25 @@ const adminNavigation = [
   ["Review Lab", "/admin/review-lab", "↗"],
 ] as const;
 
+function firstName(displayName: string): string {
+  const parts = displayName.trim().split(/\s+/).filter(Boolean);
+  return parts.length ? parts.at(-1) ?? displayName : displayName;
+}
+
 export function AdminLayout({ profile }: AdminLayoutProps) {
   return (
     <div className="admin-shell">
+      <section className="admin-scene-header" aria-label="Administrator workspace header">
+        <div className="admin-scene-copy">
+          <p>Operational command</p>
+          <h1>Good evening, {profile.rank ? `${profile.rank} ` : ""}{firstName(profile.displayName)}</h1>
+          <span>Keep the facility picture clear, the records accountable, and the next action obvious.</span>
+        </div>
+        <div className="admin-scene-values" aria-label="Professional values">
+          <span>Professionalism</span><i aria-hidden="true">◆</i><span>Accountability</span><i aria-hidden="true">◆</i><span>Integrity</span>
+        </div>
+      </section>
+
       <div className="admin-context-bar">
         <div><span className="admin-context-gem" aria-hidden="true">◆</span><strong>Administrator workspace</strong><span>{profile.displayName}</span></div>
         <span>Elevated access · individually attributed</span>
