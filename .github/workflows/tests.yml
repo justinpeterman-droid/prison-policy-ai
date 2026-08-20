@@ -50,6 +50,12 @@ jobs:
       - name: Run unit tests
         run: python -m pytest -q
 
+      - name: Run contract and browser-security tests
+        run: python -m pytest tests/contract tests/security -q
+
+      - name: Check sanitized print templates
+        run: python scripts/check_print_templates.py
+
       - name: Run PostgreSQL integration tests
         run: python -m pytest tests/integration -q
 
@@ -57,3 +63,43 @@ jobs:
       # otherwise ship the old art silently — the templates only load .webp.
       - name: Check optimized images are current
         run: python scripts/optimize_images.py --check
+
+  web:
+    name: Guided Operations Web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install web dependencies
+        working-directory: frontend/web
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+
+      - name: Lint web source
+        working-directory: frontend/web
+        run: npm run lint
+
+      - name: Typecheck web source
+        working-directory: frontend/web
+        run: npm run typecheck
+
+      - name: Run web unit tests
+        working-directory: frontend/web
+        run: npm run test
+
+      - name: Build web application
+        working-directory: frontend/web
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        working-directory: frontend/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser workflows
+        working-directory: frontend/web
+        run: npm run test:e2e

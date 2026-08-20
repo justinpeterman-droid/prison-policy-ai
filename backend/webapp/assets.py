@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+import re
 from pathlib import Path
 
 from flask import Flask, request
@@ -41,6 +42,11 @@ IMMUTABLE_MAX_AGE = 31_536_000  # 1 year
 # Unversioned ones still need to be re-checked reasonably often.
 DEFAULT_STATIC_MAX_AGE = 3600  # 1 hour
 
+# Vite names production assets with a content hash (for example,
+# ``assets/index-3f7ae12c.js``). Unlike the legacy ``?v=`` convention, the
+# filename itself proves freshness, so it gets the same immutable policy.
+VITE_HASHED_ASSET = re.compile(r"(?:^|/)[^/]+-[A-Za-z0-9_-]{8,}\.[^/]+$")
+
 
 def _hash_file(path: Path) -> str:
     digest = hashlib.sha256()
@@ -48,6 +54,11 @@ def _hash_file(path: Path) -> str:
         for block in iter(lambda: handle.read(65536), b""):
             digest.update(block)
     return digest.hexdigest()[:8]
+
+
+def _has_immutable_asset_name(filename: str) -> bool:
+    """Return whether a static filename is content-addressed by Vite."""
+    return bool(VITE_HASHED_ASSET.search(filename))
 
 
 def init_assets(app: Flask) -> None:
@@ -77,7 +88,7 @@ def init_assets(app: Flask) -> None:
         if request.path.startswith("/static/"):
             # A ?v= hash means the URL changes whenever the bytes do, so the
             # response can be cached hard. Without one, stay conservative.
-            if request.args.get("v"):
+            if request.args.get("v") or _has_immutable_asset_name(request.path):
                 response.headers["Cache-Control"] = (
                     f"public, max-age={IMMUTABLE_MAX_AGE}, immutable"
                 )
