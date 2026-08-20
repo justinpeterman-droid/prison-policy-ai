@@ -134,4 +134,7 @@ def validate_payload_for_kind(
             json.dumps(payload, ensure_ascii=False, allow_nan=False)
         )
         return model.model_dump(mode="json")
-    return json.loads(json.dumps(payload, ensure_ascii=False, allow_nan=False))
+    from backend.paperwork.daily import validate_daily_payload
+
+    model = validate_daily_payload(kind.value, payload)
+    return model.model_dump(mode="json")
