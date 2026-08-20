@@ -12,6 +12,22 @@ const ADMIN = {
   must_change_pin: false,
 } as const;
 
+const OFFICER = {
+  staff_id: "00000000-0000-4000-8000-000000000920",
+  employee_number: "F-1001",
+  display_name: "Officer Casey Morgan",
+  rank: "Officer",
+  shift: "A",
+} as const;
+
+const PREPARER = {
+  staff_id: "00000000-0000-4000-8000-000000000921",
+  employee_number: "F-1002",
+  display_name: "Officer Riley Stone",
+  rank: "Officer",
+  shift: "A",
+} as const;
+
 const INCIDENT = {
   incident_id: "00000000-0000-4000-8000-000000000910",
   incident_number: "2026-08-029",
@@ -22,15 +38,92 @@ const INCIDENT = {
   location: "Training Hall",
   shift: "A",
   records_status: "in_progress",
-  reporting_officers: [{ staff_id: "00000000-0000-4000-8000-000000000920", display_name: "Officer Casey Morgan" }],
-  preparers: [{ staff_id: "00000000-0000-4000-8000-000000000921", display_name: "Officer Riley Stone" }],
-  last_editor: { staff_id: "00000000-0000-4000-8000-000000000920", display_name: "Officer Casey Morgan" },
+  reporting_officers: [{ staff_id: OFFICER.staff_id, display_name: OFFICER.display_name }],
+  preparers: [{ staff_id: PREPARER.staff_id, display_name: PREPARER.display_name }],
+  last_editor: { staff_id: OFFICER.staff_id, display_name: OFFICER.display_name },
   progress: { code: "ready_to_review", label: "Ready to review", blocking_count: 0 },
-  officer_report_count: 2,
-  required_paperwork_count: 4,
+  officer_report_count: 1,
+  required_paperwork_count: 0,
   created_at: "2026-08-19T16:00:00Z",
   updated_at: "2026-08-19T19:00:00Z",
 } as const;
+
+const REPORT = {
+  report_id: "00000000-0000-4000-8000-000000000925",
+  incident_id: INCIDENT.incident_id,
+  report_type: "officer_report",
+  presentation: "document",
+  allowed_actions: ["edit", "print", "download_docx"],
+  status: "draft",
+  current_revision_number: 2,
+  reporting_officer: OFFICER,
+  preparer: PREPARER,
+  updated_at: "2026-08-19T19:00:00Z",
+} as const;
+
+function incidentRecord() {
+  return {
+    incident_id: INCIDENT.incident_id,
+    incident_number: INCIDENT.incident_number,
+    incident_name: INCIDENT.incident_name,
+    status: INCIDENT.records_status,
+    current_revision_number: 4,
+    reporting_staff_ids: [OFFICER.staff_id],
+    reporting_officers: [OFFICER],
+    field_notes: "Fictional training notes used only for browser verification.",
+    incident_date: INCIDENT.incident_date,
+    incident_time: "18:20:00",
+    facility: INCIDENT.facility,
+    shift: INCIDENT.shift,
+    location: INCIDENT.location,
+    category: INCIDENT.category,
+    classification: { category: "training" },
+    extracted_facts: { location: "Training Hall" },
+    gap_answers: {},
+    charges: [],
+    validation: {},
+    warnings: [],
+    created_at: INCIDENT.created_at,
+    updated_at: INCIDENT.updated_at,
+  };
+}
+
+function adminIncidentDetail() {
+  return {
+    incident_id: INCIDENT.incident_id,
+    incident_number: INCIDENT.incident_number,
+    incident_name: INCIDENT.incident_name,
+    records_status: INCIDENT.records_status,
+    current_revision_number: 4,
+    reporting_staff_ids: [OFFICER.staff_id],
+    reporting_officers: [OFFICER],
+    preparers: [PREPARER],
+    reports: [{
+      report_id: REPORT.report_id,
+      report_type: REPORT.report_type,
+      status: REPORT.status,
+      current_revision_number: REPORT.current_revision_number,
+      reporting_officer: OFFICER,
+      preparer: PREPARER,
+      updated_at: REPORT.updated_at,
+    }],
+    field_notes: "Fictional training notes used only for browser verification.",
+    incident_date: INCIDENT.incident_date,
+    incident_time: "18:20:00",
+    facility: INCIDENT.facility,
+    shift: INCIDENT.shift,
+    location: INCIDENT.location,
+    category: INCIDENT.category,
+    classification: { category: "training" },
+    extracted_facts: { location: "Training Hall" },
+    gap_answers: {},
+    charges: [],
+    validation: {},
+    created_at: INCIDENT.created_at,
+    updated_at: INCIDENT.updated_at,
+    admin_attribution_required: true,
+  };
+}
 
 async function fulfill(route: Route, data: unknown, status = 200): Promise<void> {
   await route.fulfill({
@@ -85,13 +178,13 @@ export async function installAdminApi(page: Page): Promise<void> {
           incident_number: INCIDENT.incident_number,
           incident_name: INCIDENT.incident_name,
           progress: INCIDENT.progress,
-          report_count: 2,
-          required_paperwork_count: 4,
+          report_count: 1,
+          required_paperwork_count: 0,
           updated_at: INCIDENT.updated_at,
         }],
         account_conditions: { locked: 1, deactivated: 2, temporary_pin: 1 },
         system_availability: { database: "Operational", queue: "Operational", ai: "Operational", policy_expert: "Operational", backup_restore: "Unavailable" },
-        recent_administrative_activity: [{ event_id: "00000000-0000-4000-8000-000000000940", action: "admin.staff_updated", target_type: "staff_member", target_id: "00000000-0000-4000-8000-000000000920", result: "success", occurred_at: "2026-08-19T19:10:00Z" }],
+        recent_administrative_activity: [{ event_id: "00000000-0000-4000-8000-000000000940", action: "admin.staff_updated", target_type: "staff_member", target_id: OFFICER.staff_id, result: "success", occurred_at: "2026-08-19T19:10:00Z" }],
       });
       return;
     }
@@ -99,22 +192,31 @@ export async function installAdminApi(page: Page): Promise<void> {
       await fulfill(route, { items: [INCIDENT], next_cursor: null });
       return;
     }
+    if (path === `/admin/incidents/${INCIDENT.incident_id}` && method === "GET") {
+      await fulfill(route, adminIncidentDetail());
+      return;
+    }
+    if (path === `/admin/incidents/${INCIDENT.incident_id}/records-status` && method === "PATCH") {
+      const body = JSON.parse(request.postData() ?? "{}") as { records_status?: string };
+      await fulfill(route, { ...adminIncidentDetail(), records_status: body.records_status ?? INCIDENT.records_status, current_revision_number: 5 });
+      return;
+    }
     if (path === "/admin/staff" && method === "GET") {
       await fulfill(route, {
         items: [{
-          staff_id: "00000000-0000-4000-8000-000000000920",
-          employee_number: "F-1001",
-          rank: "Officer",
+          staff_id: OFFICER.staff_id,
+          employee_number: OFFICER.employee_number,
+          rank: OFFICER.rank,
           first_name: "Casey",
           last_name: "Morgan",
-          display_name: "Officer Casey Morgan",
-          shift: "A",
+          display_name: OFFICER.display_name,
+          shift: OFFICER.shift,
           is_active: true,
           account: {
             account_id: "00000000-0000-4000-8000-000000000950",
-            staff_id: "00000000-0000-4000-8000-000000000920",
-            employee_number: "F-1001",
-            display_name: "Officer Casey Morgan",
+            staff_id: OFFICER.staff_id,
+            employee_number: OFFICER.employee_number,
+            display_name: OFFICER.display_name,
             role: "user",
             status: "active",
             must_change_pin: false,
@@ -123,6 +225,35 @@ export async function installAdminApi(page: Page): Promise<void> {
           },
           created_at: "2026-08-18T10:00:00Z",
           updated_at: "2026-08-19T18:00:00Z",
+        }, {
+          staff_id: PREPARER.staff_id,
+          employee_number: PREPARER.employee_number,
+          rank: PREPARER.rank,
+          first_name: "Riley",
+          last_name: "Stone",
+          display_name: PREPARER.display_name,
+          shift: PREPARER.shift,
+          is_active: true,
+          account: null,
+          created_at: "2026-08-18T10:00:00Z",
+          updated_at: "2026-08-19T18:00:00Z",
+        }],
+        next_cursor: null,
+      });
+      return;
+    }
+    if (path === "/admin/accounts/00000000-0000-4000-8000-000000000950/sessions" && method === "GET") {
+      await fulfill(route, {
+        items: [{
+          session_id: "00000000-0000-4000-8000-000000000960",
+          device_label: "Training laptop",
+          persistent: true,
+          last_used_at: "2026-08-19T19:05:00Z",
+          created_at: "2026-08-19T17:00:00Z",
+          access_expires_at: "2099-08-20T02:00:00Z",
+          renewal_expires_at: "2099-09-20T02:00:00Z",
+          revoked_at: null,
+          revoke_reason: null,
         }],
         next_cursor: null,
       });
@@ -137,7 +268,7 @@ export async function installAdminApi(page: Page): Promise<void> {
           actor_staff_member_id: ADMIN.staff_id,
           action: "admin.staff_updated",
           target_type: "staff_member",
-          target_id: "00000000-0000-4000-8000-000000000920",
+          target_id: OFFICER.staff_id,
           result: "success",
           request_id: "request-fictional-admin-1",
           client_version: "0.1.0",
@@ -165,11 +296,28 @@ export async function installAdminApi(page: Page): Promise<void> {
       return;
     }
     if (path.startsWith("/admin/accounts/") && method === "POST") {
-      await fulfill(route, { account_id: "00000000-0000-4000-8000-000000000950", revoked_session_ids: [], revoked_count: 0 });
+      await fulfill(route, { account_id: "00000000-0000-4000-8000-000000000950", revoked_session_ids: ["00000000-0000-4000-8000-000000000960"], revoked_count: 1 });
       return;
     }
     if (path.startsWith("/admin/accounts/") && method === "PATCH") {
       await fulfill(route, {});
+      return;
+    }
+    if (path.startsWith("/admin/staff/") && method === "PATCH") {
+      await fulfill(route, {});
+      return;
+    }
+
+    if (path === `/incidents/${INCIDENT.incident_id}` && method === "GET") {
+      await fulfill(route, incidentRecord());
+      return;
+    }
+    if (path === `/incidents/${INCIDENT.incident_id}/reports` && method === "GET") {
+      await fulfill(route, [REPORT]);
+      return;
+    }
+    if (path === `/incidents/${INCIDENT.incident_id}/packet` && method === "GET") {
+      await fulfill(route, []);
       return;
     }
 
