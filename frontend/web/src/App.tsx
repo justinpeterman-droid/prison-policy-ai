@@ -11,6 +11,7 @@ import { NewReportPage } from "./features/incidents/NewReportPage";
 import { ReportsPage } from "./features/incidents/ReportsPage";
 import { CountSheetPage } from "./features/paperwork/count-sheet/CountSheetPage";
 import { PolicyExpertPage } from "./features/policy/PolicyExpertPage";
+import sidebarMountains from "./assets/sidebar-mountains.jpg";
 import "./guided-operations.css";
 import "./incident-workspace.css";
 import "./refinement.css";
@@ -113,7 +114,7 @@ export function App({ profile, onAuthenticationChanged }: AppProps) {
           </div>
         ) : null}
 
-        <div className="gow-sidebar-mountain-scene" aria-hidden="true" />
+        <img className="gow-sidebar-mountain-scene" src={sidebarMountains} alt="" aria-hidden="true" />
         <div className="gow-sidebar-status" aria-label="System status">
           <div className="gow-side-status-line"><span className="gow-side-dot" /> <strong>System Online</strong></div>
           <div className="gow-side-status-line"><span aria-hidden="true">✓</span> Individual secure session</div>
