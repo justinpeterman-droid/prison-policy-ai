@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import tokens from "../guided-operations.css?raw";
 import adminStyles from "../features/administration/admin.css?raw";
 import countSheetStyles from "../features/paperwork/count-sheet/count-sheet.css?raw";
+import loginStyles from "../features/auth/login.css?raw";
 import policyStyles from "../features/policy/policy-expert.css?raw";
 
 function token(name: string): string {
@@ -121,6 +122,14 @@ describe("Guided Operations contrast contracts", () => {
     const ink = token("gow-button-gold-ink");
     expect(contrast(ink, "#e3b64f")).toBeGreaterThanOrEqual(4.5);
     expect(contrast(ink, "#b97814")).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("keeps Sign In text readable across every active gold gradient stop", () => {
+    const ink = token("gow-button-gold-ink");
+    expect(loginStyles).toContain("color: var(--gow-button-gold-ink");
+    for (const stop of ["#e8bd5d", "#c88d23", "#b97814"]) {
+      expect(contrast(ink, stop), `${ink} on ${stop}`).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it("keeps normal muted copy readable on the light canvas", () => {

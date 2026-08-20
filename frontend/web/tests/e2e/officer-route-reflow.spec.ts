@@ -182,6 +182,43 @@ test.describe("Document Studio tablet navigation targets", () => {
   });
 });
 
+test.describe("Document Studio mobile preview control", () => {
+  test("keeps the close icon centered in a focused 44 pixel target", async ({ page }) => {
+    const officerApiState = await installOfficerApi(page);
+    officerApiState.showIncidentPaperwork = true;
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("./reports/00000000-0000-4000-8000-000000000010");
+    await page.getByRole("tab", { name: "Required Paperwork" }).click();
+    await page.getByRole("button", { name: "Preview Medical Documentation Checklist" }).click();
+
+    const close = page.getByRole("button", { name: "Close form preview" });
+    await close.focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    await expect(close).toBeFocused();
+    const rendered = await close.evaluate((button) => {
+      const target = button.getBoundingClientRect();
+      const icon = button.querySelector("svg")!.getBoundingClientRect();
+      const style = getComputedStyle(button);
+      return {
+        width: target.width,
+        height: target.height,
+        horizontalOffset: Math.abs((target.left + target.width / 2) - (icon.left + icon.width / 2)),
+        verticalOffset: Math.abs((target.top + target.height / 2) - (icon.top + icon.height / 2)),
+        outlineStyle: style.outlineStyle,
+        outlineWidth: Number.parseFloat(style.outlineWidth),
+      };
+    });
+
+    expect(rendered.width).toBeGreaterThanOrEqual(44);
+    expect(rendered.height).toBeGreaterThanOrEqual(44);
+    expect(rendered.horizontalOffset).toBeLessThanOrEqual(1);
+    expect(rendered.verticalOffset).toBeLessThanOrEqual(1);
+    expect(rendered.outlineStyle).not.toBe("none");
+    expect(rendered.outlineWidth).toBeGreaterThanOrEqual(3);
+  });
+});
+
 test.describe("Document Studio mobile tab reachability", () => {
   test.beforeEach(async ({ page }) => {
     await installOfficerApi(page);

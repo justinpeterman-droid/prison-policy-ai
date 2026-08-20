@@ -52,6 +52,7 @@ export function LoginPage() {
               maxLength={64}
               onChange={(event) => setEmployeeNumber(event.target.value)}
               required
+              type="text"
               value={employeeNumber}
             />
           </label>

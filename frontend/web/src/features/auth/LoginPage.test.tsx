@@ -26,7 +26,7 @@ describe("LoginPage", () => {
     render(<LoginPage />);
 
     expect(screen.getByRole("heading", { name: "Sign in to continue" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Employee number")).toBeInTheDocument();
+    expect(screen.getByLabelText("Employee number")).toHaveAttribute("type", "text");
     expect(screen.getByLabelText("PIN")).toHaveAttribute("type", "password");
     expect(screen.getByLabelText("Keep me signed in on this device")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();

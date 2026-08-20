@@ -103,6 +103,7 @@
 
 .iw-button:focus-visible,
 .iw-tabs button:focus-visible,
+.iw-preview-toolbar button:focus-visible,
 .iw-page input:focus-visible,
 .iw-page select:focus-visible,
 .iw-page textarea:focus-visible,
@@ -911,6 +912,7 @@
   .iw-overview-card-wide { grid-column: auto; }
   .iw-packet-summary { grid-template-columns: 1fr 1fr; }
   .iw-tabs button { min-width: 135px; }
+  .iw-preview-toolbar button { flex: 0 0 44px; width: 44px; height: 44px; }
   .iw-preview-field { grid-template-columns: 1fr; }
   .iw-history-list li { grid-template-columns: 1fr; }
   .iw-page .iw-button,

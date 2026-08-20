@@ -11,6 +11,7 @@ export default defineConfig({
     // component test command fail even when the component tests are green.
     exclude: [
       "tests/e2e/**",
+      "tests/prod-smoke/**",
       "node_modules/**",
       "dist/**",
       "backend/webapp/static/web/**",
