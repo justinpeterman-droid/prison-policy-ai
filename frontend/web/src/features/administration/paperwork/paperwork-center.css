@@ -50,6 +50,8 @@
 @media (max-width: 680px) {
   .paperwork-filters { display: grid; }
   .paperwork-filters input, .paperwork-filters select { width: 100%; }
+  .print-template-card label { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+  .print-template-card label input[type="checkbox"] { flex: 0 0 auto; width: 20px; height: 20px; margin: 0; }
   .daily-record-card { grid-template-columns: 42px minmax(0, 1fr); }
   .daily-record-card > .admin-secondary-button { grid-column: 1 / -1; width: 100%; text-align: center; }
   .daily-record-title-row { display: block; }

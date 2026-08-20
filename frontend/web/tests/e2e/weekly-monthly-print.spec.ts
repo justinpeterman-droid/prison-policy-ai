@@ -32,3 +32,26 @@ test("weekly remains explicitly empty and monthly renders a printable four-form 
   await expect(page.locator(".print-document")).toHaveCount(2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2)).toBe(false);
 });
+
+test("monthly packet selections keep 44px mobile targets and keyboard activation", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await enterAdmin(page);
+  await page.getByRole("tab", { name: "Monthly" }).click();
+
+  const selections = page.getByRole("checkbox", { name: /^Select / });
+  await expect(selections).toHaveCount(4);
+  for (const checkbox of await selections.all()) {
+    const labelBox = await checkbox.locator("xpath=ancestor::label").boundingBox();
+    const checkboxBox = await checkbox.boundingBox();
+    expect(labelBox?.height).toBeGreaterThanOrEqual(44);
+    expect(labelBox?.width).toBeGreaterThanOrEqual(44);
+    expect(checkboxBox?.height).toBeGreaterThanOrEqual(20);
+    expect(checkboxBox?.width).toBeGreaterThanOrEqual(20);
+  }
+
+  const firstSelection = selections.first();
+  await firstSelection.focus();
+  await expect(firstSelection).toBeFocused();
+  await firstSelection.press("Space");
+  await expect(firstSelection).toBeChecked();
+});
