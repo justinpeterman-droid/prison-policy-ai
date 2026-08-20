@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 420" role="img" aria-labelledby="title desc">
+  <title id="title">Mountain landscape</title>
+  <desc id="desc">A stylized layered mountain landscape used as decorative workspace scenery.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#41667f"/>
+      <stop offset="0.52" stop-color="#244963"/>
+      <stop offset="1" stop-color="#0a2c49"/>
+    </linearGradient>
+    <linearGradient id="far" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8aa2b2"/>
+      <stop offset="1" stop-color="#526f82"/>
+    </linearGradient>
+    <linearGradient id="mid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#456a80"/>
+      <stop offset="1" stop-color="#1f495f"/>
+    </linearGradient>
+    <linearGradient id="near" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#21485f"/>
+      <stop offset="1" stop-color="#08283f"/>
+    </linearGradient>
+    <radialGradient id="mist" cx="55%" cy="34%" r="56%">
+      <stop offset="0" stop-color="#d8e4e8" stop-opacity=".34"/>
+      <stop offset="1" stop-color="#d8e4e8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="320" height="420" fill="url(#sky)"/>
+  <rect width="320" height="420" fill="url(#mist)"/>
+  <path d="M0 210 55 164 91 191 136 126 179 177 222 112 270 166 320 135V420H0Z" fill="url(#far)" opacity=".9"/>
+  <path d="m93 191 43-65 18 28 24 23 44-65 22 34 26 20 50-31v92H0v-17l55-46z" fill="#dce7eb" opacity=".18"/>
+  <path d="M0 267 49 220 84 246 126 194 161 224 207 166 247 218 283 188 320 214V420H0Z" fill="url(#mid)"/>
+  <path d="M0 316 58 262 105 297 148 242 189 285 237 232 274 267 320 238V420H0Z" fill="url(#near)"/>
+  <g fill="#081f33" opacity=".9">
+    <path d="M0 348 18 318 35 351 54 307 76 350 93 323 112 356 130 315 153 353 170 321 188 357 207 309 229 353 247 321 265 356 285 305 306 350 320 330V420H0Z"/>
+  </g>
+  <g fill="#15384f" opacity=".82">
+    <path d="M17 337h5l-2-21 10 14-7-18 9 8-11-26-11 26 9-8-7 18 9-14-2 21z"/>
+    <path d="M82 350h5l-2-22 11 14-8-18 10 8-12-28-12 28 10-8-8 18 10-14-2 22z"/>
+    <path d="M150 345h5l-2-22 10 14-7-18 9 8-11-27-11 27 9-8-7 18 9-14-2 22z"/>
+    <path d="M224 350h5l-2-23 11 15-8-19 10 8-12-29-12 29 10-8-8 19 10-15-2 23z"/>
+    <path d="M291 340h5l-2-22 10 14-7-18 9 8-11-27-11 27 9-8-7 18 9-14-2 22z"/>
+  </g>
+  <rect y="374" width="320" height="46" fill="#061d31" opacity=".78"/>
+</svg>
