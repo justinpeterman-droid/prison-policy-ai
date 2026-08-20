@@ -139,11 +139,8 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
-    print("Seeded fictional local accounts:")
-    for spec in FICTIONAL_ACCOUNTS:
-        label = "Administrator" if spec["role"] == "admin" else "Officer"
-        print(f"  {label}: {spec['employee_number']}")
-    print("Local PINs are documented in docs/local-fictional-accounts.md")
+    print("Seeded standard fictional local accounts.")
+    print("Credentials are documented in docs/local-fictional-accounts.md")
     return 0
 
 
