@@ -7,7 +7,7 @@ python -m alembic upgrade head
 python scripts/seed_fictional_accounts.py
 ```
 
-The command reads `DATABASE_URL` and refuses to run unless it points to a loopback PostgreSQL host (`localhost`, `127.0.0.1`, or `::1`). It is intentionally not a production staff-provisioning tool.
+The command reads `DATABASE_URL` and refuses to run unless it points to a loopback PostgreSQL host (`localhost`, `127.0.0.1`, or `::1`) **with no URI query parameters**. Query parameters are rejected because libpq/psycopg connection options such as `host`, `hostaddr`, or `service` can redirect an apparently local URI to a different database. It is intentionally not a production staff-provisioning tool.
 
 The command is safe to rerun. Existing fictional rows are refreshed to the same local fixture values rather than duplicated, and existing sessions for those accounts are invalidated through the account authorization version.
 
