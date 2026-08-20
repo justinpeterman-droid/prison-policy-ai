@@ -110,7 +110,7 @@
   border: var(--gow-border-standard-rule, 1px solid #cbd7e1);
   border-radius: var(--gow-radius-card, 16px);
   box-shadow: var(--gow-shadow-surface-refined, 0 10px 24px rgba(19, 53, 83, 0.08));
-  transition: transform 160ms var(--gow-ease, ease), box-shadow 180ms var(--gow-ease, ease);
+  transition: transform var(--gow-duration-control, 160ms) var(--gow-ease, ease), box-shadow var(--gow-duration-panel, 180ms) var(--gow-ease, ease);
 }
 
 .officer-home-action-card:hover {
@@ -182,13 +182,13 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 48px;
+  min-height: var(--gow-control-height-major, 48px);
   margin-top: auto;
   padding: 0 15px;
-  color: #fff;
+  color: var(--gow-button-secondary-ink, #fff);
   text-decoration: none;
-  background: var(--gow-button-navy, linear-gradient(180deg, #176aa6, #0e4f83));
-  border: 1px solid var(--gow-button-navy-border, #0b4675);
+  background: var(--gow-button-secondary-background, linear-gradient(180deg, #176aa6, #0e4f83));
+  border: 1px solid var(--gow-button-secondary-border, #0b4675);
   border-radius: var(--gow-radius-control, 10px);
   box-shadow: var(--gow-shadow-button-navy, 0 5px 12px rgba(13, 79, 131, 0.2));
   font-size: var(--gow-type-control, 0.78rem);
@@ -197,9 +197,9 @@
 
 .officer-home-action-link.primary,
 .officer-home-continue-link {
-  color: var(--gow-button-gold-ink, #172f4d);
-  background: var(--gow-button-gold, linear-gradient(180deg, #e3b64f, #b97814));
-  border-color: var(--gow-button-gold-border, #9b650e);
+  color: var(--gow-button-primary-ink, #172f4d);
+  background: var(--gow-button-primary-background, linear-gradient(180deg, #e3b64f, #b97814));
+  border-color: var(--gow-button-primary-border, #9b650e);
   box-shadow: var(--gow-shadow-button-gold, 0 5px 12px rgba(132, 82, 9, 0.22));
 }
 
@@ -220,7 +220,7 @@
   padding: 28px;
   color: var(--gow-muted, #63758a);
   text-align: center;
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--gow-surface-empty, rgba(255, 255, 255, 0.86));
   border: 1px dashed #b8c9d7;
   border-radius: 15px;
 }
@@ -667,7 +667,7 @@
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .officer-home-action-card:hover {
-    transform: translateY(-3px);
+    transform: translateY(var(--gow-travel-hover, -3px));
   }
 }
 

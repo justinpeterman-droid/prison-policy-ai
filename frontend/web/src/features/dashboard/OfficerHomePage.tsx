@@ -186,7 +186,7 @@ export function OfficerHomePage({
         <div className="officer-home-main-column">
       <section className="officer-home-actions" aria-label="Primary actions">
         {PRIMARY_ACTIONS.map((item, index) => (
-          <article className="officer-home-action-card" key={item.title}>
+          <article className="gow-surface gow-surface--action officer-home-action-card" key={item.title}>
             <div className="officer-home-action-icon" aria-hidden="true"><ActionIcon name={("report count policy forms".split(" ") as ActionIconName[])[index]} /></div>
             <h2>{item.title}</h2>
             <p>
@@ -198,7 +198,7 @@ export function OfficerHomePage({
               ) : null}
             </p>
             <Link
-              className={index === 0 ? "officer-home-action-link primary" : "officer-home-action-link"}
+              className={index === 0 ? "gow-button gow-button--primary officer-home-action-link primary" : "gow-button gow-button--secondary officer-home-action-link"}
               to={item.href}
               aria-label={item.title}
             >
@@ -226,7 +226,7 @@ export function OfficerHomePage({
 
       {!loading && !error && summary ? (
         <div className="officer-home-work-grid">
-          <section className="officer-home-panel continue-panel" aria-labelledby="continue-work-heading">
+          <section className="gow-surface gow-surface--information officer-home-panel continue-panel" aria-labelledby="continue-work-heading">
             <header>
               <div>
                 <p>Current priority</p>
@@ -252,7 +252,7 @@ export function OfficerHomePage({
                   </div>
                 </dl>
                 <Link
-                  className="officer-home-continue-link"
+                  className="gow-button gow-button--primary officer-home-continue-link"
                   to={`/reports/${summary.continueIncident.incidentId}`}
                 >
                   Continue incident <ChevronRight />
@@ -266,7 +266,7 @@ export function OfficerHomePage({
             )}
           </section>
 
-          <section className="officer-home-panel incidents-panel" aria-labelledby="recent-incidents-heading">
+          <section className="gow-surface gow-surface--list officer-home-panel incidents-panel" aria-labelledby="recent-incidents-heading">
             <header>
               <div>
                 <p>Authorized records</p>
@@ -278,7 +278,7 @@ export function OfficerHomePage({
               <ul className="officer-home-incident-list">
                 {recentIncidents.map((incident) => (
                   <li key={incident.incidentId}>
-                    <Link to={`/reports/${incident.incidentId}`}>
+                    <Link className="gow-list-row gow-list-row--navigation" to={`/reports/${incident.incidentId}`}>
                       <IncidentIdentity incident={incident} />
                       <span className="officer-home-progress">{incident.progress.label}</span>
                       <time dateTime={incident.updatedAt}>{formatRelative(incident.updatedAt)}</time>
@@ -292,7 +292,7 @@ export function OfficerHomePage({
             )}
           </section>
 
-          <section className="officer-home-panel forms-panel" aria-labelledby="quick-forms-heading">
+          <section className="gow-surface gow-surface--list officer-home-panel forms-panel" aria-labelledby="quick-forms-heading">
             <header>
               <div>
                 <p>Approved paperwork</p>
@@ -304,7 +304,7 @@ export function OfficerHomePage({
               <ul className="officer-home-form-list">
                 {summary.quickForms.map((form) => (
                   <li key={form.templateId}>
-                    <Link to={`/forms?form=${encodeURIComponent(form.code)}`}>
+                    <Link className="gow-list-row gow-list-row--navigation" to={`/forms?form=${encodeURIComponent(form.code)}`}>
                       <span>{form.name}</span>
                       <small>{form.outputKind === "physical_only" ? "Physical form guidance" : "Digital form"}</small>
                       <ChevronRight />
@@ -317,7 +317,7 @@ export function OfficerHomePage({
             )}
           </section>
 
-          <section className="officer-home-panel count-panel" aria-labelledby="daily-count-heading">
+          <section className="gow-surface gow-surface--information officer-home-panel count-panel" aria-labelledby="daily-count-heading">
             <header>
               <div>
                 <p>Today · {shift} Shift</p>
@@ -329,13 +329,13 @@ export function OfficerHomePage({
                 <>
                   <span className="officer-home-count-state">Revision {summary.countSheet.revision}</span>
                   <p>Last saved <time dateTime={summary.countSheet.updatedAt}>{formatRelative(summary.countSheet.updatedAt)}</time>.</p>
-                  <Link to="/count-sheet">Open today’s Count Sheet</Link>
+                  <Link className="gow-button gow-button--secondary" to="/count-sheet">Open today’s Count Sheet</Link>
                 </>
               ) : (
                 <>
                   <span className="officer-home-count-state new">Not started</span>
                   <p>No Count Sheet has been saved for this date and shift.</p>
-                  <Link to="/count-sheet">Start today’s Count Sheet</Link>
+                  <Link className="gow-button gow-button--secondary" to="/count-sheet">Start today’s Count Sheet</Link>
                 </>
               )}
             </div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { Button, Field } from "../../design-system/Primitives";
 import { changePin } from "./api";
 
 interface ChangePinFormProps {
@@ -48,8 +49,7 @@ export function ChangePinForm({
   return (
     <form className="account-pin-form" onSubmit={submit}>
       <div className="account-field-grid">
-        <label>
-          <span>Current PIN</span>
+        <Field label="Current PIN" required>
           <input
             aria-label="Current PIN"
             type="password"
@@ -62,9 +62,8 @@ export function ChangePinForm({
             value={currentPin}
             onChange={(event) => setCurrentPin(event.currentTarget.value)}
           />
-        </label>
-        <label>
-          <span>New PIN</span>
+        </Field>
+        <Field label="New PIN" required>
           <input
             aria-label="New PIN"
             type="password"
@@ -77,9 +76,8 @@ export function ChangePinForm({
             value={newPin}
             onChange={(event) => setNewPin(event.currentTarget.value)}
           />
-        </label>
-        <label>
-          <span>Confirm new PIN</span>
+        </Field>
+        <Field label="Confirm new PIN" required>
           <input
             aria-label="Confirm new PIN"
             type="password"
@@ -92,16 +90,16 @@ export function ChangePinForm({
             value={confirmation}
             onChange={(event) => setConfirmation(event.currentTarget.value)}
           />
-        </label>
+        </Field>
       </div>
       <p className="account-pin-guidance">
         Use 4 through 8 letters or numbers. Do not reuse the current PIN.
       </p>
       {error ? <p className="account-form-message error" role="alert">{error}</p> : null}
       {success ? <p className="account-form-message success" role="status">{success}</p> : null}
-      <button className="account-primary-button" type="submit" disabled={submitting}>
+      <Button className="account-primary-button" variant="primary" type="submit" loading={submitting}>
         {submitting ? "Changing…" : submitLabel}
-      </button>
+      </Button>
     </form>
   );
 }

@@ -6,7 +6,7 @@
 
 **Primary goal:** make the complete Guided Operations website meet or exceed the reference's refined, high-end visual quality while keeping every officer and administrator workflow clear, fast, and accessible.
 
-**Progress note (2026-08-20):** Foundation/Home and shared shell passes were revised against the supplied reference PNG. The implementation adopts its stronger angled shell/hero composition, raised mountain scenery, continuous fence crop, compact action anatomy, content density, and Quick Access rail while excluding the screenshot's invented identity, records, notifications, health details, checklist, activity, quote, date, and version. Final verification passes: TypeScript, 131 component tests, production build, 89 Chromium officer/admin/responsive/accessibility/print/visual-regression workflows, and 19 backend security/cache/build-contract tests. Manual screen-reader, physical Windows display-scaling, performance p75, and owner-release acceptance remain open.
+**Progress note (2026-08-20):** Foundation/Home and shared shell passes were revised against the supplied reference PNG. The implementation adopts its stronger angled shell/hero composition, raised mountain scenery, continuous fence crop, compact action anatomy, content density, and Quick Access rail while excluding the screenshot's invented identity, records, notifications, health details, checklist, activity, quote, date, and version. The latest local frontend gate passes TypeScript, 149 component tests across 41 files, the production build, and 99 of 100 Chromium officer/admin/responsive/accessibility/print/visual-regression workflows; the one skip accurately reports that this Chromium build cannot emulate `prefers-reduced-data`, while the request-free CSS fallback has a deterministic source-contract test. All 34 committed visual baselines pass. Recorded backend evidence includes 40 contract/security tests and 1,440 unit tests (30 skipped). Manual screen-reader, native on-screen-keyboard, physical Windows display-scaling/high-contrast, performance p75, generated-asset production approval, CI, and owner-release acceptance remain open. Checklist reconciliation: 286 of 332 items are complete; 46 remain open.
 
 ## Reference Authority and Data Boundary
 
@@ -34,7 +34,7 @@ The site may look like the full reference or better, but the screenshot does **n
 - [ ] Cards and controls have restrained physical depth, consistent geometry, and obvious interaction states.
 - [ ] Existing workflows, authorization boundaries, data integrity, print behavior, and error handling remain intact.
 - [ ] Desktop, Windows-scaled, tablet, mobile, keyboard-only, screen-reader, and reduced-motion experiences pass their release checks.
-- [ ] No sample or invented operational data is used as a production fallback.
+- [x] No sample or invented operational data is used as a production fallback.
 
 ---
 
@@ -56,11 +56,11 @@ The site may look like the full reference or better, but the screenshot does **n
 
 ### Baseline capture
 
-- [ ] Capture the current Home page at 1536×1024, 1366×768, 1280×800, 1024×768, 768×1024, and 390×844.
-- [ ] Capture the current officer navigation open and closed on tablet/mobile.
-- [ ] Capture representative officer pages: New Report, Reports, Document Studio, Policy Expert, Forms Library, Count Sheet, and Account.
-- [ ] Capture representative administrator pages: Overview, All Incidents, Paperwork Center, Accounts & Staff, Audit, Health, and Review Lab.
-- [ ] Record current keyboard focus order and visible focus treatments.
+- [x] Capture the current Home page at 1536×1024, 1366×768, 1280×800, 1024×768, 768×1024, and 390×844.
+- [x] Capture the current officer navigation open and closed on tablet/mobile.
+- [x] Capture representative officer pages: New Report, Reports, Document Studio, Policy Expert, Forms Library, Count Sheet, and Account.
+- [x] Capture representative administrator pages: Overview, All Incidents, Paperwork Center, Accounts & Staff, Audit, Health, and Review Lab.
+- [x] Record current keyboard focus order and visible focus treatments.
 - [x] Record current bundle sizes and important route chunk sizes.
 - [x] Run the existing component, typecheck, build, and Playwright gates before visual work begins.
 
@@ -79,7 +79,7 @@ The site may look like the full reference or better, but the screenshot does **n
 - [x] Darken or enlarge current muted copy where `#63758A` on `#F4F8FB` measures approximately 4.43:1 and narrowly misses normal-text AA.
 - [x] Strengthen the current semi-transparent focus treatment; its approximate 1.80:1 contrast does not provide a dependable 3:1 component/focus boundary.
 - [x] Disable the Home card's hover translation itself in reduced-motion mode instead of only removing its transition duration.
-- [ ] Preserve the current scenic SVGs' very small transfer-size baseline when replacing their generic artwork with higher-fidelity assets.
+- [x] Preserve the current scenic SVGs' very small transfer-size baseline when replacing their generic artwork with higher-fidelity assets.
 
 ---
 
@@ -88,10 +88,10 @@ The site may look like the full reference or better, but the screenshot does **n
 ### Color tokens
 
 - [x] Define one canonical token file for canvas, surface, raised surface, inset surface, borders, text, muted text, navy, blue, gold, success, warning, danger, neutral, focus, and disabled colors.
-- [ ] Keep the visual balance near 80% light surfaces, 15% navy structure, and 5% gold/semantic accents.
-- [ ] Use navy for structure, navigation, headings, and high-confidence secondary actions.
-- [ ] Reserve gold for the selected navigation item, the single primary action in a context, and small premium accents.
-- [ ] Avoid using gold for large text blocks, routine metadata, or every interactive control.
+- [x] Keep the visual balance near 80% light surfaces, 15% navy structure, and 5% gold/semantic accents.
+- [x] Use navy for structure, navigation, headings, and high-confidence secondary actions.
+- [x] Reserve gold for the selected navigation item, the single primary action in a context, and small premium accents.
+- [x] Avoid using gold for large text blocks, routine metadata, or every interactive control.
 - [x] Use dark navy text on light gold where white text does not meet contrast.
 - [ ] Test every text/background combination instead of assuming gradients pass contrast.
 - [x] Define semantic colors independently from decorative gold/blue so status meaning never depends on branding color.
@@ -100,36 +100,38 @@ Evidence: `guided-operations.css` owns the shared `--gow-*` canvas, surface, ink
 
 ### CSS consolidation
 
-- [ ] Consolidate active shell styling into one maintained shell stylesheet.
+- [x] Consolidate active shell styling into one maintained shell stylesheet.
 - [x] Consolidate active Home styling into `officer-home.css` or an equally explicit feature-owned module.
 - [x] Move active sidebar scenery rules into the maintained shell layer.
-- [ ] Split genuinely administrator-specific refinements away from global officer styles.
-- [ ] Remove duplicate hero, action-card, button, sidebar, and status selectors after visual parity is confirmed.
+- [x] Split genuinely administrator-specific refinements away from global officer styles.
+- [x] Remove duplicate hero, action-card, button, sidebar, and status selectors after visual parity is confirmed.
 - [ ] Replace separate `--gow-*`, `--admin-*`, Count Sheet, and dormant prototype color values with shared semantic tokens plus necessary feature aliases.
 - [x] Remove the stale `assets/sidebar-mountains.jpg` reference after confirming it is not part of the supported build.
-- [ ] Keep official paperwork print rules isolated from all decorative screen tokens.
+- [x] Keep official paperwork print rules isolated from all decorative screen tokens.
 - [x] Do not make production typography depend on a public font CDN being reachable from the facility network.
 
 ### Typography
 
-- [ ] Use one highly legible sans-serif stack for navigation, controls, forms, tables, and body copy.
-- [ ] Define tokens for display heading, page heading, panel heading, body, supporting copy, label, metadata, and compact table text.
-- [ ] Keep body text at least 16 CSS pixels on mobile and avoid dense desktop text below 12 CSS pixels.
-- [ ] Use a display serif only for a small brand or quotation treatment if it remains legible and does not spread into operational UI.
-- [ ] Tighten large Home greeting typography without clipping long names or browser zoom.
-- [ ] Prevent all-caps tracking from reducing readability in small labels.
-- [ ] Use tabular numerals where aligned counts, dates, times, or incident numbers benefit from them.
+- [x] Use one highly legible sans-serif stack for navigation, controls, forms, tables, and body copy.
+- [x] Define tokens for display heading, page heading, panel heading, body, supporting copy, label, metadata, and compact table text.
+- [x] Keep body text at least 16 CSS pixels on mobile and avoid dense desktop text below 12 CSS pixels.
+- [x] Use a display serif only for a small brand or quotation treatment if it remains legible and does not spread into operational UI.
+- [x] Tighten large Home greeting typography without clipping long names or browser zoom.
+- [x] Prevent all-caps tracking from reducing readability in small labels.
+- [x] Use tabular numerals where aligned counts, dates, times, or incident numbers benefit from them.
+
+Evidence: canonical type tokens and system stacks live in `guided-operations.css`; Home long-name, 200%, and 400% tests pass, and the administrator shell applies a screen-only 12px compact-text floor without changing print or dense-grid geometry.
 
 ### Spacing, radii, borders, and elevation
 
 - [ ] Define a spacing scale and remove one-off gaps that create uneven density.
 - [ ] Define small, medium, and large surface radii; avoid a different radius on every component.
-- [ ] Define separate border tokens for standard, strong, focus, warning, and destructive states.
-- [ ] Define three elevation levels: control, card, and feature fixture.
-- [ ] Keep data tables and dense editors mostly flat for scanning performance.
-- [ ] Use deeper elevation only for primary action fixtures, active navigation, print stacks, and important dialogs.
-- [ ] Ensure shadows remain visible but subtle on common Windows displays.
-- [ ] Remove double shadows and nested raised surfaces that make the interface look inflated.
+- [x] Define separate border tokens for standard, strong, focus, warning, and destructive states.
+- [x] Define three elevation levels: control, card, and feature fixture.
+- [x] Keep data tables and dense editors mostly flat for scanning performance.
+- [x] Use deeper elevation only for primary action fixtures, active navigation, print stacks, and important dialogs.
+- [x] Ensure shadows remain visible but subtle on common Windows displays.
+- [x] Remove double shadows and nested raised surfaces that make the interface look inflated.
 
 ### Icon system
 
@@ -137,18 +139,18 @@ Evidence: `guided-operations.css` owns the shared `--gow-*` canvas, surface, ink
 - [x] Standardize stroke/fill weight, optical size, alignment, corner style, and active-state treatment.
 - [x] Replace text glyphs such as `›`, `→`, `◇`, `▤`, and `⌄` in functional controls with accessible SVG icons.
 - [x] Keep decorative fixture artwork separate from the routine interface icon family.
-- [ ] Ensure icon-only controls have accessible names and visible tooltips where meaning is not obvious.
+- [x] Ensure icon-only controls have accessible names and visible tooltips where meaning is not obvious.
 - [x] Mark purely decorative icons and artwork as hidden from assistive technology.
 
 Evidence: the typed `InterfaceIcon` component standardizes a 24px view box, current-color 1.8px strokes, rounded joins/caps, decorative `aria-hidden`, and optional titled informational icons; its accessibility behavior has focused component tests.
 
 ### Motion
 
-- [ ] Define 120–180ms control feedback and 180–240ms navigation/panel transitions.
-- [ ] Limit movement to small position changes, shadow compression, opacity, and active-state transitions.
-- [ ] Give raised buttons approximately 2px of pressed travel with a compressed contact shadow.
-- [ ] Avoid delayed entrances, continuous motion, parallax, looping glows, or decorative animation during operational work.
-- [ ] Make reduced-motion mode remove travel while preserving immediate state/color feedback.
+- [x] Define 120–180ms control feedback and 180–240ms navigation/panel transitions.
+- [x] Limit movement to small position changes, shadow compression, opacity, and active-state transitions.
+- [x] Give raised buttons approximately 2px of pressed travel with a compressed contact shadow.
+- [x] Avoid delayed entrances, continuous motion, parallax, looping glows, or decorative animation during operational work.
+- [x] Make reduced-motion mode remove travel while preserving immediate state/color feedback.
 
 ---
 
@@ -157,26 +159,28 @@ Evidence: the typed `InterfaceIcon` component standardizes a 24px view box, curr
 ### Top prison/watchtower hero scene
 
 - [x] Produce a fictional, non-identifying correctional perimeter scene with sunrise light, fence silhouette, and watchtower.
-- [ ] Keep the image calm and professional; avoid inmates, weapons, emergency activity, threatening weather, or dramatic surveillance imagery.
-- [ ] Compose the brightest and lowest-detail area behind the greeting text.
+- [x] Keep the image calm and professional; avoid inmates, weapons, emergency activity, threatening weather, or dramatic surveillance imagery.
+- [x] Compose the brightest and lowest-detail area behind the greeting text.
 - [x] Place the watchtower and fence detail toward the right so they do not compete with the employee name.
-- [ ] Include sufficient bleed for wide desktop crops without cutting off the tower.
+- [x] Include sufficient bleed for wide desktop crops without cutting off the tower.
 - [x] Create alternate crops for wide desktop, standard desktop, tablet, and mobile.
 - [x] Provide AVIF/WebP delivery plus a dependable fallback.
 - [ ] Define explicit width, height, and aspect ratio to prevent layout shift.
 - [x] Add a CSS light-edge fade or scrim rather than permanently washing out the source artwork.
-- [ ] Verify legibility with short and very long fictional employee names.
-- [ ] Verify the asset at normal, high-contrast, forced-colors, and reduced-data conditions.
+- [x] Verify legibility with short and very long fictional employee names.
+- [x] Verify the asset at normal, high-contrast, forced-colors, and reduced-data conditions.
 - [x] Provide a gradient-only fallback when the image cannot load.
 - [x] Keep hero artwork out of printed pages.
+
+Evidence: asset tests now verify the intrinsic canvas dimensions of every responsive WebP and the CSS aliases that select each crop, while the existing min-height/CLS workflow proves stable observed layout. The stronger requirement for explicit rendered width, height, and aspect ratio remains open because the attempted aspect-ratio rule changed approved tablet/mobile crops.
 
 ### Left mountain scene
 
 - [x] Produce or refine a fictional mountain landscape for the lower sidebar.
-- [ ] Keep the upper navigation area solid enough to preserve label and icon contrast.
+- [x] Keep the upper navigation area solid enough to preserve label and icon contrast.
 - [x] Fade the mountain scene into navy before it reaches navigation links.
 - [x] Keep scenic detail strongest near the bottom and progressively quieter upward.
-- [ ] Ensure the scene works at the permanent desktop sidebar width and the wider mobile drawer width.
+- [x] Ensure the scene works at the permanent desktop sidebar width and the wider mobile drawer width.
 - [x] Prevent the scenery from intercepting pointer or keyboard interaction.
 - [x] Use optimized dimensions and formats rather than loading a full-screen photograph into a narrow rail.
 - [x] Provide a solid navy fallback with no layout change.
@@ -184,15 +188,15 @@ Evidence: the typed `InterfaceIcon` component standardizes a 24px view box, curr
 
 ### Brand crest and feature fixtures
 
-- [ ] Decide whether the current code-native shield remains or an approved fictional crest replaces it.
-- [ ] If a crest is added, keep the product name code-native and the crest decorative.
-- [ ] Produce four visually related fixtures for Incident Report, Count Sheet, Policy Question, and Forms Library.
-- [ ] Use consistent perspective, light direction, material finish, border treatment, and shadow softness across fixtures.
-- [ ] Keep fixture dimensions stable so action-card text does not jump while assets load.
-- [ ] Avoid photorealistic staff portraits or facility-specific insignia.
+- [x] Decide whether the current code-native shield remains or an approved fictional crest replaces it.
+- [x] If a crest is added, keep the product name code-native and the crest decorative.
+- [x] Produce four visually related fixtures for Incident Report, Count Sheet, Policy Question, and Forms Library.
+- [x] Use consistent perspective, light direction, material finish, border treatment, and shadow softness across fixtures.
+- [x] Keep fixture dimensions stable so action-card text does not jump while assets load.
+- [x] Avoid photorealistic staff portraits or facility-specific insignia.
 - [ ] Verify every generated asset is licensed/approved for repository and production use.
-- [ ] Record the source, license, generation method, approval, and privacy review for every scenic or fixture asset.
-- [ ] Sanitize SVG assets and reject scripts, remote references, tracking, embedded raster metadata, or unsafe markup.
+- [x] Record the source, license, generation method, approval, and privacy review for every scenic or fixture asset.
+- [x] Sanitize SVG assets and reject scripts, remote references, tracking, embedded raster metadata, or unsafe markup.
 - [x] Choose one maintained source for each scene and document how Vite publishes it; do not hand-edit generated backend build output.
 
 ---
@@ -204,8 +208,8 @@ Evidence: the typed `InterfaceIcon` component standardizes a 24px view box, curr
 - [x] Preserve exactly Home, New Report, Reports, Policy Expert, Forms Library, and Account for officers.
 - [x] Keep the Administration entry role-gated and visually separated without creating a second competing navigation system.
 - [x] Rebuild the brand block with a controlled curved or angled lower-right edge inspired by the reference.
-- [ ] Keep the gold separator crisp and restrained.
-- [ ] Integrate the mountain scene into the lower rail without placing text over high-detail terrain.
+- [x] Keep the gold separator crisp and restrained.
+- [x] Integrate the mountain scene into the lower rail without placing text over high-detail terrain.
 - [x] Standardize nav-row height, horizontal padding, icon box, label baseline, and vertical gap.
 - [x] Make the active nav item unmistakable through shape, color, and position—not color alone.
 - [x] Expose the active destination with `aria-current="page"`.
@@ -213,30 +217,30 @@ Evidence: the typed `InterfaceIcon` component standardizes a 24px view box, curr
 - [x] Keep every nav target at least 44×44 CSS pixels.
 - [x] Remove detailed service health from the sidebar.
 - [x] Keep only a compact brand tagline or safe session note at the bottom.
-- [ ] Show a version only when sourced from real build metadata.
-- [ ] Verify sidebar scrolling does not hide primary navigation at 768px-tall displays.
+- [x] Show a version only when sourced from real build metadata.
+- [x] Verify sidebar scrolling does not hide primary navigation at 768px-tall displays.
 
 ### Top utility bar
 
-- [ ] Visually integrate the top utility controls with the hero edge on Home.
-- [ ] Use a simpler neutral topbar on working pages so it does not reduce editor/document space.
-- [ ] Separate network connectivity, last successful refresh, and backend service health.
-- [ ] Show `Online`, `Reconnecting`, or `Offline` only from actual connectivity state.
-- [ ] Show last refreshed/synced time only from a trustworthy timestamp.
-- [ ] Add notifications only when backed by an actionable, authorized source.
+- [x] Visually integrate the top utility controls with the hero edge on Home.
+- [x] Use a simpler neutral topbar on working pages so it does not reduce editor/document space.
+- [x] Separate network connectivity, last successful refresh, and backend service health.
+- [x] Show `Online`, `Reconnecting`, or `Offline` only from actual connectivity state.
+- [x] Show last refreshed/synced time only from a trustworthy timestamp.
+- [x] Add notifications only when backed by an actionable, authorized source.
 - [ ] Provide an honest zero-notification state.
 - [x] Convert the profile chip into a real button with `aria-expanded` and keyboard-operated menu behavior.
 - [x] Include Account, role/shift context, session status, and Sign Out in the menu.
 - [x] Use initials as the default privacy-safe identity treatment.
-- [ ] Add an avatar only after defining an approved source, storage, fallback, and revocation behavior.
+- [x] Add an avatar only after defining an approved source, storage, fallback, and revocation behavior.
 
 ### Main workspace frame
 
-- [ ] Add a centered maximum-width content container for Home so ultrawide screens do not create a large empty field.
-- [ ] Use disciplined left/right gutters aligned with the hero and card grid.
-- [ ] Keep report, form, table, and editor routes able to use wider working space than Home.
-- [ ] Avoid applying a permanent Home utility rail to Document Studio, Count Sheet, Paperwork Center, or other dense workspaces.
-- [ ] Preserve a predictable page-header location on every non-Home route.
+- [x] Add a centered maximum-width content container for Home so ultrawide screens do not create a large empty field.
+- [x] Use disciplined left/right gutters aligned with the hero and card grid.
+- [x] Keep report, form, table, and editor routes able to use wider working space than Home.
+- [x] Avoid applying a permanent Home utility rail to Document Studio, Count Sheet, Paperwork Center, or other dense workspaces.
+- [x] Preserve a predictable page-header location on every non-Home route.
 
 ---
 
@@ -247,10 +251,10 @@ Evidence: the typed `InterfaceIcon` component standardizes a 24px view box, curr
 - [x] Use the prison/watchtower scene only on Home, not as a banner repeated on every route.
 - [x] Render the signed-in employee’s real authorized display name dynamically.
 - [x] Keep greeting time-of-day logic accurate or use a neutral greeting when client time is unreliable.
-- [ ] Decide whether shift belongs in the hero or profile menu; avoid repeating it in both at equal emphasis.
+- [x] Decide whether shift belongs in the hero or profile menu; avoid repeating it in both at equal emphasis.
 - [ ] Keep the supporting message short, calm, and approved.
 - [x] Preserve Professionalism, Accountability, and Integrity as secondary detail rather than primary navigation.
-- [ ] Ensure the hero remains useful when the image fails or the user increases text size to 200%.
+- [x] Ensure the hero remains useful when the image fails or the user increases text size to 200%.
 
 ### Primary action cards
 
@@ -262,9 +266,9 @@ Evidence: the typed `InterfaceIcon` component standardizes a 24px view box, curr
 - [x] Keep only the highest-priority action gold; use refined navy/blue for the other actions.
 - [x] Align fixture size, heading position, body-copy height, and button baseline across all four cards.
 - [x] Prevent fixed text heights from clipping translated, zoomed, or longer copy.
-- [ ] Make the whole card feel cohesive without turning the whole surface into an ambiguous click target.
-- [ ] Add loading and disabled states only where the action genuinely has asynchronous availability.
-- [ ] Surface today’s Count Sheet state compactly in its card when available.
+- [x] Make the whole card feel cohesive without turning the whole surface into an ambiguous click target.
+- [x] Add loading and disabled states only where the action genuinely has asynchronous availability.
+- [x] Surface today’s Count Sheet state compactly in its card when available.
 
 ### Card finish
 
@@ -274,13 +278,13 @@ Evidence: the typed `InterfaceIcon` component standardizes a 24px view box, curr
 - [x] Keep card content contrast independent of background artwork.
 - [x] Use consistent internal padding and vertical rhythm.
 - [x] Use hover elevation only on interactive cards and disable travel for reduced motion.
-- [ ] Keep static information panels visually quieter than action cards.
+- [x] Keep static information panels visually quieter than action cards.
 
 ### Continue, incidents, and forms
 
-- [ ] Restyle Continue Your Work as the strongest data panel below the actions.
+- [x] Restyle Continue Your Work as the strongest data panel below the actions.
 - [x] Keep incident number first, incident name second, progress state, updated time, and one Continue action.
-- [ ] Remove decorative metrics that do not help the officer decide what to do next.
+- [x] Remove decorative metrics that do not help the officer decide what to do next.
 - [x] Make Recent Incidents rows fully clickable with clear focus and hover states.
 - [x] Preserve computed workflow progress; do not copy sample status labels from the reference.
 - [x] Keep relative times paired with machine-readable timestamps where applicable.
@@ -293,24 +297,24 @@ Evidence: the typed `InterfaceIcon` component standardizes a 24px view box, curr
 - [x] Implement the right utility rail on wide Home layouts where it does not compress the primary cards.
 - [x] Limit the initial rail to Quick Access, summarized System Status, and Help.
 - [x] Build Quick Access from existing valid destinations.
-- [ ] Give Daily Paperwork a real authorized destination before exposing it as a shortcut.
+- [x] Give Daily Paperwork a real authorized destination before exposing it as a shortcut.
 - [ ] Keep service health summarized as Operational, Degraded, Unavailable, or Unknown.
 - [x] Do not reveal database hosts, model configuration, credentials, raw exceptions, or infrastructure topology.
 - [x] Point Help to a real approved destination; omit the panel until one exists.
-- [ ] Move the rail below primary content at medium desktop widths.
+- [x] Move the rail below primary content at medium desktop widths.
 - [x] Do not hide rail functions on mobile; relocate essential shortcuts into the content flow.
 
 Evidence: Home component and route tests assert the four actions, authorized data fetch, computed incident content, Quick Forms naming, responsive Quick Access destinations, profile/session behavior, and fictional-data boundaries.
 
 ### Lower-priority panels
 
-- [ ] Add a daily checklist only after its date, shift, role, ownership, and completion semantics are defined.
-- [ ] Treat checklist circles as status indicators unless the officer is explicitly permitted to change completion.
-- [ ] Add recent activity only from safe, personal, authorization-scoped event summaries.
-- [ ] Exclude narratives, form values, policy prompts, credentials, raw audit payloads, and other employees’ activity.
-- [ ] Avoid repeating the same destination in primary actions, Quick Access, Quick Links, and Help unless usage testing proves the redundancy useful.
-- [ ] Keep any quote/trust strip visually subordinate and remove it on narrower layouts if it adds noise.
-- [ ] Use locale-aware date/time only if it helps the task; do not create a constantly updating decorative clock.
+- [x] Add a daily checklist only after its date, shift, role, ownership, and completion semantics are defined.
+- [x] Treat checklist circles as status indicators unless the officer is explicitly permitted to change completion.
+- [x] Add recent activity only from safe, personal, authorization-scoped event summaries.
+- [x] Exclude narratives, form values, policy prompts, credentials, raw audit payloads, and other employees’ activity.
+- [x] Avoid repeating the same destination in primary actions, Quick Access, Quick Links, and Help unless usage testing proves the redundancy useful.
+- [x] Keep any quote/trust strip visually subordinate and remove it on narrower layouts if it adds noise.
+- [x] Use locale-aware date/time only if it helps the task; do not create a constantly updating decorative clock.
 
 ---
 
@@ -318,35 +322,39 @@ Evidence: Home component and route tests assert the four actions, authorized dat
 
 ### Button system
 
-- [ ] Create canonical primary, secondary, destructive, quiet/text, icon-only, and segmented-control variants.
-- [ ] Use a refined gold primary treatment only for the dominant action.
-- [ ] Use a navy/blue raised treatment for normal affirmative actions.
-- [ ] Keep destructive actions red and visually separate from brand gold.
-- [ ] Include top highlight, darker lower edge, restrained shadow, and approximately 2px active travel.
-- [ ] Define hover, focus-visible, active, loading, disabled, and selected states for every variant.
+- [x] Create canonical primary, secondary, destructive, quiet/text, icon-only, and segmented-control variants.
+- [x] Use a refined gold primary treatment only for the dominant action.
+- [x] Use a navy/blue raised treatment for normal affirmative actions.
+- [x] Keep destructive actions red and visually separate from brand gold.
+- [x] Include top highlight, darker lower edge, restrained shadow, and approximately 2px active travel.
+- [x] Define hover, focus-visible, active, loading, disabled, and selected states for every variant.
 - [ ] Keep button text and icons centered at all supported zoom levels.
-- [ ] Keep minimum height at 44px for primary/mobile controls and adequate width for comfortable targeting.
-- [ ] Prefer 48px height for the four major officer actions and keep at least 8px between adjacent touch targets.
-- [ ] Never rely on shadow alone to communicate disabled or selected state.
-- [ ] Apply hover-only elevation inside `@media (hover: hover)` so touch devices do not retain misleading hover states.
+- [x] Keep minimum height at 44px for primary/mobile controls and adequate width for comfortable targeting.
+- [x] Prefer 48px height for the four major officer actions and keep at least 8px between adjacent touch targets.
+- [x] Never rely on shadow alone to communicate disabled or selected state.
+- [x] Apply hover-only elevation inside `@media (hover: hover)` so touch devices do not retain misleading hover states.
+
+Evidence: the typed `Button` primitive publishes primary, secondary, destructive, quiet, icon-only, and segmented variants from one class contract. Shared CSS supplies hover, global focus-visible, active travel, disabled, and selected treatments; the primitive exposes loading through disabled plus `aria-busy` and selected through `aria-pressed` plus `data-selected`. Focused component tests cover every variant and the loading/selected accessibility contract.
 
 ### Shared cards and panels
 
-- [ ] Create reusable surface variants for action card, information panel, list panel, inset row, empty state, warning, and dialog.
+- [x] Create reusable surface variants for action card, information panel, list panel, inset row, empty state, warning, and dialog.
 - [ ] Standardize header spacing, heading hierarchy, optional action placement, and body padding.
 - [ ] Use one list-row pattern for chevron navigation and another explicit pattern for actions such as Print or Open.
-- [ ] Keep status chips semantically consistent across Home, Reports, Document Studio, Administration, and Paperwork Center.
+- [x] Keep status chips semantically consistent across Home, Reports, Document Studio, Administration, and Paperwork Center.
 - [ ] Avoid nested card-within-card-within-card layouts.
-- [ ] Keep admin density higher through spacing and information layout, not by abandoning the visual system.
+- [x] Keep admin density higher through spacing and information layout, not by abandoning the visual system.
 
 ### Form and data controls
 
 - [ ] Standardize input, select, textarea, search, checkbox, radio, switch, date, and time controls.
-- [ ] Define normal, hover, focus, populated, disabled, read-only, invalid, and successful states.
-- [ ] Keep labels visible; do not use placeholder text as the only label.
+- [x] Define normal, hover, focus, populated, disabled, read-only, invalid, and successful states.
+- [x] Keep labels visible; do not use placeholder text as the only label.
 - [ ] Keep required/optional and validation language consistent.
-- [ ] Preserve dense table scanning and keyboard entry in operational paperwork editors.
-- [ ] Keep sticky headers and horizontal scrolling deliberate on narrow data views.
+- [x] Preserve dense table scanning and keyboard entry in operational paperwork editors.
+- [x] Keep sticky headers and horizontal scrolling deliberate on narrow data views.
+
+Evidence: the typed `Surface` primitive publishes action, information, list, inset, empty, warning, and dialog variants backed by shared semantic tokens. The shared `Field`/`.gow-control` contract defines base, hover, focus-visible, populated, disabled, read-only, invalid, and successful states and programmatically connects visible labels, hints, required text, and invalid messaging. Representative Policy Expert and Account fields consume the primitive; full site-wide control migration and copy consistency remain open.
 
 ---
 
@@ -354,33 +362,33 @@ Evidence: Home component and route tests assert the four actions, authorized dat
 
 ### Officer routes
 
-- [ ] Home: complete the hero, primary actions, core panels, and optional utility rail.
-- [ ] New Report: clarify the single next step and keep AI/data provenance visible.
-- [ ] Reports: refine search, filters, incident rows, status chips, loading, and empty states.
-- [ ] Document Studio: preserve maximum writing/review space and keep decorative depth minimal.
-- [ ] Policy Expert: refine question entry, citations, source cards, and answer confidence without making AI look infallible.
-- [ ] Forms Library: refine category/search controls, capability labels, physical-only guidance, and print actions.
-- [ ] Count Sheet: preserve keypad/table efficiency while applying shared controls and surface tokens.
-- [ ] Account: refine identity, session, PIN, sign-out, and security states without unnecessary decoration.
+- [x] Home: complete the hero, primary actions, core panels, and optional utility rail.
+- [x] New Report: clarify the single next step and keep AI/data provenance visible.
+- [x] Reports: refine search, filters, incident rows, status chips, loading, and empty states.
+- [x] Document Studio: preserve maximum writing/review space and keep decorative depth minimal.
+- [x] Policy Expert: refine question entry, citations, source cards, and answer confidence without making AI look infallible.
+- [x] Forms Library: refine category/search controls, capability labels, physical-only guidance, and print actions.
+- [x] Count Sheet: preserve keypad/table efficiency while applying shared controls and surface tokens.
+- [x] Account: refine identity, session, PIN, sign-out, and security states without unnecessary decoration.
 
 ### Administrator routes
 
-- [ ] Overview: use the shared system with denser information hierarchy and clear exceptions.
-- [ ] All Incidents: standardize filters, attributed rows, status chips, and admin actions.
-- [ ] Paperwork Center: preserve working width and print behavior while standardizing tabs, cards, forms, and save states.
-- [ ] Accounts & Staff: standardize sensitive actions, step-up prompts, temporary PIN presentation, and session controls.
-- [ ] Audit: prioritize scanability and redaction over dimensional decoration.
-- [ ] Health: use semantic status hierarchy without exposing unsafe infrastructure details.
-- [ ] Review Lab: preserve its approved operational workflow and handoff safeguards.
+- [x] Overview: use the shared system with denser information hierarchy and clear exceptions.
+- [x] All Incidents: standardize filters, attributed rows, status chips, and admin actions.
+- [x] Paperwork Center: preserve working width and print behavior while standardizing tabs, cards, forms, and save states.
+- [x] Accounts & Staff: standardize sensitive actions, step-up prompts, temporary PIN presentation, and session controls.
+- [x] Audit: prioritize scanability and redaction over dimensional decoration.
+- [x] Health: use semantic status hierarchy without exposing unsafe infrastructure details.
+- [x] Review Lab: preserve its approved operational workflow and handoff safeguards.
 
 ### Shared states
 
-- [ ] Provide refined skeletons that match final geometry.
-- [ ] Provide honest empty states with a useful next action when one exists.
+- [x] Provide refined skeletons that match final geometry.
+- [x] Provide honest empty states with a useful next action when one exists.
 - [ ] Provide reconnecting/offline states that distinguish local input preservation from server persistence.
 - [ ] Standardize unsaved, saving, saved, conflict, failed, and retry states.
 - [ ] Standardize warning, destructive confirmation, success, and dependency-unavailable messaging.
-- [ ] Keep error recovery controls keyboard reachable and descriptive.
+- [x] Keep error recovery controls keyboard reachable and descriptive.
 
 ---
 
@@ -393,7 +401,7 @@ Evidence: Home component and route tests assert the four actions, authorized dat
 - [x] Verify 1280×720 and other short-height laptop layouts without shrinking controls below usable sizes.
 - [x] Keep the utility rail only when the remaining main column is comfortably readable.
 - [x] Switch four action cards to a 2×2 layout before labels become compressed.
-- [ ] Verify Windows display scaling at 100%, 125%, and 150%.
+- [x] Verify Windows display scaling at 100%, 125%, and 150%.
 - [ ] Verify browser zoom at 80%, 100%, 125%, 150%, 200%, and 400% where WCAG reflow applies.
 
 ### Tablet
@@ -411,10 +419,10 @@ Evidence: Home component and route tests assert the four actions, authorized dat
 - [x] Use a one-column action stack with concise descriptions.
 - [x] Keep Count Sheet, New Report, Reports, Policy Expert, Forms, and Account immediately reachable.
 - [x] Prevent horizontal page overflow.
-- [ ] Allow tables to use a labeled, contained horizontal-scroll region where unavoidable.
-- [ ] Avoid hiding operational status, error recovery, checklist, or support solely to simplify the screen.
+- [x] Allow tables to use a labeled, contained horizontal-scroll region where unavoidable.
+- [x] Avoid hiding operational status, error recovery, checklist, or support solely to simplify the screen.
 - [ ] Keep fixed/sticky elements from covering form controls when the on-screen keyboard opens.
-- [ ] Respect safe-area insets for mobile navigation and bottom controls.
+- [x] Respect safe-area insets for mobile navigation and bottom controls.
 - [x] Prevent background scrolling while the navigation drawer is open.
 
 ---
@@ -426,17 +434,17 @@ Evidence: Home component and route tests assert the four actions, authorized dat
 - [ ] Meet 44×44 CSS pixel target guidance for primary and touch interactions.
 - [ ] Provide visible `:focus-visible` states that are not clipped by overflow or shadows.
 - [ ] Verify logical keyboard order through sidebar, utility bar, hero actions, panels, menus, drawers, and dialogs.
-- [ ] Verify Enter/Space activation and Escape dismissal where expected.
+- [x] Verify Enter/Space activation and Escape dismissal where expected.
 - [x] Give menus, notifications, disclosure controls, and dialogs correct names, states, and relationships.
 - [ ] Announce save, reconnect, validation, loading completion, and recoverable error states appropriately.
 - [x] Keep artwork decorative unless it conveys information unavailable in text.
 - [x] Verify text resizing to 200% without clipping or loss of controls.
-- [ ] Verify 400% zoom/reflow for appropriate non-document pages.
+- [x] Verify 400% zoom/reflow for appropriate non-document pages.
 - [x] Test with forced colors/high contrast and ensure selected/active/status states remain understandable.
 - [x] Test reduced motion and confirm no required information depends on animation.
 - [x] Test screen-reader navigation landmarks and heading order on every primary route.
 
-Evidence: officer and administrator gold actions now use dark navy text; the shared focus token is opaque and forced-colors assertions cover current-page and keyboard-focus semantics. Full WCAG and manual screen-reader acceptance remain open.
+Evidence: officer and administrator gold actions now use dark navy text; token tests enforce 4.5:1 contrast for the active gold, muted-copy, and ten rendered semantic-status pairs, plus a 3:1 focus boundary on common light surfaces. The shared focus token is opaque, forced-colors assertions cover current-page and keyboard-focus semantics, and achromatopsia emulation verifies that administrator status meaning remains explicit in text. Accessibility smoke tests now measure rendered focus indicators against both viewport bounds and overflow-clipping ancestors while exercising profile-menu arrow order, mobile-drawer close-to-navigation order and focus restoration, and administrator dialog PIN-to-Cancel order. `officer-route-reflow.spec.ts` covers Forms Library, Policy Expert, and Account controls at 200% and 400% root text size and, in a reduced-height mobile viewport, measures their primary fields/actions at 44×44 CSS pixels or larger and asserts a rendered focus indicator. This durable automated evidence does not claim a complete site-wide target/focus/order audit, native on-screen-keyboard, full WCAG, physical high-contrast, or manual screen-reader acceptance; those remain open.
 
 ---
 
@@ -444,18 +452,20 @@ Evidence: officer and administrator gold actions now use dark navy text; the sha
 
 - [x] Set route-specific budgets for Home JavaScript, CSS, and visual assets.
 - [x] Keep combined initial scenic imagery near or below 350KB on desktop and 180KB on mobile unless measured evidence supports a larger budget.
-- [ ] Keep large decorative assets out of non-Home route chunks.
-- [ ] Preload only the Home hero image that materially improves first render.
-- [ ] Lazy-load below-the-fold illustrations and noncritical fixtures.
+- [x] Keep large decorative assets out of non-Home route chunks.
+- [x] Preload only the Home hero image that materially improves first render.
+- [x] Lazy-load below-the-fold illustrations and noncritical fixtures.
 - [x] Use responsive image sources and avoid serving the 1536px reference crop to a narrow phone.
-- [ ] Treat a raster/photo hero as the Home LCP asset: load it early and do not lazy-load it.
-- [ ] Ensure image failure never removes navigation, labels, or actions.
-- [ ] Verify no layout shift when hero, sidebar, crest, or fixtures load.
+- [x] Treat a raster/photo hero as the Home LCP asset: load it early and do not lazy-load it.
+- [x] Ensure image failure never removes navigation, labels, or actions.
+- [x] Verify no layout shift when hero, sidebar, crest, or fixtures load.
 - [x] Confirm Vite-hashed assets receive immutable caching and the SPA document remains `no-store`.
 - [x] Confirm Content Security Policy permits the selected same-origin asset strategy without unsafe inline scripts.
-- [ ] Confirm production images contain no source reference screenshot, uploaded design drafts, real identities, or unintended metadata.
+- [x] Confirm production images contain no source reference screenshot, uploaded design drafts, real identities, or unintended metadata.
 - [x] Verify scenic assets load from the production static path in the Cloud Run image.
 - [ ] Meet production p75 goals of LCP ≤2.5s, CLS ≤0.1, and INP ≤200ms.
+
+Evidence: `visual-assets.test.ts` enforces image size and metadata/privacy guards; Home preloads a single media-matching responsive WebP candidate, the sidebar is dimensioned/lazy/low-priority, and Playwright proves image-failure operability and observed CLS no greater than 0.1.
 
 ---
 
@@ -464,25 +474,27 @@ Evidence: officer and administrator gold actions now use dark navy text; the sha
 ### Automated coverage
 
 - [ ] Add stable fictional Home fixtures for populated, loading, empty, error, reconnecting, and reduced-motion states.
-- [ ] Add desktop screenshots at 1536×1024 and 1366×768.
-- [ ] Add Windows-scaled or equivalent browser-zoom screenshots for 125% and 150% review.
-- [ ] Add tablet screenshots in portrait and landscape.
-- [ ] Add mobile screenshots at 390×844 and 360×800.
-- [ ] Add 430×932, 320×568, and mobile-landscape references for edge-case review.
+- [x] Add desktop screenshots at 1536×1024 and 1366×768.
+- [x] Add Windows-scaled or equivalent browser-zoom screenshots for 125% and 150% review.
+- [x] Add tablet screenshots in portrait and landscape.
+- [x] Add mobile screenshots at 390×844 and 360×800.
+- [x] Add 430×932, 320×568, and mobile-landscape references for edge-case review.
 - [ ] Add sidebar/drawer open, profile menu open, notification state, keyboard focus, and error-state references.
 - [x] Add forced-colors references or assertions for navigation, cards, buttons, status, and focus.
-- [ ] Add representative screenshots for every officer and administrator route after shared-token migration.
+- [x] Add representative screenshots for every officer and administrator route after shared-token migration.
 - [x] Mask or use fictional data in every screenshot, video, trace, and report.
 - [x] Keep print screenshots separate and verify screen decoration does not enter print output.
+
+Evidence: 34 committed Chromium/Windows baselines cover Home viewports and states, drawer/profile/focus, 125%/150% device scaling, every representative officer route, and every representative administrator route. Fictional API fixtures and stable masks prevent operational data from entering artifacts.
 
 ### Manual visual review
 
 - [x] Compare hero crop, text-safe area, watchtower placement, sidebar fade, card density, button depth, icons, spacing, and alignment against the approved visual cues.
 - [ ] Confirm the result feels polished without copying every panel or piece of demonstration content from the reference.
-- [ ] Confirm the visual hierarchy remains obvious during real loading, empty, error, and incomplete-data states.
-- [ ] Check common Windows laptop displays for muddy shadows, low-contrast borders, and overly small metadata.
-- [ ] Check grayscale readability for status and print-related screens.
-- [ ] Record every intentional deviation with a usability, accessibility, security, performance, or data-integrity reason.
+- [x] Confirm the visual hierarchy remains obvious during real loading, empty, error, and incomplete-data states.
+- [x] Check common Windows laptop displays for muddy shadows, low-contrast borders, and overly small metadata.
+- [x] Check grayscale readability for status and print-related screens.
+- [x] Record every intentional deviation with a usability, accessibility, security, performance, or data-integrity reason.
 
 ### Required verification
 
@@ -496,6 +508,8 @@ Evidence: officer and administrator gold actions now use dark navy text; the sha
 - [x] Review failed-test screenshots, videos, and traces before accepting updates.
 - [x] Verify the complete print suite after every shared CSS change.
 - [ ] Require all CI and release gates to pass before merging each visual milestone.
+
+Evidence: the latest local frontend gate passed 149 component tests across 41 files, TypeScript, and the Vite production build (26.44 kB CSS gzip and 135.83 kB JavaScript gzip), plus 99 of 100 Chromium workflows, including all 34 committed Windows visual baselines. The single skipped workflow is the feature-detected `prefers-reduced-data` browser assertion that current Chromium cannot emulate through CDP; `visual-assets.test.ts` separately proves the request-free reduced-data CSS contract. Recorded backend evidence includes 40 contract/security tests and 1,440 unit tests with 30 intentional skips. CI, manual screen-reader, native on-screen-keyboard, physical high-contrast, production p75, and owner-release approval remain separate open gates.
 
 ---
 
@@ -513,7 +527,7 @@ Evidence: officer and administrator gold actions now use dark navy text; the sha
 - [x] Implement the prison/watchtower hero.
 - [x] Implement four refined primary action cards and fixtures.
 - [x] Restyle Continue Your Work, Recent Incidents, Quick Forms, and Count Sheet status using existing data.
-- [ ] Complete Home responsive and accessibility checks.
+- [x] Complete Home responsive and accessibility checks.
 
 ### Milestone V3 — Data-backed utilities
 

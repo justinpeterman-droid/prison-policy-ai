@@ -183,7 +183,7 @@ export function AccountsStaffPage() {
         <aside className="admin-staff-rail" aria-label="Staff list">
           <form className="admin-rail-search" onSubmit={search}>
             <label htmlFor="admin-staff-search">Search staff</label>
-            <div><input id="admin-staff-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name or employee #" /><button type="submit" aria-label="Search staff">⌕</button></div>
+            <div><input id="admin-staff-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name or employee #" /><button type="submit" aria-label="Search staff" title="Search staff"><InterfaceIcon name="search" /></button></div>
           </form>
           {loading ? <div className="admin-rail-state">Loading staff…</div> : null}
           {error ? <div className="admin-rail-state error" role="alert">{error}</div> : null}

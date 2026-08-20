@@ -319,6 +319,24 @@
 }
 
 @media (max-width: 680px) {
+  .account-page,
+  .account-page > *,
+  .account-grid,
+  .account-panel,
+  .account-panel > header,
+  .account-pin-form,
+  .account-field-grid,
+  .account-field-grid input {
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .account-heading,
+  .account-panel,
+  .account-panel > header {
+    overflow-wrap: anywhere;
+  }
+
   .account-field-grid,
   .account-identity-list {
     grid-template-columns: 1fr;

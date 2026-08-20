@@ -13,7 +13,8 @@ export type InterfaceIconName =
   | "external-link"
   | "grid"
   | "health"
-  | "paperwork";
+  | "paperwork"
+  | "search";
 
 interface InterfaceIconProps extends Omit<SVGProps<SVGSVGElement>, "children"> {
   name: InterfaceIconName;
@@ -34,6 +35,7 @@ const paths: Record<InterfaceIconName, ReactNode> = {
   grid: <><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></>,
   health: <><path d="M4 12h4l2-5 4 10 2-5h4"/><path d="M12 21C6 17.5 3 14 3 9.5A4.5 4.5 0 0 1 12 8a4.5 4.5 0 0 1 9 1.5c0 4.5-3 8-9 11.5Z"/></>,
   paperwork: <><path d="M7 3h10v4H7z"/><path d="M5 5h14v16H5z"/><path d="M8 11h8M8 15h8M8 19h5"/></>,
+  search: <><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></>,
 };
 
 export function InterfaceIcon({ name, title, ...props }: InterfaceIconProps) {

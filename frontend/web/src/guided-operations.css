@@ -10,6 +10,7 @@
   --gow-type-label: 0.76rem;
   --gow-type-metadata: 0.75rem;
   --gow-type-compact: 0.75rem;
+  --gow-tracking-label: 0.08em;
   --gow-space-1: 4px;
   --gow-space-2: 8px;
   --gow-space-3: 12px;
@@ -39,18 +40,39 @@
   --gow-focus: #075fae;
   --gow-danger: #a12f2a;
   --gow-disabled: #70808f;
-  --gow-success: #278855;
+  --gow-success: #1f7046;
   --gow-success-soft: #e5f5e9;
-  --gow-warning: #9a6817;
+  --gow-warning: #80550f;
   --gow-warning-soft: #fff1d2;
   --gow-info-soft: #e6f0fb;
   --gow-surface-action: linear-gradient(150deg, #fff, #f4f8fb);
   --gow-surface-panel: rgba(255, 255, 255, 0.94);
+  --gow-surface-information: var(--gow-surface-panel);
+  --gow-surface-list: var(--gow-surface);
+  --gow-surface-inset: var(--gow-inset);
+  --gow-surface-empty: rgba(255, 255, 255, 0.86);
+  --gow-surface-warning: var(--gow-warning-soft);
+  --gow-surface-dialog: var(--gow-surface);
   --gow-button-navy: linear-gradient(180deg, #176aa6, #0e4f83);
   --gow-button-navy-border: #0b4675;
   --gow-button-gold: linear-gradient(180deg, #e3b64f, #b97814);
   --gow-button-gold-ink: #071f38;
   --gow-button-gold-border: #9b650e;
+  --gow-button-primary-background: var(--gow-button-gold);
+  --gow-button-primary-ink: var(--gow-button-gold-ink);
+  --gow-button-primary-border: var(--gow-button-gold-border);
+  --gow-button-secondary-background: var(--gow-button-navy);
+  --gow-button-secondary-ink: #ffffff;
+  --gow-button-secondary-border: var(--gow-button-navy-border);
+  --gow-button-destructive-background: linear-gradient(180deg, #fff, #f9eeee);
+  --gow-button-destructive-ink: #8f332e;
+  --gow-button-destructive-border: var(--gow-border-danger);
+  --gow-button-quiet-background: transparent;
+  --gow-button-quiet-ink: var(--gow-navy-800);
+  --gow-button-disabled-background: #e7ecef;
+  --gow-button-disabled-ink: var(--gow-disabled);
+  --gow-control-height: 44px;
+  --gow-control-height-major: 48px;
   --gow-shadow-sm: 0 2px 5px rgba(16, 36, 61, 0.08), 0 10px 24px rgba(16, 36, 61, 0.06);
   --gow-shadow-card: 0 1px 1px rgba(255, 255, 255, 0.92) inset,
     0 1px 0 rgba(12, 44, 76, 0.08),
@@ -76,13 +98,29 @@
   --gow-radius-lg: var(--gow-radius-feature);
   --gow-border-standard-rule: 1px solid var(--gow-border);
   --gow-border-strong-rule: 1px solid var(--gow-border-strong);
+  --gow-border-focus-rule: 3px solid var(--gow-focus);
   --gow-border-warning-rule: 1px solid var(--gow-border-warning);
   --gow-border-danger-rule: 1px solid var(--gow-border-danger);
+  --gow-focus-offset: 3px;
+  --gow-form-background: var(--gow-surface);
+  --gow-form-border: var(--gow-border-standard-rule);
+  --gow-form-border-focus: var(--gow-border-focus-rule);
+  --gow-form-disabled-background: var(--gow-button-disabled-background);
+  --gow-form-readonly-background: var(--gow-surface-raised);
+  --gow-form-invalid-border: var(--gow-border-danger-rule);
+  --gow-form-success-border: 1px solid var(--gow-success);
   --gow-elevation-control: var(--gow-shadow-button-navy);
   --gow-elevation-card: var(--gow-shadow-card);
   --gow-elevation-fixture: var(--gow-shadow-surface-refined);
   --gow-elevation-dialog: 0 18px 40px rgba(7, 31, 56, 0.18);
   --gow-ease: cubic-bezier(0.2, 0.72, 0.2, 1);
+  --gow-duration-feedback: 130ms;
+  --gow-duration-control: 160ms;
+  --gow-duration-panel: 180ms;
+  --gow-duration-navigation: 220ms;
+  --gow-travel-pressed: 2px;
+  --gow-travel-hover: -3px;
+  --gow-travel-navigation: 2px;
 }
 
 * {
@@ -128,9 +166,189 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid var(--gow-focus);
-  outline-offset: 3px;
+  outline: var(--gow-border-focus-rule);
+  outline-offset: var(--gow-focus-offset);
 }
+
+.gow-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.gow-button {
+  display: inline-flex;
+  min-height: var(--gow-control-height);
+  align-items: center;
+  justify-content: center;
+  gap: var(--gow-space-2);
+  padding: 0 var(--gow-space-4);
+  color: var(--gow-button-secondary-ink);
+  background: var(--gow-button-secondary-background);
+  border: 1px solid var(--gow-button-secondary-border);
+  border-radius: var(--gow-radius-control);
+  box-shadow: var(--gow-elevation-control);
+  font-size: var(--gow-type-control);
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform var(--gow-duration-feedback) var(--gow-ease), filter var(--gow-duration-feedback) var(--gow-ease), box-shadow var(--gow-duration-feedback) var(--gow-ease);
+}
+
+.gow-button--primary {
+  color: var(--gow-button-primary-ink);
+  background: var(--gow-button-primary-background);
+  border-color: var(--gow-button-primary-border);
+  box-shadow: var(--gow-shadow-button-gold);
+}
+
+.gow-button--destructive {
+  color: var(--gow-button-destructive-ink);
+  background: var(--gow-button-destructive-background);
+  border-color: var(--gow-button-destructive-border);
+  box-shadow: none;
+}
+
+.gow-button--quiet {
+  color: var(--gow-button-quiet-ink);
+  background: var(--gow-button-quiet-background);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.gow-button--icon {
+  width: var(--gow-control-height);
+  flex: 0 0 var(--gow-control-height);
+  padding: 0;
+}
+
+.gow-button--segment {
+  color: var(--gow-navy-800);
+  background: var(--gow-surface-raised);
+  border-color: var(--gow-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.gow-button--segment:first-child {
+  border-radius: var(--gow-radius-control) 0 0 var(--gow-radius-control);
+}
+
+.gow-button--segment:last-child {
+  border-radius: 0 var(--gow-radius-control) var(--gow-radius-control) 0;
+}
+
+.gow-button[data-selected="true"],
+.gow-button--segment[aria-pressed="true"] {
+  color: var(--gow-button-secondary-ink);
+  background: var(--gow-navy-800);
+  border-color: var(--gow-navy-900);
+  box-shadow: 0 2px 4px rgba(7, 31, 56, 0.18) inset;
+}
+
+.gow-button:active:not(:disabled) {
+  transform: translateY(var(--gow-travel-pressed));
+  box-shadow: 0 2px 4px rgba(7, 31, 56, 0.2) inset;
+}
+
+.gow-button:disabled,
+.gow-button[aria-disabled="true"] {
+  color: var(--gow-button-disabled-ink);
+  background: var(--gow-button-disabled-background);
+  border-color: var(--gow-border);
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .gow-button:hover:not(:disabled, [aria-disabled="true"]) {
+    filter: brightness(1.04);
+  }
+}
+
+.gow-surface {
+  background: var(--gow-surface-panel);
+  border: var(--gow-border-standard-rule);
+  border-radius: var(--gow-radius-card);
+  box-shadow: var(--gow-elevation-card);
+}
+
+.gow-surface--action { background: var(--gow-surface-action); }
+.gow-surface--information { background: var(--gow-surface-information); }
+.gow-surface--list { background: var(--gow-surface-list); }
+.gow-surface--inset { background: var(--gow-surface-inset); box-shadow: none; }
+.gow-surface--empty { background: var(--gow-surface-empty); box-shadow: none; }
+.gow-surface--warning { background: var(--gow-surface-warning); border: var(--gow-border-warning-rule); }
+.gow-surface--dialog { background: var(--gow-surface-dialog); box-shadow: var(--gow-elevation-dialog); }
+
+.gow-list-row {
+  display: flex;
+  min-height: var(--gow-control-height);
+  align-items: center;
+  gap: var(--gow-space-3);
+}
+
+.gow-list-row--navigation { text-decoration: none; }
+.gow-list-row--navigation > :last-child { margin-left: auto; }
+.gow-list-row--action { justify-content: space-between; }
+
+.gow-field {
+  display: grid;
+  gap: var(--gow-space-2);
+  color: var(--gow-ink);
+}
+
+.gow-field__label {
+  font-size: var(--gow-type-label);
+  font-weight: 800;
+}
+
+.gow-field__hint,
+.gow-field__error {
+  font-size: var(--gow-type-supporting);
+  line-height: 1.4;
+}
+
+.gow-field__hint { color: var(--gow-muted); }
+.gow-field__error { color: var(--gow-danger); }
+
+.gow-control:not([type="checkbox"], [type="radio"]),
+select.gow-control,
+textarea.gow-control {
+  width: 100%;
+  min-height: var(--gow-control-height);
+  padding: var(--gow-space-2) var(--gow-space-3);
+  color: var(--gow-ink);
+  background: var(--gow-form-background);
+  border: var(--gow-form-border);
+  border-radius: var(--gow-radius-control);
+}
+
+textarea.gow-control { resize: vertical; }
+
+.gow-control[type="checkbox"],
+.gow-control[type="radio"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--gow-navy-700);
+}
+
+.gow-control:hover:not(:disabled, [readonly]) { border-color: var(--gow-border-strong); }
+.gow-control:focus-visible { outline: var(--gow-form-border-focus); }
+.gow-control:disabled { color: var(--gow-disabled); background: var(--gow-form-disabled-background); cursor: not-allowed; }
+.gow-control[readonly] { background: var(--gow-form-readonly-background); }
+.gow-control[aria-invalid="true"],
+.gow-field--invalid .gow-control { border: var(--gow-form-invalid-border); }
+.gow-control[data-state="success"] { border: var(--gow-form-success-border); }
+.gow-control[data-populated="true"] { background: var(--gow-surface-raised); }
 
 .gow-app {
   display: grid;
@@ -248,13 +466,13 @@ textarea:focus-visible {
   text-decoration: none;
   border: 1px solid transparent;
   border-radius: 12px;
-  transition: transform 160ms var(--gow-ease), background 180ms var(--gow-ease), box-shadow 180ms var(--gow-ease);
+  transition: transform var(--gow-duration-control) var(--gow-ease), background var(--gow-duration-panel) var(--gow-ease), box-shadow var(--gow-duration-panel) var(--gow-ease);
   backface-visibility: hidden;
 }
 
 .gow-nav-link:hover {
   background: rgba(255, 255, 255, 0.08);
-  transform: translateX(2px);
+  transform: translateX(var(--gow-travel-navigation));
 }
 
 .gow-nav-link[aria-current="page"] {
@@ -268,7 +486,7 @@ textarea:focus-visible {
 }
 
 .gow-nav-link:active {
-  transform: translateY(2px);
+  transform: translateY(var(--gow-travel-pressed));
 }
 
 .gow-nav-icon {
@@ -354,6 +572,7 @@ textarea:focus-visible {
 .gow-workspace {
   min-width: 0;
   padding: 0 var(--gow-space-5) var(--gow-space-5);
+  font-variant-numeric: tabular-nums;
 }
 
 .gow-topbar {
@@ -613,7 +832,7 @@ textarea:focus-visible {
     width: min(86vw, 300px);
     padding-bottom: env(safe-area-inset-bottom, 0);
     transform: translateX(-105%);
-    transition: transform 220ms var(--gow-ease);
+    transition: transform var(--gow-duration-navigation) var(--gow-ease);
   }
 
   .gow-sidebar.is-open {

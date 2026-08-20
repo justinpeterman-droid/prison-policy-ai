@@ -25,7 +25,7 @@
   color: #ad7d25;
   font-size: 9px;
   font-weight: 850;
-  letter-spacing: .13em;
+  letter-spacing: var(--gow-tracking-label, .08em);
   text-transform: uppercase;
 }
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { Button, Field } from "../../design-system/Primitives";
 import { askPolicyQuestion, type PolicyAnswer } from "./api";
 import "./policy-expert.css";
 
@@ -44,8 +45,7 @@ export function PolicyExpertPage() {
 
       <section className="policy-question-panel">
         <form onSubmit={submit}>
-          <label>
-            <span>Policy question</span>
+          <Field label="Policy question" required>
             <textarea
               aria-label="Policy question"
               value={question}
@@ -54,12 +54,12 @@ export function PolicyExpertPage() {
               onChange={(event) => setQuestion(event.currentTarget.value)}
               placeholder="Example: What documentation is required after a use-of-force incident?"
             />
-          </label>
+          </Field>
           <div className="policy-form-footer">
             <span>{question.length.toLocaleString()} / 2,000</span>
-            <button type="submit" disabled={submitting}>
+            <Button variant="primary" type="submit" loading={submitting}>
               {submitting ? "Searching policy…" : "Ask Policy Expert"}
-            </button>
+            </Button>
           </div>
         </form>
         <p className="policy-boundary-note">

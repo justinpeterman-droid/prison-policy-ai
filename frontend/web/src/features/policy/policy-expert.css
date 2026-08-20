@@ -251,6 +251,20 @@
 }
 
 @media (max-width: 580px) {
+  .policy-page,
+  .policy-page > *,
+  .policy-question-panel form,
+  .policy-question-panel textarea {
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .policy-heading,
+  .policy-question-panel,
+  .policy-boundary-note {
+    overflow-wrap: anywhere;
+  }
+
   .policy-form-footer {
     align-items: stretch;
     flex-direction: column;

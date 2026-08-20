@@ -238,6 +238,24 @@
     padding: 0 0 28px;
   }
 
+  .forms-library-page,
+  .forms-library-page > *,
+  .forms-library-workspace,
+  .forms-library-grid,
+  .forms-library-card,
+  .forms-library-card-header,
+  .forms-library-card-header > * {
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .forms-library-heading,
+  .forms-library-filters,
+  .forms-library-card,
+  .forms-library-card-header > * {
+    overflow-wrap: anywhere;
+  }
+
   .forms-library-heading {
     padding: 20px;
   }

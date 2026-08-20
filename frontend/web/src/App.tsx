@@ -202,7 +202,7 @@ export function App({ profile, onAuthenticationChanged }: AppProps) {
             <p className="gow-brand-name">S.L.U.T</p>
             <p className="gow-brand-subtitle">Secure · Logical · Unified · Trusted</p>
           </div>
-          <button ref={menuCloseRef} className="gow-mobile-menu-button" type="button" aria-label="Close navigation menu" onClick={() => closeMobileMenu()}><UtilityIcon name="close" /></button>
+          <button ref={menuCloseRef} className="gow-mobile-menu-button" type="button" aria-label="Close navigation menu" title="Close navigation menu" onClick={() => closeMobileMenu()}><UtilityIcon name="close" /></button>
         </div>
 
         <nav className="gow-nav" aria-label="Officer navigation">
@@ -232,7 +232,7 @@ export function App({ profile, onAuthenticationChanged }: AppProps) {
 
       <main className="gow-workspace">
         <header className="gow-topbar" aria-label="Workspace status">
-          <button ref={menuTriggerRef} className="gow-mobile-menu-trigger" type="button" aria-label="Open navigation menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><UtilityIcon name="menu" /></button>
+          <button ref={menuTriggerRef} className="gow-mobile-menu-trigger" type="button" aria-label="Open navigation menu" title="Open navigation menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><UtilityIcon name="menu" /></button>
           <div className="gow-status-chip" role="status" aria-live="polite"><span className={`gow-online-dot${online ? "" : " is-offline"}`} /><span>{online ? "Online" : "Offline"}</span></div>
           <div className="gow-status-chip"><UtilityIcon name="check" /><span>Secure browser session</span></div>
           {profile.role === "admin" ? <div className="gow-status-chip gow-admin-context-chip"><UtilityIcon name="admin" /><span>Administrator</span></div> : null}
