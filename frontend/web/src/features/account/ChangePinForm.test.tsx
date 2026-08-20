@@ -37,7 +37,11 @@ describe("Change PIN form", () => {
     fireEvent.change(screen.getByLabelText("Confirm new PIN"), { target: { value: "8765" } });
     fireEvent.click(screen.getByRole("button", { name: "Change PIN" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("do not match");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("do not match");
+    const confirmation = screen.getByLabelText("Confirm new PIN");
+    expect(confirmation).toHaveAttribute("aria-invalid", "true");
+    expect(confirmation).toHaveAttribute("aria-errormessage", alert.id);
     expect(mockedChangePin).not.toHaveBeenCalled();
   });
 

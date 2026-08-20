@@ -10,6 +10,11 @@ export type PersistenceStatusState =
   | "conflict"
   | "failed";
 
+export type PersistenceFailureState = Extract<
+  PersistenceStatusState,
+  "reconnecting" | "conflict" | "failed"
+>;
+
 const PERSISTENCE_STATUS_LABELS: Record<PersistenceStatusState, string> = {
   loading: "Loading saved record…",
   saved: "Saved to server",
@@ -27,9 +32,19 @@ export function persistenceStatusLabel(state: PersistenceStatusState): string {
 
 export function persistenceStateForError(
   reason: unknown,
-): Extract<PersistenceStatusState, "reconnecting" | "conflict" | "failed"> {
+): PersistenceFailureState {
   if (!(reason instanceof WebApiError)) return "failed";
   if (reason.status === 0 || reason.code === "network_unavailable") return "reconnecting";
   if (reason.code === "revision_conflict" || reason.code === "idempotency_conflict") return "conflict";
   return "failed";
+}
+
+const PERSISTENCE_FAILURE_GUIDANCE: Record<PersistenceFailureState, string> = {
+  reconnecting: "Visible work remains on this device. Server save not confirmed. Retry Save when the connection returns.",
+  conflict: "Visible work remains on this device. Copy it, then reopen the latest server version before editing again.",
+  failed: "Visible work remains on this device. Server save not confirmed. Use Retry Save when the issue is resolved.",
+};
+
+export function persistenceFailureGuidance(state: PersistenceFailureState): string {
+  return PERSISTENCE_FAILURE_GUIDANCE[state];
 }

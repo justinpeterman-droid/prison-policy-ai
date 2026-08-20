@@ -156,8 +156,8 @@ export function Field({ children, className, error, hint, label, requirement, re
         id: controlId,
         className: classes("gow-control", children.props.className),
         "aria-describedby": describedBy,
-        "aria-errormessage": errorId,
-        "aria-invalid": Boolean(error) || undefined,
+        "aria-errormessage": errorId ?? children.props["aria-errormessage"],
+        "aria-invalid": Boolean(error) || children.props["aria-invalid"] || undefined,
         "aria-required": isRequired || undefined,
         required: isRequired || undefined,
       })}

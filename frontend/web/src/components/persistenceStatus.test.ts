@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { WebApiError } from "../api/client";
 import {
   persistenceStateForError,
+  persistenceFailureGuidance,
   persistenceStatusLabel,
   type PersistenceStatusState,
 } from "./persistenceStatus";
@@ -37,5 +38,15 @@ describe("persistence status language", () => {
       message: "A prior request is still running",
     }))).toBe("failed");
     expect(persistenceStateForError(new Error("Invalid form"))).toBe("failed");
+  });
+
+  it.each([
+    ["reconnecting", "Retry Save when the connection returns"],
+    ["conflict", "reopen the latest server version"],
+    ["failed", "Use Retry Save when the issue is resolved"],
+  ] as const)("gives %s a truthful recovery instruction", (state, instruction) => {
+    const guidance = persistenceFailureGuidance(state);
+    expect(guidance).toContain("Visible work remains on this device");
+    expect(guidance).toContain(instruction);
   });
 });

@@ -163,6 +163,25 @@ test.describe("Forms Library mobile guidance", () => {
   });
 });
 
+test.describe("Document Studio tablet navigation targets", () => {
+  test.beforeEach(async ({ page }) => {
+    await installOfficerApi(page);
+    await page.setViewportSize({ width: 768, height: 1024 });
+  });
+
+  test("keeps every document-area tab at least 44 pixels high", async ({ page }) => {
+    await page.goto("./reports/00000000-0000-4000-8000-000000000010");
+    const tabs = page.getByRole("tablist", { name: "Incident document areas" }).getByRole("tab");
+    await expect(tabs).toHaveCount(6);
+
+    for (const tab of await tabs.all()) {
+      const box = await tab.boundingBox();
+      expect(box, "tablet tab must have a measurable box").not.toBeNull();
+      expect(box!.height, "tablet tab must be at least 44 CSS pixels high").toBeGreaterThanOrEqual(44);
+    }
+  });
+});
+
 test.describe("Document Studio mobile tab reachability", () => {
   test.beforeEach(async ({ page }) => {
     await installOfficerApi(page);

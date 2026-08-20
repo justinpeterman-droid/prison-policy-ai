@@ -288,7 +288,7 @@ describe("Incident Document Studio", () => {
     ).toBeInTheDocument();
   });
 
-  it("keeps report edits visible through conflict and retry states", async () => {
+  it("keeps report edits visible with truthful conflict recovery guidance", async () => {
     renderStudio();
     await screen.findByText("2026-08-029");
     fireEvent.click(screen.getByRole("tab", { name: "Officer Reports" }));
@@ -302,8 +302,13 @@ describe("Incident Document Studio", () => {
     expect(await screen.findByText("Save conflict — changes remain visible; server save not confirmed")).toBeInTheDocument();
     expect(narrative).toHaveValue("Fictional revised text remains visible.");
 
-    expect(screen.getByRole("button", { name: "Reopen Latest to Save" })).toBeDisabled();
-    expect(screen.getByRole("alert")).toHaveTextContent("Copy it, then reopen the latest report");
+    expect(screen.getByRole("button", { name: "Save Blocked by Conflict" })).toBeDisabled();
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveAttribute("aria-live", "assertive");
+    expect(alert).toHaveAttribute("aria-atomic", "true");
+    expect(alert).toHaveTextContent("The report changed on the server");
+    expect(alert).toHaveTextContent("Visible work remains on this device");
+    expect(alert).toHaveTextContent("reopen the latest server version");
     expect(narrative).toHaveValue("Fictional revised text remains visible.");
   });
 });

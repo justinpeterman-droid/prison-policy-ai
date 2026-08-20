@@ -885,6 +885,7 @@
   .iw-history-layout { grid-template-columns: 1fr; }
   .iw-incident-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .iw-packet-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .iw-tabs button { min-height: 44px; }
 }
 
 @media (max-width: 620px) {

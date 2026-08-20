@@ -64,4 +64,11 @@ describe("shared visual primitives", () => {
     expect(screen.getByText("(required)")).toHaveClass("gow-visually-hidden");
     expect(screen.getByText("(optional)")).toHaveClass("gow-visually-hidden");
   });
+
+  it("preserves consumer-provided validation semantics when a shared inline error is not present", () => {
+    render(<Field label="Confirmation"><input aria-invalid="true" aria-errormessage="confirmation-error" /></Field>);
+    const input = screen.getByRole("textbox", { name: "Confirmation" });
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAttribute("aria-errormessage", "confirmation-error");
+  });
 });
