@@ -64,7 +64,7 @@ def test_direct_cli_invocation_loads_repo_and_rejects_unsafe_database(tmp_path):
     assert "ModuleNotFoundError" not in result.stderr
 
 
-def test_success_output_never_logs_fictional_pins(monkeypatch, capsys):
+def test_success_output_never_logs_fictional_credentials(monkeypatch, capsys):
     monkeypatch.setenv(
         "DATABASE_URL",
         "postgresql+psycopg://postgres:postgres@localhost:5432/prison_policy",
@@ -74,6 +74,8 @@ def test_success_output_never_logs_fictional_pins(monkeypatch, capsys):
     assert seed_module.main() == 0
     captured = capsys.readouterr()
 
+    assert "Seeded standard fictional local accounts." in captured.out
+    assert "docs/local-fictional-accounts.md" in captured.out
     for spec in seed_module.FICTIONAL_ACCOUNTS:
-        assert spec["employee_number"] in captured.out
+        assert spec["employee_number"] not in captured.out
         assert spec["pin"] not in captured.out
