@@ -85,7 +85,9 @@ def _args(output, provenance):
 
 def test_required_checks_are_named_and_fail_closed():
     text = "\n".join(p.read_text(encoding="utf-8") for p in WORKFLOWS.glob("*.yml"))
-    assert REQUIRED <= set(re.findall(r"^  ([a-z0-9.-]+):\s*$", text, re.MULTILINE))
+    job_ids = set(re.findall(r"^  ([a-z0-9-]+):\s*$", text, re.MULTILINE))
+    display_names = set(re.findall(r"^    name:\s*([a-z0-9.-]+)\s*$", text, re.MULTILINE))
+    assert REQUIRED <= job_ids | display_names
     assert "continue-on-error: true" not in text
 
 
