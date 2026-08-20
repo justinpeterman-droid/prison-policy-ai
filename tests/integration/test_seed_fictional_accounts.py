@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 import os
 
 from sqlalchemy import select
@@ -38,6 +39,7 @@ def test_seed_fictional_accounts_can_be_rerun_without_duplicates_and_refreshes_r
     database_url = os.environ["TEST_DATABASE_URL"]
     seed_fictional_accounts(database_url)
 
+    stale_time = datetime(2026, 8, 1, 12, 0, tzinfo=UTC)
     with Session(db_engine) as session:
         staff = _staff_by_employee_number(session)
         accounts = _accounts_by_employee_number(session)
@@ -52,8 +54,11 @@ def test_seed_fictional_accounts_can_be_rerun_without_duplicates_and_refreshes_r
             account.status = "locked"
             account.pin_hash = hash_pin("R4T6Y8")
             account.must_change_pin = True
+            account.temporary_pin_expires_at = stale_time
             account.failed_attempts = 4
             account.lock_cycle = 3
+            account.locked_until = stale_time
+            account.deactivated_at = stale_time
         session.commit()
 
     seed_fictional_accounts(database_url)
