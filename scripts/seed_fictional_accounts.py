@@ -41,7 +41,7 @@ FICTIONAL_ACCOUNTS = (
 
 
 def is_safe_local_database_url(database_url: str) -> bool:
-    """Return whether a URL is a loopback PostgreSQL development target."""
+    """Return whether a URL is an unredirectable loopback PostgreSQL target."""
     if not database_url:
         return False
     parsed = urlsplit(database_url)
@@ -52,6 +52,7 @@ def is_safe_local_database_url(database_url: str) -> bool:
         is_postgres
         and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
         and bool(parsed.path and parsed.path != "/")
+        and not parsed.query
     )
 
 
@@ -113,7 +114,7 @@ def seed_fictional_accounts(database_url: str) -> None:
     """Create or refresh the two standard local fictional accounts."""
     if not is_safe_local_database_url(database_url):
         raise RuntimeError(
-            "Refusing to seed fictional accounts: DATABASE_URL must point to a loopback PostgreSQL database."
+            "Refusing to seed fictional accounts: DATABASE_URL must point to a loopback PostgreSQL database without connection-routing query parameters."
         )
 
     engine = create_engine(
