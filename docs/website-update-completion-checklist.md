@@ -2,37 +2,37 @@
 
 This checklist tracks the remaining work required to complete the Guided Operations website update, including the Administrator Command Center, Paperwork Center, visual QA, testing, rollout, and legacy browser retirement.
 
-## 1. Administrator Command Center — Current Blocker
+## 1. Administrator Command Center — Complete
 
-- [ ] Fix the Admin Incident Workspace data-loading failure.
-- [ ] Ensure an administrator can open an incident from **All Incidents**.
-- [ ] Display the **Administrator incident controls** panel after opening an incident.
-- [ ] Load the incident number, name, records status, and current revision correctly.
-- [ ] Preserve the administrator-attribution notice while viewing another employee’s incident.
-- [ ] Verify the administrator can move from All Incidents into Document Studio.
-- [ ] Fix the revision-restore workflow.
-- [ ] Require purpose-scoped confirmation before restoring a revision.
-- [ ] Remove or rename Audit Log text that exposes or matches restricted narrative information.
-- [ ] Re-run the Admin Incident Workspace component tests.
-- [ ] Re-run the administrator Playwright browser tests.
-- [ ] Confirm all Administrator Command Center workflow checks pass.
-- [ ] Review the Administrator Command Center at desktop, tablet, and mobile sizes.
-- [ ] Mark PR #104 ready for review.
-- [ ] Complete final review of PR #104.
-- [ ] Merge PR #104 into `main`.
+- [x] Fix the Admin Incident Workspace data-loading failure.
+- [x] Ensure an administrator can open an incident from **All Incidents**.
+- [x] Display the **Administrator incident controls** panel after opening an incident.
+- [x] Load the incident number, name, records status, and current revision correctly.
+- [x] Preserve the administrator-attribution notice while viewing another employee’s incident.
+- [x] Verify the administrator can move from All Incidents into Document Studio.
+- [x] Fix the revision-restore workflow.
+- [x] Require purpose-scoped confirmation before restoring a revision.
+- [x] Remove or rename Audit Log text that exposes or matches restricted narrative information.
+- [x] Re-run the Admin Incident Workspace component tests.
+- [x] Re-run the administrator Playwright browser tests.
+- [x] Confirm all Administrator Command Center workflow checks pass.
+- [x] Review the Administrator Command Center at desktop, tablet, and mobile sizes.
+- [x] Mark PR #104 ready for review.
+- [x] Complete final review of PR #104.
+- [x] Merge PR #104 into `main`.
 
-## 2. Documentation and Local Setup
+## 2. Documentation and Local Setup — Complete
 
-- [ ] Review PR #105.
-- [ ] Verify the documented PostgreSQL 17 requirement.
-- [ ] Verify the fictional local officer seeding instructions.
-- [ ] Clearly document which tests run with each command.
-- [ ] Correct the duplicated `lint` and `typecheck` documentation.
-- [ ] Document the Vertex Application Default Credentials requirement.
-- [ ] Document the behavior of an empty `ACCESS_CODE`.
-- [ ] Document `LEGACY_REPORT_MODE`.
-- [ ] Decide whether to create a real staff-provisioning command under `scripts/`.
-- [ ] Merge the corrected documentation into `main`.
+- [x] Review PR #105.
+- [x] Verify the documented PostgreSQL 17 requirement.
+- [x] Verify the fictional local officer seeding instructions.
+- [x] Clearly document which tests run with each command.
+- [x] Correct the duplicated `lint` and `typecheck` documentation.
+- [x] Document the Vertex Application Default Credentials requirement.
+- [x] Document the behavior of an empty `ACCESS_CODE`.
+- [x] Document `LEGACY_REPORT_MODE`.
+- [x] Decide whether to create a real staff-provisioning command under `scripts/`.
+- [x] Merge the corrected documentation into `main`.
 
 ## 3. Daily Paperwork Center
 
@@ -282,9 +282,9 @@ This checklist tracks the remaining work required to complete the Guided Operati
 
 ## Immediate Next Actions
 
-- [ ] Fix PR #104 Admin Incident Workspace loading.
-- [ ] Fix the PR #104 Audit Log narrative-text failure.
-- [ ] Make all PR #104 component and browser tests green.
-- [ ] Merge PR #104.
-- [ ] Review and merge PR #105.
+- [x] Fix PR #104 Admin Incident Workspace loading.
+- [x] Fix the PR #104 Audit Log narrative-text failure.
+- [x] Make all PR #104 component and browser tests green.
+- [x] Merge PR #104.
+- [x] Review and merge PR #105.
 - [ ] Start the Daily Paperwork Center milestone.
