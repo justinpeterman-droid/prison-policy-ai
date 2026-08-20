@@ -108,7 +108,16 @@ docs/design/guided-operations # Product implementation notes
 
 - Python 3.12 or a supported newer version
 - Node.js 22
-- PostgreSQL 17
+- PostgreSQL 17 — **required, not a preference.** The migrations use jsonpath
+  methods introduced in 17. On PostgreSQL 16 `alembic upgrade head` fails part
+  way through with an opaque `syntax error at or near "(" of jsonpath input`.
+
+The AI-backed features — Policy Expert answers and incident classification,
+extraction, and report generation — call Google Vertex AI through Application
+Default Credentials. There is no API-key setting. Without ADC the rest of the
+workspace runs normally and those surfaces report themselves as unavailable.
+Supply credentials with `gcloud auth application-default login`, or point
+`GOOGLE_APPLICATION_CREDENTIALS` at a service-account key.
 
 ### Install dependencies
 
@@ -151,7 +160,35 @@ Apply migrations:
 python -m alembic upgrade head
 ```
 
-The application does not ship a default employee login. Provision fictional local staff/accounts through the repository’s identity tooling or test fixtures.
+The application does not ship a default employee login, and there is no
+account-provisioning command yet. Until one exists, seed a fictional officer by
+reusing the integration test fixture. Run from the repository root with the
+environment above exported:
+
+```bash
+PYTHONPATH=. python - <<'PY'
+import os
+from datetime import datetime, UTC
+
+from backend.identity.config import IdentitySettings
+from backend.persistence.database import init_database, session_scope
+from tests.integration.identity_fixtures import seed_fictional_account
+
+init_database(IdentitySettings.from_env(os.environ))
+with session_scope() as session:
+    seed_fictional_account(
+        session, employee_number="TEST-1001", role="user",
+        pin="Z9Y8X7", now=datetime.now(UTC),
+    )
+    seed_fictional_account(
+        session, employee_number="TEST-9001", role="admin",
+        pin="Q7W9E2", now=datetime.now(UTC),
+    )
+PY
+```
+
+Sign in at `/workspace` with employee number `TEST-1001` and PIN `Z9Y8X7`. Use
+fictional values only, and never seed real staff names or employee numbers.
 
 ### Build and run the workspace
 
@@ -164,6 +201,18 @@ PYTHONPATH=. python -m backend.webapp.app
 
 Then open the Flask application and navigate to `/workspace`.
 
+Two consequences of the settings above are worth knowing before you go looking
+for a bug:
+
+- An empty `ACCESS_CODE` disables the legacy shared-code gate entirely, which
+  also means every visitor is treated as an administrator. That is convenient
+  locally and wrong anywhere else.
+- With `ACCESS_API_ENABLED=true`, the legacy report actions under
+  `/api/reports/*` return `503` by default. `LEGACY_REPORT_MODE` controls this
+  and defaults to `restricted`; set it to `pilot_fallback` to reopen them. A
+  legacy `/reports` page whose buttons all return `503` is the configured
+  behavior, not a failure.
+
 For frontend-only UI development:
 
 ```bash
@@ -173,22 +222,31 @@ npm run dev
 
 ## Verification
 
-Backend and contract tests:
+`pytest.ini` sets `testpaths = tests/unit`, so a bare run covers only the fast,
+credential-free unit tests. The other layers exist and are green, but they are
+collected only when you name them:
 
 ```bash
-python -m pytest -q
+python -m pytest -q                                    # unit only
+python -m pytest tests/contract tests/security -q      # no services needed
+python -m pytest tests/integration -q                  # needs TEST_DATABASE_URL
 ```
+
+A green `python -m pytest -q` is therefore not evidence that the API contracts
+or the browser security suites still pass.
 
 Frontend checks:
 
 ```bash
 cd frontend/web
-npm run lint
 npm run typecheck
 npm run test
 npm run build
 npm run test:e2e
 ```
+
+`npm run lint` is currently an alias for the same `tsc -b` invocation as
+`npm run typecheck`; there is no separate linter configured.
 
 The browser workflows use Playwright with fictional API fixtures. PostgreSQL integration tests use `TEST_DATABASE_URL` and run against PostgreSQL 17 in CI.
 
