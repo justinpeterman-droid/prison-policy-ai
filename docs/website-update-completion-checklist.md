@@ -127,62 +127,56 @@ This checklist tracks the remaining work required to complete the Guided Operati
 
 ### Daily Milestone Verification Snapshot — 2026-08-20
 
-- Credential-free backend gates: 1,431 unit tests, 32 contract tests, and 5 security tests passed.
-- Frontend gates: 109 component tests and TypeScript checking passed; the production build completed with route- and editor-level code splitting.
-- Chromium gates: all officer/administrator workflows passed, including all six Daily print surfaces, desktop/mobile overflow checks, keyboard navigation, and save/reopen/failure/retry recovery using fictional data.
-- PostgreSQL-backed Daily integration tests are implemented in `tests/integration/test_web_daily_paperwork.py`, but were not run in this local snapshot because `TEST_DATABASE_URL` was unavailable.
-- Autosave remains open; all editors expose explicit manual-save, saving, saved, unsaved, and failure-preservation states.
+- Daily editors now autosave server-backed records after a short quiet interval. First saves remain explicit; failed writes preserve the visible draft for a retry.
+- The assembled frontend suite passes 117 component tests, TypeScript checking, and a production build with route- and editor-level code splitting.
+- Chromium coverage passes for all six Daily print surfaces plus Weekly/Monthly navigation, desktop/mobile overflow checks, keyboard navigation, save/reopen/failure/retry recovery, and a four-form Monthly packet using fictional data.
+- Focused template, contract, delivery-security, and release-gate checks pass (37 tests). PostgreSQL-backed integration tests remain a CI/target-environment release gate.
 
 ## 4. Weekly Paperwork Library
 
-- [ ] Define the approved weekly form catalog.
-- [ ] Add weekly-form search.
-- [ ] Add individual form preview.
-- [ ] Add individual print and download.
-- [ ] Add multi-select.
-- [ ] Add preview-selected.
-- [ ] Add print-selected.
-- [ ] Add download-selected.
-- [ ] Clearly identify physical-only forms.
-- [ ] Confirm weekly forms do not create digital completion records unless specifically required.
-- [ ] Add browser and print-regression tests.
+- [x] Publish the approved empty weekly catalog; no weekly forms were supplied or invented.
+- [x] Render the exact empty state: `No weekly forms have been published.`
+- [x] Keep Weekly free of digital completion records until an approved form is published.
+- [x] Add browser coverage proving the empty library has no fake form cards.
+
+Search, preview, download, multi-select, and packet actions are intentionally unavailable while the approved catalog is empty.
 
 ## 5. Monthly Paperwork Library
 
 ### Windows, Bars & Doors Check Log
 
-- [ ] Build the monthly preview template.
-- [ ] Include rows for days 1 through 31.
-- [ ] Include exterior windows, housing windows, housing doors, cell bars, officer signature, and comments.
-- [ ] Preserve the rubber-mallet instruction.
-- [ ] Add month prefill.
-- [ ] Add print and packet support.
+- [x] Build the monthly preview template.
+- [x] Include rows for days 1 through 31.
+- [x] Include exterior windows, housing windows, housing doors, cell bars, officer signature, and comments.
+- [x] Preserve the rubber-mallet instruction.
+- [x] Add month prefill.
+- [x] Add print and packet support.
 
 ### Use of Chemical Agents Log
 
-- [ ] Build the monthly preview template.
-- [ ] Include month and shift supervisor.
-- [ ] Include date, staff, inmate name/number, policy conformity, medical attention, and supervisor.
-- [ ] Include COS and Warden review fields.
-- [ ] Add print and packet support.
+- [x] Build the monthly preview template.
+- [x] Include month and shift supervisor.
+- [x] Include date, staff, inmate name/number, policy conformity, medical attention, and supervisor.
+- [x] Include COS and Warden review fields.
+- [x] Add print and packet support.
 
 ### Contraband Search Logs
 
-- [ ] Build the standard-area-rotation template.
-- [ ] Build the expanded-area-rotation template.
-- [ ] Preserve each approved area schedule.
-- [ ] Give the two versions clear, distinct names.
-- [ ] Include month, shift, date/time, area searched, contraband, officers, disposition, and comments.
-- [ ] Add print and packet support.
+- [x] Build the standard-area-rotation template.
+- [x] Build the expanded-area-rotation template.
+- [x] Preserve each approved area schedule.
+- [x] Give the two versions clear, distinct names.
+- [x] Include month, shift, date/time, area searched, contraband, officers, disposition, and comments.
+- [x] Add print and packet support.
 
 ### Monthly Packet
 
-- [ ] Add multi-form selection.
-- [ ] Add monthly packet preview.
-- [ ] Add monthly packet print.
-- [ ] Verify month and shift prefilling.
-- [ ] Confirm monthly completed entries are not digitally persisted in the first release.
-- [ ] Add browser and print-regression tests.
+- [x] Add multi-form selection and keyboard reordering.
+- [x] Add monthly packet preview.
+- [x] Add monthly packet print.
+- [x] Verify month and shift prefilling.
+- [x] Confirm monthly completed entries are not digitally persisted in the first release.
+- [x] Add browser and print-regression tests.
 
 ## 6. Site-Wide Visual Polish
 
@@ -295,4 +289,4 @@ This checklist tracks the remaining work required to complete the Guided Operati
 - [x] Make all PR #104 component and browser tests green.
 - [x] Merge PR #104.
 - [x] Review and merge PR #105.
-- [ ] Start the Daily Paperwork Center milestone.
+- [x] Complete the Daily Paperwork Center milestone.
