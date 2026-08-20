@@ -175,7 +175,7 @@ export function OfficerHomePage({
           <p>{greetingForNow()}</p>
           <h1 id="officer-home-heading">{profile.displayName}</h1>
           <span>{shift ? `${shift} Shift` : "Shift not assigned"}</span>
-          <p className="officer-home-message">Stay safe. Stay focused. You’re making a difference.</p>
+          <p className="officer-home-message">Stay safe. Stay focused. Your work stays organized here.</p>
         </div>
         <div className="officer-home-values" aria-label="Professional values">
           <span>Professionalism</span><span>•</span><span>Accountability</span><span>•</span><span>Integrity</span>
@@ -234,23 +234,10 @@ export function OfficerHomePage({
               </div>
             </header>
             {summary.continueIncident ? (
-              <div className="gow-surface__body officer-home-continue-card">
+              <div className="officer-home-continue-card">
                 <IncidentIdentity incident={summary.continueIncident} />
                 <span className="officer-home-progress">{summary.continueIncident.progress.label}</span>
-                <dl className="officer-home-continue-metrics">
-                  <div>
-                    <dt>Officer reports</dt>
-                    <dd>{summary.continueIncident.officerReportCount}</dd>
-                  </div>
-                  <div>
-                    <dt>Required paperwork</dt>
-                    <dd>{summary.continueIncident.requiredPaperworkCount}</dd>
-                  </div>
-                  <div>
-                    <dt>Updated</dt>
-                    <dd><time dateTime={summary.continueIncident.updatedAt}>{formatRelative(summary.continueIncident.updatedAt)}</time></dd>
-                  </div>
-                </dl>
+                <p className="officer-home-continue-updated">Updated <time dateTime={summary.continueIncident.updatedAt}>{formatRelative(summary.continueIncident.updatedAt)}</time></p>
                 <Link
                   className="gow-button gow-button--primary officer-home-continue-link"
                   to={`/reports/${summary.continueIncident.incidentId}`}

@@ -6,7 +6,7 @@
 
 **Primary goal:** make the complete Guided Operations website meet or exceed the reference's refined, high-end visual quality while keeping every officer and administrator workflow clear, fast, and accessible.
 
-**Progress note (2026-08-20):** Foundation/Home and shared shell passes were revised against the supplied reference PNG. The implementation adopts its stronger angled shell/hero composition, raised mountain scenery, continuous fence crop, compact action anatomy, content density, and Quick Access rail while excluding the screenshot's invented identity, records, notifications, health details, checklist, activity, quote, date, and version. Source candidate `f16e654` passes TypeScript, 166 component tests across 44 files, the production build, and 120 of 121 Chromium officer/admin/responsive/accessibility/print/visual-regression workflows; the one skip accurately reports that this Chromium build cannot emulate `prefers-reduced-data`, while the request-free CSS fallback has a deterministic source-contract test. All 48 Windows visual baselines pass; the expanded set adds reviewed mobile/print references and deliberately updates the 1536px/tablet Home and desktop/mobile Reports references. Local backend evidence includes 41 contract/security tests and 1,440 unit tests (30 skipped); predecessor `2384056` passed every PR check, while the exact final branch remains subject to the PR gate. Manual screen-reader, native on-screen-keyboard, physical Windows display-scaling/high-contrast, performance p75, generated-asset production approval, and owner-release acceptance remain open. Checklist reconciliation: 291 of 332 items are complete; 41 remain open.
+**Progress note (2026-08-20):** Foundation/Home and shared shell passes were revised against the supplied reference PNG. The implementation adopts its stronger angled shell/hero composition, raised mountain scenery, continuous fence crop, compact action anatomy, content density, and Quick Access rail while excluding the screenshot's invented identity, records, notifications, health details, checklist, activity, quote, date, and version. Source candidate `f16e654` passes TypeScript, 166 component tests across 44 files, the production build, and 120 of 121 Chromium officer/admin/responsive/accessibility/print/visual-regression workflows; the one skip accurately reports that this Chromium build cannot emulate `prefers-reduced-data`, while the request-free CSS fallback has a deterministic source-contract test. All 48 Windows visual baselines pass; the expanded set adds reviewed mobile/print references and deliberately updates the 1536px/tablet Home and desktop/mobile Reports references. Local backend evidence includes 41 contract/security tests and 1,440 unit tests (30 skipped); predecessor `2384056` passed every PR check, while the exact final branch remains subject to the PR gate. Manual screen-reader, native on-screen-keyboard, physical Windows display-scaling/high-contrast, performance p75, generated-asset production approval, and owner-release acceptance remain open. Checklist reconciliation: 288 of 332 items are complete; 44 remain open.
 
 ## Reference Authority and Data Boundary
 
@@ -252,11 +252,9 @@ Evidence: asset tests now verify the intrinsic canvas dimensions of every respon
 - [x] Render the signed-in employee’s real authorized display name dynamically.
 - [x] Keep greeting time-of-day logic accurate or use a neutral greeting when client time is unreliable.
 - [x] Decide whether shift belongs in the hero or profile menu; avoid repeating it in both at equal emphasis.
-- [x] Keep the supporting message short, calm, and approved.
+- [ ] Keep the supporting message short, calm, and approved.
 - [x] Preserve Professionalism, Accountability, and Integrity as secondary detail rather than primary navigation.
 - [x] Ensure the hero remains useful when the image fails or the user increases text size to 200%.
-
-Evidence: the Home hero uses the exact accepted-reference message, `Stay safe. Stay focused. You’re making a difference.`, as a single calm supporting line beneath the authorized employee name and shift.
 
 ### Primary action cards
 
@@ -400,15 +398,13 @@ Evidence: one shared persistence-status catalog now gives New Report, Count Shee
 
 ### Wide and standard desktop
 
-- [x] Match the intended visual quality at approximately 1536×1024 without copying demonstration data.
+- [ ] Match the intended visual quality at approximately 1536×1024 without copying demonstration data.
 - [x] Verify 1366×768 without clipped buttons, hidden panel actions, inaccessible sidebar items, or excessive empty canvas.
 - [x] Verify 1280×720 and other short-height laptop layouts without shrinking controls below usable sizes.
 - [x] Keep the utility rail only when the remaining main column is comfortably readable.
 - [x] Switch four action cards to a 2×2 layout before labels become compressed.
 - [x] Verify Windows display scaling at 100%, 125%, and 150%.
 - [ ] Verify browser zoom at 80%, 100%, 125%, 150%, 200%, and 400% where WCAG reflow applies.
-
-Evidence: the native 1536×1024 render was compared directly with the accepted reference after restoring the full-width Continue panel, authorized officer-report/required-paperwork metrics, and the two-column lower layout. The final composition fills the working height while all displayed identity, incident, form, count, and status content remains fictional test data or authorized application data rather than copied demonstration values.
 
 ### Tablet
 
@@ -491,18 +487,16 @@ Evidence: `visual-assets.test.ts` enforces image size and metadata/privacy guard
 - [x] Mask or use fictional data in every screenshot, video, trace, and report.
 - [x] Keep print screenshots separate and verify screen decoration does not enter print output.
 
-Evidence: 48 Chromium/Windows baselines cover Home viewports and states, drawer/profile/focus, 125%/150% device scaling, desktop and mobile versions of every primary officer route, every administrator route, administrator mobile navigation, and six isolated print layouts. The 1536px and tablet-portrait Home references reflect the final authorized-content layout. Fictional API fixtures and stable masks prevent operational data from entering artifacts; all baselines pass on the candidate and the new mobile and print outputs were inspected directly.
+Evidence: 48 Chromium/Windows baselines cover Home viewports and states, drawer/profile/focus, 125%/150% device scaling, desktop and mobile versions of every primary officer route, every administrator route, administrator mobile navigation, and six isolated print layouts. The 1536px and tablet-portrait Home references reflect removal of redundant Home content. Fictional API fixtures and stable masks prevent operational data from entering artifacts; all baselines pass on the candidate and the new mobile and print outputs were inspected directly.
 
 ### Manual visual review
 
 - [x] Compare hero crop, text-safe area, watchtower placement, sidebar fade, card density, button depth, icons, spacing, and alignment against the approved visual cues.
-- [x] Confirm the result feels polished without copying every panel or piece of demonstration content from the reference.
+- [ ] Confirm the result feels polished without copying every panel or piece of demonstration content from the reference.
 - [x] Confirm the visual hierarchy remains obvious during real loading, empty, error, and incomplete-data states.
 - [x] Check common Windows laptop displays for muddy shadows, low-contrast borders, and overly small metadata.
 - [x] Check grayscale readability for status and print-related screens.
 - [x] Record every intentional deviation with a usability, accessibility, security, performance, or data-integrity reason.
-
-Evidence: direct accepted-reference/latest-render review confirmed the final hero crop and message, higher mountain scenery, continuous fence, dense action hierarchy, full-height 1536 composition, restored authorized work metrics, and restrained navy/gold finish. Data-bound reference panels without approved contracts remain intentionally omitted, so this visual acceptance does not imply owner release approval.
 
 ### Required verification
 
@@ -517,7 +511,7 @@ Evidence: direct accepted-reference/latest-render review confirmed the final her
 - [x] Verify the complete print suite after every shared CSS change.
 - [x] Require all CI and release gates to pass before merging each visual milestone; `2384056` passed every PR check, and follow-on source candidate `f16e654` remains subject to the exact final PR gate.
 
-Evidence: source candidate `f16e654` passed 166 component tests across 44 files, TypeScript, and the Vite production build (26.63 kB CSS gzip and 135.88 kB JavaScript gzip), plus 120 of 121 Chromium workflows with `reuseExistingServer: false`, including all 48 Windows visual baselines. The expanded visual set was reviewed directly; it deliberately adds mobile/print references and replaces invalid Reports error captures with loaded fictional records. The single skipped workflow is the feature-detected `prefers-reduced-data` browser assertion that current Chromium cannot emulate through CDP; `visual-assets.test.ts` separately proves the request-free reduced-data CSS contract. Local backend evidence includes 41 contract/security tests and 1,440 unit tests with 30 intentional skips. Predecessor `2384056` passed every PR check; the exact final branch remains subject to the PR gate. Manual screen-reader, native on-screen-keyboard, physical high-contrast, production p75, and owner-release approval remain separate open gates.
+Evidence: source candidate `f16e654` passed 166 component tests across 44 files, TypeScript, and the Vite production build (26.73 kB CSS gzip and 135.95 kB JavaScript gzip), plus 120 of 121 Chromium workflows, including all 48 Windows visual baselines. The expanded visual set was reviewed directly; it deliberately adds mobile/print references and replaces invalid Reports error captures with loaded fictional records. The single skipped workflow is the feature-detected `prefers-reduced-data` browser assertion that current Chromium cannot emulate through CDP; `visual-assets.test.ts` separately proves the request-free reduced-data CSS contract. Local backend evidence includes 41 contract/security tests and 1,440 unit tests with 30 intentional skips. Predecessor `2384056` passed every PR check; the exact final branch remains subject to the PR gate. Manual screen-reader, native on-screen-keyboard, physical high-contrast, production p75, and owner-release approval remain separate open gates.
 
 ---
 
