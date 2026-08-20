@@ -60,7 +60,7 @@ test("built officer workspace uses real sessions, persistence, print, and DOCX d
   await page.getByLabel("Date").fill("2026-08-20");
   await page.getByLabel("Time").fill("11:30");
   await page.getByLabel("Location").fill("Training Hall");
-  await page.getByLabel("Initial category, when known").fill("fictional incident");
+  await page.getByLabel("Initial category, when known").fill("contraband");
   await page.getByRole("button", { name: "Continue to Field Notes" }).click();
   await page.getByLabel("Officer field notes").fill(
     "Fictional browser-smoke observations. Unknown details remain unknown.",
