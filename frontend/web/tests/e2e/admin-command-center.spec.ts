@@ -29,7 +29,6 @@ test("command center keeps operations readable and action-oriented at 1366x768",
 
   const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
   expect(horizontalOverflow).toBe(false);
-  await page.screenshot({ path: "admin-overview-1366x768.png", fullPage: true });
 });
 
 test("admin can move from all incidents into attributed controls and Document Studio", async ({ page }) => {
@@ -61,7 +60,6 @@ test("accounts audit and health remain distinct operational surfaces", async ({ 
   await expect(page.getByRole("heading", { name: "Linked Account" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Active Sessions" })).toBeVisible();
   await expect(page.getByText("Training laptop")).toBeVisible();
-  await page.screenshot({ path: "admin-accounts-staff-1366x768.png", fullPage: true });
 
   await nav.getByRole("link", { name: "Audit Log" }).click();
   await expect(page.getByRole("heading", { name: "Audit Log" })).toBeVisible();
