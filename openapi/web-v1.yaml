@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Guided Operations Web API
-  version: 0.3.0
+  version: 0.4.0
 servers:
 - url: /api/web/v1
 security:
@@ -11,364 +11,227 @@ paths:
     get:
       operationId: getBrowserSession
       responses:
-        '200':
-          description: Request completed
+        '200': {description: Request completed}
       security: []
   /auth/login:
     post:
       operationId: loginBrowserSession
       responses:
-        '200':
-          description: Request completed
+        '200': {description: Request completed}
       security: []
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
+            schema: {$ref: '#/components/schemas/LoginRequest'}
   /auth/renew:
     post:
       operationId: renewBrowserSession
       responses:
-        '200':
-          description: Request completed
+        '200': {description: Request completed}
   /auth/logout:
     post:
       operationId: logoutBrowserSession
       responses:
-        '200':
-          description: Request completed
+        '200': {description: Request completed}
   /staff:
     get:
       operationId: searchBrowserStaff
       responses:
-        '200':
-          description: Request completed
+        '200': {description: Request completed}
   /incidents:
     get:
       operationId: listBrowserIncidents
       responses:
-        '200':
-          description: Request completed
+        '200': {description: Request completed}
     post:
       operationId: createBrowserIncident
       responses:
-        '200':
-          description: Request completed
+        '200': {description: Request completed}
   /incidents/{incident_id}:
+    parameters:
+    - {$ref: '#/components/parameters/IncidentId'}
     get:
       operationId: getBrowserIncident
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: incident_id
-        in: path
-        required: true
-        schema: &id001
-          type: string
-          format: uuid
+        '200': {description: Request completed}
     patch:
       operationId: saveBrowserIncident
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: incident_id
-        in: path
-        required: true
-        schema: *id001
+        '200': {description: Request completed}
   /incidents/{incident_id}/revisions:
+    parameters:
+    - {$ref: '#/components/parameters/IncidentId'}
     get:
       operationId: listBrowserIncidentRevisions
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: incident_id
-        in: path
-        required: true
-        schema: *id001
+        '200': {description: Request completed}
   /incidents/{incident_id}/revisions/{revision_number}:
+    parameters:
+    - {$ref: '#/components/parameters/IncidentId'}
+    - {$ref: '#/components/parameters/RevisionNumber'}
     get:
       operationId: getBrowserIncidentRevision
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: incident_id
-        in: path
-        required: true
-        schema: *id001
-      - name: revision_number
-        in: path
-        required: true
-        schema: &id003
-          type: integer
-          minimum: 1
+        '200': {description: Request completed}
   /incidents/{incident_id}/restore:
+    parameters:
+    - {$ref: '#/components/parameters/IncidentId'}
     post:
       operationId: restoreBrowserIncidentRevision
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: incident_id
-        in: path
-        required: true
-        schema: *id001
+        '200': {description: Request completed}
   /incidents/{incident_id}/reports:
+    parameters:
+    - {$ref: '#/components/parameters/IncidentId'}
     get:
       operationId: listBrowserIncidentReports
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: incident_id
-        in: path
-        required: true
-        schema: *id001
+        '200': {description: Request completed}
   /incidents/{incident_id}/jobs/{job_type}:
+    parameters:
+    - {$ref: '#/components/parameters/IncidentId'}
+    - name: job_type
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [classify, extract, generate, disciplinary]
     post:
       operationId: submitBrowserIncidentJob
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: incident_id
-        in: path
-        required: true
-        schema: *id001
-      - name: job_type
-        in: path
-        required: true
-        schema:
-          type: string
-          enum:
-          - classify
-          - extract
-          - generate
-          - disciplinary
+        '200': {description: Request completed}
   /jobs/{job_id}:
+    parameters:
+    - name: job_id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
     get:
       operationId: getBrowserJob
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: job_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        '200': {description: Request completed}
   /reports/{report_id}:
+    parameters:
+    - {$ref: '#/components/parameters/ReportId'}
     get:
       operationId: getBrowserReport
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: report_id
-        in: path
-        required: true
-        schema: &id002
-          type: string
-          format: uuid
+        '200': {description: Request completed}
     patch:
       operationId: saveBrowserReport
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: report_id
-        in: path
-        required: true
-        schema: *id002
+        '200': {description: Request completed}
   /reports/{report_id}/revisions:
+    parameters:
+    - {$ref: '#/components/parameters/ReportId'}
     get:
       operationId: listBrowserReportRevisions
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: report_id
-        in: path
-        required: true
-        schema: *id002
+        '200': {description: Request completed}
   /reports/{report_id}/revisions/{revision_number}:
+    parameters:
+    - {$ref: '#/components/parameters/ReportId'}
+    - {$ref: '#/components/parameters/RevisionNumber'}
     get:
       operationId: getBrowserReportRevision
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: report_id
-        in: path
-        required: true
-        schema: *id002
-      - name: revision_number
-        in: path
-        required: true
-        schema: *id003
+        '200': {description: Request completed}
   /reports/{report_id}/restore:
+    parameters:
+    - {$ref: '#/components/parameters/ReportId'}
     post:
       operationId: restoreBrowserReportRevision
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: report_id
-        in: path
-        required: true
-        schema: *id002
+        '200': {description: Request completed}
   /reports/{report_id}/export-docx:
+    parameters:
+    - {$ref: '#/components/parameters/ReportId'}
     post:
       operationId: exportBrowserReportDocx
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: report_id
-        in: path
-        required: true
-        schema: *id002
+        '200': {description: Request completed}
   /forms/catalog:
     get:
       operationId: listBrowserFormCatalog
       responses:
-        '200':
-          description: Request completed
+        '200': {description: Request completed}
   /incidents/{incident_id}/packet:
+    parameters:
+    - {$ref: '#/components/parameters/IncidentId'}
     get:
       operationId: getBrowserIncidentPacket
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: incident_id
-        in: path
-        required: true
-        schema: *id001
+        '200': {description: Request completed}
   /incidents/{incident_id}/packet/rebuild:
+    parameters:
+    - {$ref: '#/components/parameters/IncidentId'}
     post:
       operationId: rebuildBrowserIncidentPacket
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: incident_id
-        in: path
-        required: true
-        schema: *id001
+        '200': {description: Request completed}
   /incidents/{incident_id}/packet/additional:
+    parameters:
+    - {$ref: '#/components/parameters/IncidentId'}
     post:
       operationId: addBrowserIncidentPacketForm
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: incident_id
-        in: path
-        required: true
-        schema: *id001
+        '200': {description: Request completed}
   /packet-items/{packet_item_id}:
+    parameters:
+    - {$ref: '#/components/parameters/PacketItemId'}
     patch:
       operationId: updateBrowserPacketItem
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: packet_item_id
-        in: path
-        required: true
-        schema: &id004
-          type: string
-          format: uuid
+        '200': {description: Request completed}
   /packet-items/{packet_item_id}/populate:
+    parameters:
+    - {$ref: '#/components/parameters/PacketItemId'}
     post:
       operationId: populateBrowserPacketItem
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: packet_item_id
-        in: path
-        required: true
-        schema: *id004
+        '200': {description: Request completed}
   /packet-items/{packet_item_id}/physical:
+    parameters:
+    - {$ref: '#/components/parameters/PacketItemId'}
     get:
       operationId: getBrowserPhysicalPaperwork
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: packet_item_id
-        in: path
-        required: true
-        schema: *id004
+        '200': {description: Request completed}
   /packet-items/{packet_item_id}/physical/acknowledgment:
+    parameters:
+    - {$ref: '#/components/parameters/PacketItemId'}
     post:
       operationId: acknowledgeBrowserPhysicalPaperwork
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: packet_item_id
-        in: path
-        required: true
-        schema: *id004
+        '200': {description: Request completed}
     delete:
       operationId: clearBrowserPhysicalPaperwork
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: packet_item_id
-        in: path
-        required: true
-        schema: *id004
+        '200': {description: Request completed}
   /form-instances/{form_instance_id}:
+    parameters:
+    - {$ref: '#/components/parameters/FormInstanceId'}
     get:
       operationId: getBrowserFormInstance
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: form_instance_id
-        in: path
-        required: true
-        schema: &id005
-          type: string
-          format: uuid
+        '200': {description: Request completed}
     patch:
       operationId: saveBrowserFormInstance
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: form_instance_id
-        in: path
-        required: true
-        schema: *id005
+        '200': {description: Request completed}
   /form-instances/{form_instance_id}/preview:
+    parameters:
+    - {$ref: '#/components/parameters/FormInstanceId'}
     get:
       operationId: previewBrowserFormInstance
       responses:
-        '200':
-          description: Request completed
-      parameters:
-      - name: form_instance_id
-        in: path
-        required: true
-        schema: *id005
+        '200': {description: Request completed}
   /document-actions:
     post:
       operationId: recordBrowserDocumentAction
       responses:
-        '200':
-          description: Request completed
+        '200': {description: Request completed}
   /paperwork:
     get:
       operationId: listBrowserPaperwork
@@ -376,30 +239,22 @@ paths:
       - name: kind
         in: query
         required: true
-        schema:
-          type: string
-          enum: [count_sheet]
+        schema: {type: string, enum: [count_sheet]}
       - name: limit
         in: query
         required: false
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 50
+        schema: {type: integer, minimum: 1, maximum: 50}
       - name: cursor
         in: query
         required: false
-        schema:
-          type: string
+        schema: {type: string}
       responses:
-        '200':
-          description: Authorized paperwork page
+        '200': {description: Authorized paperwork page}
   /paperwork/count-sheets/structure:
     get:
       operationId: getBrowserCountSheetStructure
       responses:
-        '200':
-          description: Approved Count Sheet structure
+        '200': {description: Approved Count Sheet structure}
   /paperwork/count-sheets:
     post:
       operationId: createBrowserCountSheet
@@ -407,214 +262,339 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/SaveCountSheetRequest'
+            schema: {$ref: '#/components/schemas/SaveCountSheetRequest'}
       responses:
-        '201':
-          description: Count Sheet created
+        '201': {description: Count Sheet created}
   /paperwork/count-sheets/{record_id}:
     parameters:
-    - name: record_id
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
+    - {$ref: '#/components/parameters/PaperworkRecordId'}
     get:
       operationId: getBrowserCountSheet
       responses:
-        '200':
-          description: Authorized Count Sheet
+        '200': {description: Authorized Count Sheet}
     patch:
       operationId: saveBrowserCountSheet
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/SaveCountSheetRequest'
+            schema: {$ref: '#/components/schemas/SaveCountSheetRequest'}
       responses:
-        '200':
-          description: Count Sheet revision saved
+        '200': {description: Count Sheet revision saved}
   /paperwork/count-sheets/{record_id}/revisions:
     parameters:
-    - name: record_id
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
+    - {$ref: '#/components/parameters/PaperworkRecordId'}
     get:
       operationId: listBrowserCountSheetRevisions
       responses:
-        '200':
-          description: Authorized revision history
+        '200': {description: Authorized revision history}
   /paperwork/count-sheets/{record_id}/restore:
     parameters:
-    - name: record_id
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
+    - {$ref: '#/components/parameters/PaperworkRecordId'}
     post:
       operationId: restoreBrowserCountSheet
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/PaperworkRestoreRequest'
+            schema: {$ref: '#/components/schemas/PaperworkRestoreRequest'}
       responses:
-        '200':
-          description: Historical revision restored as a new revision
+        '200': {description: Historical revision restored as a new revision}
   /paperwork/count-sheets/{record_id}/actions:
     parameters:
-    - name: record_id
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
+    - {$ref: '#/components/parameters/PaperworkRecordId'}
     post:
       operationId: recordBrowserCountSheetAction
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/PaperworkActionRequest'
+            schema: {$ref: '#/components/schemas/PaperworkActionRequest'}
       responses:
-        '200':
-          description: Output action recorded
+        '200': {description: Output action recorded}
+
+  /admin/elevation:
+    get:
+      operationId: getBrowserAdminElevation
+      responses:
+        '200': {description: Safe administrator elevation state}
+    post:
+      operationId: enterBrowserAdminElevation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AdminElevationRequest'}
+      responses:
+        '200': {description: Administrator elevation entered}
+  /admin/step-up:
+    post:
+      operationId: issueBrowserAdminStepUp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AdminStepUpRequest'}
+      responses:
+        '200': {description: Purpose-scoped HttpOnly step-up issued}
+  /admin/overview:
+    get:
+      operationId: getBrowserAdminOverview
+      responses:
+        '200': {description: Bounded operational command center summary}
+  /admin/incidents:
+    get:
+      operationId: listBrowserAdminIncidents
+      responses:
+        '200': {description: Incident-centered administrator results}
+  /admin/incidents/{incident_id}:
+    parameters:
+    - {$ref: '#/components/parameters/IncidentId'}
+    get:
+      operationId: getBrowserAdminIncident
+      responses:
+        '200': {description: Attributed administrator incident detail}
+  /admin/incidents/{incident_id}/records-status:
+    parameters:
+    - {$ref: '#/components/parameters/IncidentId'}
+    patch:
+      operationId: updateBrowserAdminIncidentRecordsStatus
+      responses:
+        '200': {description: Administrative records status updated}
+  /admin/incidents/{incident_id}/restore:
+    parameters:
+    - {$ref: '#/components/parameters/IncidentId'}
+    post:
+      operationId: restoreBrowserAdminIncident
+      responses:
+        '200': {description: Incident restored with administrator attribution}
+  /admin/reports/{report_id}/transfer:
+    parameters:
+    - {$ref: '#/components/parameters/ReportId'}
+    post:
+      operationId: transferBrowserAdminReport
+      responses:
+        '200': {description: Report ownership transferred}
+  /admin/staff:
+    get:
+      operationId: listBrowserAdminStaff
+      responses:
+        '200': {description: Staff roster results}
+    post:
+      operationId: createBrowserAdminStaff
+      responses:
+        '200': {description: Staff member created}
+  /admin/staff/{staff_id}:
+    parameters:
+    - {$ref: '#/components/parameters/StaffId'}
+    patch:
+      operationId: updateBrowserAdminStaff
+      responses:
+        '200': {description: Staff member updated}
+  /admin/accounts:
+    get:
+      operationId: listBrowserAdminAccounts
+      responses:
+        '200': {description: Individual account results}
+    post:
+      operationId: createBrowserAdminAccount
+      responses:
+        '200': {description: Individual account created with one-time temporary PIN}
+  /admin/accounts/{account_id}:
+    parameters:
+    - {$ref: '#/components/parameters/AccountId'}
+    patch:
+      operationId: updateBrowserAdminAccount
+      responses:
+        '200': {description: Account role or status updated}
+  /admin/accounts/{account_id}/reset-pin:
+    parameters:
+    - {$ref: '#/components/parameters/AccountId'}
+    post:
+      operationId: resetBrowserAdminAccountPin
+      responses:
+        '200': {description: One-time temporary PIN returned}
+  /admin/accounts/{account_id}/unlock:
+    parameters:
+    - {$ref: '#/components/parameters/AccountId'}
+    post:
+      operationId: unlockBrowserAdminAccount
+      responses:
+        '200': {description: Account unlocked}
+  /admin/accounts/{account_id}/sessions:
+    parameters:
+    - {$ref: '#/components/parameters/AccountId'}
+    get:
+      operationId: listBrowserAdminAccountSessions
+      responses:
+        '200': {description: Safe account session metadata}
+  /admin/accounts/{account_id}/revoke-sessions:
+    parameters:
+    - {$ref: '#/components/parameters/AccountId'}
+    post:
+      operationId: revokeBrowserAdminAccountSessions
+      responses:
+        '200': {description: Selected account sessions revoked}
+  /admin/audit:
+    get:
+      operationId: listBrowserAdminAudit
+      responses:
+        '200': {description: Safe immutable audit results}
+  /admin/audit/{event_id}:
+    parameters:
+    - {$ref: '#/components/parameters/AuditEventId'}
+    get:
+      operationId: getBrowserAdminAuditEvent
+      responses:
+        '200': {description: Safe immutable audit detail}
+  /admin/health:
+    get:
+      operationId: getBrowserAdminHealth
+      responses:
+        '200': {description: Bounded system health summary}
+  /admin/review-lab-handoffs:
+    post:
+      operationId: createBrowserAdminReviewLabHandoff
+      responses:
+        '200': {description: One-use same-origin Review Lab handoff}
+
 components:
   securitySchemes:
     BrowserSession:
       type: apiKey
       in: cookie
       name: slut_web_access
+  parameters:
+    IncidentId:
+      name: incident_id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    ReportId:
+      name: report_id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    RevisionNumber:
+      name: revision_number
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+    PacketItemId:
+      name: packet_item_id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    FormInstanceId:
+      name: form_instance_id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    PaperworkRecordId:
+      name: record_id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    StaffId:
+      name: staff_id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    AccountId:
+      name: account_id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    AuditEventId:
+      name: event_id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
   schemas:
     LoginRequest:
       type: object
       additionalProperties: false
-      required:
-      - employee_number
-      - pin
-      - persistent
+      required: [employee_number, pin, persistent]
       properties:
-        employee_number:
-          type: string
-        pin:
-          type: string
-        persistent:
-          type: boolean
+        employee_number: {type: string}
+        pin: {type: string}
+        persistent: {type: boolean}
     SessionProfile:
       type: object
       additionalProperties: false
       properties:
-        account_id:
+        account_id: {type: string, format: uuid}
+        staff_id: {type: string, format: uuid}
+        session_id: {type: string, format: uuid}
+        employee_number: {type: string}
+        display_name: {type: string}
+        rank: {type: [string, 'null']}
+        shift: {type: [string, 'null']}
+        role: {type: string}
+        must_change_pin: {type: boolean}
+    AdminElevationRequest:
+      type: object
+      additionalProperties: false
+      required: [pin]
+      properties:
+        pin: {type: string, minLength: 4, maxLength: 8}
+    AdminStepUpRequest:
+      type: object
+      additionalProperties: false
+      required: [pin, purpose]
+      properties:
+        pin: {type: string, minLength: 4, maxLength: 8}
+        purpose:
           type: string
-          format: uuid
-        staff_id:
-          type: string
-          format: uuid
-        session_id:
-          type: string
-          format: uuid
-        employee_number:
-          type: string
-        display_name:
-          type: string
-        rank:
-          type:
-          - string
-          - 'null'
-        shift:
-          type:
-          - string
-          - 'null'
-        role:
-          type: string
-        must_change_pin:
-          type: boolean
+          enum:
+          - staff_write
+          - account_create
+          - account_role_status
+          - account_reset_pin
+          - account_unlock
+          - account_revoke_sessions
+          - incident_restore
+          - report_transfer
+          - review_lab_handoff
     CountSheetPayload:
       type: object
       additionalProperties: false
-      required:
-      - schema_version
-      - count_started
-      - count_ended
-      - cells
-      - in_housing
-      - operational
+      required: [schema_version, count_started, count_ended, cells, in_housing, operational]
       properties:
-        schema_version:
-          type: integer
-          const: 1
-        count_started:
-          type: [string, 'null']
-          format: time
-        count_ended:
-          type: [string, 'null']
-          format: time
+        schema_version: {type: integer, const: 1}
+        count_started: {type: [string, 'null'], format: time}
+        count_ended: {type: [string, 'null'], format: time}
         cells:
           type: object
           additionalProperties:
             type: object
-            additionalProperties:
-              type: [integer, 'null']
-              minimum: 0
+            additionalProperties: {type: [integer, 'null'], minimum: 0}
         in_housing:
           type: object
-          additionalProperties:
-            type: [integer, 'null']
-            minimum: 0
+          additionalProperties: {type: [integer, 'null'], minimum: 0}
         operational:
           type: object
-          additionalProperties:
-            type: [integer, 'null']
-            minimum: 0
+          additionalProperties: {type: [integer, 'null'], minimum: 0}
     SaveCountSheetRequest:
       type: object
       additionalProperties: false
-      required:
-      - schema_version
-      - work_date
-      - shift
-      - payload
-      - base_revision_number
-      - reason
+      required: [schema_version, work_date, shift, payload, base_revision_number, reason]
       properties:
-        schema_version:
-          type: integer
-          const: 1
-        work_date:
-          type: string
-          format: date
-        shift:
-          type: [string, 'null']
-          maxLength: 32
-        payload:
-          $ref: '#/components/schemas/CountSheetPayload'
-        base_revision_number:
-          type: [integer, 'null']
-          minimum: 1
-        reason:
-          type: string
-          enum: [autosave, manual_save, recovery]
+        schema_version: {type: integer, const: 1}
+        work_date: {type: string, format: date}
+        shift: {type: [string, 'null'], maxLength: 32}
+        payload: {$ref: '#/components/schemas/CountSheetPayload'}
+        base_revision_number: {type: [integer, 'null'], minimum: 1}
+        reason: {type: string, enum: [autosave, manual_save, recovery]}
     PaperworkRestoreRequest:
       type: object
       additionalProperties: false
       required: [revision_number]
       properties:
-        revision_number:
-          type: integer
-          minimum: 1
+        revision_number: {type: integer, minimum: 1}
     PaperworkActionRequest:
       type: object
       additionalProperties: false
       required: [action]
       properties:
-        action:
-          type: string
-          enum: [preview, print, download_pdf]
+        action: {type: string, enum: [preview, print, download_pdf]}
