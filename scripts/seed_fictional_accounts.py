@@ -1,10 +1,10 @@
 """Seed standard fictional local accounts for development only."""
 from __future__ import annotations
 
+from datetime import UTC, datetime
 import os
 from pathlib import Path
 import sys
-from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,7 +15,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from backend.identity.pins import hash_pin
-from backend.persistence.models import Account, StaffMember
+from backend.persistence.models.identity import Account, StaffMember
 
 
 FICTIONAL_ACCOUNTS = (
@@ -30,9 +30,9 @@ FICTIONAL_ACCOUNTS = (
     },
     {
         "employee_number": "TEST-9001",
-        "pin": "A7B8C9",
+        "pin": "Q7W9E2",
         "role": "admin",
-        "rank": "Captain",
+        "rank": "Officer",
         "first_name": "Jordan",
         "last_name": "Taylor",
         "shift": "B",
