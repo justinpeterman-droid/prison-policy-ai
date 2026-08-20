@@ -1,4 +1,5 @@
 @import "./home-refinement.css";
+@import "./features/administration/incidents/admin-incident-controls.css";
 
 :root {
   font-family: Inter, system-ui, sans-serif;
