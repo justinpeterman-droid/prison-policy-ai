@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/version.schema.json",
+  "title": "Canonical compatibility version registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "backend_version",
+    "api_version",
+    "client_version",
+    "minimum_client_version",
+    "minimum_server_version",
+    "release_notes",
+    "channel"
+  ],
+  "properties": {
+    "$schema": {"const": "./version.schema.json"},
+    "schema_version": {"const": 1},
+    "backend_version": {"$ref": "#/$defs/version"},
+    "api_version": {"const": "v1"},
+    "client_version": {"$ref": "#/$defs/version"},
+    "minimum_client_version": {"$ref": "#/$defs/version"},
+    "minimum_server_version": {"$ref": "#/$defs/version"},
+    "release_notes": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "channel": {"enum": ["development", "pilot", "stable"]}
+  },
+  "$defs": {
+    "version": {
+      "type": "string",
+      "pattern": "^(?:0\\.0\\.0-development|(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?)$"
+    }
+  }
+}

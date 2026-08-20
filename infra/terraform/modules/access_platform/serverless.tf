@@ -23,6 +23,16 @@ resource "google_cloud_run_v2_service" "api" {
   ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
   labels   = local.cloud_run_labels
 
+  # Protected delivery workflows own immutable revision images and traffic.
+  # Terraform continues to own ingress, identity, scaling, configuration,
+  # secrets, IAM, and every other service field.
+  lifecycle {
+    ignore_changes = [
+      template[0].containers[0].image,
+      traffic,
+    ]
+  }
+
   template {
     service_account                  = google_service_account.api.email
     timeout                          = "300s"
@@ -256,6 +266,14 @@ resource "google_cloud_run_v2_service" "worker" {
   location = var.region
   ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
   labels   = local.cloud_run_labels
+
+  # Protected delivery workflows select the reviewed worker revision.
+  lifecycle {
+    ignore_changes = [
+      template[0].containers[0].image,
+      traffic,
+    ]
+  }
 
   template {
     service_account                  = google_service_account.worker.email

@@ -1,0 +1,133 @@
+name: Bootstrap first Admin
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: Exact target environment
+        required: true
+        type: choice
+        options: [test, production]
+      request_uri:
+        description: Opaque private request object URI
+        required: true
+        type: string
+      expected_sha256:
+        description: Lowercase SHA-256 of the immutable request
+        required: true
+        type: string
+
+jobs:
+  bootstrap_test:
+    if: ${{ github.event.inputs.target_environment == 'test' }}
+    environment: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Validate protected invocation
+        env:
+          REQUEST_URI: ${{ inputs.request_uri }}
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+          WIF_PROVIDER: ${{ vars.GCP_ADMIN_BOOTSTRAP_WIF_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ vars.GCP_ADMIN_BOOTSTRAP_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          [[ "${EXPECTED_SHA256}" =~ ^[0-9a-f]{64}$ ]]
+          [[ "${REQUEST_URI}" =~ ^gs://access-test-configuration/admin-bootstrap-requests/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.json$ ]]
+          [[ "${WIF_PROVIDER}" =~ /workloadIdentityPools/access-test-wif/providers/admin-bootstrap$ ]]
+          [[ "${SERVICE_ACCOUNT}" =~ ^access-test-admin-bootstrap@[^[:space:]]+\.iam\.gserviceaccount\.com$ ]]
+      - name: Authenticate as test bootstrap identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ vars.GCP_ADMIN_BOOTSTRAP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_ADMIN_BOOTSTRAP_SERVICE_ACCOUNT }}
+      - name: Install Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+      - name: Invoke exact bootstrap job once
+        id: execute
+        env:
+          REQUEST_URI: ${{ inputs.request_uri }}
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+          REGION: ${{ vars.GCP_REGION }}
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          execution_name="$(gcloud run jobs execute access-test-bootstrap-admin --project="${PROJECT_ID}" --region="${REGION}" --args="--request-uri=${REQUEST_URI},--expected-sha256=${EXPECTED_SHA256}" --wait --format='value(metadata.name)')"
+          test -n "${execution_name}"
+          echo "execution_name=${execution_name}" >> "${GITHUB_OUTPUT}"
+      - name: Record safe provenance
+        env:
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+          EXECUTION_NAME: ${{ steps.execute.outputs.execution_name }}
+        run: |
+          {
+            echo "target_environment=test"
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "workflow_ref=${GITHUB_WORKFLOW_REF}"
+            echo "git_ref=${GITHUB_REF}"
+            echo "source_commit=${GITHUB_SHA}"
+            echo "workflow_run_id=${GITHUB_RUN_ID}"
+            echo "expected_request_sha256=${EXPECTED_SHA256}"
+            echo "execution_name=${EXECUTION_NAME}"
+            echo "status=success"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  bootstrap_production:
+    if: ${{ github.event.inputs.target_environment == 'production' }}
+    environment: production-deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Validate protected invocation
+        env:
+          REQUEST_URI: ${{ inputs.request_uri }}
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+          WIF_PROVIDER: ${{ vars.GCP_ADMIN_BOOTSTRAP_WIF_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ vars.GCP_ADMIN_BOOTSTRAP_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          [[ "${EXPECTED_SHA256}" =~ ^[0-9a-f]{64}$ ]]
+          [[ "${REQUEST_URI}" =~ ^gs://access-production-configuration/admin-bootstrap-requests/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.json$ ]]
+          [[ "${WIF_PROVIDER}" =~ /workloadIdentityPools/access-prod-wif/providers/admin-bootstrap$ ]]
+          [[ "${SERVICE_ACCOUNT}" =~ ^access-prod-admin-bootstrap@[^[:space:]]+\.iam\.gserviceaccount\.com$ ]]
+      - name: Authenticate as production bootstrap identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ vars.GCP_ADMIN_BOOTSTRAP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_ADMIN_BOOTSTRAP_SERVICE_ACCOUNT }}
+      - name: Install Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+      - name: Invoke exact bootstrap job once
+        id: execute
+        env:
+          REQUEST_URI: ${{ inputs.request_uri }}
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+          REGION: ${{ vars.GCP_REGION }}
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          execution_name="$(gcloud run jobs execute access-production-bootstrap-admin --project="${PROJECT_ID}" --region="${REGION}" --args="--request-uri=${REQUEST_URI},--expected-sha256=${EXPECTED_SHA256}" --wait --format='value(metadata.name)')"
+          test -n "${execution_name}"
+          echo "execution_name=${execution_name}" >> "${GITHUB_OUTPUT}"
+      - name: Record safe provenance
+        env:
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+          EXECUTION_NAME: ${{ steps.execute.outputs.execution_name }}
+        run: |
+          {
+            echo "target_environment=production"
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "workflow_ref=${GITHUB_WORKFLOW_REF}"
+            echo "git_ref=${GITHUB_REF}"
+            echo "source_commit=${GITHUB_SHA}"
+            echo "workflow_run_id=${GITHUB_RUN_ID}"
+            echo "expected_request_sha256=${EXPECTED_SHA256}"
+            echo "execution_name=${EXECUTION_NAME}"
+            echo "status=success"
+          } >> "${GITHUB_STEP_SUMMARY}"

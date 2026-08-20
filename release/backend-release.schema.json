@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/backend-release.schema.json",
+  "title": "Immutable backend release descriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_commit",
+    "image_digest",
+    "sbom_sha256",
+    "provenance_id",
+    "migration_head",
+    "api_version",
+    "release_version",
+    "version_registry_sha256",
+    "test_workflow_run",
+    "test_environment",
+    "created_at",
+    "creator_workflow"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "image_digest": {
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+(?:/[a-z0-9._-]+)+@sha256:[0-9a-f]{64}$"
+    },
+    "sbom_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "provenance_id": {"type": "string", "minLength": 1, "maxLength": 300},
+    "migration_head": {"type": "string", "pattern": "^[0-9]{8}_[0-9]{4}_[a-z0-9_]+$"},
+    "api_version": {"const": "v1"},
+    "release_version": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "version_registry_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "test_workflow_run": {"type": "string", "minLength": 1, "maxLength": 300},
+    "test_environment": {"const": "test"},
+    "created_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "creator_workflow": {"type": "string", "minLength": 1, "maxLength": 300}
+  }
+}

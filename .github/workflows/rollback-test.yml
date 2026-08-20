@@ -1,0 +1,61 @@
+name: Roll back test revisions
+
+on:
+  workflow_dispatch:
+    inputs:
+      prior_api_revision:
+        required: true
+        type: string
+      prior_worker_revision:
+        required: true
+        type: string
+      expected_api_digest:
+        required: true
+        type: string
+      expected_worker_digest:
+        required: true
+        type: string
+      incident_reference:
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  rollback_test:
+    environment: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Validate immutable rollback request and registry
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Validate development version registry
+        run: python scripts/deploy/validate_release_descriptor.py version --registry release/version.json
+      - name: Authenticate as test rollback identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ vars.GCP_ROLLBACK_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_ROLLBACK_SERVICE_ACCOUNT }}
+      - name: Install Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+      - name: Verify reviewed revisions and select them
+        env:
+          API_REVISION: ${{ inputs.prior_api_revision }}
+          WORKER_REVISION: ${{ inputs.prior_worker_revision }}
+          API_DIGEST: ${{ inputs.expected_api_digest }}
+          WORKER_DIGEST: ${{ inputs.expected_worker_digest }}
+          INCIDENT_REFERENCE: ${{ inputs.incident_reference }}
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          REGION: ${{ vars.GCP_REGION }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test -n "${INCIDENT_REFERENCE}"
+          [[ "${API_DIGEST}" =~ @sha256:[0-9a-f]{64}$ ]]
+          [[ "${WORKER_DIGEST}" =~ @sha256:[0-9a-f]{64}$ ]]
+          test "$(gcloud run revisions describe "${API_REVISION}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(spec.containers[0].image)')" = "${API_DIGEST}"
+          test "$(gcloud run revisions describe "${WORKER_REVISION}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(spec.containers[0].image)')" = "${WORKER_DIGEST}"
+          gcloud run services update-traffic access-test-api --project="${PROJECT_ID}" --region="${REGION}" --to-revisions="${API_REVISION}=100"
+          gcloud run services update-traffic access-test-worker --project="${PROJECT_ID}" --region="${REGION}" --to-revisions="${WORKER_REVISION}=100"

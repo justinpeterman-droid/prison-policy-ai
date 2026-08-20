@@ -1,0 +1,70 @@
+name: Roll back production revisions
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_descriptor_sha256:
+        required: true
+        type: string
+      prior_api_revision:
+        required: true
+        type: string
+      prior_worker_revision:
+        required: true
+        type: string
+      expected_migration_head:
+        required: true
+        type: string
+      incident_reference:
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  rollback_production:
+    environment: production-rollback
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out reviewed main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Validate production registry and rollback request
+        env:
+          DESCRIPTOR_SHA256: ${{ inputs.release_descriptor_sha256 }}
+          MIGRATION_HEAD: ${{ inputs.expected_migration_head }}
+          INCIDENT_REFERENCE: ${{ inputs.incident_reference }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          [[ "${DESCRIPTOR_SHA256}" =~ ^[0-9a-f]{64}$ ]]
+          [[ "${MIGRATION_HEAD}" =~ ^[0-9]{8}_[0-9]{4}_[a-z0-9_]+$ ]]
+          test -n "${INCIDENT_REFERENCE}"
+          python scripts/deploy/validate_release_descriptor.py version --registry release/version.json --production
+      - name: Authenticate as production rollback identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ vars.GCP_ROLLBACK_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_ROLLBACK_SERVICE_ACCOUNT }}
+      - name: Install Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+      - name: Verify compatibility and select reviewed prior revisions
+        env:
+          API_REVISION: ${{ inputs.prior_api_revision }}
+          WORKER_REVISION: ${{ inputs.prior_worker_revision }}
+          MIGRATION_HEAD: ${{ inputs.expected_migration_head }}
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          REGION: ${{ vars.GCP_REGION }}
+        run: |
+          set -euo pipefail
+          api_digest="$(gcloud run revisions describe "${API_REVISION}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(spec.containers[0].image)')"
+          worker_digest="$(gcloud run revisions describe "${WORKER_REVISION}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(spec.containers[0].image)')"
+          [[ "${api_digest}" =~ @sha256:[0-9a-f]{64}$ ]]
+          [[ "${worker_digest}" =~ @sha256:[0-9a-f]{64}$ ]]
+          test "$(gcloud run jobs describe access-production-migrate --project="${PROJECT_ID}" --region="${REGION}" --format='value(spec.template.template.containers[0].env[?name=EXPECTED_MIGRATION_HEAD].value)')" = "${MIGRATION_HEAD}"
+          gcloud run services update-traffic access-production-api --project="${PROJECT_ID}" --region="${REGION}" --to-revisions="${API_REVISION}=100"
+          gcloud run services update-traffic access-production-worker --project="${PROJECT_ID}" --region="${REGION}" --to-revisions="${WORKER_REVISION}=100"
+      - name: Read-only post-rollback health check
+        run: python scripts/deploy/smoke_test.py --base-url "https://${{ vars.MANAGED_HOSTNAME }}" --expected-release-version "${{ vars.PRIOR_RELEASE_VERSION }}" --expected-api-version v1
