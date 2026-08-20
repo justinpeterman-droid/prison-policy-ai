@@ -37,7 +37,7 @@ jobs:
           node-version: "22"
       - name: Install frontend dependencies
         working-directory: frontend/web
-        run: npm install --legacy-peer-deps --no-audit --no-fund
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
       - name: Run component tests
         working-directory: frontend/web
         run: npm test
@@ -135,7 +135,7 @@ jobs:
       - name: Install browser dependencies
         working-directory: frontend/web
         run: |
-          npm install --legacy-peer-deps --no-audit --no-fund
+          npm ci --legacy-peer-deps --no-audit --no-fund
           npx playwright install --with-deps chromium
       - name: Download reviewed production assets
         uses: actions/download-artifact@v4

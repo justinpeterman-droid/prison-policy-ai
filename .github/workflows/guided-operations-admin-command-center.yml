@@ -81,7 +81,7 @@ jobs:
           node-version: "22"
       - name: Install frontend dependencies
         working-directory: frontend/web
-        run: npm install --legacy-peer-deps --no-audit --no-fund
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
       - name: Run administrator component tests
         working-directory: frontend/web
         run: npm test -- src/features/administration/AdminGate.test.tsx
@@ -103,7 +103,7 @@ jobs:
           node-version: "22"
       - name: Install frontend dependencies
         working-directory: frontend/web
-        run: npm install --legacy-peer-deps --no-audit --no-fund
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
       - name: Install Chromium
         working-directory: frontend/web
         run: npx playwright install --with-deps chromium

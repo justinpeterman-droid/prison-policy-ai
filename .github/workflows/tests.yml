@@ -78,7 +78,7 @@ jobs:
 
       - name: Install web dependencies
         working-directory: frontend/web
-        run: npm install --legacy-peer-deps --no-audit --no-fund
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
 
       - name: Lint web source
         working-directory: frontend/web

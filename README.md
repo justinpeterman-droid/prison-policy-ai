@@ -126,7 +126,7 @@ From the repository root:
 ```bash
 python -m pip install -r requirements.txt pytest
 cd frontend/web
-npm install --legacy-peer-deps --no-audit --no-fund
+npm ci --legacy-peer-deps --no-audit --no-fund
 cd ../..
 ```
 

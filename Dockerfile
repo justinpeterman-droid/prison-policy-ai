@@ -1,9 +1,9 @@
 FROM node:22-slim AS web-build
 
 WORKDIR /src
-COPY frontend/web/package.json /src/frontend/web/package.json
+COPY frontend/web/package.json frontend/web/package-lock.json /src/frontend/web/
 WORKDIR /src/frontend/web
-RUN npm install --legacy-peer-deps --no-audit --no-fund
+RUN npm ci --legacy-peer-deps --no-audit --no-fund
 COPY frontend/web/ /src/frontend/web/
 RUN npm run build
 
