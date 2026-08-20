@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { StatusMessage } from "../../design-system/Primitives";
 
 interface AdminStepUpDialogProps {
   title: string;
@@ -43,7 +44,11 @@ export function AdminStepUpDialog({
             onChange={(event) => setPin(event.target.value)}
             disabled={busy}
           />
-          {error ? <p className="admin-form-error" role="alert">{error}</p> : null}
+          {error ? (
+            <StatusMessage as="p" className="admin-form-error" tone="destructive" unstyled aria-atomic="true">
+              {error}
+            </StatusMessage>
+          ) : null}
           <div className="admin-modal-actions">
             <button type="button" className="admin-secondary-button" onClick={onCancel} disabled={busy}>Cancel</button>
             <button type="submit" className="admin-primary-button" disabled={busy || !pin.trim()}>

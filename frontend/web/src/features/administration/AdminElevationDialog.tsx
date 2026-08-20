@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { StatusMessage } from "../../design-system/Primitives";
 
 interface AdminElevationDialogProps {
   onSubmit: (pin: string) => Promise<void>;
@@ -34,7 +35,11 @@ export function AdminElevationDialog({ onSubmit, error, busy = false }: AdminEle
           onChange={(event) => setPin(event.target.value)}
           disabled={busy}
         />
-        {error ? <p className="admin-form-error" role="alert">{error}</p> : null}
+        {error ? (
+          <StatusMessage as="p" className="admin-form-error" tone="destructive" unstyled aria-atomic="true">
+            {error}
+          </StatusMessage>
+        ) : null}
         <button className="admin-primary-button" type="submit" disabled={busy || !pin.trim()}>
           {busy ? "Confirming…" : "Enter Admin Center"}
         </button>
