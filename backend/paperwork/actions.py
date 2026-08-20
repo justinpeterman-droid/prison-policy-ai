@@ -28,12 +28,18 @@ def _record(
     session: Session,
     actor,
     record_id: UUID,
+    *,
+    expected_kind: PaperworkKind | str | None = None,
 ) -> PaperworkRecord:
-    record = session.scalar(
-        select(PaperworkRecord)
-        .where(PaperworkRecord.id == record_id)
-        .with_for_update()
-    )
+    statement = select(PaperworkRecord).where(PaperworkRecord.id == record_id)
+    if expected_kind is not None:
+        selected_kind = (
+            expected_kind
+            if isinstance(expected_kind, PaperworkKind)
+            else PaperworkKind(expected_kind)
+        )
+        statement = statement.where(PaperworkRecord.kind == selected_kind.value)
+    record = session.scalar(statement.with_for_update())
     if record is None or not can_read_paperwork(actor, record):
         raise PaperworkNotFound("Paperwork record not found.")
     return record
@@ -43,6 +49,8 @@ def _receipt_from_reference(
     session: Session,
     actor,
     reference: dict[str, object],
+    *,
+    expected_kind: PaperworkKind | str | None = None,
 ) -> PaperworkActionReceipt:
     try:
         record_id = UUID(str(reference["record_id"]))
@@ -52,7 +60,12 @@ def _receipt_from_reference(
         recorded = reference["recorded"] is True
     except (KeyError, TypeError, ValueError):
         raise RuntimeError("paperwork action reference is invalid") from None
-    record = _record(session, actor, record_id)
+    record = _record(
+        session,
+        actor,
+        record_id,
+        expected_kind=expected_kind,
+    )
     if (
         not recorded
         or record.kind != kind.value
@@ -79,13 +92,19 @@ def record_paperwork_action(
     idempotency_key: str,
     request_id: str,
     client_version: str,
+    expected_kind: PaperworkKind | str | None = None,
     now: datetime | None = None,
     audit_writer: AuditWriter | None = None,
 ) -> PaperworkActionReceipt:
     if action not in PAPERWORK_ACTIONS:
         raise ValueError("paperwork action is invalid")
     fixed = now or datetime.now(UTC)
-    record = _record(session, actor, record_id)
+    record = _record(
+        session,
+        actor,
+        record_id,
+        expected_kind=expected_kind,
+    )
     canonical = {
         "record_id": str(record.id),
         "kind": record.kind,
@@ -105,6 +124,7 @@ def record_paperwork_action(
             session,
             actor,
             claim.response_reference or {},
+            expected_kind=expected_kind,
         )
 
     details = {

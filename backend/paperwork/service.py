@@ -88,12 +88,13 @@ def _locked_record(
     session: Session,
     actor,
     record_id: UUID,
+    *,
+    expected_kind: PaperworkKind | str | None = None,
 ) -> PaperworkRecord:
-    record = session.scalar(
-        select(PaperworkRecord)
-        .where(PaperworkRecord.id == record_id)
-        .with_for_update()
-    )
+    statement = select(PaperworkRecord).where(PaperworkRecord.id == record_id)
+    if expected_kind is not None:
+        statement = statement.where(PaperworkRecord.kind == _kind(expected_kind).value)
+    record = session.scalar(statement.with_for_update())
     if record is None or not can_edit_paperwork(actor, record):
         raise PaperworkNotFound("Paperwork record not found.")
     return record
@@ -103,8 +104,13 @@ def get_paperwork_record(
     session: Session,
     actor,
     record_id: UUID,
+    *,
+    expected_kind: PaperworkKind | str | None = None,
 ) -> PaperworkView:
-    record = session.get(PaperworkRecord, record_id)
+    statement = select(PaperworkRecord).where(PaperworkRecord.id == record_id)
+    if expected_kind is not None:
+        statement = statement.where(PaperworkRecord.kind == _kind(expected_kind).value)
+    record = session.scalar(statement)
     if record is None or not can_read_paperwork(actor, record):
         raise PaperworkNotFound("Paperwork record not found.")
     return _view(record)
@@ -114,13 +120,20 @@ def _view_from_reference(
     session: Session,
     actor,
     reference: dict[str, object],
+    *,
+    expected_kind: PaperworkKind | str | None = None,
 ) -> PaperworkView:
     try:
         record_id = UUID(str(reference["record_id"]))
         revision_number = int(reference["revision_number"])
     except (KeyError, TypeError, ValueError):
         raise RuntimeError("paperwork idempotency reference is invalid") from None
-    view = get_paperwork_record(session, actor, record_id)
+    view = get_paperwork_record(
+        session,
+        actor,
+        record_id,
+        expected_kind=expected_kind,
+    )
     if revision_number < 1 or view.current_revision_number < revision_number:
         raise RuntimeError("paperwork idempotency reference is invalid")
     return view
@@ -189,7 +202,12 @@ def save_paperwork_record(
     else:
         if validated.base_revision_number is None:
             raise ValueError("Existing paperwork requires a base revision.")
-        record = _locked_record(session, actor, record_id)
+        record = _locked_record(
+            session,
+            actor,
+            record_id,
+            expected_kind=selected_kind,
+        )
         if record.kind != selected_kind.value:
             raise ValueError("paperwork kind does not match the record")
         if record.current_revision_number != validated.base_revision_number:
@@ -432,8 +450,14 @@ def list_paperwork_revisions(
     *,
     limit: int = 25,
     cursor: dict[str, str] | None = None,
+    expected_kind: PaperworkKind | str | None = None,
 ) -> PaperworkRevisionPage:
-    get_paperwork_record(session, actor, record_id)
+    get_paperwork_record(
+        session,
+        actor,
+        record_id,
+        expected_kind=expected_kind,
+    )
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 100:
         raise ValueError("paperwork revision page size is invalid")
     statement = select(PaperworkRevision).where(
@@ -494,6 +518,7 @@ def restore_paperwork_record(
     idempotency_key: str,
     request_id: str,
     client_version: str,
+    expected_kind: PaperworkKind | str | None = None,
     now: datetime | None = None,
     audit_writer: AuditWriter | None = None,
 ) -> PaperworkView:
@@ -504,7 +529,12 @@ def restore_paperwork_record(
     ):
         raise ValueError("source revision is invalid")
     fixed = now or datetime.now(UTC)
-    record = _locked_record(session, actor, record_id)
+    record = _locked_record(
+        session,
+        actor,
+        record_id,
+        expected_kind=expected_kind,
+    )
     source = session.scalar(select(PaperworkRevision).where(
         PaperworkRevision.record_id == record_id,
         PaperworkRevision.revision_number == source_revision_number,
@@ -524,11 +554,18 @@ def restore_paperwork_record(
         now=fixed,
     )
     if claim.replayed:
-        return _view_from_reference(session, actor, claim.response_reference or {})
+        return _view_from_reference(
+            session,
+            actor,
+            claim.response_reference or {},
+            expected_kind=expected_kind,
+        )
 
     source_snapshot_model = PaperworkSnapshotV1.model_validate_json(
         json.dumps(source.snapshot, ensure_ascii=False, allow_nan=False)
     )
+    if expected_kind is not None and source_snapshot_model.kind != _kind(expected_kind).value:
+        raise PaperworkNotFound("Paperwork record not found.")
     source_snapshot = source_snapshot_model.model_dump(mode="json")
     previous_snapshot = _record_snapshot(record)
     revision_number = record.current_revision_number + 1
