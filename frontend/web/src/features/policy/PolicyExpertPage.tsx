@@ -4,6 +4,8 @@ import { Button, Field, StatusMessage } from "../../design-system/Primitives";
 import { askPolicyQuestion, type PolicyAnswer } from "./api";
 import "./policy-expert.css";
 
+const EMPTY_QUESTION_MESSAGE = "Enter a policy question before submitting.";
+
 export function PolicyExpertPage() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<PolicyAnswer | null>(null);
@@ -16,7 +18,7 @@ export function PolicyExpertPage() {
     setAnswer(null);
     const cleaned = question.trim();
     if (!cleaned) {
-      setError("Enter a policy question before submitting.");
+      setError(EMPTY_QUESTION_MESSAGE);
       return;
     }
     setSubmitting(true);
@@ -33,6 +35,8 @@ export function PolicyExpertPage() {
     }
   }
 
+  const questionInvalid = error === EMPTY_QUESTION_MESSAGE;
+
   return (
     <section className="policy-page" aria-labelledby="policy-heading">
       <header className="policy-heading">
@@ -48,6 +52,8 @@ export function PolicyExpertPage() {
           <Field label="Policy question" required>
             <textarea
               aria-label="Policy question"
+              aria-invalid={questionInvalid || undefined}
+              aria-errormessage={questionInvalid ? "policy-question-error" : undefined}
               value={question}
               maxLength={2_000}
               rows={5}
@@ -67,7 +73,7 @@ export function PolicyExpertPage() {
         </p>
       </section>
 
-      {error ? <StatusMessage className="policy-state error" tone="dependency-unavailable">{error}</StatusMessage> : null}
+      {error ? <StatusMessage id="policy-question-error" className="policy-state error" tone={questionInvalid ? "destructive" : "dependency-unavailable"}>{error}</StatusMessage> : null}
       {submitting ? (
         <StatusMessage className="policy-state" aria-busy="true">Searching approved policy sources…</StatusMessage>
       ) : null}

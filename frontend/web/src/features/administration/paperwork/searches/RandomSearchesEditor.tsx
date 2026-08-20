@@ -9,6 +9,7 @@ import { useDailyAutosave } from "../shared/useDailyAutosave";
 import { createEmptyRandomSearchPayload, parseRandomSearchPayload, SEARCH_SECTIONS, type RandomSearchPayload } from "./model";
 import { RandomSearchesPrint } from "./RandomSearchesPrint";
 import "./searches.css";
+import "./searches-accessibility.css";
 interface Props { workDate: string; shift: string; record: DailyRecord | null; onRecordChange: (record: DailyRecord) => void; searchStaff?: (query: string) => Promise<AdminStaffMember[]>; }
 export function RandomSearchesEditor({ workDate, shift, record, onRecordChange, searchStaff }: Props) {
   const [payload, setPayload] = useState<RandomSearchPayload>(record ? parseRandomSearchPayload(record.payload) : createEmptyRandomSearchPayload(workDate, shift)); const [saveState, setSaveState] = useState<EditorSaveState>(record ? "saved" : "unsaved"); const [error, setError] = useState<string | null>(null); const [preview, setPreview] = useState(false);

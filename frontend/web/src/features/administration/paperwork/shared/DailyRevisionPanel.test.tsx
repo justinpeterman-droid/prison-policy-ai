@@ -13,8 +13,26 @@ describe("daily revision panel", () => {
     render(<DailyRevisionPanel record={record} onRestored={onRestored} />);
     await user.click(screen.getByRole("button", { name: "Revision history" }));
     await waitFor(() => expect(paperworkApi.fetchDailyRevisions).toHaveBeenCalledWith("assignment_roster", record.recordId));
+    expect(screen.getByRole("status")).toHaveTextContent("2 revisions loaded.");
+    expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
+    expect(screen.getByRole("status")).toHaveAttribute("aria-atomic", "true");
     expect(screen.getAllByText(/manual_save/)[0]).toHaveTextContent("briefing_minutes"); expect(screen.getByText(/00000000-0000-4000-8000-000000000001/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Restore revision 1" })); const dialog = screen.getByRole("dialog", { name: "Restore revision 1" }); expect(dialog).toHaveTextContent(/creates a new attributed revision/i); await user.click(within(dialog).getByRole("button", { name: "Confirm restore" }));
     await waitFor(() => expect(paperworkApi.restoreDailyRevision).toHaveBeenCalledWith("assignment_roster", record.recordId, 1)); expect(onRestored).toHaveBeenCalledWith(restored);
+  });
+
+  it("announces a revision-history failure through the shared destructive message contract", async () => {
+    const user = userEvent.setup();
+    vi.mocked(paperworkApi.fetchDailyRevisions).mockRejectedValue(new Error("Revision service is unavailable."));
+
+    render(<DailyRevisionPanel record={record} onRestored={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Revision history" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Revision service is unavailable.");
+    expect(alert).toHaveClass("gow-message--destructive");
+    expect(alert).toHaveAttribute("aria-live", "assertive");
+    expect(alert).toHaveAttribute("aria-atomic", "true");
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
   });
 });

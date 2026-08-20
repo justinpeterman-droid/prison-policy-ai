@@ -43,6 +43,83 @@ async function expectNamedVisibleControls(page: Page): Promise<void> {
   expect(unnamed, `Visible form controls need programmatic labels: ${JSON.stringify(unnamed)}`).toEqual([]);
 }
 
+async function expectSemanticIntegrity(page: Page): Promise<void> {
+  const findings = await page.locator("body").evaluate((body) => {
+    const visible = (element: Element): boolean => {
+      const style = getComputedStyle(element);
+      return style.display !== "none"
+        && style.visibility !== "hidden"
+        && element.getClientRects().length > 0;
+    };
+    const labelText = (element: Element): string => {
+      const labelledBy = element.getAttribute("aria-labelledby")?.trim();
+      if (labelledBy) {
+        return labelledBy.split(/\s+/)
+          .map((id) => document.getElementById(id)?.textContent ?? "")
+          .join(" ")
+          .trim();
+      }
+      const ariaLabel = element.getAttribute("aria-label")?.trim();
+      if (ariaLabel) return ariaLabel;
+      const imageAlt = element.querySelector("img[alt]")?.getAttribute("alt")?.trim();
+      return `${element.textContent ?? ""} ${imageAlt ?? ""}`.trim();
+    };
+    const describe = (element: Element): string => {
+      const id = element.id ? `#${element.id}` : "";
+      const classes = typeof element.className === "string"
+        ? element.className.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((name) => `.${name}`).join("")
+        : "";
+      return `${element.tagName.toLowerCase()}${id}${classes}`;
+    };
+    const issues: string[] = [];
+    const ids = new Map<string, Element[]>();
+
+    for (const element of body.querySelectorAll("[id]")) {
+      const id = element.id.trim();
+      if (!id) continue;
+      const matches = ids.get(id) ?? [];
+      matches.push(element);
+      ids.set(id, matches);
+    }
+    for (const [id, matches] of ids) {
+      if (matches.length > 1) issues.push(`duplicate id #${id} (${matches.length})`);
+    }
+
+    for (const element of body.querySelectorAll("button, a[href]")) {
+      if (!visible(element) || element.getAttribute("aria-hidden") === "true") continue;
+      if (!labelText(element)) issues.push(`${describe(element)} has no accessible name`);
+    }
+
+    for (const image of body.querySelectorAll("img")) {
+      if (!visible(image) || image.getAttribute("aria-hidden") === "true") continue;
+      if (!image.hasAttribute("alt")) issues.push(`${describe(image)} has no alt attribute`);
+    }
+
+    for (const element of body.querySelectorAll("[aria-labelledby], [aria-describedby], [aria-errormessage]")) {
+      for (const attribute of ["aria-labelledby", "aria-describedby", "aria-errormessage"] as const) {
+        const value = element.getAttribute(attribute)?.trim();
+        if (!value) continue;
+        for (const id of value.split(/\s+/)) {
+          if (!document.getElementById(id)) issues.push(`${describe(element)} has broken ${attribute}=#${id}`);
+        }
+      }
+    }
+
+    for (const element of body.querySelectorAll("[tabindex]")) {
+      if (Number(element.getAttribute("tabindex")) > 0) {
+        issues.push(`${describe(element)} uses positive tabindex`);
+      }
+    }
+
+    for (const element of body.querySelectorAll("button, a[href], input:not([type=hidden]), select, textarea")) {
+      const ancestor = element.parentElement?.closest("button, a[href], input, select, textarea");
+      if (ancestor) issues.push(`${describe(element)} is nested inside ${describe(ancestor)}`);
+    }
+    return issues;
+  });
+  expect(findings, `Automated semantic accessibility findings:\n${findings.join("\n")}`).toEqual([]);
+}
+
 async function expectFocusIndicatorUnclipped(locator: Locator): Promise<void> {
   const result = await locator.evaluate((element) => {
     const target = element as HTMLElement;
@@ -93,6 +170,7 @@ async function expectPageStructure(page: Page, heading: string): Promise<void> {
   await expect(page.getByRole("main")).toHaveCount(1);
   await expect(page.getByRole("navigation", { name: "Officer navigation" })).toHaveCount(1);
   await expectNamedVisibleControls(page);
+  await expectSemanticIntegrity(page);
   await expect(page.locator("h1:visible")).toHaveCount(1);
 }
 

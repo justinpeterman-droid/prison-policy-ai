@@ -47,3 +47,50 @@ test("daily forms keep usable mobile structure and named print page orientation"
   expect(pageRules).toContain("perimeter-check");
   expect(pageRules).toContain("portrait");
 });
+
+test("random-search section links keep mobile target, focus, and keyboard-order contracts", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await enterAdmin(page);
+  await page.goto("./admin/paperwork?tab=daily&work_date=2026-08-20&shift=D&kind=random_search_log");
+
+  const navigation = page.getByRole("navigation", { name: "Random search sections" });
+  const links = navigation.getByRole("link");
+  await expect(links).toHaveCount(4);
+  await expect(links).toHaveText(["North 1", "North 2", "South 1", "South 2"]);
+
+  for (const link of await links.all()) {
+    const geometry = await link.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return {
+        height: rect.height,
+        alignItems: style.alignItems,
+        justifyContent: style.justifyContent,
+      };
+    });
+    expect(geometry.height).toBeGreaterThanOrEqual(44);
+    expect(geometry.alignItems).toBe("center");
+    expect(geometry.justifyContent).toBe("center");
+  }
+
+  const first = links.first();
+  await first.focus();
+  await expect(first).toBeFocused();
+  const focus = await first.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const link = element.getBoundingClientRect();
+    const nav = element.parentElement!.getBoundingClientRect();
+    const outward = Number.parseFloat(style.outlineWidth) + Number.parseFloat(style.outlineOffset);
+    return {
+      outlineStyle: style.outlineStyle,
+      outlineWidth: Number.parseFloat(style.outlineWidth),
+      contained: link.left - outward >= nav.left - 0.5 && link.top - outward >= nav.top - 0.5,
+    };
+  });
+  expect(focus.outlineStyle).not.toBe("none");
+  expect(focus.outlineWidth).toBeGreaterThanOrEqual(3);
+  expect(focus.contained).toBe(true);
+
+  await first.press("Tab");
+  await expect(links.nth(1)).toBeFocused();
+});

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import tokens from "../guided-operations.css?raw";
 import adminStyles from "../features/administration/admin.css?raw";
 import countSheetStyles from "../features/paperwork/count-sheet/count-sheet.css?raw";
+import policyStyles from "../features/policy/policy-expert.css?raw";
 
 function token(name: string): string {
   const match = tokens.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`));
@@ -72,6 +73,12 @@ describe("Guided Operations contrast contracts", () => {
       ["count-paper", "gow-surface"],
     ]) {
       expect(countSheetStyles).toMatch(new RegExp(`--${alias}:\\s*var\\(--${shared},`));
+    }
+  });
+
+  it("keeps the active Policy route on the canonical spacing and control-radius contract", () => {
+    for (const name of ["gow-space-2", "gow-space-3", "gow-space-4", "gow-space-5", "gow-space-6", "gow-radius-control"]) {
+      expect(policyStyles).toContain(`var(--${name})`);
     }
   });
 

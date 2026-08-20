@@ -1,6 +1,6 @@
 .policy-page {
   display: grid;
-  gap: 20px;
+  gap: var(--gow-space-5);
   padding-bottom: 36px;
   color: var(--gow-ink, #10243d);
 }
@@ -16,7 +16,7 @@
 }
 
 .policy-heading {
-  padding: 24px 26px;
+  padding: var(--gow-space-6) 26px;
   background: linear-gradient(145deg, #fff, #edf5fa);
 }
 
@@ -58,12 +58,12 @@
 .policy-question-panel form {
   display: grid;
   gap: 14px;
-  padding: 20px;
+  padding: var(--gow-space-5);
 }
 
 .policy-question-panel label {
   display: grid;
-  gap: 8px;
+  gap: var(--gow-space-2);
   color: var(--gow-navy-800, #123d66);
   font-size: 0.76rem;
   font-weight: 800;
@@ -100,7 +100,7 @@
   color: #fff;
   background: linear-gradient(180deg, #176aa6, #0d4f83);
   border: 1px solid #0a4778;
-  border-radius: 10px;
+  border-radius: var(--gow-radius-control);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 5px 12px rgba(13, 79, 131, 0.2);
   font-size: 0.75rem;
   font-weight: 850;
@@ -130,7 +130,7 @@
 
 .policy-boundary-note {
   margin: 0;
-  padding: 12px 20px;
+  padding: var(--gow-space-3) var(--gow-space-5);
   color: #5b4918;
   background: #fff5d9;
   border-top: 1px solid #ead08c;
@@ -139,7 +139,7 @@
 }
 
 .policy-state {
-  padding: 24px;
+  padding: var(--gow-space-6);
   color: var(--gow-muted, #63758a);
   text-align: center;
   background: rgba(255, 255, 255, 0.88);
@@ -199,7 +199,7 @@
   position: relative;
   display: grid;
   gap: 5px;
-  padding: 16px 18px 16px 50px;
+  padding: var(--gow-space-4) 18px var(--gow-space-4) 50px;
   counter-increment: policy-sources;
 }
 
