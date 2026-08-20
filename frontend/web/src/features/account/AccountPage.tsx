@@ -31,6 +31,7 @@ export function AccountPage({
   const [sessions, setSessions] = useState<AccountSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionLoadAnnouncement, setSessionLoadAnnouncement] = useState("Loading active browser sessions.");
   const [actionError, setActionError] = useState<string | null>(null);
   const [busySessionId, setBusySessionId] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -39,6 +40,7 @@ export function AccountPage({
     let active = true;
     setLoading(true);
     setSessionError(null);
+    setSessionLoadAnnouncement("Loading active browser sessions.");
     void fetchAccountSessions()
       .then((items) => {
         if (!active) return;
@@ -46,10 +48,14 @@ export function AccountPage({
           ...item,
           current: item.current || item.sessionId === profile.sessionId,
         })));
+        setSessionLoadAnnouncement(
+          `${items.length} active browser ${items.length === 1 ? "session" : "sessions"} loaded.`,
+        );
       })
       .catch((reason: unknown) => {
         if (!active) return;
         setSessions([]);
+        setSessionLoadAnnouncement("");
         setSessionError(
           reason instanceof Error
             ? reason.message
@@ -171,6 +177,10 @@ export function AccountPage({
             </button>
           </div>
         </header>
+
+        <p className="gow-visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+          {sessionLoadAnnouncement}
+        </p>
 
         {actionError ? (
           <StatusMessage as="p" className="account-form-message error" tone="destructive" unstyled aria-atomic="true">
