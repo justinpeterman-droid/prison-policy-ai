@@ -1,11 +1,16 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as adminApi from "../api";
 import { AdminIncidentWorkspace } from "./AdminIncidentWorkspace";
 import * as adminIncidentApi from "./api";
 
 vi.mock("../../incidents/DocumentStudioPage", () => ({
   DocumentStudioPage: () => <div>Officer Document Studio</div>,
+}));
+
+vi.mock("../api", () => ({
+  listAdminStaff: vi.fn(),
 }));
 
 vi.mock("./api", () => ({
@@ -16,6 +21,32 @@ vi.mock("./api", () => ({
 }));
 
 const INCIDENT_ID = "00000000-0000-4000-8000-000000000910";
+
+beforeEach(() => {
+  vi.mocked(adminApi.listAdminStaff).mockResolvedValue({
+    items: [
+      {
+        staffId: "staff-1",
+        employeeNumber: "F-1001",
+        displayName: "Officer Casey Morgan",
+        rank: "Officer",
+        shift: "A",
+        isActive: true,
+        account: null,
+      },
+      {
+        staffId: "staff-2",
+        employeeNumber: "F-1002",
+        displayName: "Officer Riley Stone",
+        rank: "Officer",
+        shift: "A",
+        isActive: true,
+        account: null,
+      },
+    ],
+    nextCursor: null,
+  });
+});
 
 afterEach(() => {
   cleanup();
