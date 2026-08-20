@@ -10,6 +10,7 @@ interface DailyEditorHeaderProps {
   onSave?: () => void;
   onPreview?: () => void;
   onPrint?: () => void;
+  saveLabel?: string;
 }
 
 
@@ -24,7 +25,7 @@ export function DailyEditorHeader(props: DailyEditorHeaderProps) {
       </div>
       <div className="daily-editor-actions">
         <SaveState state={props.saveState} />
-        <button type="button" className="admin-secondary-button" onClick={props.onSave} disabled={!props.onSave}>Save Now</button>
+        <button type="button" className="admin-secondary-button" onClick={props.onSave} disabled={!props.onSave}>{props.saveLabel ?? "Save Now"}</button>
         <button type="button" className="admin-secondary-button" onClick={props.onPreview} disabled={!props.onPreview}>Preview</button>
         <button type="button" className="admin-primary-button" onClick={props.onPrint} disabled={!props.onPrint}>Print</button>
       </div>

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { DailyPaperworkKind, DailyRecord } from "./api";
 import { fetchDailyRecord } from "./api";
 import { DAILY_CARD_DEFINITIONS } from "./DailyPaperworkTab";
+import { RosterEditor } from "./roster/RosterEditor";
 import { DailyEditorHeader } from "./shared/DailyEditorHeader";
 
 
@@ -14,6 +16,7 @@ interface DailyRecordWorkspaceProps {
 
 
 export function DailyRecordWorkspace({ kind, recordId, workDate, shift }: DailyRecordWorkspaceProps) {
+  const [params, setParams] = useSearchParams();
   const [record, setRecord] = useState<DailyRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const definition = DAILY_CARD_DEFINITIONS.find((item) => item.kind === kind);
@@ -31,6 +34,23 @@ export function DailyRecordWorkspace({ kind, recordId, workDate, shift }: DailyR
   }, [kind, recordId]);
 
   const title = record?.title ?? definition?.title ?? "Daily Paperwork";
+
+  function acceptRecord(next: DailyRecord) {
+    setRecord(next);
+    if (params.get("record_id") === next.recordId) return;
+    const updated = new URLSearchParams(params);
+    updated.set("record_id", next.recordId);
+    setParams(updated, { replace: true });
+  }
+
+  if (kind === "assignment_roster" && (!recordId || record)) {
+    return (
+      <div className="admin-page daily-editor-page">
+        <RosterEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
+      </div>
+    );
+  }
+
   return (
     <div className="admin-page daily-editor-page">
       <DailyEditorHeader

@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchDailyPaperwork, parseDailyRecord } from "./api";
+import {
+  copyPreviousDailyRecord,
+  createDailyRecord,
+  fetchDailyPaperwork,
+  parseDailyRecord,
+} from "./api";
 
 
 const request = vi.fn();
@@ -60,5 +65,66 @@ describe("Daily Paperwork API", () => {
         definition: {},
       },
     })).toThrow(/unsupported|version/i);
+  });
+
+  it("creates a revision-one daily record with the visible date, shift, and payload", async () => {
+    request.mockResolvedValue({
+      ...rawSummary(),
+      revision: 1,
+      current_revision_number: 1,
+      payload: { schema_version: 1 },
+      template: {
+        schema_version: 1,
+        title: "Shift Assignment Roster",
+        print_orientation: "landscape",
+        definition: {},
+      },
+    });
+
+    await createDailyRecord({
+      kind: "assignment_roster",
+      workDate: "2026-08-20",
+      shift: "D",
+      payload: { schema_version: 1 },
+    });
+
+    expect(request).toHaveBeenCalledWith(
+      "/admin/paperwork/daily/assignment_roster",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ "Idempotency-Key": expect.any(String) }),
+        body: JSON.stringify({
+          schema_version: 1,
+          work_date: "2026-08-20",
+          shift: "D",
+          payload: { schema_version: 1 },
+          base_revision_number: null,
+          reason: "manual_save",
+        }),
+      }),
+    );
+  });
+
+  it("copies the previous roster into the selected target date and shift", async () => {
+    request.mockResolvedValue({
+      ...rawSummary(),
+      payload: { schema_version: 1 },
+      template: {
+        schema_version: 1,
+        title: "Shift Assignment Roster",
+        print_orientation: "landscape",
+        definition: {},
+      },
+    });
+
+    await copyPreviousDailyRecord("assignment_roster", "2026-08-21", "N");
+
+    expect(request).toHaveBeenCalledWith(
+      "/admin/paperwork/daily/assignment_roster/copy-previous",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ target_work_date: "2026-08-21", shift: "N" }),
+      }),
+    );
   });
 });

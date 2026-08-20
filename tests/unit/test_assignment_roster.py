@@ -75,6 +75,41 @@ def test_assignment_roster_accepts_each_approved_zone_and_post_exactly_once():
     ]
 
 
+def test_assignment_roster_preserves_reordered_posts_within_their_zone():
+    payload = _payload()
+    payload["zones"][0]["posts"][0], payload["zones"][0]["posts"][1] = (
+        payload["zones"][0]["posts"][1],
+        payload["zones"][0]["posts"][0],
+    )
+
+    model = AssignmentRosterV1.model_validate(payload)
+
+    assert [post.post_code for post in model.zones[0].posts[:2]] == [
+        "bks_9_10_control",
+        "bks_8_control",
+    ]
+
+
+def test_assignment_roster_persists_explicit_no_officer_available_state():
+    payload = _payload()
+    post = payload["zones"][0]["posts"][0]
+    post["initial_state"] = "no_officer_available"
+
+    model = AssignmentRosterV1.model_validate(payload)
+
+    assert model.zones[0].posts[0].initial_state == "no_officer_available"
+    assert model.zones[0].posts[0].initial_staff is None
+
+
+def test_assignment_roster_rejects_assignment_state_that_disagrees_with_staff():
+    payload = _payload()
+    post = payload["zones"][0]["posts"][0]
+    post["initial_state"] = "assigned"
+
+    with pytest.raises(ValidationError):
+        AssignmentRosterV1.model_validate(payload)
+
+
 @pytest.mark.parametrize("mutation", ["unknown_zone", "unknown_post", "missing_post", "duplicate_post"])
 def test_assignment_roster_rejects_codes_that_do_not_match_the_template(mutation):
     payload = _payload()

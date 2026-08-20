@@ -86,4 +86,12 @@ describe("Administrator Paperwork Center", () => {
 
     await waitFor(() => expect(paperworkApi.fetchDailyPaperwork).toHaveBeenLastCalledWith("2026-08-21", "N"));
   });
+
+  it("opens the fillable assignment roster workspace from a start URL", () => {
+    renderPage("/admin/paperwork?tab=daily&work_date=2026-08-20&shift=D&kind=assignment_roster");
+
+    expect(screen.getByRole("heading", { name: "Shift Assignment Roster", level: 1 })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: /^Zone [1-5]$/ })).toHaveLength(5);
+    expect(screen.getByRole("button", { name: "Save roster" })).toBeEnabled();
+  });
 });

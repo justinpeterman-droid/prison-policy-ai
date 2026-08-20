@@ -20,6 +20,7 @@ ShortText = Annotated[str, Field(max_length=160)]
 RequiredShortText = Annotated[str, Field(min_length=1, max_length=160)]
 InspectionValue = Literal["S", "N/I", "U", "NONE"]
 EquipmentState = Literal["yes", "no", "not_checked"]
+AssignmentState = Literal["unassigned", "assigned", "no_officer_available"]
 DetectorResult = Literal["P", "F"]
 PerimeterResult = Literal["S", "U"]
 
@@ -90,6 +91,34 @@ class PostAssignment(ClosedModel):
     post_code: str = Field(min_length=1, max_length=80)
     initial_staff: StaffSelection | None = None
     rotation_staff: StaffSelection | None = None
+    initial_state: AssignmentState = "unassigned"
+    rotation_state: AssignmentState = "unassigned"
+
+    @model_validator(mode="before")
+    @classmethod
+    def infer_legacy_assignment_states(cls, value):
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        if "initial_state" not in normalized:
+            normalized["initial_state"] = (
+                "assigned" if normalized.get("initial_staff") is not None else "unassigned"
+            )
+        if "rotation_state" not in normalized:
+            normalized["rotation_state"] = (
+                "assigned" if normalized.get("rotation_staff") is not None else "unassigned"
+            )
+        return normalized
+
+    @model_validator(mode="after")
+    def match_assignment_states_to_staff(self):
+        for state, staff, label in (
+            (self.initial_state, self.initial_staff, "initial"),
+            (self.rotation_state, self.rotation_staff, "rotation"),
+        ):
+            if (state == "assigned") != (staff is not None):
+                raise ValueError(f"{label} assignment state does not match selected staff")
+        return self
 
 
 class ZoneAssignment(ClosedModel):
@@ -132,9 +161,10 @@ class AssignmentRosterV1(DailyPayloadBase):
             raise ValueError("roster zones must match the approved template order")
         for zone in self.zones:
             post_codes = tuple(post.post_code for post in zone.posts)
-            if post_codes != ROSTER_ZONE_POSTS[zone.zone_code]:
+            approved_codes = ROSTER_ZONE_POSTS[zone.zone_code]
+            if len(post_codes) != len(approved_codes) or set(post_codes) != set(approved_codes):
                 raise ValueError(
-                    f"posts for {zone.zone_code} must match the approved template order"
+                    f"posts for {zone.zone_code} must contain each approved post exactly once"
                 )
         if tuple(self.equipment) != SECURITY_EQUIPMENT_KEYS:
             raise ValueError("equipment keys must match the approved template order")

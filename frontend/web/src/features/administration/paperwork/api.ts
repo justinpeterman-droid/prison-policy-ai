@@ -103,6 +103,50 @@ function idempotencyKey(): string {
     : `daily-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+export async function createDailyRecord(input: {
+  kind: DailyPaperworkKind;
+  workDate: string;
+  shift: string;
+  payload: Record<string, unknown>;
+}): Promise<DailyRecord> {
+  return parseDailyRecord(await webApiRequest<unknown>(
+    `/admin/paperwork/daily/${input.kind}`,
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey() },
+      body: JSON.stringify({
+        schema_version: 1,
+        work_date: input.workDate,
+        shift: input.shift,
+        payload: input.payload,
+        base_revision_number: null,
+        reason: "manual_save",
+      }),
+    },
+  ));
+}
+
+export async function copyPreviousDailyRecord(
+  kind: DailyPaperworkKind,
+  targetWorkDate: string,
+  shift: string,
+  sourceRecordId?: string,
+): Promise<DailyRecord> {
+  const body: Record<string, string> = {
+    target_work_date: targetWorkDate,
+    shift,
+  };
+  if (sourceRecordId) body.source_record_id = sourceRecordId;
+  return parseDailyRecord(await webApiRequest<unknown>(
+    `/admin/paperwork/daily/${kind}/copy-previous`,
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey() },
+      body: JSON.stringify(body),
+    },
+  ));
+}
+
 export async function saveDailyRecord(input: {
   kind: DailyPaperworkKind;
   recordId: string;
