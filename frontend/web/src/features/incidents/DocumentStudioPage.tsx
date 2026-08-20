@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { InterfaceIcon } from "../../components/InterfaceIcon";
+import {
+  persistenceStateForError,
+  persistenceStatusLabel,
+  type PersistenceStatusState,
+} from "../../components/persistenceStatus";
 import { WebApiError } from "../../api/client";
 import {
   acknowledgePhysical,
@@ -36,6 +41,10 @@ const TABS = [
 ] as const;
 
 type Tab = (typeof TABS)[number];
+type ReportSaveState = Extract<
+  PersistenceStatusState,
+  "saved" | "saving" | "unsaved" | "reconnecting" | "conflict" | "failed"
+>;
 
 function titleCase(value: string): string {
   return value
@@ -65,19 +74,23 @@ function CopyReportCard({
   onSaved: (next: ReportDetail) => void;
 }) {
   const [text, setText] = useState(report.content.narrative);
-  const [state, setState] = useState<"idle" | "saving" | "copied" | "error">("idle");
+  const [saveState, setSaveState] = useState<ReportSaveState>("saved");
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const label = titleCase(report.report_type);
 
-  useEffect(() => setText(report.content.narrative), [report]);
+  useEffect(() => {
+    setText(report.content.narrative);
+    setSaveState("saved");
+  }, [report]);
 
   async function save() {
-    setState("saving");
+    setSaveState("saving");
     try {
       const next = await saveReport(report, text);
       onSaved(next);
-      setState("idle");
-    } catch {
-      setState("error");
+      setSaveState("saved");
+    } catch (reason) {
+      setSaveState(persistenceStateForError(reason));
     }
   }
 
@@ -90,10 +103,10 @@ function CopyReportCard({
         report_id: report.report_id,
         action: "copy_text",
       });
-      setState("copied");
-      window.setTimeout(() => setState("idle"), 1800);
+      setCopyState("copied");
+      window.setTimeout(() => setCopyState("idle"), 1800);
     } catch {
-      setState("error");
+      setCopyState("error");
     }
   }
 
@@ -109,12 +122,24 @@ function CopyReportCard({
       <textarea
         aria-label={`${label} text`}
         value={text}
-        onChange={(event) => setText(event.target.value)}
+        onChange={(event) => {
+          setText(event.target.value);
+          setSaveState("unsaved");
+        }}
         rows={12}
       />
+      <div className={`iw-save-state iw-save-${saveState}`} role="status" aria-live="polite" aria-atomic="true">
+        {persistenceStatusLabel(saveState)}
+      </div>
       <div className="iw-document-actions">
-        <button className="iw-button iw-button-secondary" type="button" onClick={() => void save()}>
-          {state === "saving" ? "Saving…" : "Save Text"}
+        <button className="iw-button iw-button-secondary" type="button" disabled={saveState === "saving" || saveState === "conflict"} onClick={() => void save()}>
+          {saveState === "saving"
+            ? "Saving…"
+            : saveState === "conflict"
+              ? "Reopen Latest to Save"
+              : ["reconnecting", "failed"].includes(saveState)
+              ? "Retry Save"
+              : "Save Text"}
         </button>
         <button
           className="iw-button iw-button-gold"
@@ -122,10 +147,12 @@ function CopyReportCard({
           aria-label={`Copy ${label}`}
           onClick={() => void copy()}
         >
-          {state === "copied" ? "Copied" : "Copy"}
+          {copyState === "copied" ? "Copied" : "Copy"}
         </button>
       </div>
-      {state === "error" ? <p className="iw-inline-error" role="alert">The text could not be saved or copied. It remains visible.</p> : null}
+      {saveState === "conflict" ? <p className="iw-inline-error" role="alert">The text remains visible. Copy it, then reopen the latest report before editing again.</p> : null}
+      {["reconnecting", "failed"].includes(saveState) ? <p className="iw-inline-error" role="alert">The text remains visible. Use Retry Save when the issue is resolved.</p> : null}
+      {copyState === "error" ? <p className="iw-inline-error" role="alert">The text could not be copied. It remains visible.</p> : null}
     </article>
   );
 }
@@ -265,6 +292,7 @@ export function DocumentStudioPage() {
   const [copyDetails, setCopyDetails] = useState<Record<string, ReportDetail>>({});
   const [selectedReport, setSelectedReport] = useState<ReportDetail | null>(null);
   const [reportText, setReportText] = useState("");
+  const [reportSaveState, setReportSaveState] = useState<ReportSaveState>("saved");
   const [preview, setPreview] = useState<FormPreview | null>(null);
   const [physical, setPhysical] = useState<PhysicalGuidance | null>(null);
   const [history, setHistory] = useState<{
@@ -357,6 +385,7 @@ export function DocumentStudioPage() {
       const detail = await getReport(report.report_id);
       setSelectedReport(detail);
       setReportText(detail.content.narrative);
+      setReportSaveState("saved");
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "The report could not be opened.");
     }
@@ -364,12 +393,14 @@ export function DocumentStudioPage() {
 
   async function saveSelectedReport() {
     if (!selectedReport) return;
+    setReportSaveState("saving");
     try {
       const saved = await saveReport(selectedReport, reportText);
       setSelectedReport(saved);
       setReportText(saved.content.narrative);
-      setNotice("Report saved.");
+      setReportSaveState("saved");
     } catch (reason) {
+      setReportSaveState(persistenceStateForError(reason));
       setNotice(reason instanceof Error ? reason.message : "The report could not be saved. Text remains visible.");
     }
   }
@@ -465,7 +496,7 @@ export function DocumentStudioPage() {
               {!documentReports.length ? <p>No officer reports have been generated.</p> : null}
             </aside>
             <div className="iw-editor-panel">
-              {selectedReport ? <><div className="iw-editor-header"><div><span>{titleCase(selectedReport.report_type)}</span><strong>{selectedReport.reporting_officer.display_name}</strong></div><span>Revision {selectedReport.current_revision_number}</span></div><textarea aria-label={`${titleCase(selectedReport.report_type)} narrative`} rows={22} value={reportText} onChange={(event) => setReportText(event.target.value)} /><div className="iw-document-actions"><button className="iw-button iw-button-secondary" type="button" onClick={() => void saveSelectedReport()}>Save Report</button>{selectedReport.allowed_actions.includes("print") ? <button className="iw-button iw-button-primary" type="button" onClick={() => void printReport(selectedReport)}>Print</button> : null}{selectedReport.allowed_actions.includes("download_word") ? <button className="iw-button iw-button-gold" type="button" onClick={() => void downloadReportDocx(selectedReport)}>Download Word</button> : null}</div></> : <div className="iw-empty-inline"><strong>Select an officer report</strong><p>The report will open here without leaving the incident.</p></div>}
+              {selectedReport ? <><div className="iw-editor-header"><div><span>{titleCase(selectedReport.report_type)}</span><strong>{selectedReport.reporting_officer.display_name}</strong></div><span>Revision {selectedReport.current_revision_number}</span></div><textarea aria-label={`${titleCase(selectedReport.report_type)} narrative`} rows={22} value={reportText} onChange={(event) => { setReportText(event.target.value); setReportSaveState("unsaved"); }} /><div className={`iw-save-state iw-save-${reportSaveState}`} role="status" aria-live="polite" aria-atomic="true">{persistenceStatusLabel(reportSaveState)}</div><div className="iw-document-actions"><button className="iw-button iw-button-secondary" type="button" disabled={reportSaveState === "saving" || reportSaveState === "conflict"} onClick={() => void saveSelectedReport()}>{reportSaveState === "saving" ? "Saving…" : reportSaveState === "conflict" ? "Reopen Latest to Save" : ["reconnecting", "failed"].includes(reportSaveState) ? "Retry Save" : "Save Report"}</button>{selectedReport.allowed_actions.includes("print") ? <button className="iw-button iw-button-primary" type="button" onClick={() => void printReport(selectedReport)}>Print</button> : null}{selectedReport.allowed_actions.includes("download_word") ? <button className="iw-button iw-button-gold" type="button" onClick={() => void downloadReportDocx(selectedReport)}>Download Word</button> : null}</div>{reportSaveState === "conflict" ? <p className="iw-inline-error" role="alert">The text remains visible. Copy it, then reopen the latest report before editing again.</p> : null}</> : <div className="iw-empty-inline"><strong>Select an officer report</strong><p>The report will open here without leaving the incident.</p></div>}
             </div>
           </div>
         ) : null}

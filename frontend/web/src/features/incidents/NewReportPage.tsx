@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { WebApiError } from "../../api/client";
-import { persistenceStatusLabel } from "../../components/persistenceStatus";
+import { persistenceStateForError, persistenceStatusLabel } from "../../components/persistenceStatus";
 import type { SessionProfile } from "../auth/api";
 import {
   createIncident,
@@ -25,7 +25,7 @@ const STEPS = [
   "Forms & Export",
 ] as const;
 
-type SaveState = "saved" | "saving" | "unsaved" | "reconnecting" | "failed";
+type SaveState = "saved" | "saving" | "unsaved" | "reconnecting" | "conflict" | "failed";
 
 function normalizeNumber(value: string): string {
   const digits = value.replace(/\D/g, "");
@@ -141,16 +141,7 @@ export function NewReportPage({ profile }: NewReportPageProps) {
     } catch (reason) {
       const error = reason instanceof WebApiError ? reason : null;
       setMessage(error?.message ?? "The incident could not be saved. Your visible work has not been cleared.");
-      // A revision conflict is recoverable: the notes are still on screen and
-      // still unsaved, so keep inviting a re-save rather than reporting a
-      // hard failure the officer cannot act on.
-      setSaveState(
-        error?.code === "network_unavailable"
-          ? "reconnecting"
-          : error?.code === "revision_conflict"
-            ? "unsaved"
-            : "failed",
-      );
+      setSaveState(persistenceStateForError(reason));
     }
   }
 
@@ -169,7 +160,7 @@ export function NewReportPage({ profile }: NewReportPageProps) {
       setStep(3);
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : "Facts could not be saved.");
-      setSaveState("failed");
+      setSaveState(persistenceStateForError(reason));
     }
   }
 
@@ -190,7 +181,7 @@ export function NewReportPage({ profile }: NewReportPageProps) {
       setStep(4);
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : "Missing information could not be saved.");
-      setSaveState("failed");
+      setSaveState(persistenceStateForError(reason));
     }
   }
 
@@ -235,7 +226,7 @@ export function NewReportPage({ profile }: NewReportPageProps) {
       setStep(5);
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : "Paperwork could not be prepared.");
-      setSaveState("failed");
+      setSaveState(persistenceStateForError(reason));
     }
   }
 

@@ -12,6 +12,15 @@ function ok(data: unknown): Response {
   });
 }
 
+function apiError(status: number, code: string, message: string): Response {
+  return new Response(JSON.stringify({
+    error: { code, message, retryable: true, details: {} },
+  }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 const INCIDENT = {
   incident_id: INCIDENT_ID,
   incident_number: "2026-08-029",
@@ -132,14 +141,37 @@ const PACKET = {
   ],
 };
 
+let reportSaveAttempts = 0;
+
 beforeEach(() => {
+  reportSaveAttempts = 0;
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (input: RequestInfo | URL) => {
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith(`/incidents/${INCIDENT_ID}`)) return ok(INCIDENT);
       if (url.endsWith(`/incidents/${INCIDENT_ID}/reports`)) return ok(REPORTS);
       if (url.endsWith(`/incidents/${INCIDENT_ID}/packet`)) return ok(PACKET);
+      if (url.includes("/reports/00000000-0000-4000-8000-000000000101")) {
+        const detail = {
+          ...REPORTS.items[0],
+          content: {
+            narrative: "Fictional first-person report narrative.",
+            editable_fields: {},
+            validation: {},
+            warnings: [],
+          },
+        };
+        if (init?.method === "PATCH") {
+          reportSaveAttempts += 1;
+          if (reportSaveAttempts === 1) {
+            return apiError(409, "revision_conflict", "The report changed on the server.");
+          }
+          const body = JSON.parse(String(init.body)) as { content: { narrative: string } };
+          return ok({ ...detail, current_revision_number: 3, content: { ...detail.content, narrative: body.content.narrative } });
+        }
+        return ok(detail);
+      }
       if (url.includes("/reports/00000000-0000-4000-8000-000000000102")) {
         return ok({
           ...REPORTS.items[1],
@@ -254,5 +286,24 @@ describe("Incident Document Studio", () => {
     expect(
       screen.getByRole("button", { name: /mark physical form completed/i }),
     ).toBeInTheDocument();
+  });
+
+  it("keeps report edits visible through conflict and retry states", async () => {
+    renderStudio();
+    await screen.findByText("2026-08-029");
+    fireEvent.click(screen.getByRole("tab", { name: "Officer Reports" }));
+    fireEvent.click(screen.getByRole("button", { name: /first person.*officer casey morgan/i }));
+
+    const narrative = await screen.findByLabelText("First Person narrative");
+    fireEvent.change(narrative, { target: { value: "Fictional revised text remains visible." } });
+    expect(screen.getByRole("status")).toHaveTextContent("Unsaved changes — server save pending");
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Report" }));
+    expect(await screen.findByText("Save conflict — changes remain visible; server save not confirmed")).toBeInTheDocument();
+    expect(narrative).toHaveValue("Fictional revised text remains visible.");
+
+    expect(screen.getByRole("button", { name: "Reopen Latest to Save" })).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Copy it, then reopen the latest report");
+    expect(narrative).toHaveValue("Fictional revised text remains visible.");
   });
 });

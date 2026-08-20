@@ -1,3 +1,5 @@
+import { WebApiError } from "../api/client";
+
 export type PersistenceStatusState =
   | "loading"
   | "saved"
@@ -21,4 +23,13 @@ const PERSISTENCE_STATUS_LABELS: Record<PersistenceStatusState, string> = {
 
 export function persistenceStatusLabel(state: PersistenceStatusState): string {
   return PERSISTENCE_STATUS_LABELS[state];
+}
+
+export function persistenceStateForError(
+  reason: unknown,
+): Extract<PersistenceStatusState, "reconnecting" | "conflict" | "failed"> {
+  if (!(reason instanceof WebApiError)) return "failed";
+  if (reason.status === 0 || reason.code === "network_unavailable") return "reconnecting";
+  if (reason.code === "revision_conflict" || reason.code === "idempotency_conflict") return "conflict";
+  return "failed";
 }

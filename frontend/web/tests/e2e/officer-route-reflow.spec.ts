@@ -148,6 +148,19 @@ test.describe("Forms Library mobile guidance", () => {
       expect(separated, "guidance value should begin below its label on mobile").toBe(true);
     }
   });
+
+  test("provides a 44 pixel mobile selection target with a visible checkbox", async ({ page }) => {
+    await page.goto("./forms");
+    const card = page.getByRole("article", { name: "Medical Documentation Checklist" });
+    const target = card.locator(".forms-library-select");
+    const checkbox = card.getByRole("checkbox", { name: "Select Medical Documentation Checklist" });
+
+    await expectTouchTarget(target);
+    const checkboxBox = await checkbox.boundingBox();
+    expect(checkboxBox).not.toBeNull();
+    expect(checkboxBox!.width).toBeGreaterThanOrEqual(20);
+    expect(checkboxBox!.height).toBeGreaterThanOrEqual(20);
+  });
 });
 
 test.describe("Document Studio mobile tab reachability", () => {

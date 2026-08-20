@@ -1,6 +1,6 @@
 import { persistenceStatusLabel } from "../../../../components/persistenceStatus";
 
-export type EditorSaveState = "saved" | "saving" | "unsaved" | "reconnecting" | "failed";
+export type EditorSaveState = "saved" | "saving" | "unsaved" | "reconnecting" | "conflict" | "failed";
 
 export function SaveState({ state }: { state: EditorSaveState }) {
   return (

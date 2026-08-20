@@ -51,7 +51,10 @@ describe("shared visual primitives", () => {
     render(<Field label="Employee number" required hint="Use the roster number." error="Check this value."><input /></Field>);
     const input = screen.getByRole("textbox", { name: /Employee number/ });
     expect(input).toHaveClass("gow-control");
+    expect(input).toBeRequired();
+    expect(input).toHaveAttribute("aria-required", "true");
     expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAttribute("aria-errormessage", screen.getByText("Check this value.").id);
     expect(input).toHaveAccessibleDescription("Use the roster number. Check this value.");
     expect(screen.getByText(/required/)).toHaveClass("gow-visually-hidden");
   });

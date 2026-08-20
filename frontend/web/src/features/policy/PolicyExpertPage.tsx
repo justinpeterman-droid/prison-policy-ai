@@ -44,7 +44,7 @@ export function PolicyExpertPage() {
       </header>
 
       <section className="policy-question-panel">
-        <form onSubmit={submit}>
+        <form noValidate onSubmit={submit}>
           <Field label="Policy question" required>
             <textarea
               aria-label="Policy question"

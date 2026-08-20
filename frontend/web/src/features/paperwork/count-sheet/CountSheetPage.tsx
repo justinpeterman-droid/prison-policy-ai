@@ -7,7 +7,7 @@ import {
 } from "react";
 import type { KeyboardEvent } from "react";
 import { WebApiError } from "../../../api/client";
-import { persistenceStatusLabel } from "../../../components/persistenceStatus";
+import { persistenceStateForError, persistenceStatusLabel } from "../../../components/persistenceStatus";
 import type { SessionProfile } from "../../auth/api";
 import {
   getCountSheet,
@@ -39,6 +39,7 @@ type SaveState =
   | "saved"
   | "dirty"
   | "saving"
+  | "reconnecting"
   | "offline"
   | "conflict"
   | "error";
@@ -235,13 +236,8 @@ export function CountSheetPage({ profile }: CountSheetPageProps) {
       setAnnouncement(`Count Sheet revision ${saved.current_revision_number} saved.`);
       return saved;
     } catch (error) {
-      if (error instanceof WebApiError && error.code === "revision_conflict") {
-        setSaveState("conflict");
-      } else if (error instanceof WebApiError && error.status === 0) {
-        setSaveState("offline");
-      } else {
-        setSaveState("error");
-      }
+      const state = persistenceStateForError(error);
+      setSaveState(state === "failed" ? "error" : state);
       setMessage(error instanceof Error ? error.message : "The Count Sheet could not be saved.");
       return null;
     }

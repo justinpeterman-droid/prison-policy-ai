@@ -278,6 +278,21 @@
     gap: 4px;
   }
 
+  .forms-library-select {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+  }
+
+  .forms-library-select input[type="checkbox"] {
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+    min-height: 20px;
+    margin: 0;
+  }
+
   .forms-library-page button,
   .forms-library-page input,
   .forms-library-page select,

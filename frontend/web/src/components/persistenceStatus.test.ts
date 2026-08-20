@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { persistenceStatusLabel, type PersistenceStatusState } from "./persistenceStatus";
+import { WebApiError } from "../api/client";
+import {
+  persistenceStateForError,
+  persistenceStatusLabel,
+  type PersistenceStatusState,
+} from "./persistenceStatus";
 
 describe("persistence status language", () => {
   it.each([
@@ -13,5 +18,24 @@ describe("persistence status language", () => {
     ["failed", "Save failed — changes remain visible; server save not confirmed"],
   ] satisfies Array<[PersistenceStatusState, string]>)("describes %s without overstating persistence", (state, label) => {
     expect(persistenceStatusLabel(state)).toBe(label);
+  });
+
+  it("classifies network, revision-conflict, and terminal save failures", () => {
+    expect(persistenceStateForError(new WebApiError({
+      status: 0,
+      code: "network_unavailable",
+      message: "Network unavailable",
+    }))).toBe("reconnecting");
+    expect(persistenceStateForError(new WebApiError({
+      status: 409,
+      code: "revision_conflict",
+      message: "Revision conflict",
+    }))).toBe("conflict");
+    expect(persistenceStateForError(new WebApiError({
+      status: 409,
+      code: "request_in_progress",
+      message: "A prior request is still running",
+    }))).toBe("failed");
+    expect(persistenceStateForError(new Error("Invalid form"))).toBe("failed");
   });
 });

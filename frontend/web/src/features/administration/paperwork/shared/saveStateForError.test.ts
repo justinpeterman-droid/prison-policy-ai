@@ -21,4 +21,13 @@ describe("saveStateForError", () => {
     }))).toBe("failed");
     expect(saveStateForError(new Error("Invalid form"))).toBe("failed");
   });
+
+  it("preserves revision conflicts as an explicit recoverable state", () => {
+    expect(saveStateForError(new WebApiError({
+      code: "revision_conflict",
+      message: "The record changed on the server.",
+      status: 409,
+      retryable: true,
+    }))).toBe("conflict");
+  });
 });

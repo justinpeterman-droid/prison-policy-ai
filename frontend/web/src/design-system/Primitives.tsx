@@ -117,9 +117,12 @@ export function StatusMessage({ as = "div", className, role, tone = "information
 
 interface FieldControlProps {
   "aria-describedby"?: string;
+  "aria-errormessage"?: string;
   "aria-invalid"?: boolean;
+  "aria-required"?: boolean;
   className?: string;
   id?: string;
+  required?: boolean;
 }
 
 export interface FieldProps {
@@ -138,6 +141,7 @@ export function Field({ children, className, error, hint, label, requirement, re
   const hintId = hint ? `${generatedId}-hint` : undefined;
   const errorId = error ? `${generatedId}-error` : undefined;
   const describedBy = [children.props["aria-describedby"], hintId, errorId].filter(Boolean).join(" ") || undefined;
+  const isRequired = required || requirement === "required" || Boolean(children.props.required);
 
   if (!isValidElement(children)) throw new Error("Field requires one form control child.");
 
@@ -145,14 +149,17 @@ export function Field({ children, className, error, hint, label, requirement, re
     <label className={classes("gow-field", Boolean(error) && "gow-field--invalid", className)} htmlFor={controlId}>
       <span className="gow-field__label">
         {label}
-        {required || requirement === "required" ? <span className="gow-visually-hidden"> (required)</span> : null}
-        {requirement === "optional" ? <span className="gow-visually-hidden"> (optional)</span> : null}
+        {isRequired ? <span className="gow-visually-hidden"> (required)</span> : null}
+        {requirement === "optional" && !isRequired ? <span className="gow-visually-hidden"> (optional)</span> : null}
       </span>
       {cloneElement(children, {
         id: controlId,
         className: classes("gow-control", children.props.className),
         "aria-describedby": describedBy,
+        "aria-errormessage": errorId,
         "aria-invalid": Boolean(error) || undefined,
+        "aria-required": isRequired || undefined,
+        required: isRequired || undefined,
       })}
       {hint ? <span className="gow-field__hint" id={hintId}>{hint}</span> : null}
       {error ? <span className="gow-field__error" id={errorId}>{error}</span> : null}
