@@ -3,6 +3,7 @@ import {
   dailyRecordPageSchema,
   dailyRecordSchema,
   dailyTemplateResponseSchema,
+  dailyRevisionPageSchema,
   dailyPaperworkKindSchema,
 } from "./schemas";
 import type { z } from "zod";
@@ -45,6 +46,15 @@ export interface DailyTemplate {
   title: string;
   printOrientation: "portrait" | "landscape";
   definition: Record<string, unknown>;
+}
+
+export interface DailyRevision {
+  revisionNumber: number;
+  reason: string;
+  changedFields: string[];
+  editorStaffMemberId: string;
+  clientVersion: string | null;
+  createdAt: string;
 }
 
 function summary(value: z.infer<typeof dailyRecordPageSchema>["items"][number]): DailyRecordSummary {
@@ -118,6 +128,15 @@ export async function fetchDailyTemplate(kind: DailyPaperworkKind): Promise<Dail
     printOrientation: parsed.print_orientation,
     definition: parsed.definition,
   };
+}
+
+export async function fetchDailyRevisions(kind: DailyPaperworkKind, recordId: string): Promise<DailyRevision[]> {
+  const parsed = dailyRevisionPageSchema.parse(await webApiRequest<unknown>(`/admin/paperwork/daily/${kind}/${recordId}/revisions`));
+  return parsed.items.map((item) => ({ revisionNumber: item.revision_number, reason: item.reason, changedFields: item.changed_fields, editorStaffMemberId: item.editor_staff_member_id, clientVersion: item.client_version, createdAt: item.created_at }));
+}
+
+export async function restoreDailyRevision(kind: DailyPaperworkKind, recordId: string, revisionNumber: number): Promise<DailyRecord> {
+  return parseDailyRecord(await webApiRequest<unknown>(`/admin/paperwork/daily/${kind}/${recordId}/restore`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey() }, body: JSON.stringify({ revision_number: revisionNumber }) }));
 }
 
 function idempotencyKey(): string {

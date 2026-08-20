@@ -5,7 +5,9 @@ import {
   deriveUniformInspection,
   fetchDailyPaperwork,
   fetchDailyTemplate,
+  fetchDailyRevisions,
   parseDailyRecord,
+  restoreDailyRevision,
 } from "./api";
 
 
@@ -166,5 +168,15 @@ describe("Daily Paperwork API", () => {
 
     expect(request).toHaveBeenCalledWith("/admin/paperwork/daily/perimeter_check/template", undefined);
     expect(template).toMatchObject({ kind: "perimeter_check", schemaVersion: 1, printOrientation: "portrait" });
+  });
+
+  it("loads safe revision metadata and restores a selected revision", async () => {
+    request.mockResolvedValueOnce({ items: [{ revision_number: 2, reason: "manual_save", changed_fields: ["briefing_minutes"], editor_staff_member_id: "00000000-0000-4000-8000-000000000001", client_version: "0.1.0", created_at: "2026-08-20T14:00:00Z" }], next_cursor: null });
+    const revisions = await fetchDailyRevisions("assignment_roster", "00000000-0000-4000-8000-000000000101");
+    expect(revisions[0]).toMatchObject({ revisionNumber: 2, changedFields: ["briefing_minutes"] });
+
+    request.mockResolvedValueOnce({ ...rawSummary(), payload: { schema_version: 1 }, template: { schema_version: 1, title: "Shift Assignment Roster", print_orientation: "landscape", definition: {} } });
+    await restoreDailyRevision("assignment_roster", "00000000-0000-4000-8000-000000000101", 2);
+    expect(request).toHaveBeenLastCalledWith(expect.stringMatching(/restore$/), expect.objectContaining({ method: "POST", body: JSON.stringify({ revision_number: 2 }) }));
   });
 });

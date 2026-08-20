@@ -9,6 +9,7 @@ import { PerimeterCheckEditor } from "./perimeter/PerimeterCheckEditor";
 import { RandomSearchesEditor } from "./searches/RandomSearchesEditor";
 import { DetectorSignOutEditor } from "./signout/DetectorSignOutEditor";
 import { DailyEditorHeader } from "./shared/DailyEditorHeader";
+import { DailyRevisionPanel } from "./shared/DailyRevisionPanel";
 import { UniformInspectionEditor } from "./uniform/UniformInspectionEditor";
 
 
@@ -51,7 +52,8 @@ export function DailyRecordWorkspace({ kind, recordId, workDate, shift }: DailyR
   if (kind === "assignment_roster" && (!recordId || record)) {
     return (
       <div className="admin-page daily-editor-page">
-        <RosterEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
+        <RosterEditor key={`${record?.recordId ?? "new"}-${record?.revision ?? 0}`} workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
+        {record ? <DailyRevisionPanel record={record} onRestored={acceptRecord} /> : null}
       </div>
     );
   }
@@ -59,7 +61,8 @@ export function DailyRecordWorkspace({ kind, recordId, workDate, shift }: DailyR
   if (kind === "uniform_inspection" && (!recordId || record)) {
     return (
       <div className="admin-page daily-editor-page">
-        <UniformInspectionEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
+        <UniformInspectionEditor key={`${record?.recordId ?? "new"}-${record?.revision ?? 0}`} workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
+        {record ? <DailyRevisionPanel record={record} onRestored={acceptRecord} /> : null}
       </div>
     );
   }
@@ -67,7 +70,8 @@ export function DailyRecordWorkspace({ kind, recordId, workDate, shift }: DailyR
   if (kind === "metal_detector_test" && (!recordId || record)) {
     return (
       <div className="admin-page daily-editor-page">
-        <MetalDetectorEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
+        <MetalDetectorEditor key={`${record?.recordId ?? "new"}-${record?.revision ?? 0}`} workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
+        {record ? <DailyRevisionPanel record={record} onRestored={acceptRecord} /> : null}
       </div>
     );
   }
@@ -75,17 +79,18 @@ export function DailyRecordWorkspace({ kind, recordId, workDate, shift }: DailyR
   if (kind === "perimeter_check" && (!recordId || record)) {
     return (
       <div className="admin-page daily-editor-page">
-        <PerimeterCheckEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
+        <PerimeterCheckEditor key={`${record?.recordId ?? "new"}-${record?.revision ?? 0}`} workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />
+        {record ? <DailyRevisionPanel record={record} onRestored={acceptRecord} /> : null}
       </div>
     );
   }
 
   if (kind === "random_search_log" && (!recordId || record)) {
-    return <div className="admin-page daily-editor-page"><RandomSearchesEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} /></div>;
+    return <div className="admin-page daily-editor-page"><RandomSearchesEditor key={`${record?.recordId ?? "new"}-${record?.revision ?? 0}`} workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />{record ? <DailyRevisionPanel record={record} onRestored={acceptRecord} /> : null}</div>;
   }
 
   if (kind === "detector_sign_out" && (!recordId || record)) {
-    return <div className="admin-page daily-editor-page"><DetectorSignOutEditor workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} /></div>;
+    return <div className="admin-page daily-editor-page"><DetectorSignOutEditor key={`${record?.recordId ?? "new"}-${record?.revision ?? 0}`} workDate={workDate} shift={shift} record={record} onRecordChange={acceptRecord} />{record ? <DailyRevisionPanel record={record} onRestored={acceptRecord} /> : null}</div>;
   }
 
   return (

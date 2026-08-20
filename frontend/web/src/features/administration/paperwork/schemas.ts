@@ -43,6 +43,18 @@ export const dailyTemplateResponseSchema = templateSchema.extend({
   kind: dailyPaperworkKindSchema,
 }).strict();
 
+export const dailyRevisionPageSchema = z.object({
+  items: z.array(z.object({
+    revision_number: z.number().int().positive(),
+    reason: z.string().min(1).max(64),
+    changed_fields: z.array(z.string()),
+    editor_staff_member_id: z.string().uuid(),
+    client_version: z.string().nullable(),
+    created_at: z.iso.datetime(),
+  }).strict()).max(100),
+  next_cursor: z.null(),
+}).strict();
+
 const fullRecordBase = dailyRecordSummarySchema.extend({
   payload: z.record(z.string(), z.unknown()),
   template: templateSchema,
