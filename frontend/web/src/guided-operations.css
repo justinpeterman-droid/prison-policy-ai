@@ -170,6 +170,12 @@ textarea:focus-visible {
   outline-offset: var(--gow-focus-offset);
 }
 
+/*
+ * Reusable primitives intentionally live in a lower-priority cascade layer.
+ * Existing route styles remain the visual authority when a route adopts the
+ * semantic primitive classes, regardless of CSS chunk evaluation order.
+ */
+@layer gow-primitives {
 .gow-visually-hidden {
   position: absolute !important;
   width: 1px !important;
@@ -349,6 +355,7 @@ textarea.gow-control { resize: vertical; }
 .gow-field--invalid .gow-control { border: var(--gow-form-invalid-border); }
 .gow-control[data-state="success"] { border: var(--gow-form-success-border); }
 .gow-control[data-populated="true"] { background: var(--gow-surface-raised); }
+}
 
 .gow-app {
   display: grid;
