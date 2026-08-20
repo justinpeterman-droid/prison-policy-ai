@@ -35,11 +35,15 @@ FICTIONAL_ACCOUNTS = (
 
 
 def is_safe_local_database_url(database_url: str) -> bool:
+    """Return whether a URL is a loopback PostgreSQL development target."""
     if not database_url:
         return False
     parsed = urlsplit(database_url)
+    is_postgres = parsed.scheme == "postgresql" or parsed.scheme.startswith(
+        "postgresql+"
+    )
     return (
-        parsed.scheme.startswith("postgresql")
+        is_postgres
         and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
         and bool(parsed.path and parsed.path != "/")
     )
@@ -90,7 +94,9 @@ def _upsert_account(session: Session, spec: dict[str, str], now: datetime) -> No
         account.status = "active"
         account.pin_hash = hash_pin(spec["pin"])
         account.must_change_pin = False
+        account.temporary_pin_expires_at = None
         account.failed_attempts = 0
+        account.lock_cycle = 0
         account.locked_until = None
         account.deactivated_at = None
         account.auth_version += 1
@@ -98,6 +104,7 @@ def _upsert_account(session: Session, spec: dict[str, str], now: datetime) -> No
 
 
 def seed_fictional_accounts(database_url: str) -> None:
+    """Create or refresh the two standard local fictional accounts."""
     if not is_safe_local_database_url(database_url):
         raise RuntimeError(
             "Refusing to seed fictional accounts: DATABASE_URL must point to a loopback PostgreSQL database."
@@ -108,11 +115,14 @@ def seed_fictional_accounts(database_url: str) -> None:
         pool_pre_ping=True,
         connect_args={"options": "-c timezone=utc"},
     )
-    factory = sessionmaker(bind=engine, expire_on_commit=False)
-    now = datetime.now(UTC)
-    with factory.begin() as session:
-        for spec in FICTIONAL_ACCOUNTS:
-            _upsert_account(session, spec, now)
+    try:
+        factory = sessionmaker(bind=engine, expire_on_commit=False)
+        now = datetime.now(UTC)
+        with factory.begin() as session:
+            for spec in FICTIONAL_ACCOUNTS:
+                _upsert_account(session, spec, now)
+    finally:
+        engine.dispose()
 
 
 def main() -> int:
