@@ -1,0 +1,329 @@
+.gow-sidebar {
+  isolation: isolate;
+}
+
+.gow-sidebar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  height: 47%;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(5, 27, 49, .04) 0%, rgba(5, 27, 49, .28) 34%, rgba(4, 23, 42, .68) 100%),
+    linear-gradient(90deg, rgba(4, 28, 51, .08), rgba(4, 28, 51, .22)),
+    url("./assets/sidebar-mountains.jpg") center bottom / cover no-repeat;
+  opacity: .92;
+  mask-image: linear-gradient(180deg, transparent 0%, rgba(0,0,0,.35) 12%, #000 34%);
+}
+
+.gow-sidebar > * {
+  position: relative;
+  z-index: 1;
+}
+
+.gow-brand {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(216, 182, 106, .12), transparent 8rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255,255,255,.01));
+}
+
+.gow-sidebar-status {
+  border-color: rgba(185, 206, 223, .36);
+  background: linear-gradient(180deg, rgba(3, 25, 47, .64), rgba(2, 20, 38, .44));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 10px 22px rgba(0,0,0,.16);
+  backdrop-filter: blur(8px);
+}
+
+.gow-sidebar-footer {
+  text-shadow: 0 2px 6px rgba(0,0,0,.4);
+}
+
+.gow-nav-link,
+.gow-status-chip,
+.gow-user-chip,
+.officer-home-action-card,
+.officer-home-panel,
+.admin-panel,
+.admin-paperwork-fixture,
+.admin-table-shell,
+.admin-account-card,
+.admin-health-card,
+.admin-review-lab-card {
+  backface-visibility: hidden;
+}
+
+.gow-status-chip,
+.gow-user-chip {
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.94),
+    0 1px 2px rgba(16,36,61,.05),
+    0 6px 14px rgba(16,36,61,.055);
+}
+
+.admin-scene-header {
+  position: relative;
+  min-height: 142px;
+  overflow: hidden;
+  border: 1px solid rgba(166, 185, 200, .88);
+  border-radius: 20px 20px 0 0;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.96) 0%, rgba(255,255,255,.91) 32%, rgba(255,255,255,.34) 54%, rgba(255,255,255,.02) 78%),
+    linear-gradient(180deg, rgba(255,255,255,.03), rgba(10,44,72,.2)),
+    url("./assets/operations-horizon.svg") center right / cover no-repeat,
+    #dbe7ef;
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.8),
+    0 10px 28px rgba(18, 50, 78, .1);
+}
+
+.admin-scene-header::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(181,138,59,.08), rgba(181,138,59,.72), rgba(181,138,59,.12));
+}
+
+.admin-scene-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 710px;
+  padding: 25px 34px 28px;
+}
+
+.admin-scene-copy p {
+  margin: 0 0 4px;
+  color: #a87520;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.admin-scene-copy h1 {
+  margin: 0;
+  color: #102a49;
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 800;
+  letter-spacing: -.04em;
+  line-height: 1.05;
+  text-shadow: 0 1px rgba(255,255,255,.8);
+}
+
+.admin-scene-copy > span {
+  display: block;
+  margin-top: 8px;
+  max-width: 610px;
+  color: #40566d;
+  font-size: 12px;
+  font-weight: 520;
+  line-height: 1.55;
+}
+
+.admin-scene-values {
+  position: absolute;
+  right: 24px;
+  bottom: 15px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 11px;
+  border-radius: 9px;
+  color: #fff;
+  background: rgba(15, 41, 64, .5);
+  border: 1px solid rgba(255,255,255,.2);
+  box-shadow: inset 0 1px rgba(255,255,255,.12), 0 4px 12px rgba(0,0,0,.12);
+  backdrop-filter: blur(5px);
+  text-shadow: 0 1px 3px rgba(0,0,0,.4);
+  font-size: 9px;
+  font-weight: 730;
+}
+
+.admin-scene-values i {
+  color: #e2bd68;
+  font-size: 7px;
+  font-style: normal;
+}
+
+.admin-context-bar {
+  margin: 0;
+  border-top: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,249,250,.98));
+  box-shadow: 0 5px 13px rgba(26,48,68,.045);
+}
+
+.admin-subnav {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.9), rgba(248,250,251,.96)),
+    linear-gradient(145deg, rgba(216,182,106,.05), transparent 35%);
+}
+
+.admin-subnav nav a {
+  box-shadow: inset 0 1px rgba(255,255,255,.42);
+}
+
+.admin-subnav nav a.is-active {
+  transform: translateX(2px);
+  box-shadow:
+    inset 3px 0 #b58a3b,
+    inset 0 1px rgba(255,255,255,.95),
+    0 2px 0 rgba(26,47,68,.03),
+    0 8px 18px rgba(26,47,68,.09);
+}
+
+.admin-panel,
+.admin-paperwork-fixture,
+.admin-table-shell,
+.admin-account-card,
+.admin-health-card,
+.admin-review-lab-card {
+  border-color: #d2dce3;
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.95),
+    0 1px 1px rgba(17,44,66,.04),
+    0 8px 18px rgba(17,44,66,.07),
+    0 20px 42px rgba(17,44,66,.035);
+}
+
+.admin-paperwork-fixture,
+.admin-health-card {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,1), rgba(248,251,253,.96));
+}
+
+.admin-paperwork-icon,
+.admin-health-icon,
+.admin-context-gem,
+.gow-admin-entry .gow-nav-icon,
+.gow-action-icon {
+  transform: translateZ(0);
+}
+
+.admin-paperwork-icon,
+.admin-context-gem,
+.gow-admin-entry .gow-nav-icon {
+  box-shadow:
+    inset 1px 1px rgba(255,255,255,.82),
+    inset -1px -2px rgba(84,58,19,.16),
+    0 3px 0 rgba(82,57,21,.13),
+    0 8px 13px rgba(38,53,68,.12);
+}
+
+.admin-primary-button {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.23), transparent 42%),
+    linear-gradient(180deg, #dfb85c 0%, #c48c2a 54%, #a86f12 100%);
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.58),
+    inset 0 -2px rgba(102,58,5,.34),
+    0 4px 0 #825812,
+    0 8px 16px rgba(116,74,12,.2);
+}
+
+.admin-primary-button::after {
+  content: "";
+  position: absolute;
+  inset: 1px 8px auto;
+  height: 1px;
+  background: rgba(255,255,255,.52);
+  pointer-events: none;
+}
+
+.admin-secondary-button {
+  box-shadow:
+    inset 0 1px rgba(255,255,255,1),
+    inset 0 -1px rgba(122,142,158,.12),
+    0 3px 0 #c6d0d8,
+    0 7px 13px rgba(35,54,72,.09);
+}
+
+.admin-status-mark,
+.admin-soft-status,
+.admin-records-status {
+  box-shadow: inset 0 1px rgba(255,255,255,.72);
+}
+
+.admin-table-row:hover {
+  background: linear-gradient(90deg, rgba(245,249,252,.98), #fff);
+}
+
+.officer-home-action-card,
+.officer-home-panel {
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.96),
+    0 1px 0 rgba(13,45,72,.04),
+    0 9px 19px rgba(13,45,72,.075),
+    0 22px 48px rgba(13,45,72,.035);
+}
+
+@media (max-width: 860px) {
+  .admin-scene-header {
+    min-height: 124px;
+    border-radius: 16px 16px 0 0;
+    background-position: 64% center;
+  }
+
+  .admin-scene-copy {
+    padding: 21px 22px 24px;
+  }
+
+  .admin-scene-copy h1 {
+    max-width: 76%;
+    font-size: 30px;
+  }
+
+  .admin-scene-copy > span {
+    max-width: 60%;
+    font-size: 10px;
+  }
+
+  .admin-scene-values {
+    right: 14px;
+    bottom: 10px;
+  }
+}
+
+@media (max-width: 620px) {
+  .gow-sidebar::before {
+    height: 40%;
+  }
+
+  .admin-scene-header {
+    min-height: 112px;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.97) 0%, rgba(255,255,255,.88) 48%, rgba(255,255,255,.2) 82%),
+      url("./assets/operations-horizon.svg") 65% center / cover no-repeat;
+  }
+
+  .admin-scene-copy {
+    padding: 18px 16px;
+  }
+
+  .admin-scene-copy h1 {
+    max-width: 84%;
+    font-size: 25px;
+  }
+
+  .admin-scene-copy > span {
+    display: none;
+  }
+
+  .admin-scene-values {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-subnav nav a.is-active {
+    transform: none;
+  }
+}

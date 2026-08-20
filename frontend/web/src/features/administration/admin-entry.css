@@ -1,0 +1,7 @@
+.gow-admin-entry { margin: 12px 14px 0; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.12); }
+.gow-admin-entry-label { display: block; margin: 0 10px 7px; color: #d8b66a; font-size: 9px; font-weight: 850; letter-spacing: .15em; }
+.gow-admin-entry .gow-admin-link { border: 1px solid rgba(216,182,106,.24); background: linear-gradient(180deg, rgba(216,182,106,.11), rgba(255,255,255,.035)); box-shadow: inset 0 1px rgba(255,255,255,.05); }
+.gow-admin-entry .gow-admin-link .gow-nav-icon { color: #e0bf77; }
+.gow-admin-entry .gow-admin-link.active, .gow-admin-entry .gow-admin-link[aria-current="page"] { background: linear-gradient(180deg, rgba(216,182,106,.19), rgba(181,138,59,.11)); border-color: rgba(216,182,106,.42); box-shadow: inset 3px 0 #d8b66a, 0 5px 12px rgba(0,0,0,.12); }
+.gow-admin-context-chip { border-color: rgba(181,138,59,.28) !important; background: #fffaf0 !important; color: #745927 !important; }
+@media (max-width: 760px) { .gow-admin-entry { margin-top: 8px; } }

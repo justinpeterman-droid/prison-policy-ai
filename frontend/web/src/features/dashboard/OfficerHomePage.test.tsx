@@ -74,7 +74,7 @@ describe("officer Home dashboard", () => {
     expect(screen.queryByText("Barracks 4 Fight")).not.toBeInTheDocument();
   });
 
-  it("keeps the four primary officer actions prominent", async () => {
+  it("keeps the four primary officer actions prominent and dimensional", async () => {
     render(
       <MemoryRouter>
         <OfficerHomePage profile={profile} today="2026-08-19" />
@@ -89,6 +89,9 @@ describe("officer Home dashboard", () => {
       "Open Forms Library",
     ]) {
       expect(within(actions).getByRole("link", { name: label })).toBeInTheDocument();
+    }
+    for (const fixture of ["01", "02", "03", "04"]) {
+      expect(within(actions).getByText(fixture)).toBeInTheDocument();
     }
   });
 
