@@ -313,11 +313,11 @@ export async function installAdminApi(page: Page): Promise<void> {
       return;
     }
     if (path === `/incidents/${INCIDENT.incident_id}/reports` && method === "GET") {
-      await fulfill(route, [REPORT]);
+      await fulfill(route, { items: [REPORT] });
       return;
     }
     if (path === `/incidents/${INCIDENT.incident_id}/packet` && method === "GET") {
-      await fulfill(route, []);
+      await fulfill(route, { items: [] });
       return;
     }
 
