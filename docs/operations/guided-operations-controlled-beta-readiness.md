@@ -1,8 +1,8 @@
 # Guided Operations Controlled Beta Readiness
 
-**Status:** Repository candidate ready for external beta qualification; rollout is not authorized by this document.
+**Status:** Merged repository candidate ready for external beta qualification; the controlled beta remains a no-go while the external stop gates below are open.
 **Evidence date:** 2026-08-20
-**Candidate:** PR #108, `feat/daily-paperwork-center`; runtime candidate `0e1bd6b` is locally verified and its Guided Operations Foundation gate is green. The documentation-only evidence refresh and final reviewed commit or merge SHA remain subject to the exact final PR gate and must be captured in the external approval record.
+**Candidate:** reviewed `origin/main` commit `8021820bd49ed980871d8ff7a86a05515ac25203` (tree `3c45581dc27a5b87860c4b8946ee00d259fa022d`). Repository owner `justinpeterman-droid` squash-merged PR #108 at 2026-08-20 19:21 UTC. The merge tree is byte-for-byte identical to the PR's 21-check source head `960944ae3abfe6acd2adfb4b5f4fdeba8f645944`; runtime source candidate `0e1bd6b` supplies the exact four-job Foundation evidence described below.
 
 ## Proven in the repository
 
@@ -16,7 +16,20 @@
 - Print references use fictional data only. The incident form keeps an unknown value visibly `Not entered`, and print CSS removes application navigation and preview controls.
 - The count-sheet API kind boundary is enforced on reads, saves, revisions, restores, actions, and idempotent replays; PostgreSQL integration coverage proves a non-elevated administrator cannot use count-sheet routes to access a daily record.
 - Legacy browser and Microsoft Access fallback behavior remains available. This milestone does not retire, redirect, or mutate either legacy surface.
-- Predecessor `0038ae5` passed the complete 20-check PR gate with a clean merge state. Runtime candidate `0e1bd6b` passes its complete four-job Foundation gate; every remaining independent check must be green on the final documentation head before merge or beta qualification.
+- Exact PR head `960944a` passed all 21 repository and third-party checks with no unresolved review threads before the repository owner merged it. The resulting `8021820` main tree is identical; its Unit Tests, CodeQL, and Codacy push runs are green.
+- A post-merge local browser check served the reviewed main bundle through Flask against an isolated PostgreSQL 17 database and fictional accounts. Officer sign-in rendered the data-backed Home at 1536×1024, Quick Access navigated to Policy Expert, and the current origin produced no browser console warnings or errors. This spot-check supplements rather than replaces the complete automated suite.
+
+## Sections 3–9 completion audit
+
+| Checklist section | Repository-owned beta-critical result | Work that remains outside repository authority |
+| --- | --- | --- |
+| 3. Daily Paperwork Center | Complete: six revisioned daily workflows, print surfaces, fictional fixtures, API/contract/security coverage, and PostgreSQL verification. | Target-environment database, migration, account, browser/printer, and operator acceptance evidence. |
+| 4. Weekly Paperwork Library | Complete for the approved beta scope: the library has an honest empty state and does not invent unapproved weekly forms. | Approved weekly source forms and retention/ownership decisions before adding content. |
+| 5. Monthly Paperwork Library | Complete: approved monthly templates, variants, packet ordering/preview/print, non-persistence boundary, and regressions. | Supported browser/printer/PDF-driver comparison in the intended beta environment. |
+| 6. Site-Wide Visual Polish | Complete for implemented, approved surfaces: production data remains authoritative; unapproved notification, service-health, checklist, activity, avatar, support, quote, and timestamp proposals remain excluded. Automated responsive, keyboard, contrast, focus, motion, and route coverage is recorded. | Manual screen-reader, native on-screen-keyboard, physical high-contrast/scaling, performance p75, generated-asset approval, and owner acceptance. |
+| 7. Print and Visual Regression | Complete repository coverage: 48 fictional Windows baselines and required screen/print references pass. | Human comparison of browser print preview with downloaded/generated output across the approved browser and printer/PDF-driver matrix. |
+| 8. Testing and Release Gate | Complete for the merged source tree: frontend, backend, contract, security, PostgreSQL 17, migration lifecycle, desktop/mobile/reduced-motion, image build, and production-session smoke evidence is green. | Every required exact-main external check and owner record must be green. |
+| 9. Deployment and Pilot | Repository build, release gates, rollback, support, and training artifacts are complete. No deployment, secret, database, traffic, DNS, signing, or legacy-retirement state was mutated by this milestone. The optional standalone `frontend/forms` GitHub Pages host is not the Flask/Jinja legacy browser companion and is not a controlled-beta gate. | All controlled-environment configuration, smoke, cohort, feedback, support ownership, and explicit beta approval actions below. |
 
 ## External stop gates
 
@@ -47,4 +60,4 @@ Do not begin the controlled beta until an authorized owner records evidence for 
 
 ## Go/no-go rule
 
-The candidate is a **no-go** if any external stop gate is missing, if a release-gate check fails on the exact candidate commit, if rollback ownership is unavailable, or if test execution would require production data. Repository test success is necessary but does not authorize cloud mutation, database migration, secret configuration, pilot enrollment, traffic changes, or legacy retirement.
+The candidate is a **no-go** if any external stop gate is missing, if a required exact-candidate check fails, if rollback ownership is unavailable, or if test execution would require production data. The optional standalone `frontend/forms` GitHub Pages workflow is not a substitute for—and does not gate—the required parallel check of the Flask/Jinja legacy browser surface and Microsoft Access client. Repository test success is necessary but does not authorize cloud mutation, database migration, secret configuration, pilot enrollment, traffic changes, or legacy retirement.
