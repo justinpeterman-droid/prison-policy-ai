@@ -1,0 +1,172 @@
+.officer-home-actions {
+  gap: 16px;
+}
+
+.officer-home-action-card {
+  min-height: 226px;
+  padding: 19px 18px 17px;
+  border-color: #c9d6e0;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.99), rgba(241,247,251,.96));
+}
+
+.officer-home-action-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.58), transparent 36%),
+    radial-gradient(circle at 92% 2%, rgba(181,138,59,.08), transparent 7rem);
+}
+
+.officer-home-action-number {
+  position: relative;
+  top: auto;
+  right: auto;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 62px;
+  margin-bottom: 2px;
+  color: #f5d783;
+  border: 1px solid #0d3a61;
+  border-radius: 15px 15px 20px 20px;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.16), transparent 35%),
+    linear-gradient(150deg, #1b5b8b 0%, #0a345b 54%, #061f39 100%);
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.42),
+    inset 0 -5px 9px rgba(0,12,27,.36),
+    0 4px 0 #071d32,
+    0 10px 16px rgba(8,35,58,.23);
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-shadow: 0 1px 2px rgba(0,0,0,.36);
+}
+
+.officer-home-action-card:nth-child(2) .officer-home-action-number {
+  color: #58350a;
+  border-color: #b47c1d;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.5), transparent 36%),
+    linear-gradient(150deg, #f6dda3 0%, #d8aa4e 55%, #a66d12 100%);
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.74),
+    inset 0 -4px 8px rgba(114,68,7,.22),
+    0 4px 0 #8c5d12,
+    0 10px 16px rgba(95,61,17,.19);
+}
+
+.officer-home-action-card:nth-child(4) .officer-home-action-number {
+  color: #173d60;
+  border-color: #c9b58e;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.8), transparent 34%),
+    linear-gradient(150deg, #fffdf8 0%, #e8dcc3 60%, #bea77c 100%);
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.9),
+    inset 0 -4px 7px rgba(118,91,45,.14),
+    0 4px 0 #a98f65,
+    0 10px 16px rgba(73,62,43,.16);
+}
+
+.officer-home-action-card h2 {
+  margin-top: -48px;
+  margin-left: 73px;
+  min-height: 40px;
+  font-size: 1.02rem;
+  line-height: 1.18;
+}
+
+.officer-home-action-card p {
+  min-height: 64px;
+  padding-top: 9px;
+  font-size: .76rem;
+}
+
+.officer-home-action-link,
+.officer-home-continue-link,
+.officer-home-count-body a {
+  position: relative;
+  min-height: 42px;
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.42),
+    inset 0 -2px rgba(1,39,70,.25),
+    0 4px 0 #0b426e,
+    0 8px 15px rgba(14,79,131,.2);
+  transition: transform 130ms ease, box-shadow 150ms ease, filter 150ms ease;
+}
+
+.officer-home-action-link::after,
+.officer-home-continue-link::after,
+.officer-home-count-body a::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 1px;
+  height: 1px;
+  background: rgba(255,255,255,.43);
+  pointer-events: none;
+}
+
+.officer-home-action-link.primary,
+.officer-home-continue-link {
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.58),
+    inset 0 -2px rgba(103,59,1,.32),
+    0 4px 0 #825812,
+    0 8px 15px rgba(132,82,9,.22);
+}
+
+.officer-home-action-link:hover,
+.officer-home-continue-link:hover,
+.officer-home-count-body a:hover {
+  filter: brightness(1.025);
+  transform: translateY(-1px);
+}
+
+.officer-home-action-link:active,
+.officer-home-continue-link:active,
+.officer-home-count-body a:active {
+  transform: translateY(3px);
+  box-shadow: inset 0 1px rgba(255,255,255,.28), 0 1px 4px rgba(16,36,61,.16);
+}
+
+@media (max-width: 760px) {
+  .officer-home-action-card {
+    min-height: 190px;
+  }
+
+  .officer-home-action-number {
+    width: 52px;
+    height: 56px;
+  }
+
+  .officer-home-action-card h2 {
+    margin-top: -44px;
+    margin-left: 66px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .officer-home-action-link,
+  .officer-home-continue-link,
+  .officer-home-count-body a {
+    transition: none;
+  }
+
+  .officer-home-action-link:hover,
+  .officer-home-continue-link:hover,
+  .officer-home-count-body a:hover,
+  .officer-home-action-link:active,
+  .officer-home-continue-link:active,
+  .officer-home-count-body a:active {
+    transform: none;
+  }
+}
