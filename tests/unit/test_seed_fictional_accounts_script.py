@@ -1,8 +1,16 @@
+import os
+from pathlib import Path
+import subprocess
+import sys
 from urllib.parse import urlsplit
 
 import pytest
 
 from scripts.seed_fictional_accounts import is_safe_local_database_url
+
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPT = ROOT / "scripts" / "seed_fictional_accounts.py"
 
 
 @pytest.mark.parametrize(
@@ -35,3 +43,21 @@ def test_url_parser_does_not_treat_hostname_text_as_loopback():
     parsed = urlsplit("postgresql+psycopg://user:pw@localhost.example.com/db")
     assert parsed.hostname == "localhost.example.com"
     assert is_safe_local_database_url(parsed.geturl()) is False
+
+
+def test_direct_cli_invocation_loads_repo_and_rejects_unsafe_database(tmp_path):
+    env = os.environ.copy()
+    env["DATABASE_URL"] = "sqlite:///unsafe.db"
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "Refusing to seed fictional accounts" in result.stderr
+    assert "ModuleNotFoundError" not in result.stderr
