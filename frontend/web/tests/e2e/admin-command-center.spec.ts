@@ -44,7 +44,7 @@ test("admin can move from all incidents into attributed controls and Document St
 
   await incidentRow.click();
   await expect(page.getByRole("note", { name: "Administrator attribution notice" })).toContainText("every saved change");
-  await expect(page.getByLabel("Administrator incident controls")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Administrator incident controls" })).toBeVisible();
   await expect(page.getByLabel("Records status")).toHaveValue("in_progress");
   await expect(page.getByText("Revision 4")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Fictional Training Incident" }).last()).toBeVisible();
@@ -64,8 +64,9 @@ test("accounts audit and health remain distinct operational surfaces", async ({ 
 
   await nav.getByRole("link", { name: "Audit Log" }).click();
   await expect(page.getByRole("heading", { name: "Audit Log" })).toBeVisible();
-  await expect(page.getByText(/Staff Updated/)).toBeVisible();
-  await expect(page.getByText(/narrative/i)).toHaveCount(0);
+  const auditEvents = page.getByRole("region", { name: "Audit events" });
+  await expect(auditEvents.getByText(/Staff Updated/)).toBeVisible();
+  await expect(auditEvents.getByText(/narrative/i)).toHaveCount(0);
 
   await nav.getByRole("link", { name: "System Health" }).click();
   await expect(page.getByRole("heading", { name: "System Health" })).toBeVisible();
