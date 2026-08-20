@@ -13,6 +13,7 @@ import { CountSheetPage } from "./features/paperwork/count-sheet/CountSheetPage"
 import { PolicyExpertPage } from "./features/policy/PolicyExpertPage";
 import "./guided-operations.css";
 import "./incident-workspace.css";
+import "./refinement.css";
 
 interface AppProps {
   profile: SessionProfile;
