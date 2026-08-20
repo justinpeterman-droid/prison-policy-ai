@@ -1,5 +1,6 @@
 import { expect, test, type Download, type Page } from "@playwright/test";
 
+// This dedicated suffix keeps the real-server suite outside Vitest discovery.
 const SEEDED_INCIDENT_ID = "00000000-0000-4000-8000-00000000b001";
 
 async function signIn(page: Page, employeeNumber: string, pin: string) {
