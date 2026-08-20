@@ -1,6 +1,6 @@
 .print-preview { margin-top: 18px; overflow: auto; border: 1px solid #c8d3da; border-radius: 12px; background: #eef2f4; }
 .print-preview__tools { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; color: #42566a; font-size: 11px; }
-.print-preview__canvas { width: max-content; min-width: 100%; padding: 16px; transform-origin: top left; }
+.print-preview__canvas { width: max-content; min-width: 100%; padding: 16px; transform: scale(var(--print-zoom)); transform-origin: top left; }
 .print-document { width: 11in; min-height: 8.5in; padding: .35in; background: #fff; color: #111; font-family: Arial, sans-serif; }
 .print-document__header { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 14px; border-bottom: 1.5px solid #111; }
 .print-document h1 { margin: 0 0 9px; font-size: 18px; } .print-document h2 { font-size: 12px; }

@@ -6,7 +6,8 @@ import {
   dailyRevisionPageSchema,
   dailyPaperworkKindSchema,
 } from "./schemas";
-import type { z } from "zod";
+import { z } from "zod";
+import type { MonthlyTemplateDefinition, PrintTemplateCode } from "../../../print/print-registry";
 
 
 export type DailyPaperworkKind = z.infer<typeof dailyPaperworkKindSchema>;
@@ -55,6 +56,59 @@ export interface DailyRevision {
   editorStaffMemberId: string;
   clientVersion: string | null;
   createdAt: string;
+}
+
+const printTemplateCodeSchema = z.enum([
+  "monthly_windows_bars_doors",
+  "monthly_chemical_agents",
+  "monthly_contraband_standard",
+  "monthly_contraband_expanded",
+]);
+const printTemplateSchema = z.object({
+  code: printTemplateCodeSchema,
+  title: z.string().min(1).max(200),
+  period: z.literal("monthly"),
+  category: z.string().min(1).max(80),
+  schema_version: z.literal(1),
+  page_size: z.literal("letter"),
+  orientation: z.literal("landscape"),
+  definition: z.object({
+    columns: z.array(z.string().min(1)).min(1),
+    schedule: z.array(z.string().min(1)).optional(),
+    footer_note: z.string().min(1).optional(),
+  }).passthrough(),
+});
+
+function printTemplate(value: z.infer<typeof printTemplateSchema>): MonthlyTemplateDefinition {
+  return {
+    code: value.code,
+    title: value.title,
+    description: value.category.replaceAll("_", " "),
+    pageSize: value.page_size,
+    orientation: value.orientation,
+    definition: {
+      columns: value.definition.columns,
+      schedule: value.definition.schedule,
+      footerNote: value.definition.footer_note,
+    },
+  };
+}
+
+export async function fetchMonthlyPrintTemplates(): Promise<MonthlyTemplateDefinition[]> {
+  const parsed = z.object({ items: z.array(printTemplateSchema) }).parse(
+    await webApiRequest<unknown>("/print-templates?period=monthly"),
+  );
+  return parsed.items.map(printTemplate);
+}
+
+export async function recordPrintTemplateAction(
+  templateCodes: PrintTemplateCode[],
+  action: "preview" | "print",
+): Promise<void> {
+  await webApiRequest<unknown>("/print-templates/actions", {
+    method: "POST",
+    body: JSON.stringify({ period: "monthly", template_codes: templateCodes, action }),
+  });
 }
 
 function summary(value: z.infer<typeof dailyRecordPageSchema>["items"][number]): DailyRecordSummary {

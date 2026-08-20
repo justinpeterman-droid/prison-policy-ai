@@ -6,7 +6,9 @@ import {
   fetchDailyPaperwork,
   fetchDailyTemplate,
   fetchDailyRevisions,
+  fetchMonthlyPrintTemplates,
   parseDailyRecord,
+  recordPrintTemplateAction,
   restoreDailyRevision,
 } from "./api";
 
@@ -42,6 +44,16 @@ beforeEach(() => request.mockReset());
 
 
 describe("Daily Paperwork API", () => {
+  it("loads the authenticated monthly print catalog and records bounded output actions", async () => {
+    request.mockResolvedValueOnce({ items: [{ code: "monthly_windows_bars_doors", title: "Windows, Bars & Doors Check Log", period: "monthly", category: "security_checks", schema_version: 1, page_size: "letter", orientation: "landscape", definition: { columns: ["Date"] } }] });
+    await expect(fetchMonthlyPrintTemplates()).resolves.toMatchObject([{ code: "monthly_windows_bars_doors", orientation: "landscape" }]);
+    expect(request).toHaveBeenCalledWith("/print-templates?period=monthly", undefined);
+
+    request.mockResolvedValueOnce({ recorded: true });
+    await recordPrintTemplateAction(["monthly_windows_bars_doors"], "preview");
+    expect(request).toHaveBeenLastCalledWith("/print-templates/actions", expect.objectContaining({ method: "POST", body: JSON.stringify({ period: "monthly", template_codes: ["monthly_windows_bars_doors"], action: "preview" }) }));
+  });
+
   it("builds encoded date and shift filters and parses strict summaries", async () => {
     request.mockResolvedValue({ items: [rawSummary()], next_cursor: null });
 
