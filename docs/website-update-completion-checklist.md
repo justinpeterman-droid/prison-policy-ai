@@ -38,92 +38,100 @@ This checklist tracks the remaining work required to complete the Guided Operati
 
 ### Shared Foundation
 
-- [ ] Add the Administrator **Paperwork Center** route.
-- [ ] Add **Daily**, **Weekly**, and **Monthly** tabs.
-- [ ] Add date and shift selection.
-- [ ] Add saved-record search and reopen behavior.
-- [ ] Add revision-safe saving.
+- [x] Add the Administrator **Paperwork Center** route.
+- [x] Add **Daily**, **Weekly**, and **Monthly** tabs.
+- [x] Add date and shift selection.
+- [x] Add saved-record search and reopen behavior.
+- [x] Add revision-safe saving.
 - [ ] Add autosave and manual-save states.
-- [ ] Add print-preview support.
-- [ ] Add administrator attribution and audit events.
-- [ ] Add desktop, tablet, and mobile layouts.
-- [ ] Add keyboard navigation and accessible labels.
+- [x] Add print-preview support.
+- [x] Add administrator attribution and audit events.
+- [x] Add desktop, tablet, and mobile layouts.
+- [x] Add keyboard navigation and accessible labels.
 
 ### Shift Assignment Roster
 
-- [ ] Build the Shift Assignment Roster editor.
-- [ ] Load active staff from Accounts & Staff.
-- [ ] Add employee search and selection.
-- [ ] Add assignment sections and operational posts.
-- [ ] Add leave time and leave-type fields.
-- [ ] Add extra assignments.
-- [ ] Add alternate shift supervisor.
-- [ ] Add briefing notes and roll-call fields.
-- [ ] Add captain, lieutenant, and duty-warden fields.
-- [ ] Add copy-previous-roster functionality.
-- [ ] Add approved assignment rotation.
-- [ ] Add coverage warnings without automatically reassigning staff.
-- [ ] Save by date and shift.
-- [ ] Reopen an existing roster.
-- [ ] Create an accurate print layout.
-- [ ] Add unit, integration, browser, and print-regression tests.
+- [x] Build the Shift Assignment Roster editor.
+- [x] Load active staff from Accounts & Staff.
+- [x] Add employee search and selection.
+- [x] Add assignment sections and operational posts.
+- [x] Add leave time and leave-type fields.
+- [x] Add extra assignments.
+- [x] Add alternate shift supervisor.
+- [x] Add briefing notes and roll-call fields.
+- [x] Add captain, lieutenant, and duty-warden fields.
+- [x] Add copy-previous-roster functionality.
+- [x] Add approved assignment rotation.
+- [x] Add coverage warnings without automatically reassigning staff.
+- [x] Save by date and shift.
+- [x] Reopen an existing roster.
+- [x] Create an accurate print layout.
+- [x] Add unit, integration, browser, and print-regression tests.
 
 ### Uniform Inspection
 
-- [ ] Build the Uniform Inspection editor.
-- [ ] Load staff from the selected Assignment Roster.
-- [ ] Include Shirt, Pants, Shoes, Cap, Coat, ID, Hair, Nails, and Comments.
-- [ ] Support `S`, `N/I`, `U`, and `NONE`.
-- [ ] Require a comment for unsatisfactory entries.
-- [ ] Add bulk-mark-column-satisfactory behavior.
-- [ ] Add inspector, shift, and date fields.
-- [ ] Save and reopen inspections.
-- [ ] Create an accurate print layout.
-- [ ] Add unit, integration, browser, and print-regression tests.
+- [x] Build the Uniform Inspection editor.
+- [x] Load staff from the selected Assignment Roster.
+- [x] Include Shirt, Pants, Shoes, Cap, Coat, ID, Hair, Nails, and Comments.
+- [x] Support `S`, `N/I`, `U`, and `NONE`.
+- [x] Require a comment for unsatisfactory entries.
+- [x] Add bulk-mark-column-satisfactory behavior.
+- [x] Add inspector, shift, and date fields.
+- [x] Save and reopen inspections.
+- [x] Create an accurate print layout.
+- [x] Add unit, integration, browser, and print-regression tests.
 
 ### Daily Walk-Through Metal Detector Testing
 
-- [ ] Build the detector-testing matrix.
-- [ ] Include detectors 1 through 11.
-- [ ] Include all seven test positions.
-- [ ] Support pass/fail results.
-- [ ] Require corrective-action notes for failures.
-- [ ] Add tested-by, reviewed-by, date, and comments.
-- [ ] Save and reopen records.
-- [ ] Create an accurate print layout.
-- [ ] Add unit, integration, browser, and print-regression tests.
+- [x] Build the detector-testing matrix.
+- [x] Include detectors 1 through 11.
+- [x] Include all seven test positions.
+- [x] Support pass/fail results.
+- [x] Require corrective-action notes for failures.
+- [x] Add tested-by, reviewed-by, date, and comments.
+- [x] Save and reopen records.
+- [x] Create an accurate print layout.
+- [x] Add unit, integration, browser, and print-regression tests.
 
 ### Daily Perimeter Checklist
 
-- [ ] Build the perimeter checklist editor.
-- [ ] Preserve the complete approved location list.
-- [ ] Include Doors, Outside Doors, Fence & Gates, and supporting sections.
-- [ ] Support satisfactory/unsatisfactory results.
-- [ ] Add Senstar Test, Pipe Chases, Manholes, Metal Detector, Fence, and Alleyways.
-- [ ] Add inspector, supervisor, signature, date, and time fields.
-- [ ] Save and reopen records.
-- [ ] Create an accurate print layout.
-- [ ] Add unit, integration, browser, and print-regression tests.
+- [x] Build the perimeter checklist editor.
+- [x] Preserve the complete approved location list.
+- [x] Include Doors, Outside Doors, Fence & Gates, and supporting sections.
+- [x] Support satisfactory/unsatisfactory results.
+- [x] Add Senstar Test, Pipe Chases, Manholes, Metal Detector, Fence, and Alleyways.
+- [x] Add inspector, supervisor, signature, date, and time fields.
+- [x] Save and reopen records.
+- [x] Create an accurate print layout.
+- [x] Add unit, integration, browser, and print-regression tests.
 
 ### Daily Random Searches
 
-- [ ] Build repeated structured search-entry rows.
-- [ ] Include North 1, North 2, South 1, and South 2.
-- [ ] Support four officer blocks per section.
-- [ ] Include date, time, inmate name, ADC number, barracks/rack, contraband, and disposition.
-- [ ] Save and reopen records.
-- [ ] Reproduce the approved blocks in the print view.
-- [ ] Add unit, integration, browser, and print-regression tests.
+- [x] Build repeated structured search-entry rows.
+- [x] Include North 1, North 2, South 1, and South 2.
+- [x] Support four officer blocks per section.
+- [x] Include date, time, inmate name, ADC number, barracks/rack, contraband, and disposition.
+- [x] Save and reopen records.
+- [x] Reproduce the approved blocks in the print view.
+- [x] Add unit, integration, browser, and print-regression tests.
 
 ### Handheld Metal Detector Sign-Out
 
-- [ ] Build the detector sign-out editor.
-- [ ] Include units D1 through D9.
-- [ ] Include staff name and area of assignment.
-- [ ] Include shift supervisor and date.
-- [ ] Save and reopen records.
-- [ ] Create an accurate print layout.
-- [ ] Add unit, integration, browser, and print-regression tests.
+- [x] Build the detector sign-out editor.
+- [x] Include units D1 through D9.
+- [x] Include staff name and area of assignment.
+- [x] Include shift supervisor and date.
+- [x] Save and reopen records.
+- [x] Create an accurate print layout.
+- [x] Add unit, integration, browser, and print-regression tests.
+
+### Daily Milestone Verification Snapshot — 2026-08-20
+
+- Credential-free backend gates: 1,431 unit tests, 32 contract tests, and 5 security tests passed.
+- Frontend gates: 109 component tests and TypeScript checking passed; the production build completed with route- and editor-level code splitting.
+- Chromium gates: all officer/administrator workflows passed, including all six Daily print surfaces, desktop/mobile overflow checks, keyboard navigation, and save/reopen/failure/retry recovery using fictional data.
+- PostgreSQL-backed Daily integration tests are implemented in `tests/integration/test_web_daily_paperwork.py`, but were not run in this local snapshot because `TEST_DATABASE_URL` was unavailable.
+- Autosave remains open; all editors expose explicit manual-save, saving, saved, unsaved, and failure-preservation states.
 
 ## 4. Weekly Paperwork Library
 
@@ -201,46 +209,46 @@ This checklist tracks the remaining work required to complete the Guided Operati
 
 ## 7. Print and Visual Regression
 
-- [ ] Create stable fictional test data for screenshots and print output.
+- [x] Create stable fictional test data for screenshots and print output.
 - [ ] Add desktop screenshots for all primary officer screens.
 - [ ] Add mobile screenshots for all primary officer screens.
 - [ ] Add desktop screenshots for all administrator screens.
 - [ ] Add mobile screenshots for administrator navigation.
 - [ ] Add print reference for NCU Days Count.
-- [ ] Add print reference for Shift Assignment Roster.
-- [ ] Add print reference for Uniform Inspection.
-- [ ] Add print reference for Metal Detector Testing.
-- [ ] Add print reference for Perimeter Checklist.
-- [ ] Add print reference for Daily Random Searches.
-- [ ] Add print reference for Detector Sign-Out.
+- [x] Add print reference for Shift Assignment Roster.
+- [x] Add print reference for Uniform Inspection.
+- [x] Add print reference for Metal Detector Testing.
+- [x] Add print reference for Perimeter Checklist.
+- [x] Add print reference for Daily Random Searches.
+- [x] Add print reference for Detector Sign-Out.
 - [ ] Add print reference for Windows, Bars & Doors.
 - [ ] Add print reference for Use of Chemical Agents.
 - [ ] Add print references for both Contraband Search forms.
 - [ ] Add print references for incident-specific digital forms.
-- [ ] Confirm page size, orientation, margins, and pagination.
-- [ ] Confirm application navigation is hidden while printing.
-- [ ] Confirm blank fields print correctly.
+- [x] Confirm page size, orientation, margins, and pagination.
+- [x] Confirm application navigation is hidden while printing.
+- [x] Confirm blank fields print correctly.
 - [ ] Confirm grayscale readability.
 - [ ] Confirm browser print preview closely matches generated downloads.
 
 ## 8. Testing and Release Gate
 
-- [ ] Run all frontend component tests.
-- [ ] Run frontend type-checking.
-- [ ] Run the production frontend build.
-- [ ] Resolve React `act(...)` warnings in affected tests.
-- [ ] Run backend unit tests.
-- [ ] Run contract tests explicitly.
-- [ ] Run security tests explicitly.
+- [x] Run all frontend component tests.
+- [x] Run frontend type-checking.
+- [x] Run the production frontend build.
+- [x] Resolve React `act(...)` warnings in affected tests.
+- [x] Run backend unit tests.
+- [x] Run contract tests explicitly.
+- [x] Run security tests explicitly.
 - [ ] Run PostgreSQL 17 integration tests.
 - [ ] Run migration upgrade, downgrade, and upgrade verification.
-- [ ] Run all officer Playwright workflows.
-- [ ] Run all administrator Playwright workflows.
-- [ ] Run desktop and mobile E2E paths.
-- [ ] Run reduced-motion E2E verification.
-- [ ] Review failed-test screenshots, videos, and traces.
-- [ ] Confirm no real staff or historical operational information appears in fixtures.
-- [ ] Confirm no secrets, PINs, session tokens, narratives, or unsafe infrastructure details are exposed.
+- [x] Run all officer Playwright workflows.
+- [x] Run all administrator Playwright workflows.
+- [x] Run desktop and mobile E2E paths.
+- [x] Run reduced-motion E2E verification.
+- [x] Review failed-test screenshots, videos, and traces.
+- [x] Confirm no real staff or historical operational information appears in fixtures.
+- [x] Confirm no secrets, PINs, session tokens, narratives, or unsafe infrastructure details are exposed.
 - [ ] Require all release-gate checks to pass before merging each milestone.
 
 ## 9. Deployment and Pilot

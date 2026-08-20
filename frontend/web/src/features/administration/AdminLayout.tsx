@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import type { SessionProfile } from "../auth/api";
 import { AccountsStaffPage } from "./accounts/AccountsStaffPage";
@@ -6,10 +7,11 @@ import { SystemHealthPage } from "./health/SystemHealthPage";
 import { AdminIncidentWorkspace } from "./incidents/AdminIncidentWorkspace";
 import { AdminIncidentsPage } from "./incidents/AdminIncidentsPage";
 import { AdminOverviewPage } from "./overview/AdminOverviewPage";
-import { PaperworkCenterPage } from "./paperwork/PaperworkCenterPage";
 import { ReviewLabLaunch } from "./review-lab/ReviewLabLaunch";
 import "./admin.css";
 import "./admin-entry.css";
+
+const PaperworkCenterPage = lazy(() => import("./paperwork/PaperworkCenterPage").then((module) => ({ default: module.PaperworkCenterPage })));
 
 interface AdminLayoutProps {
   profile: SessionProfile;
@@ -66,7 +68,7 @@ export function AdminLayout({ profile }: AdminLayoutProps) {
             <Route path="overview" element={<AdminOverviewPage />} />
             <Route path="incidents" element={<AdminIncidentsPage />} />
             <Route path="incidents/:incidentId" element={<AdminIncidentWorkspace />} />
-            <Route path="paperwork" element={<PaperworkCenterPage />} />
+            <Route path="paperwork" element={<Suspense fallback={<div className="admin-loading-panel" aria-busy="true">Loading Paperwork Center…</div>}><PaperworkCenterPage /></Suspense>} />
             <Route path="accounts-staff" element={<AccountsStaffPage />} />
             <Route path="audit" element={<AuditLogPage />} />
             <Route path="health" element={<SystemHealthPage />} />
