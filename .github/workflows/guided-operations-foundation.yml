@@ -48,7 +48,7 @@ jobs:
         working-directory: frontend/web
         run: npm run build
       - name: Upload preview assets
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: guided-operations-web-preview
           path: backend/webapp/static/web
@@ -138,7 +138,7 @@ jobs:
           npm ci --legacy-peer-deps --no-audit --no-fund
           npx playwright install --with-deps chromium
       - name: Download reviewed production assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: guided-operations-web-preview
           path: backend/webapp/static/web
@@ -167,7 +167,7 @@ jobs:
         run: cat /tmp/guided-operations-smoke.log
       - name: Upload production-smoke traces
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: guided-operations-production-smoke-traces
           path: |

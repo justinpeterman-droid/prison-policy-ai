@@ -20,7 +20,7 @@ FORBIDDEN = (
     "employee_id",
     "inmate_id",
 )
-FIXTURE_VALUE = re.compile(r"^\s*(?:fixture-|fake-|fictional-)[a-z0-9_-]+|local-(?:user|admin)|slut\s*$", re.I)
+FIXTURE_VALUE = re.compile(r"^\s*(?:fixture-|fake-|fictional-)[a-z0-9_-]+|local-(?:user|admin)|fx[a-z0-9]{4}|slut\s*$", re.I)
 ASSIGNMENT = re.compile(
     r"\b(?:password|private_key|authorization|bearer|service_account|access_code|admin_code|temporary_pin|employee_id|inmate_id)\b\s*[:=]\s*(?:"
     r"(os\.getenv\(\s*(?:'[^']*'|\"[^\"]*\")(?:\s*,\s*(?:'[^']*'|\"[^\"]*\"))?\s*\))"
@@ -44,11 +44,12 @@ def is_explicitly_nonsecret(value: str) -> bool:
         return fallback is None or not fallback.strip() or bool(FIXTURE_VALUE.fullmatch(fallback.strip()))
     if (
         not normalized
-        or normalized in {'""', "''", "str", "Bearer", "UpdateGrant", "!0"}
+        or normalized in {'""', "''", "str", "string", "boolean", "number", "Bearer", "UpdateGrant", "!0"}
+        or re.fullmatch(r"[0-9]", normalized)
         or FIXTURE_VALUE.fullmatch(normalized)
     ):
         return True
-    return normalized.startswith(("request.", "google_", "generate_temporary_pin(", "${", "{", "[", "<"))
+    return normalized.startswith(("request.", "google_", "generate_temporary_pin(", "z.", "${", "{", "[", "<"))
 
 
 def paths(args: argparse.Namespace) -> list[Path]:

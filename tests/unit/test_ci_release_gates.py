@@ -220,6 +220,31 @@ def test_sensitive_output_allows_getenv_without_nonfictional_literal(tmp_path):
     assert result.returncode == 0
 
 
+def test_sensitive_output_allows_typed_fields_counts_and_explicit_fixture_pin(tmp_path):
+    candidate = tmp_path / "fixture.ts"
+    key = "temporary" + "_pin"
+    candidate.write_text(
+        f"interface Result {{ {key}: string }}\n"
+        f"const schema = {{ {key}: z.number().int(), count: {{ {key}: 1 }} }}\n"
+        f"const fixture = {{ {key}: 'FX9R4K' }}\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/ci/check_sensitive_output.py"), "--paths", str(candidate)]
+    )
+    assert result.returncode == 0
+
+
+def test_sensitive_output_still_rejects_numeric_pin_value(tmp_path):
+    candidate = tmp_path / "source.ts"
+    key = "temporary" + "_pin"
+    candidate.write_text(f"const value = {{ {key}: 123456 }}\n", encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/ci/check_sensitive_output.py"), "--paths", str(candidate)]
+    )
+    assert result.returncode == 1
+
+
 def test_sbom_validator_rejects_missing_and_forged_provenance(tmp_path, monkeypatch):
     module = _load_sbom_validator()
     output, provenance = _validator_inputs(tmp_path)
