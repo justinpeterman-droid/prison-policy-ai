@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { AccountPage } from "./features/account/AccountPage";
+import { AdminGate } from "./features/administration/AdminGate";
+import { AdminLayout } from "./features/administration/AdminLayout";
 import type { SessionProfile } from "./features/auth/api";
 import { OfficerHomePage } from "./features/dashboard/OfficerHomePage";
 import { FormsLibraryPage } from "./features/forms-library/FormsLibraryPage";
@@ -17,7 +19,7 @@ interface AppProps {
   onAuthenticationChanged?: () => void;
 }
 
-type NavIcon = "home" | "plus" | "folder" | "shield" | "form" | "user";
+type NavIcon = "home" | "plus" | "folder" | "shield" | "form" | "user" | "admin";
 
 const navigation: Array<{ label: string; to: string; icon: NavIcon; end?: boolean }> = [
   { label: "Home", to: "/", icon: "home", end: true },
@@ -48,6 +50,7 @@ function Icon({ name }: { name: NavIcon }) {
   if (name === "folder") return <svg {...common}><path d="M3 6.5h6l2 2h10v10.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg>;
   if (name === "shield") return <svg {...common}><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6z"/><path d="m9.2 12.2 1.8 1.8 3.9-4"/></svg>;
   if (name === "form") return <svg {...common}><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h5M9 12h7M9 16h7"/></svg>;
+  if (name === "admin") return <svg {...common}><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6z"/><path d="M8.5 13.5h7M10 10.5h4"/></svg>;
   return <svg {...common}><circle cx="12" cy="8" r="4"/><path d="M4.5 21c.8-4.2 3.2-6 7.5-6s6.7 1.8 7.5 6"/></svg>;
 }
 
@@ -87,31 +90,27 @@ export function App({ profile, onAuthenticationChanged }: AppProps) {
             <p className="gow-brand-name">S.L.U.T</p>
             <p className="gow-brand-subtitle">Secure · Logical · Unified · Trusted</p>
           </div>
-          <button
-            className="gow-mobile-menu-button"
-            type="button"
-            aria-label="Close navigation menu"
-            onClick={() => setMenuOpen(false)}
-          >
-            ×
-          </button>
+          <button className="gow-mobile-menu-button" type="button" aria-label="Close navigation menu" onClick={() => setMenuOpen(false)}>×</button>
         </div>
 
         <nav className="gow-nav" aria-label="Officer navigation">
           {navigation.map((item) => (
-            <NavLink
-              key={item.label}
-              className="gow-nav-link"
-              to={item.to}
-              end={item.end}
-              aria-label={item.label}
-              onClick={() => setMenuOpen(false)}
-            >
+            <NavLink key={item.label} className="gow-nav-link" to={item.to} end={item.end} aria-label={item.label} onClick={() => setMenuOpen(false)}>
               <span className="gow-nav-icon"><Icon name={item.icon} /></span>
               <span className="gow-nav-label">{item.label}</span>
             </NavLink>
           ))}
         </nav>
+
+        {profile.role === "admin" ? (
+          <div className="gow-admin-entry">
+            <span className="gow-admin-entry-label">ADMINISTRATION</span>
+            <NavLink className="gow-nav-link gow-admin-link" to="/admin/overview" aria-label="Administration" onClick={() => setMenuOpen(false)}>
+              <span className="gow-nav-icon"><Icon name="admin" /></span>
+              <span className="gow-nav-label">Administration</span>
+            </NavLink>
+          </div>
+        ) : null}
 
         <div className="gow-sidebar-status" aria-label="System status">
           <div className="gow-side-status-line"><span className="gow-side-dot" /> <strong>System Online</strong></div>
@@ -128,6 +127,7 @@ export function App({ profile, onAuthenticationChanged }: AppProps) {
           <button className="gow-mobile-menu-trigger" type="button" aria-label="Open navigation menu" onClick={() => setMenuOpen(true)}>☰</button>
           <div className="gow-status-chip"><span className="gow-online-dot" /><span>Online</span></div>
           <div className="gow-status-chip"><span aria-hidden="true">✓</span><span>Secure browser session</span></div>
+          {profile.role === "admin" ? <div className="gow-status-chip gow-admin-context-chip"><span aria-hidden="true">◆</span><span>Administrator</span></div> : null}
           <div className="gow-user-chip"><span className="gow-avatar">{initials}</span><span>{profile.displayName}</span><span aria-hidden="true">⌄</span></div>
         </header>
 
@@ -138,16 +138,14 @@ export function App({ profile, onAuthenticationChanged }: AppProps) {
           <Route path="/reports/:incidentId" element={<DocumentStudioPage />} />
           <Route path="/policy-expert" element={<PolicyExpertPage />} />
           <Route path="/forms" element={<FormsLibraryPage />} />
-          <Route
-            path="/account"
-            element={(
-              <AccountPage
-                profile={profile}
-                onAuthenticationChanged={onAuthenticationChanged}
-              />
-            )}
-          />
+          <Route path="/account" element={<AccountPage profile={profile} onAuthenticationChanged={onAuthenticationChanged} />} />
           <Route path="/count-sheet" element={<CountSheetPage profile={profile} />} />
+          <Route
+            path="/admin/*"
+            element={profile.role === "admin" ? (
+              <AdminGate><AdminLayout profile={profile} /></AdminGate>
+            ) : <NotFoundPage />}
+          />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
