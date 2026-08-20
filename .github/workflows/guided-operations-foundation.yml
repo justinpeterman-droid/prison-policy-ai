@@ -147,6 +147,7 @@ jobs:
           python -m alembic upgrade head
           python scripts/seed_fictional_accounts.py
           python tests/prod-smoke/seed_fictional_beta_smoke.py
+          python tests/prod-smoke/probe_incident_create.py
       - name: Start production-style application
         run: |
           gunicorn --bind 127.0.0.1:8080 --workers 1 --threads 8 --timeout 300 "backend.webapp.app:create_app()" > /tmp/guided-operations-smoke.log 2>&1 &
