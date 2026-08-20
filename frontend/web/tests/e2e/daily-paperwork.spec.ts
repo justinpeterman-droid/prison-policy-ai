@@ -101,3 +101,26 @@ test("paperwork periods and detector matrix support keyboard-only navigation", a
   await nextCell.press("ArrowLeft");
   await expect(firstCell).toBeFocused();
 });
+
+test("mobile roster reorder controls keep centered 44px targets and logical keyboard order", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await enterAdmin(page);
+  await page.goto("./admin/paperwork?tab=daily&work_date=2026-08-20&shift=D&kind=assignment_roster");
+
+  const controls = page.locator(".roster-reorder-controls").nth(1).getByRole("button");
+  await expect(controls).toHaveCount(3);
+  for (const control of await controls.all()) {
+    const controlBox = await control.boundingBox();
+    const iconBox = await control.locator("svg").boundingBox();
+    expect(controlBox?.height).toBeGreaterThanOrEqual(44);
+    expect(controlBox?.width).toBeGreaterThanOrEqual(44);
+    expect(Math.abs((controlBox!.x + controlBox!.width / 2) - (iconBox!.x + iconBox!.width / 2))).toBeLessThanOrEqual(1);
+    expect(Math.abs((controlBox!.y + controlBox!.height / 2) - (iconBox!.y + iconBox!.height / 2))).toBeLessThanOrEqual(1);
+  }
+
+  await controls.nth(0).focus();
+  await controls.nth(0).press("Tab");
+  await expect(controls.nth(1)).toBeFocused();
+  await controls.nth(1).press("Tab");
+  await expect(controls.nth(2)).toBeFocused();
+});

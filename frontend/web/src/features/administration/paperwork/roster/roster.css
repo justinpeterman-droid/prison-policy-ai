@@ -61,6 +61,7 @@
   .roster-toolbar, .roster-section-heading, .roster-zone-heading { align-items: stretch; flex-direction: column; }
   .roster-command-grid, .roster-operations-grid { grid-template-columns: 1fr; }
   .roster-zone-heading > label { width: 100%; }
+  .roster-reorder-controls button { display: inline-grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; }
   .roster-assignment-table, .roster-assignment-table tbody, .roster-assignment-table tr, .roster-assignment-table th, .roster-assignment-table td { display: block; min-width: 0; width: 100%; }
   .roster-assignment-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .roster-assignment-table tr { padding: 10px; border-bottom: 1px solid #dce4e8; }
