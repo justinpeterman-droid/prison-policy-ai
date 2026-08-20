@@ -13,6 +13,7 @@ def read(name: str) -> str:
 def test_sql_is_postgres_17_private_and_protected():
     sql = read("sql.tf")
     assert 'database_version = "POSTGRES_17"' in sql
+    assert re.search(r'edition\s*=\s*"ENTERPRISE"', sql)
     assert "ipv4_enabled    = false" in sql
     assert 'availability_type = var.environment == "production" ? "REGIONAL" : "ZONAL"' in sql
     assert 'deletion_protection = var.environment == "production"' in sql
