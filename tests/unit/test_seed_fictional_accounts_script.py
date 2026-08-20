@@ -22,6 +22,7 @@ def test_accepts_loopback_postgres_database_urls(url):
     [
         "postgresql+psycopg://user:pw@db.example.com/prison_policy",
         "postgresql+psycopg://user:pw@10.0.0.5/prison_policy",
+        "postgresqlfake://user:pw@localhost/prison_policy",
         "sqlite:///local.db",
         "",
     ],
