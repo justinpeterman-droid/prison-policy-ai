@@ -94,7 +94,7 @@ jobs:
       actions: read
       deployments: read
       id-token: write
-    uses: justinpeterman-droid/prison-policy-ai/.github/workflows/terraform-apply.yml@66810e10b015bfbfdad69af23f956962ef240fc9
+    uses: justinpeterman-droid/prison-policy-ai/.github/workflows/terraform-apply.yml@dc037e991a7b3314605cd14642c0af3d32b4dc98
     with:
       environment: production
       terraform_root: infra/terraform/environments/production
