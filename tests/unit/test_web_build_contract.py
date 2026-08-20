@@ -1,17 +1,18 @@
 import json
+import re
 from pathlib import Path
 
 
 def test_dockerfile_builds_and_copies_guided_operations_assets():
     dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
 
-    assert "FROM node:22-slim AS web-build" in dockerfile
+    assert re.search(r"^FROM node:22-slim@sha256:[0-9a-f]{64} AS web-build$", dockerfile, re.MULTILINE)
     assert "COPY frontend/web/package.json frontend/web/package-lock.json" in dockerfile
     assert "npm ci --legacy-peer-deps --no-audit --no-fund" in dockerfile
     assert "npm run build" in dockerfile
     assert "COPY backend/requirements.lock ." in dockerfile
     assert "pip install --no-cache-dir --require-hashes -r requirements.lock" in dockerfile
-    assert 'CMD ["sh", "-c", "exec gunicorn --bind :${PORT:-8080}' in dockerfile
+    assert 'CMD ["gunicorn", "--bind", ":8080"' in dockerfile
     assert (
         "COPY --from=web-build /src/backend/webapp/static/web/ "
         "/app/backend/webapp/static/web/"
@@ -56,7 +57,6 @@ def test_ci_runs_the_complete_guided_operations_browser_gate():
     workflow = Path(".github/workflows/tests.yml").read_text(encoding="utf-8")
 
     for required in (
-        "actions/setup-node@v4",
         "npm ci --legacy-peer-deps --no-audit --no-fund",
         "npm run lint",
         "npm run typecheck",
@@ -67,3 +67,5 @@ def test_ci_runs_the_complete_guided_operations_browser_gate():
         "python -m pytest tests/contract tests/security -q",
     ):
         assert required in workflow
+
+    assert re.search(r"uses: actions/setup-node@[0-9a-f]{40}$", workflow, re.MULTILINE)
