@@ -113,6 +113,7 @@ export function App({ profile, onAuthenticationChanged }: AppProps) {
           </div>
         ) : null}
 
+        <div className="gow-sidebar-mountain-scene" aria-hidden="true" />
         <div className="gow-sidebar-status" aria-label="System status">
           <div className="gow-side-status-line"><span className="gow-side-dot" /> <strong>System Online</strong></div>
           <div className="gow-side-status-line"><span aria-hidden="true">✓</span> Individual secure session</div>
