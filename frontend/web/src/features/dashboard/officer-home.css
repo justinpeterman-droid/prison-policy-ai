@@ -244,9 +244,13 @@
 
 .officer-home-work-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr) minmax(0, 0.9fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   padding: 0;
+}
+
+.continue-panel {
+  grid-column: 1 / -1;
 }
 
 .officer-home-visually-hidden {
@@ -413,10 +417,36 @@
   font-weight: 850;
 }
 
-.officer-home-continue-updated {
+.officer-home-continue-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gow-space-2, 8px);
   margin: 0;
+}
+
+.officer-home-continue-metrics > div {
+  display: grid;
+  gap: var(--gow-space-1, 4px);
+  min-width: 0;
+  padding: var(--gow-space-3, 12px);
+  background: var(--gow-surface-inset, #f1f5f8);
+  border: var(--gow-border-standard-rule, 1px solid #cbd7e1);
+  border-radius: var(--gow-radius-surface-small, 10px);
+}
+
+.officer-home-continue-metrics dt {
   color: var(--gow-muted, #63758a);
   font-size: var(--gow-type-metadata, 0.68rem);
+  font-weight: 750;
+}
+
+.officer-home-continue-metrics dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--gow-navy-900, #0b2d50);
+  font-size: var(--gow-type-label, 0.76rem);
+  font-weight: 850;
 }
 
 .officer-home-incident-list,
@@ -518,11 +548,20 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .continue-panel,
-  .incidents-panel {
+  .continue-panel {
     grid-column: 1 / -1;
   }
 
+}
+
+@media (max-width: 900px) {
+  .officer-home-work-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .continue-panel {
+    grid-column: auto;
+  }
 }
 
 @media (max-width: 760px) {
@@ -565,6 +604,10 @@
   .officer-home-incident-list .officer-home-progress,
   .officer-home-incident-list time {
     grid-column: 1;
+  }
+
+  .officer-home-continue-metrics {
+    grid-template-columns: 1fr;
   }
 
 }

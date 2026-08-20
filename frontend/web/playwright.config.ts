@@ -37,7 +37,10 @@ export default defineConfig({
     // application routes. The CLI base override is test-only.
     command: "npm run dev -- --host 127.0.0.1 --port 4173 --base /",
     url: "http://127.0.0.1:4173/workspace/",
-    reuseExistingServer: !process.env.CI,
+    // A reused local Vite process can be owned by an earlier Playwright run
+    // and disappear while a later suite is still using it. Give every run an
+    // isolated server lifecycle, matching the dedicated CI jobs.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

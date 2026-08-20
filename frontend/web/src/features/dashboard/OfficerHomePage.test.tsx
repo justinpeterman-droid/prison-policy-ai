@@ -70,7 +70,10 @@ describe("officer Home dashboard", () => {
     expect(screen.getAllByText("2026-08-029").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Fictional Training Incident").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Ready to review").length).toBeGreaterThan(0);
+    expect(screen.getByText("Officer reports")).toBeInTheDocument();
+    expect(screen.getByText("Required paperwork")).toBeInTheDocument();
     expect(screen.getByText("005/409 Incident Report")).toBeInTheDocument();
+    expect(screen.getByText("Stay safe. Stay focused. You’re making a difference.")).toBeInTheDocument();
     expect(screen.queryByText("Barracks 4 Fight")).not.toBeInTheDocument();
   });
 
@@ -92,7 +95,7 @@ describe("officer Home dashboard", () => {
     }
     expect(within(actions).queryByText("01")).not.toBeInTheDocument();
     expect(within(actions).getByText("Saved · Revision 2")).toBeInTheDocument();
-    expect(document.querySelector(".officer-home-continue-card dl")).toBeNull();
+    expect(document.querySelector(".officer-home-continue-metrics")).not.toBeNull();
     expect(document.querySelector(".count-panel")).toBeNull();
   });
 
