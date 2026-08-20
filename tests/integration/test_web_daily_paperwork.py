@@ -67,6 +67,30 @@ def _elevate(api_client):
     assert response.status_code == 200, response.get_json()
 
 
+def _authenticate_admin(
+    monkeypatch,
+    api_client,
+    db_session,
+    db_session_factory,
+    account,
+):
+    tokens = issue_fictional_tokens(
+        db_session,
+        account=account,
+        device_id="device-fictional-daily-admin",
+        now=datetime.now(UTC),
+    )
+    db_session.commit()
+    authenticate_browser(
+        monkeypatch,
+        api_client,
+        db_session_factory,
+        account,
+        session_id=tokens.session_id,
+        device_id="device-fictional-daily-admin",
+    )
+
+
 def test_daily_paperwork_requires_admin_elevation(
     api_client,
     db_session,
@@ -113,8 +137,13 @@ def test_daily_roster_create_save_reopen_revision_copy_derive_and_print_audit(
     fictional_admin_account,
     monkeypatch,
 ):
-    db_session.commit()
-    authenticate_browser(monkeypatch, api_client, db_session_factory, fictional_admin_account)
+    _authenticate_admin(
+        monkeypatch,
+        api_client,
+        db_session,
+        db_session_factory,
+        fictional_admin_account,
+    )
     _elevate(api_client)
 
     created = api_client.post(
@@ -228,8 +257,13 @@ def test_daily_request_rejects_payload_scope_mismatch_and_unknown_fields(
     fictional_admin_account,
     monkeypatch,
 ):
-    db_session.commit()
-    authenticate_browser(monkeypatch, api_client, db_session_factory, fictional_admin_account)
+    _authenticate_admin(
+        monkeypatch,
+        api_client,
+        db_session,
+        db_session_factory,
+        fictional_admin_account,
+    )
     _elevate(api_client)
 
     mismatched = _save_body()
