@@ -2,8 +2,14 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+import sys
 from datetime import UTC, datetime
 from urllib.parse import urlsplit
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -127,7 +133,12 @@ def seed_fictional_accounts(database_url: str) -> None:
 
 def main() -> int:
     database_url = os.environ.get("DATABASE_URL", "")
-    seed_fictional_accounts(database_url)
+    try:
+        seed_fictional_accounts(database_url)
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
     print("Seeded fictional local accounts:")
     for spec in FICTIONAL_ACCOUNTS:
         label = "Administrator" if spec["role"] == "admin" else "Officer"
