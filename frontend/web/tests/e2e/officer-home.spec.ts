@@ -108,6 +108,23 @@ for (const viewport of HOME_VIEWPORTS) {
   });
 }
 
+for (const zoom of [80, 100, 125, 150] as const) {
+  test(`Home preserves its primary controls at ${zoom} percent browser-zoom equivalent`, async ({ page }) => {
+    const scale = zoom / 100;
+    await page.setViewportSize({
+      width: Math.floor(1366 / scale),
+      height: Math.floor(768 / scale),
+    });
+    await page.goto("./");
+
+    const actions = page.getByRole("region", { name: "Primary actions" });
+    for (const name of PRIMARY_ACTION_NAMES) {
+      await expect(actions.getByRole("link", { name, exact: true })).toBeVisible();
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 2)).toBe(true);
+  });
+}
+
 test("Home supports 200 percent text sizing without horizontal page overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("./");

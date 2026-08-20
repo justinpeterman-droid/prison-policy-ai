@@ -273,6 +273,11 @@
     flex-direction: column;
   }
 
+  .forms-library-guidance p {
+    display: grid;
+    gap: 4px;
+  }
+
   .forms-library-page button,
   .forms-library-page input,
   .forms-library-page select,

@@ -928,10 +928,17 @@
   .iw-inspector-empty,
   .iw-physical-guidance,
   .iw-page-header,
-  .iw-filter-bar { display: none !important; }
+  .iw-filter-bar,
+  .iw-paperwork-groups,
+  .iw-preview-toolbar button,
+  .iw-preview-toolbar span,
+  .iw-completeness-panel { display: none !important; }
   .iw-page,
   .iw-studio-content,
-  .iw-inspector { display: block; margin: 0; padding: 0; min-height: auto; border: 0; box-shadow: none; background: #fff; }
+  .iw-paperwork-layout,
+  .iw-inspector,
+  .iw-form-preview { display: block; margin: 0; padding: 0; min-height: auto; border: 0; box-shadow: none; background: #fff; }
+  .iw-preview-toolbar h2 { margin: 0 0 .2in; color: #000; font: 700 18pt Arial, sans-serif; }
   .iw-paper-sheet { margin: 0; padding: .35in; border: 0; box-shadow: none; page-break-inside: avoid; }
   body { color: #000; background: #fff; }
 }

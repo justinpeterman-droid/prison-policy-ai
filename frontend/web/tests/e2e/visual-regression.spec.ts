@@ -69,6 +69,14 @@ async function expectWorkspaceScreenshot(page: Page, name: string): Promise<void
   });
 }
 
+async function expectPrintScreenshot(locator: Locator, name: string): Promise<void> {
+  await expect(locator).toHaveScreenshot(`${name}.png`, {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+  });
+}
+
 async function enterAdmin(page: Page): Promise<void> {
   await page.goto("./admin/overview");
   await page.getByLabel("Administrator PIN").fill("A12345");
@@ -167,7 +175,32 @@ test.describe("representative route visual regression", () => {
     test(`${route.heading} matches its officer-route baseline`, async ({ page }) => {
       await page.goto(route.path);
       await expect(page.getByRole("heading", { name: route.heading, level: 1, exact: true })).toBeVisible();
+      if (route.name === "reports") {
+        await expect(page.getByText("2026-08-029", { exact: true })).toBeVisible();
+        await expect(page.getByText("Fictional Training Incident", { exact: true })).toBeVisible();
+        await expect(page.getByRole("alert")).toHaveCount(0);
+      }
       await expectWorkspaceScreenshot(page, `officer-${route.name}`);
+    });
+  }
+});
+
+test.describe("primary officer mobile visual regression", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await installOfficerApi(page);
+  });
+
+  for (const route of OFFICER_ROUTES) {
+    test(`${route.heading} matches its mobile officer-route baseline`, async ({ page }) => {
+      await page.goto(route.path);
+      await expect(page.getByRole("heading", { name: route.heading, level: 1, exact: true })).toBeVisible();
+      if (route.name === "reports") {
+        await expect(page.getByText("2026-08-029", { exact: true })).toBeVisible();
+        await expect(page.getByText("Fictional Training Incident", { exact: true })).toBeVisible();
+        await expect(page.getByRole("alert")).toHaveCount(0);
+      }
+      await expectViewportScreenshot(page, `officer-mobile-${route.name}`);
     });
   }
 });
@@ -186,6 +219,67 @@ test.describe("representative administrator visual regression", () => {
       await expectWorkspaceScreenshot(page, `admin-${route.name}`);
     });
   }
+});
+
+test.describe("administrator mobile navigation visual regression", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await installAdminApi(page);
+  });
+
+  test("administrator navigation matches its mobile baseline", async ({ page }) => {
+    await enterAdmin(page);
+    await expect(page.getByRole("navigation", { name: "Administration navigation" })).toBeVisible();
+    await expectViewportScreenshot(page, "admin-mobile-navigation");
+  });
+});
+
+test.describe("paperwork print visual regression", () => {
+  test("NCU Days Count matches its print baseline", async ({ page }) => {
+    await installOfficerApi(page);
+    await page.goto("./count-sheet");
+    await page.getByLabel("Date", { exact: true }).fill("2026-08-20");
+    await page.getByRole("button", { name: "Preview Print Layout", exact: true }).click();
+    await page.emulateMedia({ media: "print" });
+    const print = page.getByLabel("Count Sheet print preview", { exact: true }).last();
+    await expect(print).toBeVisible();
+    await expectPrintScreenshot(print, "print-count-sheet");
+  });
+
+  for (const template of [
+    { button: "Preview Windows, Bars & Doors Check", name: "windows-bars-doors" },
+    { button: "Preview Chemical Agents", name: "chemical-agents" },
+    { button: "Preview Contraband Search — Standard Area Rotation", name: "contraband-standard" },
+    { button: "Preview Contraband Search — Expanded Area Rotation", name: "contraband-expanded" },
+  ] as const) {
+    test(`${template.name} matches its monthly print baseline`, async ({ page }) => {
+      await installAdminApi(page);
+      await enterAdmin(page);
+      await page.goto("./admin/paperwork?tab=monthly");
+      await expect(page.getByRole("heading", { name: "Paperwork Center", level: 1 })).toBeVisible();
+      await expect(page.getByRole("tab", { name: "Monthly" })).toHaveAttribute("aria-selected", "true");
+      await page.getByLabel("Month", { exact: true }).fill("2026-08");
+      await page.getByLabel("Shift", { exact: true }).fill("D");
+      await page.getByRole("button", { name: template.button, exact: true }).click();
+      await page.emulateMedia({ media: "print" });
+      const print = page.locator(".print-document");
+      await expect(print).toHaveCount(1);
+      await expectPrintScreenshot(print, `print-monthly-${template.name}`);
+    });
+  }
+
+  test("incident-specific digital form matches its print baseline with unknowns visible", async ({ page }) => {
+    const officerApiState = await installOfficerApi(page);
+    officerApiState.showIncidentPaperwork = true;
+    await page.goto("./reports/00000000-0000-4000-8000-000000000010");
+    await page.getByRole("tab", { name: "Required Paperwork" }).click();
+    await page.getByRole("button", { name: "Preview Medical Documentation Checklist" }).click();
+    const preview = page.locator(".iw-form-preview");
+    await expect(preview).toContainText("Missing Information");
+    await expect(preview).toContainText("Medical Provider");
+    await page.emulateMedia({ media: "print" });
+    await expectPrintScreenshot(preview, "print-incident-medical-checklist");
+  });
 });
 
 test.describe("Windows display scaling visual regression at 125 percent", () => {

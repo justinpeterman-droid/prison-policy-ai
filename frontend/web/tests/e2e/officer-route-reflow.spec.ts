@@ -121,3 +121,54 @@ test.describe("officer route short-height keyboard pressure", () => {
     });
   }
 });
+
+test.describe("Forms Library mobile guidance", () => {
+  test.beforeEach(async ({ page }) => {
+    await installOfficerApi(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+  });
+
+  test("separates guidance labels from their values without changing desktop copy", async ({ page }) => {
+    await page.goto("./forms");
+    const card = page.getByRole("article", { name: "Medical Documentation Checklist" });
+    const guidance = card.locator(".forms-library-guidance p");
+    await expect(guidance).toHaveCount(2);
+
+    for (const paragraph of await guidance.all()) {
+      const separated = await paragraph.evaluate((element) => {
+        const label = element.querySelector("strong");
+        const value = Array.from(element.childNodes).find((node) => (
+          node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
+        ));
+        if (!label || !value) return false;
+        const range = document.createRange();
+        range.selectNodeContents(value);
+        return range.getBoundingClientRect().top >= label.getBoundingClientRect().bottom;
+      });
+      expect(separated, "guidance value should begin below its label on mobile").toBe(true);
+    }
+  });
+});
+
+test.describe("Document Studio mobile tab reachability", () => {
+  test.beforeEach(async ({ page }) => {
+    await installOfficerApi(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+  });
+
+  test("keeps every horizontally scrollable document area keyboard reachable", async ({ page }) => {
+    await page.goto("./reports/00000000-0000-4000-8000-000000000010");
+    const tablist = page.getByRole("tablist", { name: "Incident document areas" });
+    const history = tablist.getByRole("tab", { name: "History", exact: true });
+
+    await history.focus();
+    await expect(history).toBeFocused();
+    await expect(history).toBeInViewport();
+    await expectRenderedFocusIndicator(history);
+    await history.press("Enter");
+    await expect(history).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("heading", { name: "Incident revisions" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Report revisions" })).toBeVisible();
+    await expectNoPageOverflow(page);
+  });
+});

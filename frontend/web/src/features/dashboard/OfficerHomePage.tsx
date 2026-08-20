@@ -237,20 +237,7 @@ export function OfficerHomePage({
               <div className="officer-home-continue-card">
                 <IncidentIdentity incident={summary.continueIncident} />
                 <span className="officer-home-progress">{summary.continueIncident.progress.label}</span>
-                <dl>
-                  <div>
-                    <dt>Reports</dt>
-                    <dd>{summary.continueIncident.officerReportCount}</dd>
-                  </div>
-                  <div>
-                    <dt>Required paperwork</dt>
-                    <dd>{summary.continueIncident.requiredPaperworkCount}</dd>
-                  </div>
-                  <div>
-                    <dt>Updated</dt>
-                    <dd><time dateTime={summary.continueIncident.updatedAt}>{formatRelative(summary.continueIncident.updatedAt)}</time></dd>
-                  </div>
-                </dl>
+                <p className="officer-home-continue-updated">Updated <time dateTime={summary.continueIncident.updatedAt}>{formatRelative(summary.continueIncident.updatedAt)}</time></p>
                 <Link
                   className="gow-button gow-button--primary officer-home-continue-link"
                   to={`/reports/${summary.continueIncident.incidentId}`}
@@ -317,29 +304,6 @@ export function OfficerHomePage({
             )}
           </section>
 
-          <section className="gow-surface gow-surface--information officer-home-panel count-panel" aria-labelledby="daily-count-heading">
-            <header>
-              <div>
-                <p>Today · {shift} Shift</p>
-                <h2 id="daily-count-heading">NCU Days Count</h2>
-              </div>
-            </header>
-            <div className="officer-home-count-body">
-              {summary.countSheet ? (
-                <>
-                  <span className="officer-home-count-state">Revision {summary.countSheet.revision}</span>
-                  <p>Last saved <time dateTime={summary.countSheet.updatedAt}>{formatRelative(summary.countSheet.updatedAt)}</time>.</p>
-                  <Link className="gow-button gow-button--secondary" to="/count-sheet">Open today’s Count Sheet</Link>
-                </>
-              ) : (
-                <>
-                  <span className="officer-home-count-state new">Not started</span>
-                  <p>No Count Sheet has been saved for this date and shift.</p>
-                  <Link className="gow-button gow-button--secondary" to="/count-sheet">Start today’s Count Sheet</Link>
-                </>
-              )}
-            </div>
-          </section>
         </div>
       ) : null}
         </div>

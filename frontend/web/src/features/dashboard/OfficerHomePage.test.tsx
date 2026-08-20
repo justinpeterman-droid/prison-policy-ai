@@ -92,6 +92,8 @@ describe("officer Home dashboard", () => {
     }
     expect(within(actions).queryByText("01")).not.toBeInTheDocument();
     expect(within(actions).getByText("Saved · Revision 2")).toBeInTheDocument();
+    expect(document.querySelector(".officer-home-continue-card dl")).toBeNull();
+    expect(document.querySelector(".count-panel")).toBeNull();
   });
 
   it("preloads only responsive Home hero candidates while Home is mounted", async () => {

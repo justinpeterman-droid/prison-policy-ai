@@ -123,6 +123,60 @@ const PHYSICAL_FORM = {
   obtain_from: "Approved forms location",
 } as const;
 
+const INCIDENT_PACKET_ITEMS = [
+  {
+    packet_item_id: "00000000-0000-4000-8000-000000000201",
+    template_code: DIGITAL_FORM.code,
+    name: DIGITAL_FORM.name,
+    output_kind: DIGITAL_FORM.output_kind,
+    presentation: "document",
+    allowed_actions: ["preview", "print"],
+    packet_group: "recommended",
+    packet_state: "selected",
+    selection_reason: "Recommended for this fictional training incident.",
+    not_applicable_reason: null,
+    reporting_staff_member_id: null,
+    source_incident_revision_number: 4,
+    definition: { description: "Review fictional medical documentation." },
+    form_instance: {
+      form_instance_id: "00000000-0000-4000-8000-000000000301",
+      source_incident_revision_number: 4,
+      populated_fields: {
+        incident_number: INCIDENT.incident_number,
+        location: INCIDENT.location,
+      },
+      manual_fields: {},
+      completeness: {
+        state: "missing_information",
+        missing_fields: ["medical_provider"],
+        review_fields: ["location"],
+      },
+      updated_at: INCIDENT.updated_at,
+    },
+    physical_acknowledgment: null,
+  },
+] as const;
+
+const INCIDENT_FORM_PREVIEW = {
+  form_instance_id: "00000000-0000-4000-8000-000000000301",
+  packet_item_id: "00000000-0000-4000-8000-000000000201",
+  incident_id: INCIDENT.incident_id,
+  template_code: DIGITAL_FORM.code,
+  template_name: DIGITAL_FORM.name,
+  render_kind: "browser_form",
+  fields: {
+    incident_number: INCIDENT.incident_number,
+    incident_date: INCIDENT.incident_date,
+    location: INCIDENT.location,
+    medical_provider: null,
+  },
+  completeness: {
+    state: "missing_information",
+    missing_fields: ["medical_provider"],
+    review_fields: ["location"],
+  },
+} as const;
+
 const STRUCTURE = JSON.parse(
   readFileSync(
     resolve(process.cwd(), "../../templates/paperwork/count_sheet.json"),
@@ -163,6 +217,7 @@ export interface OfficerApiState {
   homeDelayMs: number;
   homeEmpty: boolean;
   homeFailuresRemaining: number;
+  showIncidentPaperwork: boolean;
   policyQuestions: string[];
   sessions: Array<{
     session_id: string;
@@ -249,6 +304,7 @@ export async function installOfficerApi(page: Page): Promise<OfficerApiState> {
     homeDelayMs: 0,
     homeEmpty: false,
     homeFailuresRemaining: 0,
+    showIncidentPaperwork: false,
     policyQuestions: [],
     sessions: [
       {
@@ -332,6 +388,13 @@ export async function installOfficerApi(page: Page): Promise<OfficerApiState> {
       });
       return;
     }
+    if (path === "/incidents" && method === "GET") {
+      await fulfill(route, {
+        items: [INCIDENT],
+        next_cursor: null,
+      });
+      return;
+    }
     if (path === `/incidents/${INCIDENT.incident_id}` && method === "GET") {
       await fulfill(route, incidentDetail());
       return;
@@ -341,7 +404,11 @@ export async function installOfficerApi(page: Page): Promise<OfficerApiState> {
       return;
     }
     if (path === `/incidents/${INCIDENT.incident_id}/packet` && method === "GET") {
-      await fulfill(route, { items: [] });
+      await fulfill(route, { items: state.showIncidentPaperwork ? INCIDENT_PACKET_ITEMS : [] });
+      return;
+    }
+    if (path === `/form-instances/${INCIDENT_FORM_PREVIEW.form_instance_id}/preview` && method === "GET") {
+      await fulfill(route, INCIDENT_FORM_PREVIEW);
       return;
     }
     if (path === "/paperwork/count-sheets/structure" && method === "GET") {
