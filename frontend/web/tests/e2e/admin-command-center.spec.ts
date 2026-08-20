@@ -44,9 +44,10 @@ test("admin can move from all incidents into attributed controls and Document St
 
   await incidentRow.click();
   await expect(page.getByRole("note", { name: "Administrator attribution notice" })).toContainText("every saved change");
-  await expect(page.getByRole("region", { name: "Administrator incident controls" })).toBeVisible();
+  const adminControls = page.getByRole("region", { name: "Administrator incident controls" });
+  await expect(adminControls).toBeVisible();
   await expect(page.getByLabel("Records status")).toHaveValue("in_progress");
-  await expect(page.getByText("Revision 4")).toBeVisible();
+  await expect(adminControls.getByText("Revision 4", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Fictional Training Incident" }).last()).toBeVisible();
 });
 
