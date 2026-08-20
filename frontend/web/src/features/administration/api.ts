@@ -16,7 +16,7 @@ export type AdminPurpose =
   | "account_reset_pin"
   | "account_unlock"
   | "account_revoke_sessions"
-  | "incident_restore"
+  | "report_restore"
   | "report_transfer"
   | "review_lab_handoff";
 
