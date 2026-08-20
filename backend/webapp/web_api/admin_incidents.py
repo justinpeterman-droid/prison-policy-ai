@@ -427,7 +427,7 @@ def _change_records_status(
         snapshot=deepcopy(source.snapshot),
         changed_fields={"fields": ["records_status"]},
         reason="status_change",
-        client_version=str(getattr(request, "headers", {}).get("X-Client-Version", "1.0.0")),
+        client_version=request.headers.get("X-Client-Version", "1.0.0"),
         request_id=request_id(),
         created_at=now,
     ))
@@ -438,15 +438,15 @@ def _change_records_status(
     current_app.config["AUDIT_WRITER"].append(db, AuditEventInput(
         actor_account_id=actor.account_id,
         actor_staff_member_id=actor.staff_member_id,
-        action="admin.incident_records_status_changed",
+        action="incident.status_changed",
         result="success",
         request_id=request_id(),
         target_type="incident",
         target_id=incident.id,
         details={
+            "incident_id": str(incident.id),
             "old_status": old_status,
             "new_status": records_status,
-            "revision_number": next_revision,
         },
         client_version=request.headers.get("X-Client-Version"),
     ))
@@ -655,18 +655,18 @@ def incident_restore_route(incident_id: UUID):
         current_app.config["AUDIT_WRITER"].append(db, AuditEventInput(
             actor_account_id=current_browser_actor().account_id,
             actor_staff_member_id=current_browser_actor().staff_member_id,
-            action="admin.incident_restored",
+            action="incident.restored",
             result="success",
             request_id=request_id(),
             target_type="incident",
             target_id=incident_id,
             details={
+                "incident_id": str(incident_id),
+                "revision_number": view.revision_number or 0,
                 "source_revision_number": revision_number,
-                "reason": reason,
             },
             client_version=request.headers.get("X-Client-Version"),
         ))
-        del view
         return _incident_detail(db, incident_id)
 
     return _write(operation, clear_step_up=True)
