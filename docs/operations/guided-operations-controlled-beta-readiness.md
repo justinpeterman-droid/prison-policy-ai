@@ -2,7 +2,7 @@
 
 **Status:** Repository candidate ready for external beta qualification; rollout is not authorized by this document.
 **Evidence date:** 2026-08-20
-**Candidate:** PR #108, `feat/daily-paperwork-center`; source candidate `f6f23c1` is locally verified and remains subject to the exact final PR gate. Capture the final reviewed commit or merge SHA in the external approval record.
+**Candidate:** PR #108, `feat/daily-paperwork-center`; runtime candidate `0e1bd6b` is locally verified and its Guided Operations Foundation gate is green. The documentation-only evidence refresh and final reviewed commit or merge SHA remain subject to the exact final PR gate and must be captured in the external approval record.
 
 ## Proven in the repository
 
@@ -10,12 +10,13 @@
 - The production React build is served through the Cloud Run image's same-origin static path. CI builds the image without pushing or deploying it.
 - PostgreSQL 17 integration and migration upgrade/downgrade/upgrade checks pass in both supported Python release-gate jobs.
 - Local backend evidence is 1,440 passing tests with 30 intentional skips, plus 41 explicit contract/security tests.
-- Local frontend evidence is 169 passing component tests, TypeScript, the production Vite build, and 121 passing Chromium workflows with one feature-detected skip.
+- Local frontend evidence is 181 passing component tests across 46 files, TypeScript, the production Vite build, and 128 passing Chromium workflows with one feature-detected skip.
+- The exact `0e1bd6b` Foundation run passes browser API security/contracts, the reviewed frontend artifact, the Cloud Run image build, and two production-bundle browser smokes against Gunicorn and PostgreSQL 17. Those smokes use real cookie sessions and fictional records to verify dated incident creation, revisioned report persistence, packet rebuild, print invocation, DOCX download, count-sheet persistence/preview, administrator elevation and Paperwork Center access, logout, and the approved legacy `pilot_fallback` banner.
 - Forty-eight committed Windows baselines cover Home states and viewports, every primary officer route on desktop and mobile, every administrator route on desktop, mobile administrator navigation, display scaling, and the missing count/monthly/incident print references.
 - Print references use fictional data only. The incident form keeps an unknown value visibly `Not entered`, and print CSS removes application navigation and preview controls.
 - The count-sheet API kind boundary is enforced on reads, saves, revisions, restores, actions, and idempotent replays; PostgreSQL integration coverage proves a non-elevated administrator cannot use count-sheet routes to access a daily record.
 - Legacy browser and Microsoft Access fallback behavior remains available. This milestone does not retire, redirect, or mutate either legacy surface.
-- Predecessor `2249940` passed the complete PR check set, including PostgreSQL, browser, Windows visual, container, CodeQL, Codacy, and independent security-review jobs. Follow-on source candidate `f6f23c1` must pass the exact final PR gate before merge or beta qualification.
+- Predecessor `0038ae5` passed the complete 20-check PR gate with a clean merge state. Runtime candidate `0e1bd6b` passes its complete four-job Foundation gate; every remaining independent check must be green on the final documentation head before merge or beta qualification.
 
 ## External stop gates
 
