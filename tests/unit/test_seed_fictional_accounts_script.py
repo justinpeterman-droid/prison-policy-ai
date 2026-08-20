@@ -32,11 +32,14 @@ def test_accepts_loopback_postgres_database_urls(url):
         "postgresql+psycopg://user:pw@db.example.com/prison_policy",
         "postgresql+psycopg://user:pw@10.0.0.5/prison_policy",
         "postgresqlfake://user:pw@localhost/prison_policy",
+        "postgresql://user:pw@localhost/prison_policy?host=prod-db.example.com",
+        "postgresql://user:pw@localhost/prison_policy?hostaddr=10.0.0.5",
+        "postgresql://user:pw@localhost/prison_policy?service=production",
         "sqlite:///local.db",
         "",
     ],
 )
-def test_rejects_nonlocal_or_nonpostgres_database_urls(url):
+def test_rejects_nonlocal_or_redirectable_database_urls(url):
     assert is_safe_local_database_url(url) is False
 
 
