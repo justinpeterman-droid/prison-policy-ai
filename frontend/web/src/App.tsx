@@ -11,7 +11,7 @@ import { NewReportPage } from "./features/incidents/NewReportPage";
 import { ReportsPage } from "./features/incidents/ReportsPage";
 import { CountSheetPage } from "./features/paperwork/count-sheet/CountSheetPage";
 import { PolicyExpertPage } from "./features/policy/PolicyExpertPage";
-import sidebarMountains from "./assets/sidebar-mountains.jpg";
+import sidebarMountains from "./assets/sidebar-mountains-clean.svg";
 import "./guided-operations.css";
 import "./incident-workspace.css";
 import "./refinement.css";
