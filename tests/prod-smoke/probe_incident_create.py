@@ -3,7 +3,13 @@ from __future__ import annotations
 
 from datetime import date, time
 import os
+from pathlib import Path
+import sys
 from uuid import UUID
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
