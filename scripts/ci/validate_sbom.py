@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-DIGEST = "sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d"
+DIGEST = "sha256:53757bfb153c99eb7005963b7e4ea3a8ba488badceab8487d3ba982ad54f2047"
 
 
 def validate(args: argparse.Namespace) -> int:
