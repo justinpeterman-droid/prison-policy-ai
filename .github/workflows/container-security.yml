@@ -13,7 +13,7 @@ jobs:
           cosign verify
           --certificate-identity https://github.com/chainguard-images/images/.github/workflows/release.yaml@refs/heads/main
           --certificate-oidc-issuer https://token.actions.githubusercontent.com
-          cgr.dev/chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d
+          cgr.dev/chainguard/python@sha256:53757bfb153c99eb7005963b7e4ea3a8ba488badceab8487d3ba982ad54f2047
   sbom:
     runs-on: ubuntu-latest
     steps:
@@ -34,9 +34,9 @@ jobs:
           (cd tools/syft && sha256sum --check --strict selected-checksum.txt)
           tar --extract --gzip --file tools/syft/syft_1.51.0_linux_amd64.tar.gz --directory tools/syft
           tools/syft/syft prison-policy-ai:ci -o spdx-json=sbom.spdx.json
-      - run: docker pull cgr.dev/chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d
-      - run: python scripts/ci/validate_sbom.py --image prison-policy-ai:ci --runtime-image cgr.dev/chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d --output sbom.spdx.json --provenance sbom.provenance.json --generate-provenance
-      - run: python scripts/ci/validate_sbom.py --image prison-policy-ai:ci --runtime-image cgr.dev/chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d --output sbom.spdx.json --provenance sbom.provenance.json
+      - run: docker pull cgr.dev/chainguard/python@sha256:53757bfb153c99eb7005963b7e4ea3a8ba488badceab8487d3ba982ad54f2047
+      - run: python scripts/ci/validate_sbom.py --image prison-policy-ai:ci --runtime-image cgr.dev/chainguard/python@sha256:53757bfb153c99eb7005963b7e4ea3a8ba488badceab8487d3ba982ad54f2047 --output sbom.spdx.json --provenance sbom.provenance.json --generate-provenance
+      - run: python scripts/ci/validate_sbom.py --image prison-policy-ai:ci --runtime-image cgr.dev/chainguard/python@sha256:53757bfb153c99eb7005963b7e4ea3a8ba488badceab8487d3ba982ad54f2047 --output sbom.spdx.json --provenance sbom.provenance.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with: {name: sbom, path: "sbom.spdx.json\nsbom.provenance.json"}
   container-vulnerability:
