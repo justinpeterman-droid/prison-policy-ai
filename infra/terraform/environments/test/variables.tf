@@ -85,17 +85,15 @@ variable "github_ref_pattern" {
 }
 
 variable "storage_log_bucket_name" {
-  description = "Fictional test-only bucket that receives storage access-log fixtures."
+  description = "Test bucket that receives Cloud Storage access logs. Supplied through the protected test environment."
   type        = string
   nullable    = false
-  default     = "access-test-fixture-audit-logs"
 }
 
 variable "artifact_registry_kms_key_name" {
-  description = "Fictional test-only Artifact Registry KMS key resource name."
+  description = "Test Artifact Registry KMS key resource name. Supplied through the protected test environment."
   type        = string
   nullable    = false
-  default     = "projects/fixture-project/locations/us-central1/keyRings/fixture-key-ring/cryptoKeys/fixture-artifact-key"
 }
 
 variable "labels" {
@@ -125,7 +123,6 @@ variable "agent_builder_engine_id" { type = string }
 variable "agent_builder_serving_config" { type = string }
 variable "fast_model" { type = string }
 variable "pro_model" { type = string }
-variable "legacy_report_mode" { type = string }
 variable "review_object_prefix" { type = string }
 variable "log_level" { type = string }
 variable "api_min_instances" { type = number }
@@ -134,6 +131,12 @@ variable "api_max_concurrency" { type = number }
 variable "worker_min_instances" { type = number }
 variable "worker_max_instances" { type = number }
 variable "worker_max_concurrency" { type = number }
+variable "roster_source_uri" { type = string }
+variable "roster_corrections_uri" { type = string }
+variable "roster_report_uri" { type = string }
+variable "roster_expected_sha256" { type = string }
+variable "bootstrap_request_uri" { type = string }
+variable "bootstrap_request_sha256" { type = string }
 variable "notification_channel_ids" { type = set(string) }
 variable "billing_account_id" { type = string }
 variable "monthly_budget_amount" { type = number }

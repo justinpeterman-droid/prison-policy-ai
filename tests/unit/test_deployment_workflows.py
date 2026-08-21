@@ -116,6 +116,25 @@ def test_version_registry_is_the_only_projection_source():
     assert "inputs.release_version" not in combined
 
 
+def test_test_plan_receives_all_real_environment_inputs_without_fixture_defaults():
+    test_root = (ROOT / "infra" / "terraform" / "environments" / "test" / "main.tf").read_text(encoding="utf-8")
+    test_plan = workflow("terraform-plan.yml").split("  plan_production:", 1)[0]
+    for variable in (
+        "storage_log_bucket_name",
+        "artifact_registry_kms_key_name",
+        "managed_hostname",
+        "dns_zone_name",
+        "image_repository_id",
+        "agent_builder_engine_id",
+        "billing_account_id",
+        "bootstrap_request_uri",
+    ):
+        assert f"= var.{variable}" in test_root
+        assert f"TF_VAR_{variable}" in test_plan
+    assert "fixture-engine" not in test_root
+    assert "fixture-billing-account" not in test_root
+
+
 def test_no_workflow_uses_long_lived_keys_or_destructive_commands():
     combined = "\n".join(workflow(name) for name in CONTROLLED_WORKFLOWS)
     for forbidden in ["GCP_SA_KEY", "service_account_key", "terraform destroy", "alembic downgrade", "git push", "git merge"]:
