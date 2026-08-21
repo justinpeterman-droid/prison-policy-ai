@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
+RUNTIME_DIGEST = "53757bfb153c99eb7005963b7e4ea3a8ba488badceab8487d3ba982ad54f2047"
 CONTROLLED_WORKFLOWS = (
     "terraform-plan.yml",
     "terraform-apply.yml",
@@ -36,6 +37,15 @@ def test_production_is_manual_protected_and_digest_only():
     assert "EXPECTED_TEST_COMMIT" in text
     assert ".test_workflow_run" in text
     assert ".creator_workflow" in text
+
+
+def test_test_deploy_validates_the_same_patched_runtime_as_the_production_image():
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    deploy_test = workflow("deploy-test.yml")
+    digest = f"sha256:{RUNTIME_DIGEST}"
+    assert f"FROM chainguard/python@{digest}" in dockerfile
+    assert deploy_test.count(digest) == 3
+    assert "8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d" not in deploy_test
 
 
 def test_production_uses_staged_traffic_and_rolls_back_on_failed_smoke():
