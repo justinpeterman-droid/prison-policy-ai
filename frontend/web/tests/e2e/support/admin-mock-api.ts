@@ -455,7 +455,7 @@ export async function installAdminApi(page: Page): Promise<void> {
       return;
     }
     if (path.includes("/reset-pin") && method === "POST") {
-      await fulfill(route, { account_id: "00000000-0000-4000-8000-000000000950", temporary_pin: "T9R4K2", temporary_pin_expires_at: "2099-08-20T02:00:00Z" });
+      await fulfill(route, { account_id: "00000000-0000-4000-8000-000000000950", temporary_pin: "FX9R4K", temporary_pin_expires_at: "2099-08-20T02:00:00Z" });
       return;
     }
     if (path.startsWith("/admin/accounts/") && method === "POST") {

@@ -1,0 +1,11 @@
+{
+  "$schema": "./version.schema.json",
+  "schema_version": 1,
+  "backend_version": "0.0.0-development",
+  "api_version": "v1",
+  "client_version": "0.0.0-development",
+  "minimum_client_version": "0.0.0-development",
+  "minimum_server_version": "0.0.0-development",
+  "release_notes": "Development compatibility metadata; no production release is authorized.",
+  "channel": "development"
+}

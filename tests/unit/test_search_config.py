@@ -8,6 +8,7 @@ import importlib
 import pytest
 
 import backend.pipeline.config as config
+from backend.pipeline.query import log_search_config
 
 
 def _reload(monkeypatch, **env):
@@ -68,3 +69,19 @@ class TestSearchConfigSummary:
         blob = " ".join(str(v).lower() for v in config.search_config_summary().values())
         for banned in ("token", "secret", "password", "bearer", "key"):
             assert banned not in blob
+
+    def test_startup_log_reports_readiness_without_infrastructure_ids(self, caplog):
+        caplog.set_level("INFO", logger="backend.pipeline.query")
+
+        log_search_config()
+
+        assert "agent_builder_configured=True" in caplog.text
+        assert "model_tiers_configured=True" in caplog.text
+        for internal_value in (
+            config.PROJECT_ID,
+            config.AGENT_BUILDER_ENGINE_ID,
+            config.serving_config_path(),
+            config.FAST_MODEL,
+            config.PRO_MODEL,
+        ):
+            assert internal_value not in caplog.text

@@ -26,6 +26,11 @@ resource "google_storage_bucket" "terraform_state" {
     retention_duration_seconds = 2592000
   }
 
+  logging {
+    log_bucket        = var.storage_log_bucket_name
+    log_object_prefix = "terraform-state/${var.environment}/"
+  }
+
   # Retain superseded state generations for 90 days, then delete them.
   lifecycle_rule {
     action {

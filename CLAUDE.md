@@ -10,8 +10,8 @@ that the source alone won't tell you.
 > deployment prerequisites), `docs/runbooks/`. When those and this file disagree,
 > trust the **code**, then update the docs.
 >
-> `README.md` and `HANDOFF.md` are known to predate the Access work — they still
-> describe an automatic Cloud Run deploy that no longer exists.
+> `README.md` and `HANDOFF.md` describe the current protected digest-promotion path;
+> do not substitute older automatic or local source-deploy instructions.
 
 ---
 
@@ -663,17 +663,19 @@ class of bug described under Guided Operations above.
 
 ## Deploy & CI
 
-**There is no automatic Cloud Run deploy.** `cloud-run.yml`, `backend/scripts/deploy.sh`
-and `scripts/merge_and_deploy.py` were all removed in `5b21e94` ("gate implementation
-and deployment prerequisites") — deliberately, pending the release gates in
-`docs/operations/`. `README.md` and `HANDOFF.md` still show the old command; they lag.
-Don't re-add a deploy workflow without checking `docs/operations/release-gates.md`
-first. The manual command still works if someone with credentials runs it:
+**There is no automatic Cloud Run deploy.** `cloud-run.yml`, `backend/scripts/deploy.sh`,
+and `scripts/merge_and_deploy.py` remain deliberately absent. Do not restore a main-push,
+service-account-key, mutable-tag, source-build, or local deploy path.
 
-```bash
-gcloud run deploy prison-policy-ai --source . --region us-central1 \
-  --project gen-lang-client-0968389176 --allow-unauthenticated
-```
+The only supported cloud path is the protected workflow sequence documented in
+`docs/runbooks/cloud-deploy-migration-rollback.md`: build/qualify once in test, create
+and separately approve the production plan, apply the exact saved plan, migrate/verify,
+then promote the same digest through 1/10/50/100 traffic gates. Rollback changes only
+reviewed revision/traffic selection and never downgrades schema or deletes data.
+`release/version.json` is the sole compatibility source; its checked-in development
+sentinel intentionally blocks production until a separate reviewed version bump.
+All live workflow execution, environment/WIF setup, approvals, secret custody,
+migration/bootstrap invocation, and traffic changes are human-only external actions.
 
 The root `Dockerfile` is **two-stage**: a `node:22-slim` `web-build` stage runs
 `npm run build` for `frontend/web/`, then the `python:3.14-slim` runtime stage copies

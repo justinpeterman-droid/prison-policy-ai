@@ -52,6 +52,7 @@ Do not begin the controlled beta until an authorized owner records evidence for 
 
 ## Required runbooks and guides
 
+- Web companion qualification record: [Web Companion Production Qualification](web-companion-production-qualification.md)
 - Release criteria: [Guided Operations release gates](guided-operations-release-gates.md)
 - Pilot sequence: [Guided Operations web pilot](../runbooks/guided-operations-web-pilot.md)
 - Configuration-only UI rollback: [Guided Operations web rollback](../runbooks/guided-operations-web-rollback.md)

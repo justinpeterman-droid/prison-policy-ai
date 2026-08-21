@@ -41,7 +41,7 @@ locals {
     }
   ]...)
 
-  terraform_plan_role = "roles/viewer"
+  terraform_plan_role = google_project_iam_custom_role.terraform_plan_readonly.name
 
   rollback_role = google_project_iam_custom_role.rollback_traffic.name
 }
@@ -99,13 +99,41 @@ resource "google_project_iam_member" "runtime_cloud_sql" {
 
 resource "google_project_iam_member" "terraform_plan" {
   for_each = toset([
-    "roles/viewer",
     "roles/iam.securityReviewer",
     "roles/secretmanager.viewer",
   ])
 
   project = var.project_id
   role    = each.value
+  member  = google_service_account.workflow["terraform-plan"].member
+}
+
+resource "google_project_iam_custom_role" "terraform_plan_readonly" {
+  project     = var.project_id
+  role_id     = "access${title(local.environment_id)}TerraformPlanRead"
+  title       = "Access ${var.environment} Terraform plan read only"
+  description = "Read only the resource types managed by the Access platform Terraform module."
+  permissions = [
+    "artifactregistry.repositories.get", "artifactregistry.repositories.getIamPolicy", "artifactregistry.repositories.list",
+    "cloudscheduler.jobs.get", "cloudscheduler.jobs.list",
+    "cloudsql.databases.get", "cloudsql.databases.list", "cloudsql.instances.get", "cloudsql.instances.list", "cloudsql.operations.get", "cloudsql.operations.list",
+    "cloudtasks.queues.get", "cloudtasks.queues.getIamPolicy", "cloudtasks.queues.list",
+    "compute.backendServices.get", "compute.backendServices.list", "compute.firewalls.get", "compute.firewalls.list", "compute.globalAddresses.get", "compute.globalAddresses.list", "compute.globalForwardingRules.get", "compute.globalForwardingRules.list", "compute.networks.get", "compute.networks.list", "compute.regionNetworkEndpointGroups.get", "compute.regionNetworkEndpointGroups.list", "compute.securityPolicies.get", "compute.securityPolicies.list", "compute.sslCertificates.get", "compute.sslCertificates.list", "compute.subnetworks.get", "compute.subnetworks.list", "compute.targetHttpProxies.get", "compute.targetHttpProxies.list", "compute.targetHttpsProxies.get", "compute.targetHttpsProxies.list", "compute.urlMaps.get", "compute.urlMaps.list",
+    "dns.managedZones.get", "dns.managedZones.list", "dns.resourceRecordSets.list",
+    "logging.logMetrics.get", "logging.logMetrics.list",
+    "monitoring.alertPolicies.get", "monitoring.alertPolicies.list", "monitoring.dashboards.get", "monitoring.dashboards.list", "monitoring.uptimeCheckConfigs.get", "monitoring.uptimeCheckConfigs.list",
+    "resourcemanager.projects.get",
+    "run.jobs.get", "run.jobs.getIamPolicy", "run.jobs.list", "run.services.get", "run.services.getIamPolicy", "run.services.list",
+    "serviceusage.services.get", "serviceusage.services.list", "servicenetworking.services.get",
+    "storage.buckets.get", "storage.buckets.getIamPolicy", "storage.buckets.list",
+    "workflows.workflows.get", "workflows.workflows.list",
+  ]
+  depends_on = [google_project_service.required]
+}
+
+resource "google_project_iam_member" "terraform_plan_readonly" {
+  project = var.project_id
+  role    = google_project_iam_custom_role.terraform_plan_readonly.name
   member  = google_service_account.workflow["terraform-plan"].member
 }
 
@@ -131,16 +159,78 @@ resource "google_project_iam_member" "terraform_apply" {
     "roles/cloudsql.admin",
     "roles/compute.networkAdmin",
     "roles/iam.roleAdmin",
-    "roles/iam.serviceAccountAdmin",
     "roles/iam.workloadIdentityPoolAdmin",
     "roles/resourcemanager.projectIamAdmin",
     "roles/servicenetworking.networksAdmin",
     "roles/serviceusage.serviceUsageAdmin",
   ])
-
   project = var.project_id
   role    = each.value
   member  = google_service_account.workflow["terraform-apply"].member
+}
+
+resource "google_project_iam_custom_role" "terraform_apply_service_accounts" {
+  project     = var.project_id
+  role_id     = "access${title(local.environment_id)}ServiceAccountLifecycle"
+  title       = "Access ${var.environment} service account lifecycle"
+  description = "Create, update, delete, and bind managed service accounts without minting keys or credentials."
+  permissions = [
+    "iam.serviceAccounts.create",
+    "iam.serviceAccounts.delete",
+    "iam.serviceAccounts.get",
+    "iam.serviceAccounts.getIamPolicy",
+    "iam.serviceAccounts.list",
+    "iam.serviceAccounts.setIamPolicy",
+    "iam.serviceAccounts.update",
+  ]
+  depends_on = [google_project_service.required]
+}
+
+resource "google_project_iam_member" "terraform_apply_service_accounts" {
+  project = var.project_id
+  role    = google_project_iam_custom_role.terraform_apply_service_accounts.name
+  member  = google_service_account.workflow["terraform-apply"].member
+}
+
+resource "google_project_iam_custom_role" "deploy_revision" {
+  project     = var.project_id
+  role_id     = "accessDeployRevision"
+  title       = "Access deployment revisions only"
+  description = "Deploy reviewed Cloud Run revisions without administering services."
+  permissions = [
+    "run.operations.get",
+    "run.revisions.get",
+    "run.revisions.list",
+    "run.services.get",
+    "run.services.update",
+  ]
+  depends_on = [google_project_service.required]
+}
+
+# First apply requires an authorized external bootstrap grant; Terraform cannot
+# create or grant the management role before it already has that authority.
+resource "google_project_iam_custom_role" "terraform_apply_op04_infrastructure" {
+  project     = var.project_id
+  role_id     = "accessOp04Infrastructure"
+  title       = "Access OP04 infrastructure control plane"
+  description = "Manage OP04 configuration and IAM only; no data-plane operations."
+  permissions = [
+    "artifactregistry.repositories.create", "artifactregistry.repositories.delete", "artifactregistry.repositories.get", "artifactregistry.repositories.getIamPolicy", "artifactregistry.repositories.list", "artifactregistry.repositories.setIamPolicy", "artifactregistry.repositories.update",
+    "cloudtasks.queues.create", "cloudtasks.queues.delete", "cloudtasks.queues.get", "cloudtasks.queues.getIamPolicy", "cloudtasks.queues.list", "cloudtasks.queues.setIamPolicy", "cloudtasks.queues.update",
+    "storage.buckets.create", "storage.buckets.delete", "storage.buckets.get", "storage.buckets.getIamPolicy", "storage.buckets.list", "storage.buckets.setIamPolicy", "storage.buckets.update",
+    "dns.changes.create", "dns.changes.get", "dns.changes.list", "dns.managedZones.get", "dns.resourceRecordSets.create", "dns.resourceRecordSets.delete", "dns.resourceRecordSets.list",
+    "compute.addresses.create", "compute.addresses.delete", "compute.addresses.get", "compute.backendServices.create", "compute.backendServices.delete", "compute.backendServices.get", "compute.backendServices.update", "compute.globalAddresses.create", "compute.globalAddresses.delete", "compute.globalAddresses.get", "compute.globalForwardingRules.create", "compute.globalForwardingRules.delete", "compute.globalForwardingRules.get", "compute.networkEndpointGroups.create", "compute.networkEndpointGroups.delete", "compute.networkEndpointGroups.get", "compute.securityPolicies.create", "compute.securityPolicies.delete", "compute.securityPolicies.get", "compute.securityPolicies.update", "compute.sslCertificates.create", "compute.sslCertificates.delete", "compute.sslCertificates.get", "compute.targetHttpProxies.create", "compute.targetHttpProxies.delete", "compute.targetHttpProxies.get", "compute.targetHttpsProxies.create", "compute.targetHttpsProxies.delete", "compute.targetHttpsProxies.get", "compute.urlMaps.create", "compute.urlMaps.delete", "compute.urlMaps.get", "compute.urlMaps.update",
+    "iam.roles.create", "iam.roles.delete", "iam.roles.get", "iam.roles.update",
+    "run.operations.get", "run.services.create", "run.services.delete", "run.services.get", "run.services.getIamPolicy", "run.services.list", "run.services.setIamPolicy", "run.services.update",
+  ]
+  depends_on = [google_project_service.required]
+}
+
+resource "google_project_iam_member" "terraform_apply_op04_infrastructure" {
+  project    = var.project_id
+  role       = google_project_iam_custom_role.terraform_apply_op04_infrastructure.name
+  member     = google_service_account.workflow["terraform-apply"].member
+  depends_on = [google_project_iam_custom_role.terraform_apply_op04_infrastructure]
 }
 
 resource "google_project_iam_member" "terraform_apply_secret_metadata" {
@@ -214,6 +304,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   }
 
   attribute_condition = <<-EOT
+    assertion.sub == 'repo:${var.github_repository}:environment:${var.wif_trust[each.key].github_environment}' &&
     assertion.repository == '${var.github_repository}' &&
     assertion.ref == '${var.wif_trust[each.key].ref_pattern}' &&
     assertion.environment == '${var.wif_trust[each.key].github_environment}' &&

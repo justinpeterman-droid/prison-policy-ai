@@ -1,0 +1,380 @@
+name: Terraform reviewed plan
+
+on:
+  workflow_call:
+    inputs:
+      environment: {required: true, type: string}
+      terraform_root: {required: true, type: string}
+      image_digest: {required: true, type: string}
+      source_commit: {required: true, type: string}
+      version_registry_sha256: {required: true, type: string}
+      plan_purpose: {required: true, type: string}
+    outputs:
+      plan_workflow_run_id:
+        value: ${{ jobs.plan_test.outputs.plan_workflow_run_id || jobs.plan_production.outputs.plan_workflow_run_id }}
+      plan_workflow_name:
+        value: ${{ jobs.plan_test.outputs.plan_workflow_name || jobs.plan_production.outputs.plan_workflow_name }}
+      plan_workflow_id:
+        value: ${{ jobs.plan_test.outputs.plan_workflow_id || jobs.plan_production.outputs.plan_workflow_id }}
+      plan_artifact_id:
+        value: ${{ jobs.plan_test.outputs.plan_artifact_id || jobs.plan_production.outputs.plan_artifact_id }}
+      plan_artifact_name:
+        value: ${{ jobs.plan_test.outputs.plan_artifact_name || jobs.plan_production.outputs.plan_artifact_name }}
+      plan_sha256:
+        value: ${{ jobs.plan_test.outputs.plan_sha256 || jobs.plan_production.outputs.plan_sha256 }}
+  workflow_dispatch:
+    inputs:
+      environment:
+        required: true
+        type: choice
+        options: [test, production]
+      terraform_root: {required: true, type: string}
+      image_digest: {required: true, type: string}
+      source_commit: {required: true, type: string}
+      version_registry_sha256: {required: true, type: string}
+      plan_purpose: {required: true, type: string}
+
+permissions: {}
+
+jobs:
+  plan_test:
+    if: ${{ inputs.environment == 'test' }}
+    environment: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      deployments: write
+    outputs:
+      plan_workflow_run_id: ${{ steps.authority.outputs.plan_workflow_run_id }}
+      plan_workflow_name: ${{ steps.authority.outputs.plan_workflow_name }}
+      plan_workflow_id: ${{ steps.authority.outputs.plan_workflow_id }}
+      plan_artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      plan_artifact_name: ${{ steps.authority.outputs.plan_artifact_name }}
+      plan_sha256: ${{ steps.authority.outputs.plan_sha256 }}
+    steps:
+      - name: Check out exact source commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: "${{ inputs.source_commit }}"}
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with: {python-version: "3.12"}
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with: {terraform_wrapper: false}
+      - name: Validate test plan authority
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          TERRAFORM_ROOT: ${{ inputs.terraform_root }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${GITHUB_SHA}" = "${SOURCE_COMMIT}"
+          [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${IMAGE_DIGEST}" =~ @sha256:[0-9a-f]{64}$ ]]
+          test "${TERRAFORM_ROOT}" = "infra/terraform/environments/test"
+          python scripts/deploy/validate_release_descriptor.py version --registry release/version.json --expected-sha256 "${{ inputs.version_registry_sha256 }}"
+      - name: Authenticate as test Terraform plan identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ vars.GCP_TERRAFORM_PLAN_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_TERRAFORM_PLAN_SERVICE_ACCOUNT }}
+      - name: Build reviewed test plan
+        env:
+          TF_IN_AUTOMATION: "true"
+          TF_INPUT: "false"
+          TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+          TF_VAR_source_repository: ${{ github.repository }}
+          TF_VAR_state_bucket_name: ${{ vars.TERRAFORM_STATE_BUCKET }}
+          TF_VAR_sql_tier: ${{ vars.CLOUD_SQL_TIER }}
+        run: |
+          set -euo pipefail
+          test -n "${TF_VAR_project_id}"
+          test -n "${TF_VAR_state_bucket_name}"
+          test -n "${TF_VAR_sql_tier}"
+          python scripts/deploy/validate_release_descriptor.py version --registry release/version.json --expected-sha256 "${{ inputs.version_registry_sha256 }}" --github-output projection.env
+          set -a
+          . ./projection.env
+          set +a
+          export TF_VAR_release_version="${RELEASE_VERSION}" TF_VAR_api_version="${API_VERSION}" TF_VAR_latest_client_version="${LATEST_CLIENT_VERSION}" TF_VAR_minimum_client_version="${MINIMUM_CLIENT_VERSION}" TF_VAR_minimum_server_version="${MINIMUM_SERVER_VERSION}" TF_VAR_release_notes="${RELEASE_NOTES}"
+          terraform fmt -check -recursive infra/terraform
+          terraform -chdir="${{ inputs.terraform_root }}" init -input=false -backend-config="bucket=${TF_VAR_state_bucket_name}" -backend-config="prefix=access/test"
+          terraform -chdir="${{ inputs.terraform_root }}" validate
+          terraform -chdir="${{ inputs.terraform_root }}" test -test-directory=../../tests
+          terraform -chdir="${{ inputs.terraform_root }}" plan -input=false -no-color -out="${GITHUB_WORKSPACE}/reviewed.tfplan" -var="image_digest=${{ inputs.image_digest }}" -var="source_commit=${{ inputs.source_commit }}" > "${GITHUB_WORKSPACE}/raw-plan.txt"
+          terraform -chdir="${{ inputs.terraform_root }}" show -json "${GITHUB_WORKSPACE}/reviewed.tfplan" > "${GITHUB_WORKSPACE}/raw-plan.json"
+          python - <<'PY'
+          import json
+          from collections import Counter
+          plan = json.load(open("raw-plan.json", encoding="utf-8"))
+          changes = plan.get("resource_changes", [])
+          rows = sorted((item.get("address", "unknown"), "/".join(item.get("change", {}).get("actions", []))) for item in changes)
+          counts = Counter(action for _, action in rows)
+          with open("reviewed.txt", "w", encoding="utf-8") as output:
+              output.write("Redacted Terraform plan review\n")
+              output.write(f"resource_change_count={len(rows)}\n")
+              for action, count in sorted(counts.items()): output.write(f"action[{action}]={count}\n")
+              for address, action in rows: output.write(f"{action} {address}\n")
+          PY
+          rm raw-plan.txt raw-plan.json
+          python scripts/ci/check_sensitive_output.py --paths reviewed.txt
+      - name: Bind plan metadata
+        id: authority
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          VERSION_REGISTRY_SHA256: ${{ inputs.version_registry_sha256 }}
+          TERRAFORM_ROOT: ${{ inputs.terraform_root }}
+          PLAN_PURPOSE: ${{ inputs.plan_purpose }}
+        run: |
+          set -euo pipefail
+          workflow_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy-test.yml" --jq '.id')"
+          plan_sha256="$(sha256sum reviewed.tfplan | cut -d' ' -f1)"
+          artifact_name="tfplan-test-${SOURCE_COMMIT}-${GITHUB_RUN_ID}"
+          python scripts/deploy/validate_release_descriptor.py version --registry release/version.json --expected-sha256 "${VERSION_REGISTRY_SHA256}" --github-output projection.env
+          set -a
+          . ./projection.env
+          set +a
+          export WORKFLOW_ID="${workflow_id}" PLAN_SHA256="${plan_sha256}" ARTIFACT_NAME="${artifact_name}"
+          python - <<'PY'
+          import json, os
+          metadata = {
+              "github_repository": os.environ["GITHUB_REPOSITORY"],
+              "plan_workflow_name": os.environ["GITHUB_WORKFLOW"],
+              "plan_workflow_id": int(os.environ["WORKFLOW_ID"]),
+              "plan_workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "plan_job_workflow_ref": os.environ["GITHUB_WORKFLOW_REF"],
+              "protected_environment": "test",
+              "git_ref": os.environ["GITHUB_REF"],
+              "source_commit": os.environ["SOURCE_COMMIT"],
+              "image_digest": os.environ["IMAGE_DIGEST"],
+              "version_registry_sha256": os.environ["VERSION_REGISTRY_SHA256"],
+              "release_version": os.environ["RELEASE_VERSION"],
+              "api_version": os.environ["API_VERSION"],
+              "latest_client_version": os.environ["LATEST_CLIENT_VERSION"],
+              "minimum_client_version": os.environ["MINIMUM_CLIENT_VERSION"],
+              "minimum_server_version": os.environ["MINIMUM_SERVER_VERSION"],
+              "release_notes": os.environ["RELEASE_NOTES"],
+              "terraform_root": os.environ["TERRAFORM_ROOT"],
+              "plan_purpose": os.environ["PLAN_PURPOSE"],
+              "plan_sha256": os.environ["PLAN_SHA256"],
+              "plan_artifact_name": os.environ["ARTIFACT_NAME"],
+          }
+          open("plan-metadata.json", "w", encoding="utf-8").write(json.dumps(metadata, sort_keys=True, separators=(",", ":")) + "\n")
+          PY
+          {
+            echo "plan_workflow_run_id=${GITHUB_RUN_ID}"
+            echo "plan_workflow_name=${GITHUB_WORKFLOW}"
+            echo "plan_workflow_id=${workflow_id}"
+            echo "plan_artifact_name=${artifact_name}"
+            echo "plan_sha256=${plan_sha256}"
+          } >> "${GITHUB_OUTPUT}"
+      - name: Upload exact reviewed plan bundle
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ steps.authority.outputs.plan_artifact_name }}
+          path: |
+            reviewed.tfplan
+            reviewed.txt
+            plan-metadata.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record successful protected deployment receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_NAME: ${{ steps.authority.outputs.plan_artifact_name }}
+          PLAN_SHA256: ${{ steps.authority.outputs.plan_sha256 }}
+          WORKFLOW_ID: ${{ steps.authority.outputs.plan_workflow_id }}
+        run: |
+          set -euo pipefail
+          payload="$(jq -nc --arg ref "${GITHUB_SHA}" --arg env test --argjson run "${GITHUB_RUN_ID}" --argjson workflow "${WORKFLOW_ID}" --argjson artifact "${ARTIFACT_ID}" --arg name "${ARTIFACT_NAME}" --arg plan "${PLAN_SHA256}" --arg digest "${{ inputs.image_digest }}" --arg registry "${{ inputs.version_registry_sha256 }}" --arg purpose "${{ inputs.plan_purpose }}" '{ref:$ref,environment:$env,auto_merge:false,required_contexts:[],payload:{github_repository:env.GITHUB_REPOSITORY,plan_workflow_name:env.GITHUB_WORKFLOW,plan_workflow_id:$workflow,plan_workflow_run_id:$run,plan_artifact_id:$artifact,plan_artifact_name:$name,plan_sha256:$plan,source_commit:$ref,image_digest:$digest,version_registry_sha256:$registry,plan_purpose:$purpose,protected_environment:$env,git_ref:env.GITHUB_REF}}')"
+          deployment_id="$(gh api "repos/${GITHUB_REPOSITORY}/deployments" --method POST --input - <<<"${payload}" --jq '.id')"
+          jq -nc --arg state success --arg env test --arg description "Reviewed Terraform plan receipt" '{state:$state,environment:$env,description:$description,auto_inactive:false}' | gh api "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" --method POST --input - >/dev/null
+
+  plan_production:
+    if: ${{ inputs.environment == 'production' }}
+    environment: production-plan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      deployments: write
+    outputs:
+      plan_workflow_run_id: ${{ steps.authority.outputs.plan_workflow_run_id }}
+      plan_workflow_name: ${{ steps.authority.outputs.plan_workflow_name }}
+      plan_workflow_id: ${{ steps.authority.outputs.plan_workflow_id }}
+      plan_artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      plan_artifact_name: ${{ steps.authority.outputs.plan_artifact_name }}
+      plan_sha256: ${{ steps.authority.outputs.plan_sha256 }}
+    steps:
+      - name: Check out exact source commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: "${{ inputs.source_commit }}"}
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with: {python-version: "3.12"}
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with: {terraform_wrapper: false}
+      - name: Validate production plan authority
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          TERRAFORM_ROOT: ${{ inputs.terraform_root }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${GITHUB_SHA}" = "${SOURCE_COMMIT}"
+          [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${IMAGE_DIGEST}" =~ @sha256:[0-9a-f]{64}$ ]]
+          test "${TERRAFORM_ROOT}" = "infra/terraform/environments/production"
+          python scripts/deploy/validate_release_descriptor.py version --registry release/version.json --expected-sha256 "${{ inputs.version_registry_sha256 }}" --production
+      - name: Authenticate as production Terraform plan identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ vars.GCP_TERRAFORM_PLAN_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_TERRAFORM_PLAN_SERVICE_ACCOUNT }}
+      - name: Build reviewed production plan
+        env:
+          TF_IN_AUTOMATION: "true"
+          TF_INPUT: "false"
+          TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+          TF_VAR_source_repository: ${{ github.repository }}
+          TF_VAR_state_bucket_name: ${{ vars.TERRAFORM_STATE_BUCKET }}
+          TF_VAR_sql_tier: ${{ vars.CLOUD_SQL_TIER }}
+          TF_VAR_storage_log_bucket_name: ${{ vars.STORAGE_LOG_BUCKET }}
+          TF_VAR_artifact_registry_kms_key_name: ${{ vars.ARTIFACT_REGISTRY_KMS_KEY }}
+          TF_VAR_managed_hostname: ${{ vars.MANAGED_HOSTNAME }}
+          TF_VAR_dns_zone_name: ${{ vars.DNS_ZONE_NAME }}
+          TF_VAR_image_repository_id: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+          TF_VAR_queue_max_attempts: ${{ vars.QUEUE_MAX_ATTEMPTS }}
+          TF_VAR_gcp_model_location: ${{ vars.GCP_MODEL_LOCATION }}
+          TF_VAR_agent_builder_location: ${{ vars.AGENT_BUILDER_LOCATION }}
+          TF_VAR_agent_builder_collection: ${{ vars.AGENT_BUILDER_COLLECTION }}
+          TF_VAR_agent_builder_engine_id: ${{ vars.AGENT_BUILDER_ENGINE_ID }}
+          TF_VAR_agent_builder_serving_config: ${{ vars.AGENT_BUILDER_SERVING_CONFIG }}
+          TF_VAR_fast_model: ${{ vars.FAST_MODEL }}
+          TF_VAR_pro_model: ${{ vars.PRO_MODEL }}
+          TF_VAR_legacy_report_mode: ${{ vars.LEGACY_REPORT_MODE }}
+          TF_VAR_review_object_prefix: ${{ vars.REVIEW_OBJECT_PREFIX }}
+          TF_VAR_log_level: ${{ vars.LOG_LEVEL }}
+          TF_VAR_api_min_instances: ${{ vars.API_MIN_INSTANCES }}
+          TF_VAR_api_max_instances: ${{ vars.API_MAX_INSTANCES }}
+          TF_VAR_api_max_concurrency: ${{ vars.API_MAX_CONCURRENCY }}
+          TF_VAR_worker_min_instances: ${{ vars.WORKER_MIN_INSTANCES }}
+          TF_VAR_worker_max_instances: ${{ vars.WORKER_MAX_INSTANCES }}
+          TF_VAR_worker_max_concurrency: ${{ vars.WORKER_MAX_CONCURRENCY }}
+          TF_VAR_notification_channel_ids: ${{ vars.NOTIFICATION_CHANNEL_IDS_JSON }}
+          TF_VAR_billing_account_id: ${{ vars.BILLING_ACCOUNT_ID }}
+          TF_VAR_monthly_budget_amount: ${{ vars.MONTHLY_BUDGET_AMOUNT }}
+          TF_VAR_budget_pubsub_topic: ${{ vars.BUDGET_PUBSUB_TOPIC }}
+          TF_VAR_observability_owner_role: ${{ vars.OBSERVABILITY_OWNER_ROLE }}
+          TF_VAR_sensitive_log_scanner_metric_type: ${{ vars.SENSITIVE_LOG_SCANNER_METRIC_TYPE }}
+          TF_VAR_roster_source_uri: ${{ vars.ROSTER_SOURCE_URI }}
+          TF_VAR_roster_corrections_uri: ${{ vars.ROSTER_CORRECTIONS_URI }}
+          TF_VAR_roster_report_uri: ${{ vars.ROSTER_REPORT_URI }}
+          TF_VAR_roster_expected_sha256: ${{ vars.ROSTER_EXPECTED_SHA256 }}
+          TF_VAR_bootstrap_request_uri: ${{ vars.BOOTSTRAP_REQUEST_URI }}
+          TF_VAR_bootstrap_request_sha256: ${{ vars.BOOTSTRAP_REQUEST_SHA256 }}
+        run: |
+          set -euo pipefail
+          test -n "${TF_VAR_project_id}"
+          test -n "${TF_VAR_state_bucket_name}"
+          test -n "${TF_VAR_sql_tier}"
+          test -n "${TF_VAR_storage_log_bucket_name}"
+          test -n "${TF_VAR_artifact_registry_kms_key_name}"
+          python scripts/deploy/validate_release_descriptor.py version --registry release/version.json --expected-sha256 "${{ inputs.version_registry_sha256 }}" --production --github-output projection.env
+          set -a
+          . ./projection.env
+          set +a
+          export TF_VAR_release_version="${RELEASE_VERSION}" TF_VAR_api_version="${API_VERSION}" TF_VAR_latest_client_version="${LATEST_CLIENT_VERSION}" TF_VAR_minimum_client_version="${MINIMUM_CLIENT_VERSION}" TF_VAR_minimum_server_version="${MINIMUM_SERVER_VERSION}" TF_VAR_release_notes="${RELEASE_NOTES}"
+          terraform fmt -check -recursive infra/terraform
+          terraform -chdir="${{ inputs.terraform_root }}" init -input=false -backend-config="bucket=${TF_VAR_state_bucket_name}" -backend-config="prefix=access/production"
+          terraform -chdir="${{ inputs.terraform_root }}" validate
+          terraform -chdir="${{ inputs.terraform_root }}" plan -input=false -no-color -out="${GITHUB_WORKSPACE}/reviewed.tfplan" -var="image_digest=${{ inputs.image_digest }}" -var="source_commit=${{ inputs.source_commit }}" > "${GITHUB_WORKSPACE}/raw-plan.txt"
+          terraform -chdir="${{ inputs.terraform_root }}" show -json "${GITHUB_WORKSPACE}/reviewed.tfplan" > "${GITHUB_WORKSPACE}/raw-plan.json"
+          python - <<'PY'
+          import json
+          from collections import Counter
+          plan = json.load(open("raw-plan.json", encoding="utf-8"))
+          changes = plan.get("resource_changes", [])
+          rows = sorted((item.get("address", "unknown"), "/".join(item.get("change", {}).get("actions", []))) for item in changes)
+          counts = Counter(action for _, action in rows)
+          with open("reviewed.txt", "w", encoding="utf-8") as output:
+              output.write("Redacted Terraform plan review\n")
+              output.write(f"resource_change_count={len(rows)}\n")
+              for action, count in sorted(counts.items()): output.write(f"action[{action}]={count}\n")
+              for address, action in rows: output.write(f"{action} {address}\n")
+          PY
+          rm raw-plan.txt raw-plan.json
+          python scripts/ci/check_sensitive_output.py --paths reviewed.txt
+      - name: Bind plan metadata
+        id: authority
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          VERSION_REGISTRY_SHA256: ${{ inputs.version_registry_sha256 }}
+          TERRAFORM_ROOT: ${{ inputs.terraform_root }}
+          PLAN_PURPOSE: ${{ inputs.plan_purpose }}
+        run: |
+          set -euo pipefail
+          workflow_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/terraform-plan.yml" --jq '.id')"
+          plan_sha256="$(sha256sum reviewed.tfplan | cut -d' ' -f1)"
+          artifact_name="tfplan-production-${SOURCE_COMMIT}-${GITHUB_RUN_ID}"
+          python scripts/deploy/validate_release_descriptor.py version --registry release/version.json --expected-sha256 "${VERSION_REGISTRY_SHA256}" --production --github-output projection.env
+          set -a
+          . ./projection.env
+          set +a
+          export WORKFLOW_ID="${workflow_id}" PLAN_SHA256="${plan_sha256}" ARTIFACT_NAME="${artifact_name}"
+          python - <<'PY'
+          import json, os
+          metadata = {
+              "github_repository": os.environ["GITHUB_REPOSITORY"], "plan_workflow_name": os.environ["GITHUB_WORKFLOW"],
+              "plan_workflow_id": int(os.environ["WORKFLOW_ID"]), "plan_workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "plan_job_workflow_ref": os.environ["GITHUB_WORKFLOW_REF"], "protected_environment": "production-plan",
+              "git_ref": os.environ["GITHUB_REF"], "source_commit": os.environ["SOURCE_COMMIT"], "image_digest": os.environ["IMAGE_DIGEST"],
+              "version_registry_sha256": os.environ["VERSION_REGISTRY_SHA256"], "release_version": os.environ["RELEASE_VERSION"],
+              "api_version": os.environ["API_VERSION"], "latest_client_version": os.environ["LATEST_CLIENT_VERSION"],
+              "minimum_client_version": os.environ["MINIMUM_CLIENT_VERSION"], "minimum_server_version": os.environ["MINIMUM_SERVER_VERSION"],
+              "release_notes": os.environ["RELEASE_NOTES"], "terraform_root": os.environ["TERRAFORM_ROOT"],
+              "plan_purpose": os.environ["PLAN_PURPOSE"], "plan_sha256": os.environ["PLAN_SHA256"], "plan_artifact_name": os.environ["ARTIFACT_NAME"],
+          }
+          open("plan-metadata.json", "w", encoding="utf-8").write(json.dumps(metadata, sort_keys=True, separators=(",", ":")) + "\n")
+          PY
+          {
+            echo "plan_workflow_run_id=${GITHUB_RUN_ID}"
+            echo "plan_workflow_name=${GITHUB_WORKFLOW}"
+            echo "plan_workflow_id=${workflow_id}"
+            echo "plan_artifact_name=${artifact_name}"
+            echo "plan_sha256=${plan_sha256}"
+          } >> "${GITHUB_OUTPUT}"
+      - name: Upload exact reviewed plan bundle
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ steps.authority.outputs.plan_artifact_name }}
+          path: |
+            reviewed.tfplan
+            reviewed.txt
+            plan-metadata.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record successful protected deployment receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_NAME: ${{ steps.authority.outputs.plan_artifact_name }}
+          PLAN_SHA256: ${{ steps.authority.outputs.plan_sha256 }}
+          WORKFLOW_ID: ${{ steps.authority.outputs.plan_workflow_id }}
+        run: |
+          set -euo pipefail
+          payload="$(jq -nc --arg ref "${GITHUB_SHA}" --arg env production-plan --argjson run "${GITHUB_RUN_ID}" --argjson workflow "${WORKFLOW_ID}" --argjson artifact "${ARTIFACT_ID}" --arg name "${ARTIFACT_NAME}" --arg plan "${PLAN_SHA256}" --arg digest "${{ inputs.image_digest }}" --arg registry "${{ inputs.version_registry_sha256 }}" --arg purpose "${{ inputs.plan_purpose }}" '{ref:$ref,environment:$env,auto_merge:false,required_contexts:[],payload:{github_repository:env.GITHUB_REPOSITORY,plan_workflow_name:env.GITHUB_WORKFLOW,plan_workflow_id:$workflow,plan_workflow_run_id:$run,plan_artifact_id:$artifact,plan_artifact_name:$name,plan_sha256:$plan,source_commit:$ref,image_digest:$digest,version_registry_sha256:$registry,plan_purpose:$purpose,protected_environment:$env,git_ref:env.GITHUB_REF}}')"
+          deployment_id="$(gh api "repos/${GITHUB_REPOSITORY}/deployments" --method POST --input - <<<"${payload}" --jq '.id')"
+          jq -nc --arg state success --arg env production-plan --arg description "Reviewed Terraform plan receipt" '{state:$state,environment:$env,description:$description,auto_inactive:false}' | gh api "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" --method POST --input - >/dev/null

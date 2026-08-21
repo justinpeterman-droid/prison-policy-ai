@@ -81,7 +81,7 @@ jobs:
           node-version: "22"
       - name: Install frontend dependencies
         working-directory: frontend/web
-        run: npm install --legacy-peer-deps --no-audit --no-fund
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
       - name: Run administrator component tests
         working-directory: frontend/web
         run: npm test -- src/features/administration/AdminGate.test.tsx
@@ -103,7 +103,7 @@ jobs:
           node-version: "22"
       - name: Install frontend dependencies
         working-directory: frontend/web
-        run: npm install --legacy-peer-deps --no-audit --no-fund
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
       - name: Install Chromium
         working-directory: frontend/web
         run: npx playwright install --with-deps chromium
@@ -112,7 +112,7 @@ jobs:
         run: npx playwright test tests/e2e/admin-command-center.spec.ts tests/e2e/admin-authorization.spec.ts
       - name: Upload Playwright report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: admin-command-center-playwright-report
           path: frontend/web/playwright-report

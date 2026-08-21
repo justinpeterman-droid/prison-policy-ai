@@ -1,0 +1,56 @@
+main:
+  steps:
+    - timestamp:
+        assign:
+          - stamp: $${time.format(sys.now(), "%Y%m%dT%H%M%SZ")}
+          - object: $${"logical-exports/" + stamp + ".sql.gz"}
+    - export:
+        call: googleapis.sqladmin.v1.instances.export
+        args:
+          project: ${project_id}
+          instance: ${instance_name}
+          body:
+            exportContext:
+              fileType: SQL
+              uri: $${"gs://${bucket_name}/" + object}
+              databases: [${database_name}]
+              offload: true
+              sqlExportOptions: {schemaOnly: false}
+        result: operation
+    - initialize_poll:
+        assign:
+          - operation_name: $${operation.name}
+          - attempt: 0
+          - terminal: false
+    - poll:
+        call: googleapis.sqladmin.v1.operations.get
+        args:
+          project: ${project_id}
+          operation: $${operation_name}
+        result: operation_status
+    - decide:
+        switch:
+          - condition: $${operation_status.status == "DONE"}
+            next: done
+          - condition: $${attempt >= 20}
+            next: timed_out
+    - wait:
+        call: sys.sleep
+        args:
+          seconds: 15
+        next: increment
+    - increment:
+        assign:
+          - attempt: $${attempt + 1}
+        next: poll
+    - done:
+        switch:
+          - condition: $${len(default(operation_status.error.errors, [])) > 0}
+            next: failed
+        next: succeeded
+    - succeeded:
+        return: {operation_id: $${operation_name}, object_uri: $${"gs://${bucket_name}/" + object}, status: completed}
+    - failed:
+        raise: $${"Cloud SQL export operation failed: " + operation_name}
+    - timed_out:
+        raise: $${"Cloud SQL export operation timed out: " + operation_name}

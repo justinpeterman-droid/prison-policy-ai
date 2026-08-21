@@ -1,0 +1,170 @@
+name: Terraform approved apply
+
+on:
+  workflow_call:
+    inputs:
+      environment: {required: true, type: string}
+      terraform_root: {required: true, type: string}
+      image_digest: {required: true, type: string}
+      source_commit: {required: true, type: string}
+      version_registry_sha256: {required: true, type: string}
+      plan_purpose: {required: true, type: string}
+      plan_workflow_run_id: {required: true, type: string}
+      plan_workflow_name: {required: true, type: string}
+      plan_workflow_id: {required: true, type: string}
+      plan_artifact_id: {required: true, type: string}
+      plan_artifact_name: {required: true, type: string}
+      plan_sha256: {required: true, type: string}
+      approval_reference: {required: true, type: string}
+
+permissions: {}
+
+jobs:
+  apply_reviewed_plan:
+    environment: ${{ inputs.environment == 'production' && 'production-apply' || 'test' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      deployments: read
+      id-token: write
+    steps:
+      - name: Check out exact source commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: "${{ inputs.source_commit }}"}
+      - name: Validate origin run, workflow, receipt, and artifact before download
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          TERRAFORM_ROOT: ${{ inputs.terraform_root }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          VERSION_REGISTRY_SHA256: ${{ inputs.version_registry_sha256 }}
+          PLAN_PURPOSE: ${{ inputs.plan_purpose }}
+          PLAN_WORKFLOW_RUN_ID: ${{ inputs.plan_workflow_run_id }}
+          PLAN_WORKFLOW_NAME: ${{ inputs.plan_workflow_name }}
+          PLAN_WORKFLOW_ID: ${{ inputs.plan_workflow_id }}
+          PLAN_ARTIFACT_ID: ${{ inputs.plan_artifact_id }}
+          PLAN_ARTIFACT_NAME: ${{ inputs.plan_artifact_name }}
+          PLAN_SHA256: ${{ inputs.plan_sha256 }}
+          APPROVAL_REFERENCE: ${{ inputs.approval_reference }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REPOSITORY}" = "${{ github.repository }}"
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${GITHUB_SHA}" = "${SOURCE_COMMIT}"
+          [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${IMAGE_DIGEST}" =~ @sha256:[0-9a-f]{64}$ ]]
+          [[ "${VERSION_REGISTRY_SHA256}" =~ ^[0-9a-f]{64}$ ]]
+          [[ "${PLAN_WORKFLOW_RUN_ID}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${PLAN_WORKFLOW_ID}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${PLAN_ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${PLAN_SHA256}" =~ ^[0-9a-f]{64}$ ]]
+          test -n "${APPROVAL_REFERENCE}"
+          if test "${TARGET_ENVIRONMENT}" = "production"; then
+            expected_workflow_path=".github/workflows/terraform-plan.yml"
+            protected_environment="production-plan"
+            test "${TERRAFORM_ROOT}" = "infra/terraform/environments/production"
+            production_flag="--production"
+          else
+            test "${TARGET_ENVIRONMENT}" = "test"
+            expected_workflow_path=".github/workflows/deploy-test.yml"
+            protected_environment="test"
+            test "${TERRAFORM_ROOT}" = "infra/terraform/environments/test"
+            production_flag=""
+          fi
+          workflow_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/${PLAN_WORKFLOW_ID}")"
+          test "$(jq -r '.id' <<<"${workflow_json}")" = "${PLAN_WORKFLOW_ID}"
+          test "$(jq -r '.path' <<<"${workflow_json}")" = "${expected_workflow_path}"
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PLAN_WORKFLOW_RUN_ID}")"
+          test "$(jq -r '.workflow_id' <<<"${run_json}")" = "${PLAN_WORKFLOW_ID}"
+          test "$(jq -r '.name' <<<"${run_json}")" = "${PLAN_WORKFLOW_NAME}"
+          test "$(jq -r '.conclusion' <<<"${run_json}")" = "success"
+          test "$(jq -r '.head_sha' <<<"${run_json}")" = "${SOURCE_COMMIT}"
+          test "$(jq -r '.head_branch' <<<"${run_json}")" = "main"
+          artifact_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${PLAN_ARTIFACT_ID}")"
+          test "$(jq -r '.id' <<<"${artifact_json}")" = "${PLAN_ARTIFACT_ID}"
+          test "$(jq -r '.name' <<<"${artifact_json}")" = "${PLAN_ARTIFACT_NAME}"
+          test "$(jq -r '.expired' <<<"${artifact_json}")" = "false"
+          test "$(jq -r '.workflow_run.id' <<<"${artifact_json}")" = "${PLAN_WORKFLOW_RUN_ID}"
+          deployments="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/deployments?sha=${SOURCE_COMMIT}&environment=${protected_environment}")"
+          receipt="$(jq -c --argjson run "${PLAN_WORKFLOW_RUN_ID}" --argjson workflow "${PLAN_WORKFLOW_ID}" --argjson artifact "${PLAN_ARTIFACT_ID}" --arg name "${PLAN_ARTIFACT_NAME}" --arg plan "${PLAN_SHA256}" --arg digest "${IMAGE_DIGEST}" --arg registry "${VERSION_REGISTRY_SHA256}" --arg purpose "${PLAN_PURPOSE}" --arg env "${protected_environment}" '[.[] | select(.payload.plan_workflow_run_id == $run and .payload.plan_workflow_id == $workflow and .payload.plan_artifact_id == $artifact and .payload.plan_artifact_name == $name and .payload.plan_sha256 == $plan and .payload.image_digest == $digest and .payload.version_registry_sha256 == $registry and .payload.plan_purpose == $purpose and .payload.protected_environment == $env and .payload.git_ref == "refs/heads/main" and .payload.github_repository == env.GITHUB_REPOSITORY)] | if length == 1 then .[0] else error("exact plan receipt not found") end' <<<"${deployments}")"
+          deployment_id="$(jq -r '.id' <<<"${receipt}")"
+          statuses="$(gh api "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses")"
+          test "$(jq -r '.[0].state' <<<"${statuses}")" = "success"
+          python scripts/deploy/validate_release_descriptor.py version --registry release/version.json --expected-sha256 "${VERSION_REGISTRY_SHA256}" ${production_flag}
+      - name: Download exact artifact by numeric ID
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: ${{ inputs.plan_artifact_id }}
+          path: plan-artifact
+      - name: Validate closed bundle, metadata, registry, and binary hash
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          TERRAFORM_ROOT: ${{ inputs.terraform_root }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          VERSION_REGISTRY_SHA256: ${{ inputs.version_registry_sha256 }}
+          PLAN_PURPOSE: ${{ inputs.plan_purpose }}
+          PLAN_WORKFLOW_RUN_ID: ${{ inputs.plan_workflow_run_id }}
+          PLAN_WORKFLOW_NAME: ${{ inputs.plan_workflow_name }}
+          PLAN_WORKFLOW_ID: ${{ inputs.plan_workflow_id }}
+          PLAN_ARTIFACT_NAME: ${{ inputs.plan_artifact_name }}
+          PLAN_SHA256: ${{ inputs.plan_sha256 }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path("plan-artifact")
+          expected_files = {"reviewed.tfplan", "reviewed.txt", "plan-metadata.json"}
+          files = {path.name for path in root.iterdir() if path.is_file() and not path.is_symlink()}
+          if files != expected_files or any(path.is_symlink() or not path.is_file() for path in root.iterdir()):
+              raise SystemExit("plan artifact has extra, missing, or symlink members")
+          plan_sha = hashlib.sha256((root / "reviewed.tfplan").read_bytes()).hexdigest()
+          if plan_sha != os.environ["PLAN_SHA256"]:
+              raise SystemExit("reviewed plan hash mismatch")
+          metadata = json.loads((root / "plan-metadata.json").read_text(encoding="utf-8"))
+          protected = "production-plan" if os.environ["TARGET_ENVIRONMENT"] == "production" else "test"
+          expected = {
+              "github_repository": os.environ["GITHUB_REPOSITORY"],
+              "plan_workflow_name": os.environ["PLAN_WORKFLOW_NAME"],
+              "plan_workflow_id": int(os.environ["PLAN_WORKFLOW_ID"]),
+              "plan_workflow_run_id": int(os.environ["PLAN_WORKFLOW_RUN_ID"]),
+              "protected_environment": protected,
+              "git_ref": "refs/heads/main",
+              "source_commit": os.environ["SOURCE_COMMIT"],
+              "image_digest": os.environ["IMAGE_DIGEST"],
+              "version_registry_sha256": os.environ["VERSION_REGISTRY_SHA256"],
+              "terraform_root": os.environ["TERRAFORM_ROOT"],
+              "plan_purpose": os.environ["PLAN_PURPOSE"],
+              "plan_sha256": os.environ["PLAN_SHA256"],
+              "plan_artifact_name": os.environ["PLAN_ARTIFACT_NAME"],
+          }
+          mismatches = sorted(key for key, value in expected.items() if metadata.get(key) != value)
+          if mismatches:
+              raise SystemExit(f"plan metadata mismatch: {mismatches}")
+          required = set(expected) | {"plan_job_workflow_ref", "release_version", "api_version", "latest_client_version", "minimum_client_version", "minimum_server_version", "release_notes"}
+          if set(metadata) != required:
+              raise SystemExit("plan metadata keys do not match the closed contract")
+          PY
+          python scripts/ci/check_sensitive_output.py --paths plan-artifact/reviewed.txt plan-artifact/plan-metadata.json
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with: {terraform_wrapper: false}
+      - name: Authenticate as Terraform apply identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ vars.GCP_TERRAFORM_APPLY_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_TERRAFORM_APPLY_SERVICE_ACCOUNT }}
+      - name: Apply exact saved reviewed plan
+        env:
+          TF_IN_AUTOMATION: "true"
+          TF_INPUT: "false"
+          TF_STATE_BUCKET: ${{ vars.TERRAFORM_STATE_BUCKET }}
+        run: |
+          set -euo pipefail
+          test -n "${TF_STATE_BUCKET}"
+          if test "${{ inputs.environment }}" = "production"; then state_prefix="access/production"; else state_prefix="access/test"; fi
+          terraform -chdir="${{ inputs.terraform_root }}" init -input=false -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="prefix=${state_prefix}"
+          terraform -chdir="${{ inputs.terraform_root }}" apply -input=false -auto-approve "${GITHUB_WORKSPACE}/plan-artifact/reviewed.tfplan"

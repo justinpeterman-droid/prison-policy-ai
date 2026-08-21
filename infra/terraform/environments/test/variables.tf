@@ -84,8 +84,59 @@ variable "github_ref_pattern" {
   }
 }
 
+variable "storage_log_bucket_name" {
+  description = "Fictional test-only bucket that receives storage access-log fixtures."
+  type        = string
+  nullable    = false
+  default     = "access-test-fixture-audit-logs"
+}
+
+variable "artifact_registry_kms_key_name" {
+  description = "Fictional test-only Artifact Registry KMS key resource name."
+  type        = string
+  nullable    = false
+  default     = "projects/fixture-project/locations/us-central1/keyRings/fixture-key-ring/cryptoKeys/fixture-artifact-key"
+}
+
 variable "labels" {
   description = "Labels applied to resources created by this root."
   type        = map(string)
   default     = {}
 }
+
+# These declarations let the shared mocked native test pass production's
+# required external inputs without embedding them in production/main.tf.
+variable "image_digest" { type = string }
+variable "source_commit" { type = string }
+variable "release_version" { type = string }
+variable "api_version" { type = string }
+variable "latest_client_version" { type = string }
+variable "minimum_client_version" { type = string }
+variable "minimum_server_version" { type = string }
+variable "release_notes" { type = string }
+variable "managed_hostname" { type = string }
+variable "dns_zone_name" { type = string }
+variable "image_repository_id" { type = string }
+variable "queue_max_attempts" { type = number }
+variable "gcp_model_location" { type = string }
+variable "agent_builder_location" { type = string }
+variable "agent_builder_collection" { type = string }
+variable "agent_builder_engine_id" { type = string }
+variable "agent_builder_serving_config" { type = string }
+variable "fast_model" { type = string }
+variable "pro_model" { type = string }
+variable "legacy_report_mode" { type = string }
+variable "review_object_prefix" { type = string }
+variable "log_level" { type = string }
+variable "api_min_instances" { type = number }
+variable "api_max_instances" { type = number }
+variable "api_max_concurrency" { type = number }
+variable "worker_min_instances" { type = number }
+variable "worker_max_instances" { type = number }
+variable "worker_max_concurrency" { type = number }
+variable "notification_channel_ids" { type = set(string) }
+variable "billing_account_id" { type = string }
+variable "monthly_budget_amount" { type = number }
+variable "budget_pubsub_topic" { type = string }
+variable "observability_owner_role" { type = string }
+variable "sensitive_log_scanner_metric_type" { type = string }

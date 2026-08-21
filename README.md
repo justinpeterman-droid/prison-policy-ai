@@ -126,7 +126,7 @@ From the repository root:
 ```bash
 python -m pip install -r requirements.txt pytest
 cd frontend/web
-npm install --legacy-peer-deps --no-audit --no-fund
+npm ci --legacy-peer-deps --no-audit --no-fund
 cd ../..
 ```
 
@@ -251,3 +251,5 @@ The browser workflows use Playwright with fictional API fixtures. PostgreSQL int
 Guided Operations remains in staged development and pilot preparation. A passing repository test matrix does not by itself authorize production traffic changes, real roster import, legacy-route retirement, or records-policy decisions. Those actions require the documented rollout gates and explicit repository-owner approval.
 
 Before a pilot or any route-mode change, use the [Guided Operations release gates](docs/operations/guided-operations-release-gates.md), [pilot runbook](docs/runbooks/guided-operations-web-pilot.md), and [configuration-only rollback runbook](docs/runbooks/guided-operations-web-rollback.md). Role guidance is available for [officers](docs/user-guides/guided-operations-officer-quick-start.md) and [administrators](docs/user-guides/guided-operations-admin-quick-start.md).
+
+Cloud delivery is manual, protected, and digest-only. The supported sequence is test build/qualification, separately reviewed production plan/apply, migration verification, and staged 1/10/50/100 traffic with known-good rollback. Production rejects the checked-in development version sentinel until a separate reviewed version-bump commit exists. See the [controlled cloud delivery runbook](docs/runbooks/cloud-deploy-migration-rollback.md) and [GitHub environment policy](docs/operations/github-environment-policy.md). Automatic main-push deployment, service-account keys, mutable source/tag promotion, and local deployment helpers are not supported.

@@ -1,0 +1,239 @@
+name: Promote tested digest to production
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_workflow_run_id: {required: true, type: string}
+      release_descriptor_artifact_id: {required: true, type: string}
+      release_descriptor_sha256: {required: true, type: string}
+      plan_workflow_run_id: {required: true, type: string}
+      plan_workflow_name: {required: true, type: string}
+      plan_workflow_id: {required: true, type: string}
+      plan_artifact_id: {required: true, type: string}
+      plan_artifact_name: {required: true, type: string}
+      plan_sha256: {required: true, type: string}
+      approval_reference: {required: true, type: string}
+
+permissions: {}
+
+jobs:
+  validate_tested_descriptor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      source_commit: ${{ steps.descriptor.outputs.source_commit }}
+      image_digest: ${{ steps.descriptor.outputs.image_digest }}
+      version_registry_sha256: ${{ steps.descriptor.outputs.version_registry_sha256 }}
+      migration_head: ${{ steps.descriptor.outputs.migration_head }}
+      release_version: ${{ steps.descriptor.outputs.release_version }}
+      api_version: ${{ steps.descriptor.outputs.api_version }}
+    steps:
+      - name: Check out protected workflow validator
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Validate test run and descriptor artifact before download
+        id: test_authority
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEST_WORKFLOW_RUN_ID: ${{ inputs.test_workflow_run_id }}
+          DESCRIPTOR_ARTIFACT_ID: ${{ inputs.release_descriptor_artifact_id }}
+          DESCRIPTOR_SHA256: ${{ inputs.release_descriptor_sha256 }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          [[ "${TEST_WORKFLOW_RUN_ID}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${DESCRIPTOR_ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${DESCRIPTOR_SHA256}" =~ ^[0-9a-f]{64}$ ]]
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TEST_WORKFLOW_RUN_ID}")"
+          test "$(jq -r '.path' <<<"${run_json}")" = ".github/workflows/deploy-test.yml"
+          test "$(jq -r '.conclusion' <<<"${run_json}")" = "success"
+          test "$(jq -r '.head_branch' <<<"${run_json}")" = "main"
+          test_head_sha="$(jq -r '.head_sha' <<<"${run_json}")"
+          [[ "${test_head_sha}" =~ ^[0-9a-f]{40}$ ]]
+          artifact_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${DESCRIPTOR_ARTIFACT_ID}")"
+          test "$(jq -r '.workflow_run.id' <<<"${artifact_json}")" = "${TEST_WORKFLOW_RUN_ID}"
+          test "$(jq -r '.expired' <<<"${artifact_json}")" = "false"
+          [[ "$(jq -r '.name' <<<"${artifact_json}")" =~ ^backend-release-[0-9a-f]{40}-[1-9][0-9]*$ ]]
+          echo "test_head_sha=${test_head_sha}" >> "${GITHUB_OUTPUT}"
+      - name: Download descriptor by numeric artifact ID
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: ${{ inputs.release_descriptor_artifact_id }}
+          path: tested-release
+      - name: Validate descriptor hash and extract immutable authority
+        id: descriptor
+        env:
+          DESCRIPTOR_SHA256: ${{ inputs.release_descriptor_sha256 }}
+          EXPECTED_TEST_COMMIT: ${{ steps.test_authority.outputs.test_head_sha }}
+          TEST_WORKFLOW_RUN_ID: ${{ inputs.test_workflow_run_id }}
+        run: |
+          set -euo pipefail
+          test "$(find tested-release -type f | wc -l)" -eq 4
+          test "$(sha256sum tested-release/release/backend-release.json | cut -d' ' -f1)" = "${DESCRIPTOR_SHA256}"
+          source_commit="$(jq -r '.source_commit' tested-release/release/backend-release.json)"
+          test "${source_commit}" = "${EXPECTED_TEST_COMMIT}"
+          test "$(jq -r '.test_workflow_run' tested-release/release/backend-release.json)" = "${TEST_WORKFLOW_RUN_ID}"
+          test "$(jq -r '.creator_workflow' tested-release/release/backend-release.json)" = "${GITHUB_REPOSITORY}/.github/workflows/deploy-test.yml@refs/heads/main"
+          git fetch --no-tags --depth=1 origin "${source_commit}"
+          git checkout --detach "${source_commit}"
+          python scripts/deploy/validate_release_descriptor.py descriptor --descriptor tested-release/release/backend-release.json --registry release/version.json --expected-descriptor-sha256 "${DESCRIPTOR_SHA256}" --production
+          {
+            echo "source_commit=${source_commit}"
+            echo "image_digest=$(jq -r '.image_digest' tested-release/release/backend-release.json)"
+            echo "version_registry_sha256=$(jq -r '.version_registry_sha256' tested-release/release/backend-release.json)"
+            echo "migration_head=$(jq -r '.migration_head' tested-release/release/backend-release.json)"
+            echo "release_version=$(jq -r '.release_version' tested-release/release/backend-release.json)"
+            echo "api_version=$(jq -r '.api_version' tested-release/release/backend-release.json)"
+          } >> "${GITHUB_OUTPUT}"
+
+  apply_production:
+    needs: validate_tested_descriptor
+    permissions:
+      contents: read
+      actions: read
+      deployments: read
+      id-token: write
+    uses: justinpeterman-droid/prison-policy-ai/.github/workflows/terraform-apply.yml@dc037e991a7b3314605cd14642c0af3d32b4dc98
+    with:
+      environment: production
+      terraform_root: infra/terraform/environments/production
+      image_digest: ${{ needs.validate_tested_descriptor.outputs.image_digest }}
+      source_commit: ${{ needs.validate_tested_descriptor.outputs.source_commit }}
+      version_registry_sha256: ${{ needs.validate_tested_descriptor.outputs.version_registry_sha256 }}
+      plan_purpose: production-promotion
+      plan_workflow_run_id: ${{ inputs.plan_workflow_run_id }}
+      plan_workflow_name: ${{ inputs.plan_workflow_name }}
+      plan_workflow_id: ${{ inputs.plan_workflow_id }}
+      plan_artifact_id: ${{ inputs.plan_artifact_id }}
+      plan_artifact_name: ${{ inputs.plan_artifact_name }}
+      plan_sha256: ${{ inputs.plan_sha256 }}
+      approval_reference: ${{ inputs.approval_reference }}
+    secrets: inherit
+
+  deploy_production:
+    needs: [validate_tested_descriptor, apply_production]
+    environment: production-deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - name: Check out exact tested source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: "${{ needs.validate_tested_descriptor.outputs.source_commit }}"}
+      - name: Download unchanged descriptor by numeric artifact ID
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: ${{ inputs.release_descriptor_artifact_id }}
+          path: tested-release
+      - name: Revalidate descriptor, compatibility projection, and readiness gates
+        env:
+          SOURCE_COMMIT: ${{ needs.validate_tested_descriptor.outputs.source_commit }}
+          IMAGE_DIGEST: ${{ needs.validate_tested_descriptor.outputs.image_digest }}
+          MIGRATION_HEAD: ${{ needs.validate_tested_descriptor.outputs.migration_head }}
+          VERSION_REGISTRY_SHA256: ${{ needs.validate_tested_descriptor.outputs.version_registry_sha256 }}
+          BACKUP_READY: ${{ vars.PRODUCTION_BACKUP_READY }}
+          PITR_READY: ${{ vars.PRODUCTION_PITR_READY }}
+        run: |
+          set -euo pipefail
+          test "${BACKUP_READY}" = "reviewed"
+          test "${PITR_READY}" = "reviewed"
+          test "${GITHUB_SHA}" = "${SOURCE_COMMIT}"
+          [[ "${IMAGE_DIGEST}" =~ @sha256:[0-9a-f]{64}$ ]]
+          python scripts/deploy/validate_release_descriptor.py descriptor --descriptor tested-release/release/backend-release.json --registry release/version.json --expected-descriptor-sha256 "${{ inputs.release_descriptor_sha256 }}" --expected-image-digest "${IMAGE_DIGEST}" --expected-migration-head "${MIGRATION_HEAD}" --production
+          python scripts/deploy/validate_release_descriptor.py version --registry release/version.json --expected-sha256 "${VERSION_REGISTRY_SHA256}" --production --github-output projection.env
+          grep -F 'RELEASE_VERSION=' projection.env
+          grep -F 'API_VERSION=v1' projection.env
+          grep -F 'LATEST_CLIENT_VERSION=' projection.env
+          grep -F 'MINIMUM_CLIENT_VERSION=' projection.env
+          grep -F 'MINIMUM_SERVER_VERSION=' projection.env
+          grep -F 'RELEASE_NOTES=' projection.env
+      - name: Authenticate as production deploy identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ vars.GCP_DEPLOY_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - name: Install Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+      - name: Capture known-good revisions, migrate, verify, and create no-traffic candidates
+        id: revisions
+        env:
+          IMAGE_DIGEST: ${{ needs.validate_tested_descriptor.outputs.image_digest }}
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          REGION: ${{ vars.GCP_REGION }}
+        run: |
+          set -euo pipefail
+          prior_api_revision="$(gcloud run services describe access-production-api --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.traffic[percent=100].revisionName)')"
+          prior_worker_revision="$(gcloud run services describe access-production-worker --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.traffic[percent=100].revisionName)')"
+          test -n "${prior_api_revision}"
+          test -n "${prior_worker_revision}"
+          gcloud run jobs execute access-production-migrate --project="${PROJECT_ID}" --region="${REGION}" --wait --format='value(metadata.name)'
+          gcloud run jobs execute access-production-migrate --project="${PROJECT_ID}" --region="${REGION}" --args='-m,backend.jobs.migration,verify' --wait --format='value(metadata.name)'
+          gcloud run deploy access-production-worker --project="${PROJECT_ID}" --region="${REGION}" --image="${IMAGE_DIGEST}" --no-traffic --quiet
+          candidate_worker_revision="$(gcloud run services describe access-production-worker --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.latestCreatedRevisionName)')"
+          gcloud run deploy access-production-api --project="${PROJECT_ID}" --region="${REGION}" --image="${IMAGE_DIGEST}" --no-traffic --quiet
+          candidate_api_revision="$(gcloud run services describe access-production-api --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.latestCreatedRevisionName)')"
+          {
+            echo "prior_api_revision=${prior_api_revision}"
+            echo "prior_worker_revision=${prior_worker_revision}"
+            echo "candidate_api_revision=${candidate_api_revision}"
+            echo "candidate_worker_revision=${candidate_worker_revision}"
+          } >> "${GITHUB_OUTPUT}"
+      - name: Promote exact candidate through 1, 10, 50, and 100 percent
+        env:
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          REGION: ${{ vars.GCP_REGION }}
+          MANAGED_HOSTNAME: ${{ vars.MANAGED_HOSTNAME }}
+          RELEASE_VERSION: ${{ needs.validate_tested_descriptor.outputs.release_version }}
+          API_VERSION: ${{ needs.validate_tested_descriptor.outputs.api_version }}
+          PRIOR_API_REVISION: ${{ steps.revisions.outputs.prior_api_revision }}
+          PRIOR_WORKER_REVISION: ${{ steps.revisions.outputs.prior_worker_revision }}
+          CANDIDATE_API_REVISION: ${{ steps.revisions.outputs.candidate_api_revision }}
+          CANDIDATE_WORKER_REVISION: ${{ steps.revisions.outputs.candidate_worker_revision }}
+          OBSERVATION_SECONDS: ${{ vars.PRODUCTION_CANARY_OBSERVATION_SECONDS }}
+          SMOKE_SAMPLES: ${{ vars.PRODUCTION_SMOKE_SAMPLES }}
+          MAX_ERROR_RATE: ${{ vars.PRODUCTION_MAX_ERROR_RATE }}
+          MAX_P95_LATENCY_MS: ${{ vars.PRODUCTION_MAX_P95_LATENCY_MS }}
+        run: |
+          set -euo pipefail
+          rollback() {
+            gcloud run services update-traffic access-production-api --project="${PROJECT_ID}" --region="${REGION}" --to-revisions="${PRIOR_API_REVISION}=100"
+            gcloud run services update-traffic access-production-worker --project="${PROJECT_ID}" --region="${REGION}" --to-revisions="${PRIOR_WORKER_REVISION}=100"
+            exit 1
+          }
+          trap rollback ERR
+          gcloud run services update-traffic access-production-worker --project="${PROJECT_ID}" --region="${REGION}" --to-revisions="${CANDIDATE_WORKER_REVISION}=100"
+          # allocation contract: candidate=1
+          gcloud run services update-traffic access-production-api --project="${PROJECT_ID}" --region="${REGION}" --to-revisions="${CANDIDATE_API_REVISION}=1,${PRIOR_API_REVISION}=99"
+          gcloud run services describe access-production-api --project="${PROJECT_ID}" --region="${REGION}" --format=json > traffic-state.json
+          python scripts/deploy/verify_traffic_state.py --state-file traffic-state.json --candidate-revision "${CANDIDATE_API_REVISION}" --candidate-percent 1 --prior-revision "${PRIOR_API_REVISION}"
+          python scripts/deploy/smoke_test.py --base-url "https://${MANAGED_HOSTNAME}" --expected-release-version "${RELEASE_VERSION}" --expected-api-version "${API_VERSION}" --samples "${SMOKE_SAMPLES}" --max-error-rate "${MAX_ERROR_RATE}" --max-p95-latency-ms "${MAX_P95_LATENCY_MS}"
+          sleep "${OBSERVATION_SECONDS}"
+          # allocation contract: candidate=10
+          gcloud run services update-traffic access-production-api --project="${PROJECT_ID}" --region="${REGION}" --to-revisions="${CANDIDATE_API_REVISION}=10,${PRIOR_API_REVISION}=90"
+          gcloud run services describe access-production-api --project="${PROJECT_ID}" --region="${REGION}" --format=json > traffic-state.json
+          python scripts/deploy/verify_traffic_state.py --state-file traffic-state.json --candidate-revision "${CANDIDATE_API_REVISION}" --candidate-percent 10 --prior-revision "${PRIOR_API_REVISION}"
+          python scripts/deploy/smoke_test.py --base-url "https://${MANAGED_HOSTNAME}" --expected-release-version "${RELEASE_VERSION}" --expected-api-version "${API_VERSION}" --samples "${SMOKE_SAMPLES}" --max-error-rate "${MAX_ERROR_RATE}" --max-p95-latency-ms "${MAX_P95_LATENCY_MS}"
+          sleep "${OBSERVATION_SECONDS}"
+          # allocation contract: candidate=50
+          gcloud run services update-traffic access-production-api --project="${PROJECT_ID}" --region="${REGION}" --to-revisions="${CANDIDATE_API_REVISION}=50,${PRIOR_API_REVISION}=50"
+          gcloud run services describe access-production-api --project="${PROJECT_ID}" --region="${REGION}" --format=json > traffic-state.json
+          python scripts/deploy/verify_traffic_state.py --state-file traffic-state.json --candidate-revision "${CANDIDATE_API_REVISION}" --candidate-percent 50 --prior-revision "${PRIOR_API_REVISION}"
+          python scripts/deploy/smoke_test.py --base-url "https://${MANAGED_HOSTNAME}" --expected-release-version "${RELEASE_VERSION}" --expected-api-version "${API_VERSION}" --samples "${SMOKE_SAMPLES}" --max-error-rate "${MAX_ERROR_RATE}" --max-p95-latency-ms "${MAX_P95_LATENCY_MS}"
+          sleep "${OBSERVATION_SECONDS}"
+          # allocation contract: candidate=100
+          gcloud run services update-traffic access-production-api --project="${PROJECT_ID}" --region="${REGION}" --to-revisions="${CANDIDATE_API_REVISION}=100"
+          gcloud run services describe access-production-api --project="${PROJECT_ID}" --region="${REGION}" --format=json > traffic-state.json
+          python scripts/deploy/verify_traffic_state.py --state-file traffic-state.json --candidate-revision "${CANDIDATE_API_REVISION}" --candidate-percent 100
+          python scripts/deploy/smoke_test.py --base-url "https://${MANAGED_HOSTNAME}" --expected-release-version "${RELEASE_VERSION}" --expected-api-version "${API_VERSION}" --samples "${SMOKE_SAMPLES}" --max-error-rate "${MAX_ERROR_RATE}" --max-p95-latency-ms "${MAX_P95_LATENCY_MS}"
+          trap - ERR
+      - name: Record rollback handoff
+        run: |
+          {
+            echo "rollback_workflow=rollback-production.yml"
+            echo "prior_api_revision=${{ steps.revisions.outputs.prior_api_revision }}"
+            echo "prior_worker_revision=${{ steps.revisions.outputs.prior_worker_revision }}"
+            echo "release_descriptor_sha256=${{ inputs.release_descriptor_sha256 }}"
+          } >> "${GITHUB_STEP_SUMMARY}"

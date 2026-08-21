@@ -2,6 +2,22 @@ output "api_service_account_email" {
   value = google_service_account.api.email
 }
 
+output "logical_backup_service_account_email" {
+  value = google_service_account.logical_backup.email
+}
+
+output "migration_job_name" {
+  value = google_cloud_run_v2_job.migration.name
+}
+
+output "roster_import_job_name" {
+  value = google_cloud_run_v2_job.roster_import.name
+}
+
+output "bootstrap_admin_job_name" {
+  value = google_cloud_run_v2_job.bootstrap_admin.name
+}
+
 output "worker_service_account_email" {
   value = google_service_account.worker.email
 }
@@ -99,4 +115,52 @@ output "secret_resource_ids" {
     flask_session_secret    = google_secret_manager_secret.flask_session_secret.id
     initial_admin_pin       = google_secret_manager_secret.initial_admin_pin.id
   }
+}
+
+output "api_service_name" {
+  value = google_cloud_run_v2_service.api.name
+}
+
+output "worker_service_name" {
+  value = google_cloud_run_v2_service.worker.name
+}
+
+output "api_revision_uri" {
+  value = google_cloud_run_v2_service.api.uri
+}
+
+output "worker_uri" {
+  value = google_cloud_run_v2_service.worker.uri
+}
+
+output "queue_name" {
+  value = google_cloud_tasks_queue.worker.name
+}
+
+output "managed_hostname" {
+  value = var.managed_hostname
+}
+
+output "load_balancer_ip" {
+  value = google_compute_global_address.api.address
+}
+
+output "release_bucket_name" {
+  value = google_storage_bucket.private["release"].name
+}
+
+output "configuration_bucket_name" {
+  value = google_storage_bucket.private["configuration"].name
+}
+
+output "logical_backup_bucket_name" {
+  value = google_storage_bucket.private["logical_backup"].name
+}
+
+output "roster_bucket_name" {
+  value = google_storage_bucket.private["roster"].name
+}
+
+output "review_bucket_name" {
+  value = google_storage_bucket.private["review"].name
 }

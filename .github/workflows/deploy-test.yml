@@ -1,0 +1,254 @@
+name: Deploy tested candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact reviewed main commit
+        required: true
+        type: string
+      approval_reference:
+        description: External test approval reference
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  required_checks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Require reviewed main commit and all OP-07 checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${GITHUB_SHA}" = "${SOURCE_COMMIT}"
+          [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+          checks="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${SOURCE_COMMIT}/check-runs?filter=latest&per_page=100")"
+          for required in backend-quality-3.12 backend-quality-3.14 postgres-integration-17 openapi-contract security-redaction container-build sbom container-vulnerability terraform-static pages-scope; do
+            jq -e --arg required "${required}" '[.check_runs[] | select(.name == $required and .conclusion == "success")] | length == 1' <<<"${checks}" >/dev/null
+          done
+
+  build_candidate:
+    needs: required_checks
+    environment: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      image_digest: ${{ steps.candidate.outputs.image_digest }}
+      source_commit: ${{ inputs.source_commit }}
+      sbom_sha256: ${{ steps.candidate.outputs.sbom_sha256 }}
+      provenance_id: ${{ steps.candidate.outputs.provenance_id }}
+      version_registry_sha256: ${{ steps.version.outputs.version_registry_sha256 }}
+      release_version: ${{ steps.version.outputs.RELEASE_VERSION }}
+      api_version: ${{ steps.version.outputs.API_VERSION }}
+      latest_client_version: ${{ steps.version.outputs.LATEST_CLIENT_VERSION }}
+      minimum_client_version: ${{ steps.version.outputs.MINIMUM_CLIENT_VERSION }}
+      minimum_server_version: ${{ steps.version.outputs.MINIMUM_SERVER_VERSION }}
+      release_notes: ${{ steps.version.outputs.RELEASE_NOTES }}
+    steps:
+      - name: Check out exact reviewed commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: "${{ inputs.source_commit }}"}
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with: {python-version: "3.12"}
+      - name: Validate canonical development registry
+        id: version
+        run: python scripts/deploy/validate_release_descriptor.py version --registry release/version.json --github-output "${GITHUB_OUTPUT}"
+      - name: Authenticate as test deploy identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ vars.GCP_DEPLOY_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - name: Install Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
+        with: {cosign-release: v3.1.3}
+      - name: Build candidate exactly once and generate signed-tool SBOM
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          set -euo pipefail
+          docker build --tag access-candidate:"${SOURCE_COMMIT}" .
+          mkdir -p tools/syft
+          curl --fail --location --silent --show-error --output tools/syft/checksums.txt https://github.com/anchore/syft/releases/download/v1.51.0/syft_1.51.0_checksums.txt
+          curl --fail --location --silent --show-error --output tools/syft/checksums.txt.pem.b64 https://github.com/anchore/syft/releases/download/v1.51.0/syft_1.51.0_checksums.txt.pem
+          curl --fail --location --silent --show-error --output tools/syft/checksums.txt.sig https://github.com/anchore/syft/releases/download/v1.51.0/syft_1.51.0_checksums.txt.sig
+          base64 --decode tools/syft/checksums.txt.pem.b64 > tools/syft/checksums.txt.pem
+          cosign verify-blob --certificate tools/syft/checksums.txt.pem --signature tools/syft/checksums.txt.sig --certificate-identity https://github.com/anchore/syft/.github/workflows/release.yaml@refs/heads/main --certificate-oidc-issuer https://token.actions.githubusercontent.com tools/syft/checksums.txt
+          curl --fail --location --silent --show-error --output tools/syft/syft_1.51.0_linux_amd64.tar.gz https://github.com/anchore/syft/releases/download/v1.51.0/syft_1.51.0_linux_amd64.tar.gz
+          grep -F "  syft_1.51.0_linux_amd64.tar.gz" tools/syft/checksums.txt > tools/syft/selected-checksum.txt
+          (cd tools/syft && sha256sum --check --strict selected-checksum.txt)
+          tar --extract --gzip --file tools/syft/syft_1.51.0_linux_amd64.tar.gz --directory tools/syft
+          tools/syft/syft access-candidate:"${SOURCE_COMMIT}" -o spdx-json=sbom.spdx.json
+          docker pull cgr.dev/chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d
+          python scripts/ci/validate_sbom.py --image access-candidate:"${SOURCE_COMMIT}" --runtime-image cgr.dev/chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d --output sbom.spdx.json --provenance sbom.provenance.json --generate-provenance
+          python scripts/ci/validate_sbom.py --image access-candidate:"${SOURCE_COMMIT}" --runtime-image cgr.dev/chainguard/python@sha256:8fab86fb761aeb18723f4f1b1baa330bd59d64e92abdc5b980d1bbd9399c297d --output sbom.spdx.json --provenance sbom.provenance.json
+          python scripts/ci/check_sensitive_output.py --paths sbom.spdx.json sbom.provenance.json
+      - name: Push once and resolve immutable Artifact Registry digest
+        id: candidate
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          REGION: ${{ vars.GCP_REGION }}
+          REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          registry="${REGION}-docker.pkg.dev"
+          image_tag="${registry}/${PROJECT_ID}/${REPOSITORY}/backend:${SOURCE_COMMIT}"
+          gcloud auth configure-docker "${registry}" --quiet
+          docker tag access-candidate:"${SOURCE_COMMIT}" "${image_tag}"
+          docker push "${image_tag}"
+          digest="$(gcloud artifacts docker images describe "${image_tag}" --project="${PROJECT_ID}" --format='value(image_summary.digest)')"
+          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          image_digest="${registry}/${PROJECT_ID}/${REPOSITORY}/backend@${digest}"
+          sbom_sha256="$(sha256sum sbom.spdx.json | cut -d' ' -f1)"
+          {
+            echo "image_digest=${image_digest}"
+            echo "sbom_sha256=${sbom_sha256}"
+            echo "provenance_id=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}"
+          } >> "${GITHUB_OUTPUT}"
+      - name: Preserve candidate evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: candidate-evidence-${{ inputs.source_commit }}-${{ github.run_id }}
+          path: |
+            sbom.spdx.json
+            sbom.provenance.json
+          if-no-files-found: error
+          retention-days: 30
+
+  plan_test:
+    needs: build_candidate
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      deployments: write
+    uses: justinpeterman-droid/prison-policy-ai/.github/workflows/terraform-plan.yml@dc037e991a7b3314605cd14642c0af3d32b4dc98
+    with:
+      environment: test
+      terraform_root: infra/terraform/environments/test
+      image_digest: ${{ needs.build_candidate.outputs.image_digest }}
+      source_commit: ${{ needs.build_candidate.outputs.source_commit }}
+      version_registry_sha256: ${{ needs.build_candidate.outputs.version_registry_sha256 }}
+      plan_purpose: test-candidate
+    secrets: inherit
+
+  apply_test:
+    needs: [build_candidate, plan_test]
+    permissions:
+      contents: read
+      actions: read
+      deployments: read
+      id-token: write
+    uses: justinpeterman-droid/prison-policy-ai/.github/workflows/terraform-apply.yml@dc037e991a7b3314605cd14642c0af3d32b4dc98
+    with:
+      environment: test
+      terraform_root: infra/terraform/environments/test
+      image_digest: ${{ needs.build_candidate.outputs.image_digest }}
+      source_commit: ${{ needs.build_candidate.outputs.source_commit }}
+      version_registry_sha256: ${{ needs.build_candidate.outputs.version_registry_sha256 }}
+      plan_purpose: test-candidate
+      plan_workflow_run_id: ${{ needs.plan_test.outputs.plan_workflow_run_id }}
+      plan_workflow_name: ${{ needs.plan_test.outputs.plan_workflow_name }}
+      plan_workflow_id: ${{ needs.plan_test.outputs.plan_workflow_id }}
+      plan_artifact_id: ${{ needs.plan_test.outputs.plan_artifact_id }}
+      plan_artifact_name: ${{ needs.plan_test.outputs.plan_artifact_name }}
+      plan_sha256: ${{ needs.plan_test.outputs.plan_sha256 }}
+      approval_reference: ${{ inputs.approval_reference }}
+    secrets: inherit
+
+  deploy_and_qualify_test:
+    needs: [build_candidate, apply_test]
+    environment: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out exact candidate source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: "${{ needs.build_candidate.outputs.source_commit }}"}
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with: {python-version: "3.12"}
+      - name: Download candidate evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: candidate-evidence-${{ needs.build_candidate.outputs.source_commit }}-${{ github.run_id }}
+          path: candidate-evidence
+      - name: Authenticate as test deploy identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ vars.GCP_DEPLOY_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - name: Install Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+      - name: Migrate and verify once, then deploy the same digest
+        id: deploy
+        env:
+          IMAGE_DIGEST: ${{ needs.build_candidate.outputs.image_digest }}
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          REGION: ${{ vars.GCP_REGION }}
+        run: |
+          set -euo pipefail
+          migration_head="$(python -m alembic heads | awk '{print $1}')"
+          test -n "${migration_head}"
+          gcloud run jobs execute access-test-migrate --project="${PROJECT_ID}" --region="${REGION}" --wait --format='value(metadata.name)'
+          gcloud run jobs execute access-test-migrate --project="${PROJECT_ID}" --region="${REGION}" --args='-m,backend.jobs.migration,verify' --wait --format='value(metadata.name)'
+          gcloud run deploy access-test-worker --project="${PROJECT_ID}" --region="${REGION}" --image="${IMAGE_DIGEST}" --no-traffic --quiet
+          worker_revision="$(gcloud run services describe access-test-worker --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.latestCreatedRevisionName)')"
+          gcloud run services update-traffic access-test-worker --project="${PROJECT_ID}" --region="${REGION}" --to-revisions="${worker_revision}=100"
+          gcloud run deploy access-test-api --project="${PROJECT_ID}" --region="${REGION}" --image="${IMAGE_DIGEST}" --no-traffic --quiet
+          api_revision="$(gcloud run services describe access-test-api --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.latestCreatedRevisionName)')"
+          gcloud run services update-traffic access-test-api --project="${PROJECT_ID}" --region="${REGION}" --to-revisions="${api_revision}=100"
+          {
+            echo "migration_head=${migration_head}"
+            echo "api_revision=${api_revision}"
+            echo "worker_revision=${worker_revision}"
+          } >> "${GITHUB_OUTPUT}"
+      - name: Run managed-origin smoke and fictional qualification
+        run: |
+          set -euo pipefail
+          python scripts/deploy/smoke_test.py --base-url "https://${{ vars.MANAGED_HOSTNAME }}" --expected-release-version "${{ needs.build_candidate.outputs.release_version }}" --expected-api-version "${{ needs.build_candidate.outputs.api_version }}"
+          python -m pytest tests/unit/test_api_v1_responses.py tests/unit/test_client_policy.py tests/unit/test_retry.py -q
+      - name: Create immutable backend release descriptor
+        run: |
+          python scripts/deploy/create_release_descriptor.py \
+            --version-registry release/version.json \
+            --source-commit "${{ needs.build_candidate.outputs.source_commit }}" \
+            --image-digest "${{ needs.build_candidate.outputs.image_digest }}" \
+            --sbom-sha256 "${{ needs.build_candidate.outputs.sbom_sha256 }}" \
+            --provenance-id "${{ needs.build_candidate.outputs.provenance_id }}" \
+            --migration-head "${{ steps.deploy.outputs.migration_head }}" \
+            --test-workflow-run "${GITHUB_RUN_ID}" \
+            --creator-workflow "${GITHUB_WORKFLOW_REF}" \
+            --output release/backend-release.json
+          sha256sum release/backend-release.json > release/backend-release.json.sha256
+      - name: Attest backend descriptor
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661
+        with:
+          subject-path: release/backend-release.json
+      - name: Upload tested descriptor and evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: backend-release-${{ needs.build_candidate.outputs.source_commit }}-${{ github.run_id }}
+          path: |
+            release/backend-release.json
+            release/backend-release.json.sha256
+            candidate-evidence/sbom.spdx.json
+            candidate-evidence/sbom.provenance.json
+          if-no-files-found: error
+          retention-days: 30
