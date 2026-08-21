@@ -89,11 +89,56 @@ jobs:
           TF_VAR_source_repository: ${{ github.repository }}
           TF_VAR_state_bucket_name: ${{ vars.TERRAFORM_STATE_BUCKET }}
           TF_VAR_sql_tier: ${{ vars.CLOUD_SQL_TIER }}
+          TF_VAR_storage_log_bucket_name: ${{ vars.STORAGE_LOG_BUCKET }}
+          TF_VAR_artifact_registry_kms_key_name: ${{ vars.ARTIFACT_REGISTRY_KMS_KEY }}
+          TF_VAR_managed_hostname: ${{ vars.MANAGED_HOSTNAME }}
+          TF_VAR_dns_zone_name: ${{ vars.DNS_ZONE_NAME }}
+          TF_VAR_image_repository_id: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+          TF_VAR_queue_max_attempts: ${{ vars.QUEUE_MAX_ATTEMPTS }}
+          TF_VAR_gcp_model_location: ${{ vars.GCP_MODEL_LOCATION }}
+          TF_VAR_agent_builder_location: ${{ vars.AGENT_BUILDER_LOCATION }}
+          TF_VAR_agent_builder_collection: ${{ vars.AGENT_BUILDER_COLLECTION }}
+          TF_VAR_agent_builder_engine_id: ${{ vars.AGENT_BUILDER_ENGINE_ID }}
+          TF_VAR_agent_builder_serving_config: ${{ vars.AGENT_BUILDER_SERVING_CONFIG }}
+          TF_VAR_fast_model: ${{ vars.FAST_MODEL }}
+          TF_VAR_pro_model: ${{ vars.PRO_MODEL }}
+          TF_VAR_review_object_prefix: ${{ vars.REVIEW_OBJECT_PREFIX }}
+          TF_VAR_log_level: ${{ vars.LOG_LEVEL }}
+          TF_VAR_api_min_instances: ${{ vars.API_MIN_INSTANCES }}
+          TF_VAR_api_max_instances: ${{ vars.API_MAX_INSTANCES }}
+          TF_VAR_api_max_concurrency: ${{ vars.API_MAX_CONCURRENCY }}
+          TF_VAR_worker_min_instances: ${{ vars.WORKER_MIN_INSTANCES }}
+          TF_VAR_worker_max_instances: ${{ vars.WORKER_MAX_INSTANCES }}
+          TF_VAR_worker_max_concurrency: ${{ vars.WORKER_MAX_CONCURRENCY }}
+          TF_VAR_notification_channel_ids: ${{ vars.NOTIFICATION_CHANNEL_IDS_JSON }}
+          TF_VAR_billing_account_id: ${{ vars.BILLING_ACCOUNT_ID }}
+          TF_VAR_monthly_budget_amount: ${{ vars.MONTHLY_BUDGET_AMOUNT }}
+          TF_VAR_budget_pubsub_topic: ${{ vars.BUDGET_PUBSUB_TOPIC }}
+          TF_VAR_observability_owner_role: ${{ vars.OBSERVABILITY_OWNER_ROLE }}
+          TF_VAR_sensitive_log_scanner_metric_type: ${{ vars.SENSITIVE_LOG_SCANNER_METRIC_TYPE }}
+          TF_VAR_roster_source_uri: ${{ vars.ROSTER_SOURCE_URI }}
+          TF_VAR_roster_corrections_uri: ${{ vars.ROSTER_CORRECTIONS_URI }}
+          TF_VAR_roster_report_uri: ${{ vars.ROSTER_REPORT_URI }}
+          TF_VAR_roster_expected_sha256: ${{ vars.ROSTER_EXPECTED_SHA256 }}
+          TF_VAR_bootstrap_request_uri: ${{ vars.BOOTSTRAP_REQUEST_URI }}
+          TF_VAR_bootstrap_request_sha256: ${{ vars.BOOTSTRAP_REQUEST_SHA256 }}
         run: |
           set -euo pipefail
-          test -n "${TF_VAR_project_id}"
-          test -n "${TF_VAR_state_bucket_name}"
-          test -n "${TF_VAR_sql_tier}"
+          for required in \
+            TF_VAR_project_id TF_VAR_state_bucket_name TF_VAR_sql_tier \
+            TF_VAR_storage_log_bucket_name TF_VAR_artifact_registry_kms_key_name \
+            TF_VAR_managed_hostname TF_VAR_dns_zone_name TF_VAR_image_repository_id \
+            TF_VAR_queue_max_attempts TF_VAR_gcp_model_location TF_VAR_agent_builder_location \
+            TF_VAR_agent_builder_collection TF_VAR_agent_builder_engine_id TF_VAR_agent_builder_serving_config \
+            TF_VAR_fast_model TF_VAR_pro_model TF_VAR_review_object_prefix TF_VAR_log_level \
+            TF_VAR_api_min_instances TF_VAR_api_max_instances TF_VAR_api_max_concurrency \
+            TF_VAR_worker_min_instances TF_VAR_worker_max_instances TF_VAR_worker_max_concurrency \
+            TF_VAR_notification_channel_ids TF_VAR_billing_account_id TF_VAR_monthly_budget_amount \
+            TF_VAR_budget_pubsub_topic TF_VAR_observability_owner_role TF_VAR_sensitive_log_scanner_metric_type \
+            TF_VAR_roster_source_uri TF_VAR_roster_corrections_uri TF_VAR_roster_report_uri \
+            TF_VAR_roster_expected_sha256 TF_VAR_bootstrap_request_uri TF_VAR_bootstrap_request_sha256; do
+            test -n "${!required}"
+          done
           python scripts/deploy/validate_release_descriptor.py version --registry release/version.json --expected-sha256 "${{ inputs.version_registry_sha256 }}" --github-output projection.env
           set -a
           . ./projection.env
