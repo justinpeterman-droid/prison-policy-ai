@@ -215,7 +215,7 @@ Detailed implementation and acceptance checklist: [Guided Operations Site-Wide V
 - [x] Standardize navigation spacing, optical icon size, selected state, hover state, pressed state, and keyboard focus state.
 - [x] Integrate the top utility controls with the hero/top edge instead of leaving a visually detached empty status bar.
 - [x] Separate the meaning of **Online** from **Last refreshed/synced** and prevent contradictory status text.
-- [ ] Add an accessible notifications button with a real actionable count and a usable zero-count state.
+- [x] Add an accessible notifications button with a real actionable count and a usable zero-count state.
 - [x] Convert the profile chip into a real keyboard-operable menu with Account, role/shift context, session status, and Sign Out.
 - [x] Retain initials as the privacy-safe identity treatment and withhold an employee avatar until a legitimate source and privacy behavior are approved.
 - [x] Keep Home-only utility-rail content off report, document, and editor routes where it would reduce working space.
@@ -239,25 +239,25 @@ Detailed implementation and acceptance checklist: [Guided Operations Site-Wide V
 
 ### Home Dashboard Panels and Right Utility Rail
 
-- [ ] Add the **Quick Access** panel with View My Reports, Open Forms Library, Policy Expert, Open Count Sheet, and Daily Paperwork.
-- [ ] Give Daily Paperwork a real destination or an honest filtered library route; do not add a dead link.
+- [x] Add the **Quick Access** panel with View My Reports, Open Forms Library, Policy Expert, Open Count Sheet, and role-authorized Daily Paperwork.
+- [x] Give Daily Paperwork a real role-authorized destination; do not add a dead link.
 - [ ] Add the **System Status** panel using a safe summarized health contract for API Services, AI Services, Database, and Policy Search.
 - [ ] Limit service states to useful summaries such as Operational, Degraded, Unavailable, and Unknown without exposing infrastructure details.
-- [ ] Add the **Need Help?** panel with a working Policy Expert or approved support destination.
+- [x] Add the **Need Help?** panel with working Policy Expert and Account destinations.
 - [x] Restyle **Continue Your Work** with the authorized incident identity first, relative update time, compact status, and gold Continue control; omit decorative active-count metrics that repeat the same record.
 - [x] Remove the current three-stat block from Continue Your Work while retaining its relative update time.
 - [x] Restyle **Recent Incidents** as compact, fully clickable rows with official number first, incident name, semantic progress chip, relative time, and chevron.
 - [x] Standardize progress variants for Ready to review, Needs information, Complete, and other calculated workflow states.
 - [x] Rename or redesign **Quick Forms** as **Frequently Used Forms** only after defining whether the list is truly usage-ranked or intentionally curated.
 - [x] Show form print actions only when the form capability allows printing; retain honest guidance for physical-only forms.
-- [ ] Add **Your Daily Checklist** using real date-, shift-, role-, and officer-scoped task data.
-- [ ] Treat checklist circles as derived status indicators unless the employee is explicitly allowed to mark a task complete.
+- [x] Add **Your Daily Checklist** using real date-, shift-, role-, and officer-scoped task data.
+- [x] Treat checklist circles as derived status indicators unless the employee is explicitly allowed to mark a task complete.
 - [ ] Add **Quick Links** for Forms Library, Policy Expert, My Account, and a real Help & Support destination.
-- [ ] Add **Recent Activity** using safe personal event summaries and authorized destinations.
-- [ ] Exclude narrative excerpts, policy prompts, form values, credentials, raw audit payloads, and other employees’ unauthorized activity from Home activity data.
+- [x] Add **Recent Activity** using safe personal event summaries and authorized destinations.
+- [x] Exclude narrative excerpts, policy prompts, form values, credentials, raw audit payloads, and other employees’ unauthorized activity from Home activity data.
 - [x] Remove the redundant full-width NCU Days Count panel after moving its saved/not-started state into the primary action.
-- [ ] Add the footer trust strip with approved quote copy, Security, Service, Teamwork, Excellence, and locale-aware current date/time.
-- [ ] Simplify or rearrange the trust strip on narrow screens rather than compressing every item into an unreadable row.
+- [x] Add the footer trust strip with Security, Service, Teamwork, Excellence, and locale-aware current date/time; quote copy remains intentionally omitted pending approval.
+- [x] Simplify or rearrange the trust strip on narrow screens rather than compressing every item into an unreadable row.
 - [x] Add target-quality skeleton, loading, empty, reconnecting, and recoverable-error presentations for each implemented panel.
 
 ### Shared Visual System Across All Pages
@@ -301,7 +301,7 @@ Detailed implementation and acceptance checklist: [Guided Operations Site-Wide V
 - [x] At medium desktop widths, convert the four actions to a 2×2 grid and reposition the right rail without compressing labels.
 - [x] Check tablet layouts with a compact rail or drawer and purpose-built panel rearrangement.
 - [x] Check approximately 390-pixel mobile layouts with a drawer, one-column actions, no horizontal overflow, and Count Sheet still immediately reachable.
-- [ ] Ensure daily tasks, activity, and support remain reachable on mobile rather than disappearing only to simplify the layout.
+- [x] Ensure daily tasks, activity, and support remain reachable on mobile rather than disappearing only to simplify the layout.
 - [x] Verify minimum 44-pixel touch targets and comfortable spacing around adjacent controls.
 - [x] Verify complete keyboard navigation, logical focus order, visible focus styling, and Escape behavior for menus/drawers.
 - [x] Verify screen-reader names for implemented print controls, status indicators, menus, and icon-only actions.
