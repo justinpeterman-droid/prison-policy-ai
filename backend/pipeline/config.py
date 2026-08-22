@@ -57,6 +57,13 @@ AGENT_BUILDER_LOCATION = os.getenv("AGENT_BUILDER_LOCATION", "global")
 AGENT_BUILDER_COLLECTION = os.getenv("AGENT_BUILDER_COLLECTION", "default_collection")
 AGENT_BUILDER_ENGINE_ID = os.getenv("AGENT_BUILDER_ENGINE_ID", "prison-policies-engine")
 AGENT_BUILDER_SERVING_CONFIG = os.getenv("AGENT_BUILDER_SERVING_CONFIG", "default_search")
+# Prefer Agent Search's core grounded answer when it is available.  That keeps
+# policy-chat synthesis on the same restricted billing product as retrieval,
+# while query.py retains the established Gemini path as a compatibility and
+# quality fallback.  Set false for an immediate operational rollback.
+AGENT_BUILDER_GENERATIVE_ANSWERS = os.getenv(
+    "AGENT_BUILDER_GENERATIVE_ANSWERS", "true",
+).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def serving_config_path() -> str:
@@ -77,6 +84,7 @@ def search_config_summary() -> dict:
         "engine_id": AGENT_BUILDER_ENGINE_ID,
         "serving_config": AGENT_BUILDER_SERVING_CONFIG,
         "serving_config_path": serving_config_path(),
+        "generative_answers": AGENT_BUILDER_GENERATIVE_ANSWERS,
         "model_location": MODEL_LOCATION,
         "fast_model": FAST_MODEL,
         "pro_model": PRO_MODEL,

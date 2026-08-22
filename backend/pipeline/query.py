@@ -18,7 +18,8 @@ from google import genai
 from google.genai import types
 from backend.pipeline.config import (
     PROJECT_ID, FAST_MODEL, PRO_MODEL, MODEL_LOCATION,
-    AGENT_BUILDER_LOCATION, search_config_summary, serving_config_path,
+    AGENT_BUILDER_LOCATION, AGENT_BUILDER_GENERATIVE_ANSWERS,
+    search_config_summary, serving_config_path,
 )
 from backend.pipeline.citations import build_grounded
 from backend.pipeline.retry import with_retries
@@ -117,6 +118,21 @@ CHAT_SYSTEM_PROMPT = (
     "You are a policy assistant for prison staff. Answer questions "
     "using ONLY the policy documents provided. Cite document numbers "
     "and sections. If the documents don't address the question, say so.\n\n"
+    + DOMAIN_RULES
+)
+
+# Agent Search Enterprise includes a grounded summary in the search response.
+# Asking it to synthesize the policy answer lets eligible Agent Builder usage
+# consume the promotional credit instead of always making a separate general
+# Vertex AI Gemini call.  The ordinary Gemini prompt below remains the fallback
+# whenever summaries are unavailable, uncited, or conversation history is
+# needed to resolve a follow-up.
+AGENT_SUMMARY_PREAMBLE = (
+    "You are a policy assistant for prison staff. Answer the officer's question "
+    "using only the retrieved policy documents. State the applicable rule "
+    "directly, retain important conditions and exceptions, and say plainly "
+    "when the retrieved documents do not answer the question. Include the "
+    "provided inline citations immediately after the statements they support.\n\n"
     + DOMAIN_RULES
 )
 
@@ -320,7 +336,13 @@ def _classify_query(
         return True  # Fail open
 
 
-def _search_body(query: str, page_size: int, rich: bool) -> dict:
+def _search_body(
+    query: str,
+    page_size: int,
+    rich: bool,
+    *,
+    generate_summary: bool = False,
+) -> dict:
     """Build the Discovery Engine search request.
 
     `rich` asks for extractive answers and segments in addition to snippets.
@@ -342,6 +364,13 @@ def _search_body(query: str, page_size: int, rich: bool) -> dict:
             "numPreviousSegments": 1,
             "numNextSegments": 1,
         }
+        if generate_summary:
+            content_spec["summarySpec"] = {
+                "summaryResultCount": 10,
+                "includeCitations": True,
+                "ignoreLowRelevantContent": True,
+                "modelPromptSpec": {"preamble": AGENT_SUMMARY_PREAMBLE},
+            }
     return {
         "query": query,
         "pageSize": page_size,
@@ -404,6 +433,55 @@ def _search_snippets_only(
             f"Search API error (transport) {type(exc).__name__}: {exc}") from exc
 
 
+def _search_without_summary(
+    url: str,
+    token: str,
+    query: str,
+    page_size: int,
+    original_error: str,
+    *,
+    deadline_monotonic: float | None = None,
+) -> dict:
+    """Retry the established rich search shape after summary rejection.
+
+    A data store can support extractive passages but reject generative summaries.
+    Falling straight to snippets in that case would make the Gemini fallback
+    reason over worse evidence than it did before this cost optimization.
+    """
+    data = json.dumps(_search_body(
+        query, page_size, rich=True, generate_summary=False,
+    )).encode()
+    req = urllib.request.Request(url, data=data, method="POST")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("X-Goog-User-Project", PROJECT_ID)
+    try:
+        with urllib.request.urlopen(
+            req, timeout=_bounded_seconds(30, deadline_monotonic),
+        ) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as http_exc:
+        body = http_exc.read().decode()[:1000]
+        if http_exc.code == 400:
+            logger.warning(
+                "Search also rejected extractive content; retrying with snippets only"
+            )
+            return _search_snippets_only(
+                url, token, query, page_size, body or original_error,
+                deadline_monotonic=deadline_monotonic,
+            )
+        logger.error("Search API error %s for serving config %s: %s",
+                     http_exc.code, SERVING_CONFIG, body)
+        raise RuntimeError(f"Search API error {http_exc.code}") from http_exc
+    except TimeoutError:
+        raise
+    except Exception as exc:
+        logger.error("Search transport failure against serving config %s: %s: %s",
+                     SERVING_CONFIG, type(exc).__name__, exc)
+        raise RuntimeError(
+            f"Search API error (transport) {type(exc).__name__}: {exc}") from exc
+
+
 def _search_data_store(query: str, page_size: int = 10) -> list[dict]:
     """Search the Agent Builder data store. Returns [{text, source}, ...]."""
     return _search_with_stats(query, page_size)[0]
@@ -414,8 +492,10 @@ def _search_with_stats(
     page_size: int = 10,
     *,
     deadline_monotonic: float | None = None,
-) -> tuple[list[dict], int]:
-    """Search, returning (passages, raw_hit_count).
+    generate_summary: bool = False,
+    include_payload: bool = False,
+) -> tuple[list[dict], int] | tuple[list[dict], int, dict]:
+    """Search, returning passages/count and optionally the raw payload.
 
     The raw hit count lets the caller tell "nothing matched" apart from "hits
     matched but none carried readable text" — two failures that look identical
@@ -438,7 +518,9 @@ def _search_with_stats(
         raise  # re-raised unwrapped so credential errors keep their own class
 
     url = f"https://discoveryengine.googleapis.com/v1beta/{SERVING_CONFIG}:search"
-    data = json.dumps(_search_body(query, page_size, rich=True)).encode()
+    data = json.dumps(_search_body(
+        query, page_size, rich=True, generate_summary=generate_summary,
+    )).encode()
     req = urllib.request.Request(url, data=data, method="POST")
     req.add_header("Authorization", f"Bearer {token}")
     req.add_header("Content-Type", "application/json")
@@ -457,29 +539,31 @@ def _search_with_stats(
                         result.get("totalSize", "?"))
     except urllib.error.HTTPError as http_exc:
         err_body = http_exc.read().decode()[:1000]
-        # A 400 means the request shape was rejected, and the only optional part
-        # of it is the extractive-content spec — not every data store is
-        # provisioned for extractive answers/segments. Falling back to snippets
-        # keeps the chat working on those stores instead of failing every
-        # search, which is exactly the single-point-of-failure this spec was
-        # added to remove.
+        # A 400 means an optional part of the request shape was rejected. If a
+        # summary was requested, first retry the exact rich search shape that
+        # predated this optimization; only then fall back to snippets.
         if http_exc.code == 400:
-            logger.warning("Search rejected the extractive-content spec (400); "
-                           "retrying with snippets only. Answers will be built "
-                           "from shorter passages on this data store.")
-            # Assign, don't return: this function's contract is
-            # (contexts, raw_count), and _search_snippets_only hands back the
-            # raw payload. Returning it directly gave the caller a dict, which
-            # `retrieved, raw_count = ...` then unpacked into the dict's KEYS —
-            # so `retrieved` became the string "results" and the next line died
-            # with TypeError. Search had succeeded; only the shape was wrong,
-            # which is why it surfaced as "An unexpected error occurred" rather
-            # than any search-related category. Falling through to the shared
-            # parsing below keeps both paths on one contract.
-            result = _search_snippets_only(
-                url, token, query, page_size, err_body,
-                deadline_monotonic=deadline_monotonic,
-            )
+            # Assign, don't return: both helpers hand back the raw payload, while
+            # this function's public contract is parsed contexts plus a count
+            # (and optionally that payload). Falling through keeps every retry
+            # path on the same contract.
+            if generate_summary:
+                logger.warning(
+                    "Search rejected generative-answer request (400); retrying "
+                    "without the summary so answer quality is preserved"
+                )
+                result = _search_without_summary(
+                    url, token, query, page_size, err_body,
+                    deadline_monotonic=deadline_monotonic,
+                )
+            else:
+                logger.warning("Search rejected the extractive-content spec (400); "
+                               "retrying with snippets only. Answers will be built "
+                               "from shorter passages on this data store.")
+                result = _search_snippets_only(
+                    url, token, query, page_size, err_body,
+                    deadline_monotonic=deadline_monotonic,
+                )
         else:
             # Log the resolved config alongside the error: almost every other
             # failure here is a config mismatch, and the serving-config path is the
@@ -517,6 +601,8 @@ def _search_with_stats(
     elif raw_count != len(contexts):
         logger.info("Search: %d raw result(s) → %d usable passage(s)",
                     raw_count, len(contexts))
+    if include_payload:
+        return contexts, raw_count, result
     return contexts, raw_count
 
 
@@ -557,13 +643,22 @@ def answer_question(
             "sources": [],
         }
 
+    # Format history before search so a conversational follow-up stays on the
+    # established Gemini path.  Agent Search summaries are ideal for standalone
+    # grounded questions, but they do not receive our bounded chat transcript.
+    history_block = format_history(history)
+
     # ── Search ──
     # Augment (not replace) the question with formal terms for known slang; the
     # natural question still drives Discovery Engine's semantic understanding.
-    retrieved, raw_count = _search_with_stats(
+    retrieved, raw_count, search_payload = _search_with_stats(
         augment_query(question),
         page_size=SEARCH_PAGE_SIZE,
         deadline_monotonic=deadline_monotonic,
+        generate_summary=(
+            AGENT_BUILDER_GENERATIVE_ANSWERS and not history_block
+        ),
+        include_payload=True,
     )
     retrieved_sources = [c["source"] for c in retrieved]
     logger.info("answer_question: %d contexts, first source=%s",
@@ -589,6 +684,31 @@ def answer_question(
             "retrieved_sources": [],
         }
 
+    # Prefer the grounded answer included in the Agent Search response. Citation
+    # numbers refer to the raw search-result order, so use it only when every
+    # result yielded readable passage text; otherwise numbering could shift.
+    summary_text = str(
+        (search_payload.get("summary") or {}).get("summaryText") or ""
+    ).strip()
+    if summary_text and not history_block and raw_count == len(retrieved):
+        summary_answer, summary_citations, summary_grounded = build_grounded(
+            summary_text, retrieved, infer=True,
+        )
+        if summary_grounded:
+            logger.info(
+                "answer_question: used Agent Search grounded answer, %d citation(s)",
+                len(summary_citations),
+            )
+            return {
+                "answer": summary_answer,
+                "citations": summary_citations,
+                "sources": [c["source"] for c in summary_citations],
+                "retrieved_sources": retrieved_sources,
+            }
+        logger.warning(
+            "Agent Search returned an uncited summary; using Gemini fallback"
+        )
+
     # Trim to the top passages (dedupe + per-source cap), numbered for citation.
     contexts = select_passages(retrieved, MAX_CONTEXT_PASSAGES,
                                max_total_chars=MAX_CONTEXT_CHARS)
@@ -599,7 +719,6 @@ def answer_question(
     # History is context for READING the question, never evidence for answering
     # it. Stated explicitly because prior answers can carry the ungrounded
     # warning or an error, and treating them as fact compounds the mistake.
-    history_block = format_history(history)
     preamble = (
         f"EARLIER IN THIS CONVERSATION (context only — use it to understand what "
         f"the officer is referring to. It is NOT policy and NOT evidence; never "
