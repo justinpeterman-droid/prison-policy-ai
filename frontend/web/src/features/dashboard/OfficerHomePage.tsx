@@ -99,6 +99,13 @@ function greetingForNow(): string {
   return "Good evening,";
 }
 
+function localDateTime(): string {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "long", month: "long", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit",
+  }).format(new Date());
+}
+
 export function OfficerHomePage({
   profile,
   today = localIsoDate(),
@@ -108,6 +115,7 @@ export function OfficerHomePage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
     const links = HOME_HERO_PRELOADS.map(({ href, media }) => {
@@ -167,6 +175,27 @@ export function OfficerHomePage({
     }
     return [summary.continueIncident!, ...all].slice(0, 5);
   }, [summary]);
+  const activeIncident = summary?.continueIncident ?? null;
+  const checklist = useMemo(() => {
+    const items = [{
+      id: "count-sheet",
+      label: "Complete today’s count sheet",
+      detail: summary?.countSheet ? `Saved · Revision ${summary.countSheet.revision}` : "Not started",
+      complete: Boolean(summary?.countSheet),
+      href: "/count-sheet",
+    }];
+    if (activeIncident) {
+      items.push({
+        id: "incident",
+        label: "Review your active incident",
+        detail: activeIncident.progress.label,
+        complete: activeIncident.progress.code === "printed_or_exported",
+        href: `/reports/${activeIncident.incidentId}`,
+      });
+    }
+    return items;
+  }, [activeIncident, summary?.countSheet]);
+  const attentionItems = checklist.filter((item) => !item.complete);
 
   return (
     <div className="officer-home-page">
@@ -179,6 +208,18 @@ export function OfficerHomePage({
         </div>
         <div className="officer-home-values" aria-label="Professional values">
           <span>Professionalism</span><span>•</span><span>Accountability</span><span>•</span><span>Integrity</span>
+        </div>
+        <div className="officer-home-notifications">
+          <button type="button" aria-expanded={notificationsOpen} aria-controls="home-notification-panel" onClick={() => setNotificationsOpen((open) => !open)}>
+            <span aria-hidden="true">⌁</span><span>Work alerts</span>
+            {attentionItems.length ? <strong aria-label={`${attentionItems.length} actionable alerts`}>{attentionItems.length}</strong> : null}
+          </button>
+          {notificationsOpen ? (
+            <section id="home-notification-panel" className="officer-home-notification-panel" aria-label="Work alerts">
+              <h2>{attentionItems.length ? "Action needed" : "No work alerts"}</h2>
+              {attentionItems.length ? <ul>{attentionItems.map((item) => <li key={item.id}><Link to={item.href} onClick={() => setNotificationsOpen(false)}>{item.label}<ChevronRight /></Link></li>)}</ul> : <p>Your authorized Home work queue is up to date.</p>}
+            </section>
+          ) : null}
         </div>
       </section>
 
@@ -304,6 +345,16 @@ export function OfficerHomePage({
             )}
           </section>
 
+          <section className="gow-surface gow-surface--list officer-home-panel checklist-panel" aria-labelledby="daily-checklist-heading">
+            <header><div><p>Today’s work</p><h2 id="daily-checklist-heading">Your Daily Checklist</h2></div></header>
+            <ul className="officer-home-checklist">{checklist.map((item) => <li key={item.id}><Link to={item.href}><span className={item.complete ? "is-complete" : ""} aria-label={item.complete ? "Complete" : "Needs attention"}>{item.complete ? "✓" : ""}</span><div><strong>{item.label}</strong><small>{item.detail}</small></div><ChevronRight /></Link></li>)}</ul>
+          </section>
+
+          <section className="gow-surface gow-surface--list officer-home-panel activity-panel" aria-labelledby="recent-activity-heading">
+            <header><div><p>Authorized updates</p><h2 id="recent-activity-heading">Recent Activity</h2></div></header>
+            {recentIncidents.length ? <ul className="officer-home-activity-list">{recentIncidents.slice(0, 3).map((incident) => <li key={incident.incidentId}><Link to={`/reports/${incident.incidentId}`}><strong>{incident.incidentNumber ?? "Unnumbered incident"}</strong><span>{incident.progress.label}</span><time dateTime={incident.updatedAt}>{formatRelative(incident.updatedAt)}</time><ChevronRight /></Link></li>)}</ul> : <div className="officer-home-empty">No recent authorized work is available.</div>}
+          </section>
+
         </div>
       ) : null}
         </div>
@@ -316,10 +367,25 @@ export function OfficerHomePage({
               <Link to="/forms"><ActionIcon name="forms" /><span>Open Forms Library</span><ChevronRight /></Link>
               <Link to="/policy-expert"><ActionIcon name="policy" /><span>Policy Expert</span><ChevronRight /></Link>
               <Link to="/count-sheet"><ActionIcon name="count" /><span>Open Count Sheet</span><ChevronRight /></Link>
+              {profile.role === "admin" ? <Link to="/admin/paperwork?tab=daily"><ActionIcon name="forms" /><span>Daily Paperwork</span><ChevronRight /></Link> : null}
             </nav>
+          </section>
+          <section className="officer-home-utility-panel officer-home-status-panel" aria-labelledby="system-status-heading">
+            <h2 id="system-status-heading">System Status</h2>
+            <p><span className="is-unknown" />API services <strong>Unknown</strong></p>
+            <p><span className="is-unknown" />AI services <strong>Unknown</strong></p>
+            <p><span className="is-unknown" />Policy search <strong>Unknown</strong></p>
+            <small>Status is shown only when an authorized service check is available.</small>
+          </section>
+          <section className="officer-home-utility-panel officer-home-help-panel" aria-labelledby="home-help-heading">
+            <h2 id="home-help-heading">Need Help?</h2>
+            <p>Search approved policy guidance or review your account session.</p>
+            <Link to="/policy-expert">Open Policy Expert <ChevronRight /></Link>
+            <Link to="/account">Account and session <ChevronRight /></Link>
           </section>
         </aside>
       </div>
+      <footer className="officer-home-trust-strip"><span>Security</span><span>Service</span><span>Teamwork</span><span>Excellence</span><time dateTime={today}>{localDateTime()}</time></footer>
     </div>
   );
 }

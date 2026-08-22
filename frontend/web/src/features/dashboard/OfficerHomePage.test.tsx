@@ -1,5 +1,6 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionProfile } from "../auth/api";
 import { OfficerHomePage } from "./OfficerHomePage";
@@ -146,5 +147,28 @@ describe("officer Home dashboard", () => {
     expect(await screen.findByText("No unfinished incidents")).toBeInTheDocument();
     expect(screen.getByText("No recent incidents are available.")).toBeInTheDocument();
     expect(screen.getByText("No approved quick forms are available.")).toBeInTheDocument();
+  });
+
+  it("derives actionable alerts and the daily checklist from authorized Home data", async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><OfficerHomePage profile={profile} today="2026-08-19" /></MemoryRouter>);
+    await screen.findByRole("heading", { name: "Officer Casey Morgan" });
+    expect(screen.getByRole("heading", { name: "Your Daily Checklist" })).toBeInTheDocument();
+    expect(screen.getByText("Complete today’s count sheet")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /work alerts/i }));
+    expect(screen.getByRole("heading", { name: "Action needed" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Work alerts" })).getByRole("link", { name: /review your active incident/i })).toBeInTheDocument();
+  });
+
+  it("gives an officer an honest zero-alert state", async () => {
+    vi.mocked(fetchOfficerHomeSummary).mockResolvedValueOnce({
+      continueIncident: null, recentIncidents: [], quickForms: [],
+      countSheet: { recordId: "00000000-0000-4000-8000-000000000030", revision: 1, updatedAt: "2026-08-19T15:01:00Z" },
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><OfficerHomePage profile={profile} today="2026-08-19" /></MemoryRouter>);
+    await screen.findByText("No unfinished incidents");
+    await user.click(screen.getByRole("button", { name: /work alerts/i }));
+    expect(screen.getByRole("heading", { name: "No work alerts" })).toBeInTheDocument();
   });
 });

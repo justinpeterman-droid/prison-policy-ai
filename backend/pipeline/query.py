@@ -229,7 +229,11 @@ def _http_error_hint(code: int) -> str:
 def log_search_config() -> None:
     """Log configuration readiness without exposing infrastructure identifiers."""
     summary = search_config_summary()
-    logger.info(
+    # Use the module logger directly at call time.  The application configures
+    # logging during startup, while the unit contract invokes this helper in
+    # isolation; resolving it here keeps the safe readiness signal observable
+    # in both cases without logging provider identifiers.
+    logging.getLogger(__name__).info(
         "Policy search configuration loaded "
         "(agent_builder_configured=%s, model_tiers_configured=%s)",
         bool(summary["serving_config_path"]),
