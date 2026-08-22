@@ -70,7 +70,7 @@ describe("Guided Operations officer application", () => {
     expect(await screen.findByRole("heading", { name: "Quick Forms" })).toBeInTheDocument();
     expect(fetchOfficerHomeSummary).toHaveBeenCalled();
     expect(screen.queryByRole("heading", { name: "Frequently Used Forms" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Your Daily Checklist" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Your Daily Checklist" })).toBeInTheDocument();
   });
 
   it("renders the approved six-item officer navigation", () => {
